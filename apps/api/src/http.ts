@@ -11,7 +11,7 @@ import {
   updateDepartment, updateHoliday, updateProject, updateRole, updateTimeoffType,
 } from "./reference";
 import { getSchedule } from "./schedule";
-import { addToTeam, getTeamRemovalSummary, removeFromTeam } from "./team";
+import { addToTeam, getTeamRemovalSummary, listTeam, removeFromTeam } from "./team";
 import { createTimeoff, deleteTimeoff, updateTimeoff } from "./timeoffs";
 import { clientReader, createClient, createPhase, createProjectTask, deleteClient, deletePhase, deleteProjectTask, phaseReader, projectTaskReader, updateClient, updatePhase, updateProjectTask } from "./project-structure";
 import type { TicketService } from "./tickets";
@@ -162,6 +162,14 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId); // l'auth passe avant la validation : pas d'oracle pour un anonyme
       return { status: 200, body: await getSchedule(deps.db, ctx, parseQuery<ScheduleQueryT>(ScheduleQuery, url.searchParams)) };
+    }
+    const teamList = /^\/api\/v1\/projects\/([^/]+)\/team$/.exec(url.pathname);
+    if (teamList && req.method === "GET") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      let projectId: string;
+      try { projectId = decodeURIComponent(teamList[1]!); } catch { projectId = "%"; }
+      return { status: 200, body: await listTeam(deps.db, ctx, projectId, parseQuery(ReferenceListQuery, url.searchParams) as { limit?: number; cursor?: string }) };
     }
     const member = /^\/api\/v1\/projects\/([^/]+)\/team\/([^/]+)$/.exec(url.pathname);
     if (member && req.method === "PUT") {

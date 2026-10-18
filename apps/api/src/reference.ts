@@ -217,8 +217,8 @@ export async function updateProject(db: Db, ctx: RequestContext, id: string, exp
 }
 
 // --- Lecture ----------------------------------------------------------------------------------------------------------
-const DEFAULT_PAGE = 200;
-const MAX_PAGE = 500;
+export const DEFAULT_PAGE = 200;
+export const MAX_PAGE = 500;
 
 export interface ListQuery { limit?: number; cursor?: string; from?: string; to?: string; status?: string; projectId?: string; phaseId?: string }
 export interface Reader<T> {
@@ -226,8 +226,8 @@ export interface Reader<T> {
   get(db: Db, ctx: RequestContext, id: string): Promise<T>;
 }
 
-const encodeCursor = (id: string) => Buffer.from(JSON.stringify({ id })).toString("base64url");
-function decodeCursor(raw: string): string {
+export const encodeCursor = (id: string) => Buffer.from(JSON.stringify({ id })).toString("base64url");
+export function decodeCursor(raw: string): string {
   try {
     const c = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
     if (typeof c?.id === "string" && isId(c.id)) return c.id;

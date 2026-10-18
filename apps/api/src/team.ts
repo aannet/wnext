@@ -1,7 +1,8 @@
 import { planTeamRemoval, summarizeTeamRemoval, type TeamAllocation, type TeamLog, type TeamRemovalSummary as EngineSummary } from "@wnext/engine";
-import type { TeamMembership, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "@wnext/contracts";
+import type { TeamMemberList, TeamMembership, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
+import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor } from "./reference";
 import type { Row } from "./schedule";
 import { assertWriter, day, isId, notFound } from "./write";
 
@@ -82,5 +83,28 @@ export async function addToTeam(db: Db, ctx: RequestContext, projectId: string, 
       [projectId, personId, ctx.accountId],
     );
     return { added: r.rows.length > 0 };
+  });
+}
+
+/** Équipe d'un projet, page par curseur sur l'identifiant de la personne. Lecture ouverte à tout membre ; la RLS et `account_id` isolent les comptes. */
+export async function listTeam(db: Db, ctx: RequestContext, projectId: string, q: { limit?: number; cursor?: string }): Promise<TeamMemberList> {
+  const after = q.cursor === undefined ? undefined : decodeCursor(q.cursor); // avant d'ouvrir une transaction
+  const n = Math.min(Math.max(1, Math.trunc(q.limit ?? DEFAULT_PAGE)), MAX_PAGE);
+  if (!isId(projectId)) throw notFound("project");
+  return withContext(db, ctx, async (tx) => {
+    if (!(await tx.query("SELECT 1 FROM projects WHERE id = $1::bigint AND account_id = $2::bigint", [projectId, ctx.accountId])).rows.length) throw notFound("project");
+    const total = Number((await tx.query<Row>("SELECT count(*) AS n FROM project_team WHERE account_id = $1::bigint AND project_id = $2::bigint", [ctx.accountId, projectId])).rows[0]!.n);
+    const { rows } = await tx.query<Row>(
+      `SELECT t.person_id, p.name FROM project_team t
+         JOIN people p ON p.id = t.person_id AND p.account_id = t.account_id
+        WHERE t.account_id = $1::bigint AND t.project_id = $2::bigint AND ($3::bigint IS NULL OR t.person_id > $3::bigint)
+        ORDER BY t.person_id LIMIT $4::int`,
+      [ctx.accountId, projectId, after ?? null, n + 1],
+    );
+    const page = rows.slice(0, n);
+    return {
+      items: page.map((r) => ({ personId: String(r.person_id), name: String(r.name) })),
+      page: { nextCursor: rows.length > n ? encodeCursor(String(page[n - 1]!.person_id)) : null, total },
+    };
   });
 }

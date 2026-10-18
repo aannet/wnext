@@ -229,4 +229,30 @@ describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
     expect((await api.deleteProjectTask({ path: { id: task.data.id }, headers: { "If-Match": '"2"' } })).status).toBe(204);
     expect((await api.deleteClient({ path: { id: cl.data.id }, headers: { "If-Match": '"1"' } })).status).toBe(204);
   });
+
+  it("équipe d'un projet : ajout, lecture paginée, retrait, 404 d'un projet inconnu", async () => {
+    const api = client();
+    const proj = await api.createProject({ body: { name: "Équipe" } });
+    if (!proj.ok) throw new Error("projet attendu");
+    const people = await api.getSchedule({ from: "2026-03-02", to: "2026-03-06" });
+    if (!people.ok || !("people" in people.data)) throw new Error("planning attendu");
+    const ids = people.data.people.map((p) => p.id);
+    expect(ids.length).toBeGreaterThanOrEqual(2);
+    for (const id of ids) await api.addToTeam({ path: { projectId: proj.data.id, personId: id } });
+
+    const p1 = await api.listProjectTeam({ path: { projectId: proj.data.id }, query: { limit: 1 } });
+    if (!p1.ok) throw new Error("page attendue");
+    expect(p1.data.page.total).toBe(ids.length);
+    expect(p1.data.items).toHaveLength(1);
+    const p2 = await api.listProjectTeam({ path: { projectId: proj.data.id }, query: { cursor: p1.data.page.nextCursor ?? undefined } });
+    expect(p2.ok && p2.data.items.length).toBe(ids.length - 1);
+
+    await api.removeFromTeam({ path: { projectId: proj.data.id, personId: ids[0]! }, body: {} });
+    const after = await api.listProjectTeam({ path: { projectId: proj.data.id } });
+    expect(after.ok && after.data.page.total).toBe(ids.length - 1);
+
+    const missing = await api.listProjectTeam({ path: { projectId: "99999" } });
+    if (missing.ok) throw new Error("404 attendu");
+    expect([missing.status, missing.error.code]).toEqual([404, "NOT_FOUND"]);
+  });
 });
