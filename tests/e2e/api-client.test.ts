@@ -153,4 +153,23 @@ describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
     const gone = await api.removeFromTeam({ path, body: {} });
     expect(gone.ok && gone.data).toMatchObject({ wasInTeam: true, removedAllocations: 0 });
   });
+
+  it("entités de référence : créer, modifier, doublon, supprimer, projet sans suppression", async () => {
+    const api = client();
+    const dep = await api.createDepartment({ body: { name: "Studio" } });
+    if (!dep.ok) throw new Error("création attendue");
+    expect(dep.data).toMatchObject({ name: "Studio", version: 1 });
+    const dup = await api.createDepartment({ body: { name: "Studio" } });
+    if (dup.ok) throw new Error("doublon attendu");
+    expect([dup.status, dup.error.code]).toEqual([409, "ALREADY_EXISTS"]);
+    const ren = await api.updateDepartment({ path: { id: dep.data.id }, headers: { "If-Match": '"1"' }, body: { name: "Studio 2" } });
+    expect(ren.ok && ren.data).toMatchObject({ name: "Studio 2", version: 2 });
+    const del = await api.deleteDepartment({ path: { id: dep.data.id }, headers: { "If-Match": '"2"' } });
+    expect(del.ok).toBe(true);
+
+    const proj = await api.createProject({ body: { name: "Refonte", projectCode: "R-1", tags: ["web"] } });
+    if (!proj.ok) throw new Error("création attendue");
+    const archived = await api.updateProject({ path: { id: proj.data.id }, headers: { "If-Match": '"1"' }, body: { status: "archived" } });
+    expect(archived.ok && archived.data).toMatchObject({ status: "archived", version: 2, projectCode: "R-1" });
+  });
 });

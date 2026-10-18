@@ -1,10 +1,14 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
+import { DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayPatch, ProjectCreate, ProjectPatch, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { createAllocation, deleteAllocation, updateAllocation } from "./allocations";
 import { createPerson, updatePerson } from "./people";
+import {
+  createDepartment, createHoliday, createProject, createRole, createTimeoffType, deleteDepartment, deleteHoliday, deleteRole, deleteTimeoffType,
+  updateDepartment, updateHoliday, updateProject, updateRole, updateTimeoffType,
+} from "./reference";
 import { getSchedule } from "./schedule";
 import { addToTeam, getTeamRemovalSummary, removeFromTeam } from "./team";
 import { createTimeoff, deleteTimeoff, updateTimeoff } from "./timeoffs";
@@ -41,6 +45,8 @@ const STATUS: Record<ApiError["code"], number> = {
   VERSION_CONFLICT: 409,
   PRECONDITION_REQUIRED: 428,
   TIMEOFF_OVERLAP: 409,
+  ALREADY_EXISTS: 409,
+  REFERENCE_IN_USE: 409,
   TEAM_REMOVAL_CONFIRMATION_REQUIRED: 428,
   TEAM_REMOVAL_STALE_CONFIRMATION: 409,
   TEAM_REMOVAL_LOCKED_LOGS: 409,
@@ -73,6 +79,7 @@ function parseScheduleQuery(search: URLSearchParams): ScheduleQueryT {
 
 const MAX_BODY_BYTES = 1_000_000;
 const WRITERS = new Set(["owner", "admin", "project_manager"]);
+const ADMINS = new Set(["owner", "admin"]);
 
 function parseJsonBody<T>(schema: { safeParse(v: unknown): { success: true; data: T } | { success: false; error: { issues: Array<{ path: PropertyKey[] }> } } }, raw: string | undefined): T {
   if (raw === undefined || raw === "") throw new ApiFailure("VALIDATION_FAILED", { field: "body" });
@@ -96,19 +103,22 @@ function expectedVersion(headers: HttpRequest["headers"]): number {
 type Parser<T> = Parameters<typeof parseJsonBody<T>>[0];
 interface WriteResource {
   pattern: RegExp;
+  /** Configuration du compte : owner et admin seulement (403 avant la validation du corps). */
+  adminOnly?: boolean;
   create(db: Db, ctx: RequestContext, raw: string | undefined): Promise<unknown>;
   update(db: Db, ctx: RequestContext, id: string, version: number, raw: string | undefined): Promise<unknown>;
   /** Absent = la ressource n'a pas de DELETE (ex. personnes : on désactive). */
   remove?(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
 }
 function resource<C, P>(def: {
-  pattern: RegExp; createSchema: Parser<C>; patchSchema: Parser<P>;
+  pattern: RegExp; adminOnly?: boolean; createSchema: Parser<C>; patchSchema: Parser<P>;
   create(db: Db, ctx: RequestContext, body: C): Promise<unknown>;
   update(db: Db, ctx: RequestContext, id: string, version: number, patch: P): Promise<unknown>;
   remove?(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
 }): WriteResource {
   return {
     pattern: def.pattern,
+    adminOnly: def.adminOnly,
     create: (db, ctx, raw) => def.create(db, ctx, parseJsonBody(def.createSchema, raw)),
     update: (db, ctx, id, version, raw) => def.update(db, ctx, id, version, parseJsonBody(def.patchSchema, raw)),
     remove: def.remove,
@@ -118,6 +128,11 @@ const WRITE_RESOURCES: WriteResource[] = [
   resource({ pattern: /^\/api\/v1\/allocations(?:\/([^/]+))?$/, createSchema: AllocationCreate, patchSchema: AllocationPatch, create: createAllocation, update: updateAllocation, remove: deleteAllocation }),
   resource({ pattern: /^\/api\/v1\/people(?:\/([^/]+))?$/, createSchema: PersonCreate, patchSchema: PersonPatch, create: createPerson, update: updatePerson }),
   resource({ pattern: /^\/api\/v1\/timeoffs(?:\/([^/]+))?$/, createSchema: TimeoffCreate, patchSchema: TimeoffPatch, create: createTimeoff, update: updateTimeoff, remove: deleteTimeoff }),
+  resource({ adminOnly: true, pattern: /^\/api\/v1\/departments(?:\/([^/]+))?$/, createSchema: DepartmentCreate, patchSchema: DepartmentPatch, create: createDepartment, update: updateDepartment, remove: deleteDepartment }),
+  resource({ adminOnly: true, pattern: /^\/api\/v1\/roles(?:\/([^/]+))?$/, createSchema: RoleCreate, patchSchema: RolePatch, create: createRole, update: updateRole, remove: deleteRole }),
+  resource({ adminOnly: true, pattern: /^\/api\/v1\/timeoff-types(?:\/([^/]+))?$/, createSchema: TimeoffTypeCreate, patchSchema: TimeoffTypePatch, create: createTimeoffType, update: updateTimeoffType, remove: deleteTimeoffType }),
+  resource({ adminOnly: true, pattern: /^\/api\/v1\/holidays(?:\/([^/]+))?$/, createSchema: HolidayCreate, patchSchema: HolidayPatch, create: createHoliday, update: updateHoliday, remove: deleteHoliday }),
+  resource({ pattern: /^\/api\/v1\/projects(?:\/([^/]+))?$/, createSchema: ProjectCreate, patchSchema: ProjectPatch, create: createProject, update: updateProject }),
 ];
 
 export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpReply> {
@@ -158,7 +173,7 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       if (!known) break;
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId);
-      if (!WRITERS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
+      if (!(resource.adminOnly ? ADMINS : WRITERS).has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
       if (id === undefined) return { status: 201, body: await resource.create(deps.db, ctx, req.body) };
       const version = expectedVersion(req.headers);
       if (req.method === "DELETE") {

@@ -194,6 +194,29 @@ describe("retrait d'équipe BR-10 : verrou sur la personne", () => {
   });
 });
 
+describe("entités de référence", () => {
+  it("deux créations simultanées du même nom : une seule réussit, l'autre ALREADY_EXISTS (jamais un 500)", async () => {
+    for (let round = 0; round < 5; round++) {
+      const rs = await Promise.all([1, 2, 3].map(() => send("POST", "/api/v1/departments", { name: `Concurrent ${round}` })));
+      expect(rs.map((r) => r.status).sort()).toEqual([201, 409, 409]);
+      for (const r of rs) if (r.status === 409) expect(err(r).code).toBe("ALREADY_EXISTS");
+    }
+  });
+
+  it("suppression d'un département pendant qu'une personne s'y rattache (non validée) : attend, puis REFERENCE_IN_USE, personne détachée", async () => {
+    const d = (await send("POST", "/api/v1/departments", { name: "Éphémère" })).body as { id: string };
+    const holder = await c.hold(ctx);
+    await holder.query(`INSERT INTO people (account_id, name, department_id) VALUES (1, 'rattaché', ${d.id})`);
+    const p = send("DELETE", `/api/v1/departments/${d.id}`, undefined, { "if-match": '"1"' });
+    await c.waitBlocked();
+    expect(await pending(p)).toBe(true);
+    await holder.commit();
+    const r = await p;
+    expect(err(r)).toMatchObject({ code: "REFERENCE_IN_USE", params: { entity: "department", people: 1 } });
+    expect(await n(`SELECT count(*) AS n FROM people WHERE department_id = ${d.id}`)).toBe(1); // non détachée en silence
+  });
+});
+
 describe("ajout à l'équipe", () => {
   it("cinq PUT simultanés : un seul added=true, une seule ligne", async () => {
     const rs = await Promise.all([1, 2, 3, 4, 5].map(() => send("PUT", "/api/v1/projects/2/team/7")));

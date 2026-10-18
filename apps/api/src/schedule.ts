@@ -57,6 +57,31 @@ export function toScheduleTimeoff(r: Row): ScheduleTimeoff {
   };
 }
 
+export type ScheduleDepartment = ScheduleResponse["departments"][number];
+export type ScheduleRole = ScheduleResponse["roles"][number];
+export type ScheduleTimeoffType = ScheduleResponse["timeoffTypes"][number];
+export type ScheduleHoliday = ScheduleResponse["holidays"][number];
+export type ScheduleProject = ScheduleResponse["projects"][number];
+
+export const NAMED_COLUMNS = `id, row_version, name`;
+export const toScheduleDepartment = (r: Row): ScheduleDepartment => ({ id: idOf(r.id), version: num(r.row_version), name: String(r.name) });
+export const toScheduleRole = (r: Row): ScheduleRole => ({ id: idOf(r.id), version: num(r.row_version), name: String(r.name) });
+
+export const TIMEOFF_TYPE_COLUMNS = `id, row_version, name, deducted`;
+export const toScheduleTimeoffType = (r: Row): ScheduleTimeoffType => ({ id: idOf(r.id), version: num(r.row_version), name: String(r.name), deducted: Boolean(r.deducted) });
+
+export const HOLIDAY_COLUMNS = `id, row_version, name, hdate, country, department_id, hours_off`;
+export const toScheduleHoliday = (r: Row): ScheduleHoliday => ({
+  id: idOf(r.id), version: num(r.row_version), name: String(r.name), date: iso(r.hdate), country: r.country === null ? null : String(r.country).trim(),
+  departmentId: orNullId(r.department_id), hoursOff: r.hours_off === null ? null : num(r.hours_off),
+});
+
+export const PROJECT_COLUMNS = `id, row_version, name, project_code, color, status, non_billable`;
+export const toScheduleProject = (r: Row): ScheduleProject => ({
+  id: idOf(r.id), version: num(r.row_version), name: String(r.name), projectCode: r.project_code ?? null, color: String(r.color),
+  status: r.status, nonBillable: Boolean(r.non_billable),
+});
+
 interface PageCursor { name: string; id: string }
 const encodeCursor = (c: PageCursor) => Buffer.from(JSON.stringify(c)).toString("base64url");
 function decodeCursor(raw: string): PageCursor {
@@ -148,18 +173,18 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
 
     const projectIds = [...new Set(allocRows.map((r) => idOf(r.project_id)))];
     const projectRows = projectIds.length ? (await tx.query<Row>(
-      `SELECT id, name, project_code, color, status, non_billable FROM projects
+      `SELECT ${PROJECT_COLUMNS} FROM projects
         WHERE account_id = $1 AND id = ANY ($2::bigint[]) ORDER BY id`,
       [a, projectIds],
     )).rows : [];
 
     const [holidayRows, typeRows, deptRows, roleRows, accountRows] = await Promise.all([
       tx.query<Row>(
-        `SELECT id, name, hdate, country, department_id, hours_off FROM holidays
+        `SELECT ${HOLIDAY_COLUMNS} FROM holidays
           WHERE account_id = $1 AND hdate BETWEEN $2::date AND $3::date ORDER BY hdate, id`, [a, q.from, q.to]),
-      tx.query<Row>(`SELECT id, name, deducted FROM timeoff_types WHERE account_id = $1 ORDER BY id`, [a]),
-      tx.query<Row>(`SELECT id, name FROM departments WHERE account_id = $1 ORDER BY name, id`, [a]),
-      tx.query<Row>(`SELECT id, name FROM roles WHERE account_id = $1 ORDER BY name, id`, [a]),
+      tx.query<Row>(`SELECT ${TIMEOFF_TYPE_COLUMNS} FROM timeoff_types WHERE account_id = $1 ORDER BY id`, [a]),
+      tx.query<Row>(`SELECT ${NAMED_COLUMNS} FROM departments WHERE account_id = $1 ORDER BY name, id`, [a]),
+      tx.query<Row>(`SELECT ${NAMED_COLUMNS} FROM roles WHERE account_id = $1 ORDER BY name, id`, [a]),
       tx.query<Row>(`SELECT week_start, capacity_thresholds FROM accounts WHERE id = $1`, [a]),
     ]);
     const account = accountRows.rows[0]!;
@@ -177,17 +202,11 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
       people,
       allocations,
       timeoffs: timeoffRows.map(toScheduleTimeoff),
-      holidays: holidayRows.rows.map((r) => ({
-        id: idOf(r.id), name: String(r.name), date: iso(r.hdate), country: r.country === null ? null : String(r.country).trim(),
-        departmentId: orNullId(r.department_id), hoursOff: r.hours_off === null ? null : num(r.hours_off),
-      })),
-      projects: projectRows.map((r) => ({
-        id: idOf(r.id), name: String(r.name), projectCode: r.project_code ?? null, color: String(r.color),
-        status: r.status, nonBillable: Boolean(r.non_billable),
-      })),
-      timeoffTypes: typeRows.rows.map((r) => ({ id: idOf(r.id), name: String(r.name), deducted: Boolean(r.deducted) })),
-      departments: deptRows.rows.map((r) => ({ id: idOf(r.id), name: String(r.name) })),
-      roles: roleRows.rows.map((r) => ({ id: idOf(r.id), name: String(r.name) })),
+      holidays: holidayRows.rows.map(toScheduleHoliday),
+      projects: projectRows.map(toScheduleProject),
+      timeoffTypes: typeRows.rows.map(toScheduleTimeoffType),
+      departments: deptRows.rows.map(toScheduleDepartment),
+      roles: roleRows.rows.map(toScheduleRole),
     };
   });
 }
