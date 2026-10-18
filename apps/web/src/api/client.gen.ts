@@ -226,6 +226,30 @@ export interface TimeoffPatch {
   notes?: string | null;
 }
 
+export interface PersonCreate {
+  name: string;
+  peopleType?: SchedulePeopleType;
+  departmentId?: Id | null;
+  roleId?: Id | null;
+  country?: string | null;
+  workDaysHours?: Array<number>;
+  tags?: Array<string>;
+  avatarUrl?: string | null;
+  active?: boolean;
+}
+
+export interface PersonPatch {
+  name?: string;
+  peopleType?: SchedulePeopleType;
+  departmentId?: Id | null;
+  roleId?: Id | null;
+  country?: string | null;
+  workDaysHours?: Array<number>;
+  tags?: Array<string>;
+  avatarUrl?: string | null;
+  active?: boolean;
+}
+
 export interface FetchResponse {
   status: number;
   json(): Promise<unknown>;
@@ -352,6 +376,32 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer une personne planifiable (POST /api/v1/people) */
+    async createPerson(input: {
+      body: PersonCreate;
+    }): Promise<ApiResult<SchedulePerson, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/people", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as SchedulePerson }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier ou desactiver une personne (verrou optimiste If-Match ; pas de suppression) (PATCH /api/v1/people/{id}) */
+    async updatePerson(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: PersonPatch;
+    }): Promise<ApiResult<SchedulePerson, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/people/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as SchedulePerson }
         : { ok: false, status: res.status, error: body as ApiError };
     },
   };

@@ -14,3 +14,4 @@ export {
   RealtimeReady, RealtimeResync, RealtimeServerMessage, RealtimeSubscribe,
 } from "./realtime";
 export { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
+export { PersonCreate, PersonPatch, PersonPathParams } from "./people";
