@@ -46,7 +46,7 @@ describe("suite SQL de non-régression (tests/sql/schema_tests.sql)", () => {
 });
 
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
-const close = (a: number | null, b: number | null) => (a === null || b === null ? a === b : Math.abs(a - b) < EPS);
+const close = (a: number | null, b: number | null) => (a === null || b === null ? a === b : a === b || Math.abs(a - b) < EPS);
 
 async function scenario(seed: number) {
   const r = rng(seed);

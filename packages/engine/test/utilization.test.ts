@@ -31,9 +31,13 @@ describe("utilization", () => {
   it("exactement à la capacité : pas sur-alloué (seuil strict, 100 %)", () => {
     expect(one([p("x")], [a("x", "2026-03-02", 8)], "2026-03-02")).toMatchObject({ utilization: 1, isOverbooked: false });
   });
-  it("charge sur un férié : conservée, surtemps = charge, utilization NULL mais isOverbooked (BR-38)", () => {
+  it("charge sur un férié : conservée, surtemps = charge, utilization infinie (sur-allocation maximale) et isOverbooked (BR-38)", () => {
     const r = one([p("x")], [a("x", "2026-04-06", 6)], "2026-04-06", [{ hdate: "2026-04-06", country: null, departmentId: null, hoursOff: null }]);
-    expect(r).toMatchObject({ capacityHours: 0, plannedHours: 6, overtimeHours: 6, utilization: null, isOverbooked: true });
+    expect(r).toMatchObject({ capacityHours: 0, plannedHours: 6, overtimeHours: 6, utilization: Infinity, isOverbooked: true });
+  });
+  it("capacité 0 et charge 0 : utilization 0, jamais null (BR-38)", () => {
+    const r = one([p("x")], [], "2026-04-06", [{ hdate: "2026-04-06", country: null, departmentId: null, hoursOff: null }]);
+    expect(r).toMatchObject({ capacityHours: 0, plannedHours: 0, utilization: 0, isOverbooked: false });
   });
   it("tentatif inclus dans le planifié, décomposé dans tentativeHours (Q-01)", () => {
     expect(one([p("x")], [a("x", "2026-03-02", 4), a("x", "2026-03-02", 2, { status: "tentative" })], "2026-03-02")).toMatchObject({

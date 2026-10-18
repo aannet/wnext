@@ -903,7 +903,7 @@ END $$;
 
 -- Utilisation (remplace la vue v_utilization, qui ne pouvait pas être paramétrée).
 --  * overtime_hours = max(planifié - capacité nette, 0) (BR-03/BR-38) : > 0 même à capacité 0.
---  * utilization NULL si capacité 0 ; is_overbooked reste TRUE si planifié > capacité (jamais masqué).
+--  * capacité 0 : utilization = 'Infinity' si planifié > 0 (sur-allocation maximale), 0 sinon, jamais NULL (BR-38) ; is_overbooked reste TRUE si planifié > capacité (jamais masqué).
 --  * Inclut les heures tentatives dans planned_hours (décomposées dans tentative_hours) ; Q-01 décidé 2026-10-18.
 --  * Personnes inactives exclues (capacité calculée pour les actives seulement).
 CREATE FUNCTION utilization(p_account_id BIGINT, p_from DATE, p_to DATE)
@@ -914,7 +914,7 @@ LANGUAGE sql STABLE AS $$
   SELECT c.person_id, c.day, c.capacity_hours,
          COALESCE(l.planned_hours, 0), COALESCE(l.tentative_hours, 0), COALESCE(l.billable_hours, 0),
          GREATEST(COALESCE(l.planned_hours, 0) - c.capacity_hours, 0),
-         CASE WHEN c.capacity_hours = 0 THEN NULL
+         CASE WHEN c.capacity_hours = 0 THEN (CASE WHEN COALESCE(l.planned_hours, 0) > 0 THEN 'Infinity'::numeric ELSE 0 END)
               ELSE COALESCE(l.planned_hours, 0) / c.capacity_hours END,
          COALESCE(l.planned_hours, 0) > c.capacity_hours
   FROM daily_capacity(p_account_id, p_from, p_to) c
