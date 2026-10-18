@@ -29,7 +29,9 @@ const response: ScheduleResponse = {
     { ...base, id: "103", startDate: "2026-03-10", endDate: "2026-03-10", mode: "hours", hoursPerDay: 5, percent: null },
   ],
   timeoffs: [{ id: "7", version: 1, personId: "1", typeId: "2", startDate: "2026-03-10", endDate: "2026-03-11", scope: "full_day",
-    startHalf: "am", endHalf: "pm", hoursPerDay: null, approvalStatus: "approved" }],
+    startHalf: "am", endHalf: "pm", hoursPerDay: null, approvalStatus: "approved" },
+    { id: "8", version: 1, personId: "1", typeId: "3", startDate: "2026-03-05", endDate: "2026-03-05", scope: "partial",
+      startHalf: "am", endHalf: "pm", hoursPerDay: 4, approvalStatus: "approved" }],
   holidays: [{ id: "9", name: "Férié FR", date: "2026-03-17", country: "FR", departmentId: null, hoursOff: null }],
   projects: [
     { id: "50", name: "Site web", projectCode: null, color: "#3B82F6", status: "in_progress", nonBillable: false },
@@ -48,6 +50,7 @@ describe("réponse du contrat -> moteur", () => {
     expect(row(rows, "1", "2026-03-02").capacityHours).toBe(8);
     expect(row(rows, "1", "2026-03-10").capacityHours).toBe(0); // congé
     expect(row(rows, "1", "2026-03-17").capacityHours).toBe(0); // férié FR
+    expect(row(rows, "1", "2026-03-05").capacityHours).toBe(8); // télétravail : type non déduit
     expect(row(rows, "2", "2026-03-17").capacityHours).toBe(4); // le férié FR ne touche pas Bob (DE)
     expect(row(rows, "2", "2026-03-02").capacityHours).toBe(0); // lundi non ouvré pour Bob
   });
