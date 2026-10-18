@@ -16,8 +16,8 @@ export interface UtilizationRow {
   billableHours: number;
   /** max(planifié - capacité nette, 0) ; > 0 même à capacité 0 (BR-03, BR-38). */
   overtimeHours: number;
-  /** null si capacité 0. */
-  utilization: number | null;
+  /** planifié / capacité ; capacité 0 : Infinity si charge > 0 (sur-allocation maximale), 0 sinon (BR-38). Jamais null. */
+  utilization: number;
   /** Vrai dès que planifié > capacité, y compris à capacité 0 : jamais masqué. */
   isOverbooked: boolean;
 }
@@ -42,7 +42,7 @@ export function utilization(input: UtilizationInput): UtilizationRow[] {
       tentativeHours: l?.tentativeHours ?? 0,
       billableHours: l?.billableHours ?? 0,
       overtimeHours: Math.max(planned - c.capacityHours, 0),
-      utilization: c.capacityHours === 0 ? null : planned / c.capacityHours,
+      utilization: c.capacityHours === 0 ? (planned > 0 ? Infinity : 0) : planned / c.capacityHours,
       isOverbooked: planned > c.capacityHours,
     };
   });

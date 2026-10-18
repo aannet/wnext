@@ -282,8 +282,8 @@ SELECT t.eq('T06k demi-journée DE : fr = 8 h', t.cap('fr', '2026-04-09'), 8);
 SELECT t.mkalloc('fr', 'pc', '2026-04-06', '2026-04-06', 6);
 SELECT t.eq('T06l alloc sur férié : charge conservée (6 h)', (SELECT planned_hours FROM utilization(t.id('A'), '2026-04-06', '2026-04-06') WHERE person_id = t.id('fr')), 6);
 SELECT t.eq('T06m alloc sur férié : surtemps = 6 h', (SELECT overtime_hours FROM utilization(t.id('A'), '2026-04-06', '2026-04-06') WHERE person_id = t.id('fr')), 6);
-SELECT t.ok('T06n alloc sur férié : utilization NULL mais is_overbooked (jamais masqué, BR-38)',
-  (SELECT utilization IS NULL AND is_overbooked FROM utilization(t.id('A'), '2026-04-06', '2026-04-06') WHERE person_id = t.id('fr')));
+SELECT t.ok('T06n alloc sur férié : utilization infinie et is_overbooked (jamais NULL, BR-38)',
+  (SELECT utilization = 'Infinity'::numeric AND is_overbooked FROM utilization(t.id('A'), '2026-04-06', '2026-04-06') WHERE person_id = t.id('fr')));
 
 -- ============================================================
 -- T07 Congés (BR-02, BR-04, BR-05, BR-29)
