@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Spike grille B2 (canvas complet)</title>
+<style>*{box-sizing:border-box}body{margin:0;font:12px system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
+#bar{padding:6px;display:flex;gap:6px;border-bottom:1px solid #ccc}#scroll{flex:1;overflow:auto;position:relative;contain:strict}#sizer{position:relative}
+canvas{position:sticky;top:0;left:0;display:block}
+#ov{position:absolute;left:0;top:0;pointer-events:none;contain:strict}
+.orow{position:absolute;left:0;top:0;height:64px;contain:strict}
+.ohd{position:absolute;left:0;top:0;width:160px;height:64px}
+.ocell{position:absolute;left:0;top:0;contain:strict;outline:none}
+.ocell:focus{outline:2px solid #000;outline-offset:-1px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}</style></head><body>
+<div id="bar"><button id="zd">Jour</button><button id="zw">Semaine</button><button id="zm">Mois</button><button id="today-btn">Aujourd'hui</button></div>
+<div id="scroll"><div id="sizer"><canvas id="cv"></canvas></div></div>
+<script type="module" src="/src/main-canvas2.ts"></script></body></html>

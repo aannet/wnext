@@ -1,0 +1,1437 @@
+{
+ "meta": {
+  "date": "2026-10-18T15:27:42.720Z",
+  "variant": "B2",
+  "page": "canvas2.html",
+  "cpu": "Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz",
+  "cores": 12,
+  "memGB": 15,
+  "kernel": "6.6.87.2-microsoft-standard-WSL2",
+  "throttle": 4,
+  "dpr": 2,
+  "runs": 5,
+  "chromium": "156.0.8078.4"
+ },
+ "runs": [
+  {
+   "env": {
+    "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 2
+   },
+   "firstRenderMs": 270.9000000022352,
+   "allocs": 13948,
+   "heapMB_initial": 2.78863525390625,
+   "dom_initial": 17,
+   "ov_initial": 0,
+   "scrollH_day": {
+    "n": 68,
+    "p50": 66.59999999999991,
+    "p95": 66.79999999999995,
+    "max": 100.10000000000002,
+    "over20": 0.9852941176470589,
+    "fpsP95": 14.970059880239532,
+    "frameWork": {
+     "n": 69,
+     "p50": 58.400000002235174,
+     "p95": 66.69999999925494,
+     "max": 112.29999999701977
+    },
+    "renderCost": {
+     "n": 68,
+     "p50": 0.7999999970197678,
+     "p95": 1.5999999977648258,
+     "max": 3.100000001490116
+    },
+    "longtasks": 67,
+    "longtaskTotal": 3984,
+    "longtaskMax": 111,
+    "cdp": {
+     "taskMsPerFrame": 59.635691176470594,
+     "scriptMsPerFrame": 1.2063529411764708,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "scrollV_day": {
+    "n": 68,
+    "p50": 66.60000000000036,
+    "p95": 66.70000000000073,
+    "max": 83.30000000000018,
+    "over20": 0.9852941176470589,
+    "fpsP95": 14.992503748125774,
+    "frameWork": {
+     "n": 69,
+     "p50": 58.900000002235174,
+     "p95": 66.5,
+     "max": 70.80000000074506
+    },
+    "renderCost": {
+     "n": 68,
+     "p50": 0.8000000007450581,
+     "p95": 1.300000000745058,
+     "max": 1.800000000745058
+    },
+    "longtasks": 67,
+    "longtaskTotal": 3993,
+    "longtaskMax": 70,
+    "cdp": {
+     "taskMsPerFrame": 59.78567647058824,
+     "scriptMsPerFrame": 1.055735294117647,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "scrollDiag_day": {
+    "n": 66,
+    "p50": 66.60000000000036,
+    "p95": 66.70000000000073,
+    "max": 66.80000000000109,
+    "over20": 0.9696969696969697,
+    "fpsP95": 14.992503748125774,
+    "frameWork": {
+     "n": 67,
+     "p50": 62.70000000298023,
+     "p95": 65.39999999850988,
+     "max": 67
+    },
+    "renderCost": {
+     "n": 65,
+     "p50": 1,
+     "p95": 2,
+     "max": 5.699999999254942
+    },
+    "longtasks": 64,
+    "longtaskTotal": 4014,
+    "longtaskMax": 68,
+    "cdp": {
+     "taskMsPerFrame": 61.21846969696969,
+     "scriptMsPerFrame": 1.454515151515152,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "domAfterScroll": 17,
+   "ovAfterScroll": 0,
+   "drag_move": {
+    "n": 262,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.88023952095548,
+    "frameWork": {
+     "n": 263,
+     "p50": 1,
+     "p95": 11,
+     "max": 14.300000000745058
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.8000000007450581,
+     "p95": 1.300000000745058,
+     "max": 1.4000000022351742
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.97126717557252,
+     "scriptMsPerFrame": 0.6385954198473283,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 3.5,
+     "p95": 16.800000000745058,
+     "max": 18.600000001490116
+    },
+    "eventTiming": {
+     "n": 17,
+     "max": 32,
+     "p95": 32
+    }
+   },
+   "drag_resizeR": {
+    "n": 254,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.88023952095548,
+    "frameWork": {
+     "n": 255,
+     "p50": 1.1000000014901161,
+     "p95": 10.300000000745058,
+     "max": 12.5
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.6000000014901161,
+     "p95": 1.199999999254942,
+     "max": 1.4000000022351742
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 6.011350393700787,
+     "scriptMsPerFrame": 0.6175472440944882,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 3.899999998509884,
+     "p95": 5.5,
+     "max": 17.199999999254942
+    },
+    "eventTiming": {
+     "n": 9,
+     "max": 40,
+     "p95": 40
+    }
+   },
+   "drag_resizeL": {
+    "n": 252,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.88023952095548,
+    "frameWork": {
+     "n": 253,
+     "p50": 1,
+     "p95": 9.899999998509884,
+     "max": 12.699999999254942
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.7999999970197678,
+     "p95": 1.1000000014901161,
+     "max": 1.3999999985098839
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.570404761904766,
+     "scriptMsPerFrame": 0.4927936507936506,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 4.199999999254942,
+     "p95": 6,
+     "max": 11.800000000745058
+    },
+    "eventTiming": {
+     "n": 9,
+     "max": 32,
+     "p95": 32
+    }
+   },
+   "drag_height": {
+    "n": 253,
+    "p50": 16.700000000000728,
+    "p95": 16.799999999999272,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.523809523812105,
+    "frameWork": {
+     "n": 254,
+     "p50": 0.9000000022351742,
+     "p95": 9.900000002235174,
+     "max": 12.900000002235174
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.6999999992549419,
+     "p95": 1.1000000014901161,
+     "max": 1.2000000029802322
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.521948616600789,
+     "scriptMsPerFrame": 0.5026521739130432,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 4.300000000745058,
+     "p95": 5.699999999254942,
+     "max": 13.5
+    },
+    "eventTiming": {
+     "n": 9,
+     "max": 40,
+     "p95": 40
+    }
+   },
+   "zoom": {
+    "n": 18,
+    "p50": 29.799999997019768,
+    "p95": 34.5,
+    "max": 34.5
+   },
+   "today": {
+    "n": 6,
+    "p50": 30.800000000745058,
+    "p95": 31.5,
+    "max": 31.5
+   },
+   "clickEventTimingMax": 40,
+   "heapMB_final": 3.7715606689453125,
+   "dom_final": 17,
+   "modes": {
+    "full": 28,
+    "blit": 198,
+    "rows": 480
+   }
+  },
+  {
+   "firstRenderMs": 310.5,
+   "allocs": 13948,
+   "heapMB_initial": 2.6949462890625,
+   "dom_initial": 17,
+   "ov_initial": 0,
+   "scrollH_day": {
+    "n": 63,
+    "p50": 66.69999999999982,
+    "p95": 83.29999999999995,
+    "max": 116.70000000000005,
+    "over20": 0.9841269841269841,
+    "fpsP95": 12.004801920768314,
+    "frameWork": {
+     "n": 64,
+     "p50": 64.30000000074506,
+     "p95": 72.90000000223517,
+     "max": 112.69999999925494
+    },
+    "renderCost": {
+     "n": 63,
+     "p50": 0.8000000007450581,
+     "p95": 1.5,
+     "max": 3.800000000745058
+    },
+    "longtasks": 62,
+    "longtaskTotal": 4026,
+    "longtaskMax": 111,
+    "cdp": {
+     "taskMsPerFrame": 65.06722222222223,
+     "scriptMsPerFrame": 1.2855396825396825,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "scrollV_day": {
+    "n": 66,
+    "p50": 66.60000000000036,
+    "p95": 66.70000000000073,
+    "max": 66.80000000000018,
+    "over20": 0.9848484848484849,
+    "fpsP95": 14.992503748125774,
+    "frameWork": {
+     "n": 67,
+     "p50": 61.600000001490116,
+     "p95": 65.5,
+     "max": 69.10000000149012
+    },
+    "renderCost": {
+     "n": 66,
+     "p50": 0.6999999992549419,
+     "p95": 1.199999999254942,
+     "max": 1.5
+    },
+    "longtasks": 65,
+    "longtaskTotal": 4013,
+    "longtaskMax": 68,
+    "cdp": {
+     "taskMsPerFrame": 61.888181818181806,
+     "scriptMsPerFrame": 1.0033939393939397,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "scrollDiag_day": {
+    "n": 68,
+    "p50": 66.60000000000036,
+    "p95": 66.70000000000073,
+    "max": 66.80000000000109,
+    "over20": 0.9705882352941176,
+    "fpsP95": 14.992503748125774,
+    "frameWork": {
+     "n": 69,
+     "p50": 60.79999999701977,
+     "p95": 63.30000000074506,
+     "max": 65
+    },
+    "renderCost": {
+     "n": 68,
+     "p50": 1,
+     "p95": 1.9000000022351742,
+     "max": 5.5
+    },
+    "longtasks": 66,
+    "longtaskTotal": 3997,
+    "longtaskMax": 65,
+    "cdp": {
+     "taskMsPerFrame": 60.04682352941175,
+     "scriptMsPerFrame": 1.439205882352941,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "domAfterScroll": 17,
+   "ovAfterScroll": 0,
+   "drag_move": {
+    "n": 256,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "max": 16.80000000000109,
+    "over20": 0,
+    "fpsP95": 59.88023952095548,
+    "frameWork": {
+     "n": 257,
+     "p50": 0.9000000022351742,
+     "p95": 10.300000000745058,
+     "max": 13.799999997019768
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.7999999970197678,
+     "p95": 1.1000000014901161,
+     "max": 1.199999999254942
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.705074218750002,
+     "scriptMsPerFrame": 0.5680546875,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 4.300000000745058,
+     "p95": 6.599999997764826,
+     "max": 17.599999997764826
+    },
+    "eventTiming": {
+     "n": 17,
+     "max": 32,
+     "p95": 32
+    }
+   },
+   "drag_resizeR": {
+    "n": 254,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "max": 16.799999999999272,
+    "over20": 0,
+    "fpsP95": 59.88023952095548,
+    "frameWork": {
+     "n": 255,
+     "p50": 1,
+     "p95": 10,
+     "max": 11.400000002235174
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.7999999970197678,
+     "p95": 1.199999999254942,
+     "max": 1.300000000745058
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.737452755905516,
+     "scriptMsPerFrame": 0.5447401574803151,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 4.199999999254942,
+     "p95": 5.699999999254942,
+     "max": 14.100000001490116
+    },
+    "eventTiming": {
+     "n": 9,
+     "max": 32,
+     "p95": 32
+    }
+   },
+   "drag_resizeL": {
+    "n": 252,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.88023952095548,
+    "frameWork": {
+     "n": 253,
+     "p50": 1,
+     "p95": 10.599999997764826,
+     "max": 11.100000001490116
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.6000000014901161,
+     "p95": 1,
+     "max": 1.199999999254942
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 6.062845238095238,
+     "scriptMsPerFrame": 0.5163531746031748,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 3.5,
+     "p95": 4.800000000745058,
+     "max": 14
+    },
+    "eventTiming": {
+     "n": 9,
+     "max": 32,
+     "p95": 32
+    }
+   },
+   "drag_height": {
+    "n": 256,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.88023952095548,
+    "frameWork": {
+     "n": 257,
+     "p50": 1,
+     "p95": 10.600000001490116,
+     "max": 12.100000001490116
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.6999999992549419,
+     "p95": 1.199999999254942,
+     "max": 1.300000000745058
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.88382812499999,
+     "scriptMsPerFrame": 0.5642265624999998,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 3.7999999970197678,
+     "p95": 5.599999997764826,
+     "max": 18.399999998509884
+    },
+    "eventTiming": {
+     "n": 9,
+     "max": 32,
+     "p95": 32
+    }
+   },
+   "zoom": {
+    "n": 18,
+    "p50": 31.699999999254942,
+    "p95": 34.80000000074506,
+    "max": 34.80000000074506
+   },
+   "today": {
+    "n": 6,
+    "p50": 30.699999999254942,
+    "p95": 33.599999997764826,
+    "max": 33.599999997764826
+   },
+   "clickEventTimingMax": 40,
+   "heapMB_final": 3.6839218139648438,
+   "dom_final": 17,
+   "modes": {
+    "full": 28,
+    "blit": 193,
+    "rows": 480
+   }
+  },
+  {
+   "firstRenderMs": 306.9000000022352,
+   "allocs": 13948,
+   "heapMB_initial": 2.6947669982910156,
+   "dom_initial": 17,
+   "ov_initial": 0,
+   "scrollH_day": {
+    "n": 70,
+    "p50": 50.100000000000364,
+    "p95": 66.70000000000073,
+    "max": 116.70000000000005,
+    "over20": 0.9857142857142858,
+    "fpsP95": 14.992503748125774,
+    "frameWork": {
+     "n": 71,
+     "p50": 57.399999998509884,
+     "p95": 61.69999999925494,
+     "max": 108.30000000074506
+    },
+    "renderCost": {
+     "n": 70,
+     "p50": 0.8000000007450581,
+     "p95": 1.300000000745058,
+     "max": 2.699999999254942
+    },
+    "longtasks": 69,
+    "longtaskTotal": 4004,
+    "longtaskMax": 108,
+    "cdp": {
+     "taskMsPerFrame": 58.2314,
+     "scriptMsPerFrame": 1.0680142857142856,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "scrollV_day": {
+    "n": 71,
+    "p50": 66.5,
+    "p95": 66.70000000000073,
+    "max": 66.80000000000018,
+    "over20": 0.9859154929577465,
+    "fpsP95": 14.992503748125774,
+    "frameWork": {
+     "n": 72,
+     "p50": 57.70000000298023,
+     "p95": 60.69999999925494,
+     "max": 61.80000000074506
+    },
+    "renderCost": {
+     "n": 71,
+     "p50": 0.7000000029802322,
+     "p95": 1.0999999977648258,
+     "max": 1.3999999985098839
+    },
+    "longtasks": 70,
+    "longtaskTotal": 4038,
+    "longtaskMax": 62,
+    "cdp": {
+     "taskMsPerFrame": 57.744464788732394,
+     "scriptMsPerFrame": 0.8918450704225355,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "scrollDiag_day": {
+    "n": 67,
+    "p50": 66.60000000000036,
+    "p95": 66.70000000000073,
+    "max": 66.80000000000109,
+    "over20": 0.9701492537313433,
+    "fpsP95": 14.992503748125774,
+    "frameWork": {
+     "n": 68,
+     "p50": 62.100000001490116,
+     "p95": 63.79999999701977,
+     "max": 66.30000000074506
+    },
+    "renderCost": {
+     "n": 67,
+     "p50": 1,
+     "p95": 1.800000000745058,
+     "max": 6.599999997764826
+    },
+    "longtasks": 65,
+    "longtaskTotal": 4013,
+    "longtaskMax": 66,
+    "cdp": {
+     "taskMsPerFrame": 61.25547761194027,
+     "scriptMsPerFrame": 1.5545373134328362,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "domAfterScroll": 17,
+   "ovAfterScroll": 0,
+   "drag_move": {
+    "n": 254,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "max": 16.80000000000109,
+    "over20": 0,
+    "fpsP95": 59.523809523812105,
+    "frameWork": {
+     "n": 255,
+     "p50": 1.0999999977648258,
+     "p95": 10.5,
+     "max": 11.5
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.6999999992549419,
+     "p95": 1.1000000014901161,
+     "max": 1.6000000014901161
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.939681102362201,
+     "scriptMsPerFrame": 0.5919842519685039,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 3.800000000745058,
+     "p95": 5.699999999254942,
+     "max": 15.699999999254942
+    },
+    "eventTiming": {
+     "n": 9,
+     "max": 32,
+     "p95": 32
+    }
+   },
+   "drag_resizeR": {
+    "n": 253,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.523809523812105,
+    "frameWork": {
+     "n": 254,
+     "p50": 1,
+     "p95": 10.099999997764826,
+     "max": 11.400000002235174
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.5,
+     "p95": 1.1000000014901161,
+     "max": 1.199999999254942
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.823521739130439,
+     "scriptMsPerFrame": 0.5584347826086957,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 4.299999997019768,
+     "p95": 5.899999998509884,
+     "max": 13.100000001490116
+    },
+    "eventTiming": {
+     "n": 9,
+     "max": 32,
+     "p95": 32
+    }
+   },
+   "drag_resizeL": {
+    "n": 264,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.523809523812105,
+    "frameWork": {
+     "n": 265,
+     "p50": 0.9000000022351742,
+     "p95": 10.900000002235174,
+     "max": 15.200000002980232
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.7999999970197678,
+     "p95": 1.199999999254942,
+     "max": 1.300000000745058
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.781484848484851,
+     "scriptMsPerFrame": 0.5182234848484849,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 4.199999999254942,
+     "p95": 16.800000000745058,
+     "max": 18.800000000745058
+    },
+    "eventTiming": {
+     "n": 9,
+     "max": 40,
+     "p95": 40
+    }
+   },
+   "drag_height": {
+    "n": 252,
+    "p50": 16.700000000000728,
+    "p95": 16.799999999999272,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.523809523812105,
+    "frameWork": {
+     "n": 252,
+     "p50": 0.30000000074505806,
+     "p95": 1,
+     "max": 1.300000000745058
+    },
+    "renderCost": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "max": null
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 1.1198412698412823,
+     "scriptMsPerFrame": 0.13900000000000026,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "max": null
+    },
+    "eventTiming": {
+     "n": 5,
+     "max": 16,
+     "p95": 16
+    }
+   },
+   "zoom": {
+    "n": 18,
+    "p50": 32.19999999925494,
+    "p95": 34.099999997764826,
+    "max": 34.099999997764826
+   },
+   "today": {
+    "n": 6,
+    "p50": 30,
+    "p95": 30.600000001490116,
+    "max": 30.600000001490116
+   },
+   "clickEventTimingMax": 40,
+   "heapMB_final": 3.6649246215820312,
+   "dom_final": 17,
+   "modes": {
+    "full": 28,
+    "blit": 204,
+    "rows": 360
+   }
+  },
+  {
+   "firstRenderMs": 323.30000000074506,
+   "allocs": 13948,
+   "heapMB_initial": 2.694904327392578,
+   "dom_initial": 17,
+   "ov_initial": 0,
+   "scrollH_day": {
+    "n": 69,
+    "p50": 66.59999999999991,
+    "p95": 66.70000000000027,
+    "max": 116.70000000000005,
+    "over20": 0.9710144927536232,
+    "fpsP95": 14.992503748125875,
+    "frameWork": {
+     "n": 70,
+     "p50": 59.400000002235174,
+     "p95": 61.899999998509884,
+     "max": 113.80000000074506
+    },
+    "renderCost": {
+     "n": 68,
+     "p50": 0.8999999985098839,
+     "p95": 1.5,
+     "max": 2.600000001490116
+    },
+    "longtasks": 67,
+    "longtaskTotal": 4025,
+    "longtaskMax": 113,
+    "cdp": {
+     "taskMsPerFrame": 59.45837681159421,
+     "scriptMsPerFrame": 1.138521739130435,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "scrollV_day": {
+    "n": 69,
+    "p50": 66.59999999999945,
+    "p95": 66.70000000000073,
+    "max": 66.70000000000073,
+    "over20": 0.9855072463768116,
+    "fpsP95": 14.992503748125774,
+    "frameWork": {
+     "n": 70,
+     "p50": 59.5,
+     "p95": 61.29999999701977,
+     "max": 62.100000001490116
+    },
+    "renderCost": {
+     "n": 69,
+     "p50": 0.6999999992549419,
+     "p95": 1.199999999254942,
+     "max": 1.5999999977648258
+    },
+    "longtasks": 68,
+    "longtaskTotal": 4031,
+    "longtaskMax": 62,
+    "cdp": {
+     "taskMsPerFrame": 59.29575362318841,
+     "scriptMsPerFrame": 0.9916811594202899,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "scrollDiag_day": {
+    "n": 68,
+    "p50": 66.60000000000036,
+    "p95": 66.70000000000073,
+    "max": 66.80000000000109,
+    "over20": 0.9705882352941176,
+    "fpsP95": 14.992503748125774,
+    "frameWork": {
+     "n": 69,
+     "p50": 61.69999999925494,
+     "p95": 63.899999998509884,
+     "max": 64.5
+    },
+    "renderCost": {
+     "n": 67,
+     "p50": 0.9000000022351742,
+     "p95": 2.600000001490116,
+     "max": 5.600000001490116
+    },
+    "longtasks": 65,
+    "longtaskTotal": 3986,
+    "longtaskMax": 63,
+    "cdp": {
+     "taskMsPerFrame": 60.009264705882366,
+     "scriptMsPerFrame": 1.4635,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "domAfterScroll": 17,
+   "ovAfterScroll": 0,
+   "drag_move": {
+    "n": 254,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "max": 16.80000000000109,
+    "over20": 0,
+    "fpsP95": 59.88023952095548,
+    "frameWork": {
+     "n": 255,
+     "p50": 1,
+     "p95": 10.5,
+     "max": 12.100000001490116
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.6999999992549419,
+     "p95": 1.1000000014901161,
+     "max": 1.4000000022351742
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.778070866141731,
+     "scriptMsPerFrame": 0.5883307086614173,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 4.300000000745058,
+     "p95": 6.400000002235174,
+     "max": 18.5
+    },
+    "eventTiming": {
+     "n": 17,
+     "max": 40,
+     "p95": 40
+    }
+   },
+   "drag_resizeR": {
+    "n": 255,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.523809523812105,
+    "frameWork": {
+     "n": 255,
+     "p50": 0.8999999985098839,
+     "p95": 10.200000002980232,
+     "max": 13.099999997764826
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.6999999992549419,
+     "p95": 1.199999999254942,
+     "max": 1.2000000029802322
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.584301960784313,
+     "scriptMsPerFrame": 0.5377098039215686,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 4.399999998509884,
+     "p95": 6.600000001490116,
+     "max": 17.800000000745058
+    },
+    "eventTiming": {
+     "n": 9,
+     "max": 32,
+     "p95": 32
+    }
+   },
+   "drag_resizeL": {
+    "n": 259,
+    "p50": 16.69999999999709,
+    "p95": 16.700000000000728,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.88023952095548,
+    "frameWork": {
+     "n": 259,
+     "p50": 1,
+     "p95": 10.800000000745058,
+     "max": 12.899999998509884
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.6000000014901161,
+     "p95": 1.2000000029802322,
+     "max": 1.300000000745058
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.797216216216215,
+     "scriptMsPerFrame": 0.5185289575289573,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 4,
+     "p95": 13.599999997764826,
+     "max": 18.399999998509884
+    },
+    "eventTiming": {
+     "n": 9,
+     "max": 32,
+     "p95": 32
+    }
+   },
+   "drag_height": {
+    "n": 253,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.523809523812105,
+    "frameWork": {
+     "n": 254,
+     "p50": 0.5999999977648258,
+     "p95": 1.300000000745058,
+     "max": 1.5999999977648258
+    },
+    "renderCost": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "max": null
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 1.36473122529644,
+     "scriptMsPerFrame": 0.18924505928853758,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "max": null
+    },
+    "eventTiming": {
+     "n": 5,
+     "max": 16,
+     "p95": 16
+    }
+   },
+   "zoom": {
+    "n": 18,
+    "p50": 33.29999999701977,
+    "p95": 35.29999999701977,
+    "max": 35.29999999701977
+   },
+   "today": {
+    "n": 6,
+    "p50": 30,
+    "p95": 32.30000000074506,
+    "max": 32.30000000074506
+   },
+   "clickEventTimingMax": 40,
+   "heapMB_final": 3.664661407470703,
+   "dom_final": 17,
+   "modes": {
+    "full": 28,
+    "blit": 200,
+    "rows": 360
+   }
+  },
+  {
+   "firstRenderMs": 318.29999999701977,
+   "allocs": 13948,
+   "heapMB_initial": 2.694904327392578,
+   "dom_initial": 17,
+   "ov_initial": 0,
+   "scrollH_day": {
+    "n": 65,
+    "p50": 66.60000000000002,
+    "p95": 83.30000000000018,
+    "max": 116.70000000000005,
+    "over20": 0.9846153846153847,
+    "fpsP95": 12.004801920768282,
+    "frameWork": {
+     "n": 66,
+     "p50": 60.19999999925494,
+     "p95": 74.89999999850988,
+     "max": 109.90000000223517
+    },
+    "renderCost": {
+     "n": 65,
+     "p50": 0.7999999970197678,
+     "p95": 1.7999999970197678,
+     "max": 2.600000001490116
+    },
+    "longtasks": 64,
+    "longtaskTotal": 3946,
+    "longtaskMax": 108,
+    "cdp": {
+     "taskMsPerFrame": 61.92696923076923,
+     "scriptMsPerFrame": 1.178276923076923,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "scrollV_day": {
+    "n": 69,
+    "p50": 66.60000000000036,
+    "p95": 66.70000000000073,
+    "max": 66.80000000000018,
+    "over20": 0.9710144927536232,
+    "fpsP95": 14.992503748125774,
+    "frameWork": {
+     "n": 70,
+     "p50": 59.5,
+     "p95": 65.19999999925494,
+     "max": 73.5
+    },
+    "renderCost": {
+     "n": 68,
+     "p50": 0.6999999992549419,
+     "p95": 1.300000000745058,
+     "max": 1.5
+    },
+    "longtasks": 67,
+    "longtaskTotal": 4019,
+    "longtaskMax": 73,
+    "cdp": {
+     "taskMsPerFrame": 59.15133333333335,
+     "scriptMsPerFrame": 1.1158695652173913,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "scrollDiag_day": {
+    "n": 68,
+    "p50": 66.60000000000036,
+    "p95": 66.70000000000073,
+    "max": 66.70000000000073,
+    "over20": 0.9558823529411765,
+    "fpsP95": 14.992503748125774,
+    "frameWork": {
+     "n": 69,
+     "p50": 61,
+     "p95": 64.30000000074506,
+     "max": 70.70000000298023
+    },
+    "renderCost": {
+     "n": 67,
+     "p50": 1,
+     "p95": 1.800000000745058,
+     "max": 5.5
+    },
+    "longtasks": 65,
+    "longtaskTotal": 3977,
+    "longtaskMax": 71,
+    "cdp": {
+     "taskMsPerFrame": 59.70076470588236,
+     "scriptMsPerFrame": 1.3970735294117644,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    }
+   },
+   "domAfterScroll": 17,
+   "ovAfterScroll": 0,
+   "drag_move": {
+    "n": 255,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.523809523812105,
+    "frameWork": {
+     "n": 256,
+     "p50": 1.0999999977648258,
+     "p95": 10.599999997764826,
+     "max": 14.199999999254942
+    },
+    "renderCost": {
+     "n": 120,
+     "p50": 0.6999999992549419,
+     "p95": 1.199999999254942,
+     "max": 1.3999999985098839
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 5.907113725490195,
+     "scriptMsPerFrame": 0.6039490196078432,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 120,
+     "p50": 4.100000001490116,
+     "p95": 5.800000000745058,
+     "max": 16.5
+    },
+    "eventTiming": {
+     "n": 9,
+     "max": 32,
+     "p95": 32
+    }
+   },
+   "drag_resizeR": {
+    "n": 253,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.523809523812105,
+    "frameWork": {
+     "n": 254,
+     "p50": 0.5999999977648258,
+     "p95": 1.2999999970197678,
+     "max": 2.100000001490116
+    },
+    "renderCost": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "max": null
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 1.4281739130434794,
+     "scriptMsPerFrame": 0.17041501976284568,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "max": null
+    },
+    "eventTiming": {
+     "n": 21,
+     "max": 16,
+     "p95": 16
+    }
+   },
+   "drag_resizeL": {
+    "n": 252,
+    "p50": 16.69999999999709,
+    "p95": 16.700000000000728,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.88023952095548,
+    "frameWork": {
+     "n": 253,
+     "p50": 0.5999999977648258,
+     "p95": 1.199999999254942,
+     "max": 1.800000000745058
+    },
+    "renderCost": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "max": null
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 1.4464761904761956,
+     "scriptMsPerFrame": 0.24705952380952384,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "max": null
+    },
+    "eventTiming": {
+     "n": 13,
+     "max": 16,
+     "p95": 16
+    }
+   },
+   "drag_height": {
+    "n": 252,
+    "p50": 16.700000000000728,
+    "p95": 16.799999999999272,
+    "max": 16.80000000000291,
+    "over20": 0,
+    "fpsP95": 59.523809523812105,
+    "frameWork": {
+     "n": 253,
+     "p50": 0.5,
+     "p95": 1.1000000014901161,
+     "max": 2.300000000745058
+    },
+    "renderCost": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "max": null
+    },
+    "longtasks": 0,
+    "longtaskTotal": 0,
+    "longtaskMax": 0,
+    "cdp": {
+     "taskMsPerFrame": 1.3368452380952331,
+     "scriptMsPerFrame": 0.17112301587301554,
+     "layoutMsPerFrame": 0,
+     "styleMsPerFrame": 0,
+     "layoutCount": 0
+    },
+    "moveToHandler": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "max": null
+    },
+    "eventTiming": {
+     "n": 5,
+     "max": 16,
+     "p95": 16
+    }
+   },
+   "zoom": {
+    "n": 18,
+    "p50": 32.600000001490116,
+    "p95": 34.80000000074506,
+    "max": 34.80000000074506
+   },
+   "today": {
+    "n": 6,
+    "p50": 30,
+    "p95": 30.600000001490116,
+    "max": 30.600000001490116
+   },
+   "clickEventTimingMax": 40,
+   "heapMB_final": 3.664440155029297,
+   "dom_final": 17,
+   "modes": {
+    "full": 28,
+    "blit": 197,
+    "rows": 120
+   }
+  }
+ ]
+}
