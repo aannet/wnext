@@ -16,8 +16,8 @@ import { SchedulePage, ScheduleProject } from "./schedule";
 //    l'id). Absente à la création, elle vaut la dernière position du projet + 1.
 //  * Suppression refusée tant que des lignes y renvoient : client -> projets ; phase -> tâches, allocations, temps saisis, jalons ;
 //    tâche -> allocations, temps saisis, lignes de budget. Il faut d'abord les réaffecter ou les supprimer.
-//  * Pas de dates de phase contraintes par celles du projet (non imposé ici). Hors Schedule : ces entités ne sont PAS diffusées par le
-//    temps réel (le journal ne couvre que les entités de la grille) ; un client qui les affiche les relit par REST.
+//  * Pas de dates de phase contraintes par celles du projet (non imposé ici). Temps réel : clients, phases, tâches et jalons sont
+//    diffusés (ChangeEntity, realtime.ts) ; le message ne porte que la référence, le client relit l'entité par REST.
 //  * Jalons (/milestones) : une date d'échéance (`dueDate`) rattachée à un projet et, en option, à une phase DU MÊME projet (même règle
 //    que les tâches : phase d'un autre projet ou compte -> 404 params.entity = phase). `projectId` est fixé à la création. Liste filtrable
 //    par `projectId`, `phaseId` et par intervalle d'échéance `dueFrom`/`dueTo` (bornes incluses, indépendantes, pas de limite de durée ; intervalle inversé = liste vide),

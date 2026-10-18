@@ -18,9 +18,9 @@ import { SchedulePage } from "./schedule";
 //    projet (409 ALREADY_EXISTS, params.entity = budget_line). Au moins `hours` ou `amount` est renseigné ; PATCH modifie l'un ou
 //    l'autre (null le retire) et refuse (400) un état sans valeur. Tâche d'un autre projet ou d'un autre compte : 404 (entity =
 //    project_task) ; personne hors compte : 404 (entity = person). Pas besoin d'être dans l'équipe du projet.
-//    Suppression libre (non journalisée : la table n'a pas de trigger de suppression).
+//    Suppression libre.
 //  * Le budget global du projet (type, baseline, répartition, burn : BR-22) n'est PAS dans ce contrat : seules les lignes le sont.
-//  * Hors Schedule et hors temps réel : un client relit ces entités par REST.
+//  * Hors Schedule et hors temps réel (volontaire : données financières, voir ChangeEntity) : un client relit ces entités par REST.
 
 const name = z.string().min(1).max(200).regex(/\S/, "nom vide");
 const noEmpty = (p: object) => Object.keys(p).length > 0;

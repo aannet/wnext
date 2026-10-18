@@ -597,7 +597,7 @@ CREATE TABLE delete_log (
 CREATE INDEX idx_delete_log_cursor ON delete_log (account_id, id);              -- curseur monotone de sync
 CREATE INDEX idx_delete_log        ON delete_log (account_id, entity, deleted_at);
 
--- Journal de changements (outbox temps réel, ADR-003 §5). Une ligne par INSERT/UPDATE/DELETE d'une entité du Schedule,
+-- Journal de changements (outbox temps réel, ADR-003 §5). Une ligne par INSERT/UPDATE/DELETE d'une entité du Schedule ou de la structure des projets,
 -- alimentée par trigger (jamais par l'application). Le journal ne porte que des RÉFÉRENCES (entité, id, version) :
 -- le client recharge l'entité, ou l'API la joint à l'événement. `seq` est un compteur PAR COMPTE, sans trou ni
 -- dépassement : il est pris sous le verrou de ligne de account_change_seq, donc les écritures d'un même compte se
@@ -677,12 +677,36 @@ BEGIN
   RETURN NULL;
 END $$;
 
--- Entités visibles dans le Schedule (GET /schedule). Les cascades et les ON DELETE SET NULL déclenchent aussi ces
+-- Équipe projet : pas d'identifiant propre. Le journal porte l'id du PROJET, toujours en 'update' (« l'équipe de ce projet a
+-- changé »), avec le seq comme version (monotone par compte). La suppression du projet lui-même (cascade) n'ajoute rien : elle
+-- est déjà journalisée par projects. Les personnes supprimées en cascade journalisent en revanche chaque équipe touchée.
+CREATE FUNCTION log_team_change() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  v_row record := CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+  v_seq bigint;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM projects WHERE id = v_row.project_id AND account_id = v_row.account_id) THEN
+    RETURN NULL;
+  END IF;
+  INSERT INTO account_change_seq (account_id, seq) VALUES (v_row.account_id, 1)
+  ON CONFLICT (account_id) DO UPDATE SET seq = account_change_seq.seq + 1
+  RETURNING seq INTO v_seq;
+  INSERT INTO change_log (account_id, seq, entity, entity_id, op, version, changed_by)
+  VALUES (v_row.account_id, v_seq, 'project_team', v_row.project_id, 'update', v_seq, app_user_id());
+  PERFORM pg_notify('wnext_changes', v_row.account_id::text);
+  RETURN NULL;
+END $$;
+CREATE TRIGGER trg_92_change_log AFTER INSERT OR UPDATE OR DELETE ON project_team
+  FOR EACH ROW EXECUTE FUNCTION log_team_change();
+
+-- Entités journalisées : celles du Schedule (GET /schedule) et la structure des projets. Dépenses et lignes de budget en
+-- restent exclues (données financières : même l'existence d'un message serait une fuite pour les rôles sans droit de lecture). Les cascades et les ON DELETE SET NULL déclenchent aussi ces
 -- triggers : supprimer un département journalise la mise à jour des personnes concernées.
 DO $$
 DECLARE t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['allocations','timeoffs','people','holidays','projects','timeoff_types','departments','roles'] LOOP
+  FOREACH t IN ARRAY ARRAY['allocations','timeoffs','people','holidays','projects','timeoff_types','departments','roles',
+      'clients','phases','project_tasks','milestones'] LOOP
     EXECUTE format('CREATE TRIGGER trg_92_change_log AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION log_change()', t);
   END LOOP;
 END $$;

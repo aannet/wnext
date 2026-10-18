@@ -190,13 +190,15 @@ describe("suppression", () => {
   });
 });
 
-describe("hors temps réel", () => {
-  it("ces écritures ne produisent aucun changement dans le journal du Schedule", async () => {
-    const before = await n("SELECT count(*) AS n FROM change_log WHERE account_id = 1");
-    const m = Milestone.parse((await send("pm", "POST", url, { projectId: "1", name: "Silence", dueDate: "2026-12-01" })).body);
-    await send("pm", "PATCH", `${url}/${m.id}`, { name: "Silence 2" }, 1);
+describe("temps réel", () => {
+  it("création, modification et suppression apparaissent dans le journal avec la bonne version", async () => {
+    const before = await n("SELECT coalesce(max(seq), 0) AS n FROM change_log WHERE account_id = 1");
+    const m = Milestone.parse((await send("pm", "POST", url, { projectId: "1", name: "Bruit", dueDate: "2026-12-01" })).body);
+    await send("pm", "PATCH", `${url}/${m.id}`, { name: "Bruit 2" }, 1);
     await send("pm", "DELETE", `${url}/${m.id}`, undefined, 2);
-    expect(await n("SELECT count(*) AS n FROM change_log WHERE account_id = 1")).toBe(before);
+    const rows = (await pg.query<{ op: string; version: number | null }>(
+      `SELECT op, version FROM change_log WHERE account_id = 1 AND seq > ${before} AND entity = 'milestones' AND entity_id = ${m.id} ORDER BY seq`)).rows;
+    expect(rows).toEqual([{ op: "insert", version: 1 }, { op: "update", version: 2 }, { op: "delete", version: null }]);
   });
 });
 

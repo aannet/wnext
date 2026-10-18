@@ -286,13 +286,23 @@ describe("/api/v1/project-tasks", () => {
   });
 });
 
-describe("hors temps réel", () => {
-  it("ces écritures ne produisent aucun changement dans le journal du Schedule", async () => {
-    const before = await n("SELECT count(*) AS n FROM change_log WHERE account_id = 1");
-    await send("pm", "POST", "/api/v1/clients", { name: "Silence" });
-    const ph = Phase.parse((await send("pm", "POST", "/api/v1/phases", { projectId: "1", name: "Silence" })).body);
-    await send("pm", "POST", "/api/v1/project-tasks", { projectId: "1", name: "Silence", phaseId: ph.id });
-    expect(await n("SELECT count(*) AS n FROM change_log WHERE account_id = 1")).toBe(before);
+describe("temps réel", () => {
+  it("clients, phases et tâches sont journalisés (insert, update, delete) avec la bonne version", async () => {
+    const before = await n("SELECT coalesce(max(seq), 0) AS n FROM change_log WHERE account_id = 1");
+    const c = Client.parse((await send("pm", "POST", "/api/v1/clients", { name: "Bruit" })).body);
+    const ph = Phase.parse((await send("pm", "POST", "/api/v1/phases", { projectId: "1", name: "Bruit" })).body);
+    const t = ProjectTask.parse((await send("pm", "POST", "/api/v1/project-tasks", { projectId: "1", name: "Bruit", phaseId: ph.id })).body);
+    await send("pm", "PATCH", `/api/v1/clients/${c.id}`, { name: "Bruit 2" }, 1);
+    await send("pm", "DELETE", `/api/v1/project-tasks/${t.id}`, undefined, 1);
+    const rows = (await pg.query<{ entity: string; op: string; version: number | null }>(
+      `SELECT entity, op, version FROM change_log WHERE account_id = 1 AND seq > ${before} ORDER BY seq`)).rows;
+    expect(rows).toEqual([
+      { entity: "clients", op: "insert", version: 1 },
+      { entity: "phases", op: "insert", version: 1 },
+      { entity: "project_tasks", op: "insert", version: 1 },
+      { entity: "clients", op: "update", version: 2 },
+      { entity: "project_tasks", op: "delete", version: null },
+    ]);
   });
 });
 

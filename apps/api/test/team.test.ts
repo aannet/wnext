@@ -162,7 +162,7 @@ describe("POST .../removal", () => {
     // temps réel : les allocations supprimées sont dans le journal
     const ch = await readChanges(db, roles.admin!, head);
     if (ch.status !== "ok") throw new Error("expiré");
-    expect(ch.changes.map((c) => [c.entity, c.op])).toEqual([["allocations", "delete"], ["allocations", "delete"]]);
+    expect(ch.changes.map((c) => [c.entity, c.id, c.op])).toEqual([["allocations", expect.any(String), "delete"], ["allocations", expect.any(String), "delete"], ["project_team", "1", "update"]]);
   });
 
   it("rejouer le retrait : rien à supprimer, pas de confirmation requise, 200 à zéro", async () => {
