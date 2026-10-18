@@ -1220,6 +1220,64 @@
           }
         }
       },
+      "PersonList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SchedulePerson"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/SchedulePage"
+          }
+        },
+        "required": [
+          "items",
+          "page"
+        ]
+      },
+      "PersonProjectList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonProject"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/SchedulePage"
+          }
+        },
+        "required": [
+          "items",
+          "page"
+        ]
+      },
+      "PersonProject": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "$ref": "#/components/schemas/ScheduleProject"
+          },
+          "inTeam": {
+            "type": "boolean",
+            "description": "La personne est dans l'équipe du projet"
+          },
+          "allocationCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Lignes d'allocation de la personne sur ce projet (une série compte pour une)"
+          }
+        },
+        "required": [
+          "project",
+          "inTeam",
+          "allocationCount"
+        ]
+      },
       "PersonCreate": {
         "type": "object",
         "properties": {
@@ -3409,6 +3467,133 @@
       }
     },
     "/api/v1/people": {
+      "get": {
+        "operationId": "listPeople",
+        "summary": "Lister les personnes (pagine, tri par id ; actives par defaut ; tout membre authentifie)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Entités par page (défaut 200)"
+            },
+            "required": false,
+            "description": "Entités par page (défaut 200)",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Curseur de page renvoyé par page.nextCursor"
+            },
+            "required": false,
+            "description": "Curseur de page renvoyé par page.nextCursor",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Seulement les personnes de ce département"
+            },
+            "required": false,
+            "description": "Seulement les personnes de ce département",
+            "name": "departmentId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Seulement les personnes de ce rôle"
+            },
+            "required": false,
+            "description": "Seulement les personnes de ce rôle",
+            "name": "roleId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Seulement les personnes portant ce tag"
+            },
+            "required": false,
+            "description": "Seulement les personnes portant ce tag",
+            "name": "tag",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "\\S",
+              "description": "Sous-chaîne du nom, sans tenir compte de la casse"
+            },
+            "required": false,
+            "description": "Sous-chaîne du nom, sans tenir compte de la casse",
+            "name": "search",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "boolean",
+              "description": "Inclure les personnes désactivées (défaut : non)"
+            },
+            "required": false,
+            "description": "Inclure les personnes désactivées (défaut : non)",
+            "name": "includeInactive",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de personnes (items, page.nextCursor, page.total)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "operationId": "createPerson",
         "summary": "Creer une personne planifiable",
@@ -3487,6 +3672,63 @@
       }
     },
     "/api/v1/people/{id}": {
+      "get": {
+        "operationId": "getPerson",
+        "summary": "Lire une personne (desactivee comprise, avec sa version ; tout membre authentifie)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Personne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchedulePerson"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Personne inconnue ou hors compte (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "operationId": "updatePerson",
         "summary": "Modifier ou desactiver une personne (verrou optimiste If-Match ; pas de suppression)",
@@ -3585,6 +3827,116 @@
           },
           "428": {
             "description": "If-Match absent (PRECONDITION_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{id}/projects": {
+      "get": {
+        "operationId": "listPersonProjects",
+        "summary": "Projets d'une personne : equipe ou allocations (pagine, tri par id de projet ; archives exclus par defaut ; tout membre authentifie)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Entités par page (défaut 200)"
+            },
+            "required": false,
+            "description": "Entités par page (défaut 200)",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Curseur de page renvoyé par page.nextCursor"
+            },
+            "required": false,
+            "description": "Curseur de page renvoyé par page.nextCursor",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tentative",
+                "planned",
+                "in_progress",
+                "on_hold",
+                "completed",
+                "archived"
+              ],
+              "description": "Seulement les projets de ce statut (les archivés ne sont listés que sur demande : status=archived)"
+            },
+            "required": false,
+            "description": "Seulement les projets de ce statut (les archivés ne sont listés que sur demande : status=archived)",
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de projets avec inTeam et allocationCount",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonProjectList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Personne inconnue ou hors compte (NOT_FOUND)",
             "content": {
               "application/json": {
                 "schema": {

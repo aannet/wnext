@@ -14,7 +14,7 @@ export {
   RealtimeReady, RealtimeResync, RealtimeServerMessage, RealtimeSubscribe, RealtimeTicket,
 } from "./realtime";
 export { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
-export { PersonCreate, PersonPatch, PersonPathParams } from "./people";
+export { PersonCreate, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProject, PersonProjectList, PersonProjectListQuery } from "./people";
 export { TEAM_BATCH_MAX, TeamBatchAdd, TeamBatchResult, TeamMember, TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalConfirmation, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
 export {
   DepartmentCreate, DepartmentList, DepartmentPatch, HolidayCreate, HolidayList, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectDetail,

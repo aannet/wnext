@@ -236,6 +236,22 @@ export interface TimeoffPatch {
   notes?: string | null;
 }
 
+export interface PersonList {
+  items: Array<SchedulePerson>;
+  page: SchedulePage;
+}
+
+export interface PersonProjectList {
+  items: Array<PersonProject>;
+  page: SchedulePage;
+}
+
+export interface PersonProject {
+  project: ScheduleProject;
+  inTeam: boolean;
+  allocationCount: number;
+}
+
 export interface PersonCreate {
   name: string;
   peopleType?: SchedulePeopleType;
@@ -650,11 +666,39 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as void }
         : { ok: false, status: res.status, error: body as ApiError };
     },
+    /** Lister les personnes (pagine, tri par id ; actives par defaut ; tout membre authentifie) (GET /api/v1/people) */
+    async listPeople(query: {
+      limit?: number;
+      cursor?: string;
+      departmentId?: string;
+      roleId?: string;
+      tag?: string;
+      search?: string;
+      includeInactive?: boolean;
+    } = {}): Promise<ApiResult<PersonList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/people" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as PersonList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
     /** Creer une personne planifiable (POST /api/v1/people) */
     async createPerson(input: {
       body: PersonCreate;
     }): Promise<ApiResult<SchedulePerson, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/people", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as SchedulePerson }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire une personne (desactivee comprise, avec sa version ; tout membre authentifie) (GET /api/v1/people/{id}) */
+    async getPerson(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<SchedulePerson, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/people/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as SchedulePerson }
@@ -674,6 +718,23 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as SchedulePerson }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Projets d'une personne : equipe ou allocations (pagine, tri par id de projet ; archives exclus par defaut ; tout membre authentifie) (GET /api/v1/people/{id}/projects) */
+    async listPersonProjects(input: {
+      path: {
+        id: Id;
+      };
+      query?: {
+        limit?: number;
+        cursor?: string;
+        status?: "tentative" | "planned" | "in_progress" | "on_hold" | "completed" | "archived";
+      };
+    }): Promise<ApiResult<PersonProjectList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/people/" + encodeURIComponent(String(input.path.id)) + "/projects" + toQueryString(input.query ?? {}), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as PersonProjectList }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Recapitulatif du retrait d'une personne d'un projet (BR-10) : ce qui serait supprime, sans rien ecrire (GET /api/v1/projects/{projectId}/team/{personId}/removal-summary) */

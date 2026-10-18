@@ -4,7 +4,7 @@ import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
 import { REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket } from "./realtime";
 import { TeamBatchAdd, TeamBatchResult, TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
-import { PersonCreate, PersonPatch, PersonPathParams } from "./people";
+import { PersonCreate, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProjectList, PersonProjectListQuery } from "./people";
 import { ScheduleDepartment, ScheduleHoliday, SchedulePerson, ScheduleAllocation, ScheduleRole, ScheduleTimeoffType, ScheduleQuery, ScheduleResponse, ScheduleTimeoff } from "./schedule";
 import {
   DepartmentCreate, DepartmentList, DepartmentPatch, HolidayCreate, HolidayList, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectDetail,
@@ -242,6 +242,47 @@ export const routes: RouteContract[] = [
       404: { description: "Conge inconnu (NOT_FOUND)", schema: ApiError },
       409: { description: "Version perimee (VERSION_CONFLICT, params.currentVersion)", schema: ApiError },
       428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/people",
+    operationId: "listPeople",
+    summary: "Lister les personnes (pagine, tri par id ; actives par defaut ; tout membre authentifie)",
+    query: PersonListQuery,
+    responses: {
+      200: { description: "Page de personnes (items, page.nextCursor, page.total)", schema: PersonList },
+      400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/people/{id}",
+    operationId: "getPerson",
+    summary: "Lire une personne (desactivee comprise, avec sa version ; tout membre authentifie)",
+    params: PersonPathParams,
+    responses: {
+      200: { description: "Personne", schema: SchedulePerson },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      404: { description: "Personne inconnue ou hors compte (NOT_FOUND)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/people/{id}/projects",
+    operationId: "listPersonProjects",
+    summary: "Projets d'une personne : equipe ou allocations (pagine, tri par id de projet ; archives exclus par defaut ; tout membre authentifie)",
+    params: PersonPathParams,
+    query: PersonProjectListQuery,
+    responses: {
+      200: { description: "Page de projets avec inTeam et allocationCount", schema: PersonProjectList },
+      400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      404: { description: "Personne inconnue ou hors compte (NOT_FOUND)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },
