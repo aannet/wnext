@@ -1296,6 +1296,24 @@
           "allocationCount"
         ]
       },
+      "PersonAllocationList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleAllocation"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/SchedulePage"
+          }
+        },
+        "required": [
+          "items",
+          "page"
+        ]
+      },
       "PersonCreate": {
         "type": "object",
         "properties": {
@@ -4151,6 +4169,145 @@
           },
           "404": {
             "description": "Personne inconnue ou hors compte (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{id}/allocations": {
+      "get": {
+        "operationId": "listPersonAllocations",
+        "summary": "Allocations d'une personne sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Entités par page (défaut 200)"
+            },
+            "required": false,
+            "description": "Entités par page (défaut 200)",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Curseur de page renvoyé par page.nextCursor"
+            },
+            "required": false,
+            "description": "Curseur de page renvoyé par page.nextCursor",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Début de la fenêtre (inclus)"
+            },
+            "required": true,
+            "description": "Début de la fenêtre (inclus)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Fin de la fenêtre (incluse). 400 jours au plus, sinon SCHEDULE_RANGE_INVALID"
+            },
+            "required": true,
+            "description": "Fin de la fenêtre (incluse). 400 jours au plus, sinon SCHEDULE_RANGE_INVALID",
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Seulement les allocations de ce projet"
+            },
+            "required": false,
+            "description": "Seulement les allocations de ce projet",
+            "name": "projectId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tentative",
+                "confirmed"
+              ],
+              "description": "Seulement les allocations de ce statut"
+            },
+            "required": false,
+            "description": "Seulement les allocations de ce statut",
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page d'allocations (items, page.nextCursor, page.total)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonAllocationList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (VALIDATION_FAILED, SCHEDULE_RANGE_INVALID, SCHEDULE_CURSOR_INVALID)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Personne inconnue ou hors compte (NOT_FOUND, params.entity = person)",
             "content": {
               "application/json": {
                 "schema": {

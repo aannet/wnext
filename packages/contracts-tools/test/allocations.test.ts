@@ -1,7 +1,7 @@
 // Contrat d'écriture des allocations : validation des corps, en-tête If-Match, statuts documentés, absence de fuite.
 import "../src/zod-setup";
 import { describe, expect, it } from "vitest";
-import { AllocationCreate, AllocationPatch, ErrorCode, IfMatchHeader, ProjectAllocationList, ProjectAllocationListQuery, ProjectPathParams, routes } from "@wnext/contracts";
+import { AllocationCreate, AllocationPatch, ErrorCode, IfMatchHeader, PersonAllocationList, PersonAllocationListQuery, PersonPathParams, ProjectAllocationList, ProjectAllocationListQuery, ProjectPathParams, routes } from "@wnext/contracts";
 import { buildSpec } from "../src/openapi";
 
 const valid = { personId: "1", projectId: "2", startDate: "2026-03-02", endDate: "2026-03-06", load: { mode: "hours", hoursPerDay: 6 } } as const;
@@ -107,5 +107,29 @@ describe("lecture des allocations", () => {
   it("la spec garde l'écriture sur le même chemin", () => {
     const spec = buildSpec() as { paths: Record<string, Record<string, unknown>> };
     expect(Object.keys(spec.paths["/api/v1/allocations/{id}"]!).sort()).toEqual(["delete", "get", "patch"]);
+  });
+});
+
+describe("lecture des allocations d'une personne", () => {
+  const alloc = { id: "1", version: 1, personId: "2", projectId: "3", phaseId: null, taskId: null, groupId: null, name: null, notes: null, startDate: "2026-03-02", endDate: "2026-03-06", status: "confirmed", billable: true, priority: 0, repeatState: "none", repeatEndDate: null, mode: "hours", hoursPerDay: 8, percent: null };
+  it("fenêtre obligatoire ; filtres projet et statut", () => {
+    const q = { from: "2026-03-02", to: "2026-03-06" };
+    expect(ok(PersonAllocationListQuery, q)).toBe(true);
+    expect(ok(PersonAllocationListQuery, { ...q, projectId: "4", status: "confirmed", limit: 10 })).toBe(true);
+    for (const b of [{}, { from: "2026-03-02" }, { to: "2026-03-06" }, { ...q, status: "draft" }, { ...q, projectId: "" }, { ...q, limit: 501 }]) {
+      expect(ok(PersonAllocationListQuery, b), JSON.stringify(b)).toBe(false);
+    }
+  });
+  it("la page renvoie des ScheduleAllocation", () => {
+    expect(ok(PersonAllocationList, { items: [alloc], page: { nextCursor: null, total: 1 } })).toBe(true);
+    expect(ok(PersonAllocationList, { items: [{ ...alloc, percent: 50 }], page: { nextCursor: null, total: 1 } })).toBe(false);
+  });
+  it("route : lecture seule, ouverte à tout membre", () => {
+    const r = routes.find((x) => x.operationId === "listPersonAllocations")!;
+    expect([r.method, r.path, r.params, r.query]).toEqual(["get", "/api/v1/people/{id}/allocations", PersonPathParams, PersonAllocationListQuery]);
+    expect(r.body).toBeUndefined();
+    expect(r.responses[403]).toBeUndefined();
+    expect(r.responses[404]).toBeDefined();
+    expect(r.responses[400]).toBeDefined();
   });
 });

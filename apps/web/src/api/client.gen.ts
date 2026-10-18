@@ -257,6 +257,11 @@ export interface PersonProject {
   allocationCount: number;
 }
 
+export interface PersonAllocationList {
+  items: Array<ScheduleAllocation>;
+  page: SchedulePage;
+}
+
 export interface PersonCreate {
   name: string;
   peopleType?: SchedulePeopleType;
@@ -772,6 +777,26 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as PersonProjectList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Allocations d'une personne sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie) (GET /api/v1/people/{id}/allocations) */
+    async listPersonAllocations(input: {
+      path: {
+        id: Id;
+      };
+      query: {
+        limit?: number;
+        cursor?: string;
+        from: string;
+        to: string;
+        projectId?: string;
+        status?: "tentative" | "confirmed";
+      };
+    }): Promise<ApiResult<PersonAllocationList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/people/" + encodeURIComponent(String(input.path.id)) + "/allocations" + toQueryString(input.query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as PersonAllocationList }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Recapitulatif du retrait d'une personne d'un projet (BR-10) : ce qui serait supprime, sans rien ecrire (GET /api/v1/projects/{projectId}/team/{personId}/removal-summary) */

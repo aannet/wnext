@@ -27,6 +27,9 @@ import { SchedulePage, ScheduleAllocation } from "./schedule";
 //        Projet inconnu ou hors compte : 404 NOT_FOUND (params.entity = project) ; un projet archivé se lit. Les personnes
 //        désactivées gardent leurs allocations. Une personne ou un statut inconnu en filtre ne donne pas d'erreur de référence :
 //        liste vide (sauf identifiant non numérique ou statut hors énumération : 400 VALIDATION_FAILED).
+//      - GET /people/{id}/allocations : symétrique pour une personne (fiche personne). Mêmes règles (fenêtre obligatoire, chevauchement,
+//        série renvoyée une fois, pagination sur `id`) ; filtres `projectId`, `status`. Personne inconnue ou hors compte : 404 NOT_FOUND
+//        (params.entity = person) ; une personne désactivée se lit. Les allocations de projets archivés sont incluses.
 
 export const AllocationLoad = z
   .discriminatedUnion("mode", [
@@ -89,3 +92,12 @@ export const ProjectAllocationListQuery = ReferenceListQuery.extend({
 });
 export type ProjectAllocationListQuery = z.infer<typeof ProjectAllocationListQuery>;
 export const ProjectAllocationList = z.object({ items: z.array(ScheduleAllocation), page: SchedulePage }).meta({ id: "ProjectAllocationList" });
+
+export const PersonAllocationListQuery = ReferenceListQuery.extend({
+  from: IsoDate.describe("Début de la fenêtre (inclus)"),
+  to: IsoDate.describe("Fin de la fenêtre (incluse). 400 jours au plus, sinon SCHEDULE_RANGE_INVALID"),
+  projectId: Id.optional().describe("Seulement les allocations de ce projet"),
+  status: z.enum(["tentative", "confirmed"]).optional().describe("Seulement les allocations de ce statut"),
+});
+export type PersonAllocationListQuery = z.infer<typeof PersonAllocationListQuery>;
+export const PersonAllocationList = z.object({ items: z.array(ScheduleAllocation), page: SchedulePage }).meta({ id: "PersonAllocationList" });
