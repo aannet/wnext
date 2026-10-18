@@ -5,7 +5,7 @@ import { devAuthenticate, loadConfig, pgDb } from "../src/index";
 describe("loadConfig", () => {
   const base = { DATABASE_URL: "postgres://x" };
   it("valeurs par défaut", () => {
-    expect(loadConfig(base)).toEqual({ databaseUrl: "postgres://x", dbRole: undefined, host: "127.0.0.1", port: 3000, authMode: "dev", pollIntervalMs: 1000, wsMaxPerAccount: 200 });
+    expect(loadConfig(base)).toEqual({ databaseUrl: "postgres://x", dbRole: undefined, host: "127.0.0.1", port: 3000, authMode: "dev", pollIntervalMs: 1000, wsMaxPerAccount: 200, rateLimits: { windowSeconds: 60, ticketsPerUser: 30, ticketsPerAccount: 300, upgradesPerAccount: 120 } });
   });
   it.each([
     ["DATABASE_URL absent", {}],

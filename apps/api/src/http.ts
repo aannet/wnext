@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonPatch, PersonProjectListQuery, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
+import type { RateLimiter } from "./rate-limit";
 import { allocationReader, createAllocation, deleteAllocation, listPersonAllocations, listProjectAllocations, updateAllocation } from "./allocations";
 import { budgetLineReader, createBudgetLine, createExpense, deleteBudgetLine, deleteExpense, expenseReader, updateBudgetLine, updateExpense } from "./budget";
 import { createPerson, listPersonProjects, personReader, updatePerson } from "./people";
@@ -27,6 +28,8 @@ export interface HttpDeps {
   authenticate(headers: Record<string, string | string[] | undefined>): Promise<RequestContext | null>;
   /** Émission des tickets d'upgrade temps réel ; absent = la route n'existe pas. */
   tickets?: Pick<TicketService, "issue">;
+  /** Limites d'émission des tickets (par utilisateur puis par compte) ; absent = pas de limite. */
+  ticketLimits?: { perUser: RateLimiter; perAccount: RateLimiter };
   newRequestId?(): string;
   onError?(err: unknown, requestId: string): void;
 }
@@ -38,7 +41,7 @@ export interface HttpRequest {
   /** Corps brut (texte) ; absent = aucun corps. */
   body?: string;
 }
-export interface HttpReply { status: number; body: unknown }
+export interface HttpReply { status: number; body: unknown; /** En-têtes supplémentaires (noms en minuscules), ex. retry-after. */ headers?: Record<string, string> }
 
 const STATUS: Record<ApiError["code"], number> = {
   INTERNAL_ERROR: 500,
@@ -56,6 +59,7 @@ const STATUS: Record<ApiError["code"], number> = {
   TEAM_REMOVAL_CONFIRMATION_REQUIRED: 428,
   TEAM_REMOVAL_STALE_CONFIRMATION: 409,
   TEAM_REMOVAL_LOCKED_LOGS: 409,
+  RATE_LIMITED: 429,
 };
 
 const fail = (code: ApiError["code"], requestId: string, params: ApiError["params"] = {}): HttpReply =>
@@ -163,6 +167,9 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
     if (req.method === "POST" && url.pathname === REALTIME_TICKET_PATH && deps.tickets) {
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      // Utilisateur d'abord : un utilisateur trop insistant n'épuise pas le quota de son compte. Après l'authentification : un anonyme ne consomme rien.
+      const wait = deps.ticketLimits?.perUser.hit(`${ctx.accountId}:${ctx.userId}`) || deps.ticketLimits?.perAccount.hit(ctx.accountId) || 0;
+      if (wait > 0) return { ...fail("RATE_LIMITED", requestId, { retryAfterSeconds: wait }), headers: { "retry-after": String(wait) } };
       return { status: 200, body: deps.tickets.issue(ctx) };
     }
     if (req.method === "GET" && url.pathname === "/api/v1/schedule") {
@@ -275,7 +282,7 @@ export function createHttpServer(deps: HttpDeps): Server {
     incoming.on("end", () => {
       const req: HttpRequest = { method: incoming.method ?? "GET", url: incoming.url ?? "/", headers: incoming.headers, body: tooLarge ? "\u0000" : size ? Buffer.concat(chunks).toString("utf8") : undefined };
       dispatch(deps, req).then((reply) => {
-        res.writeHead(reply.status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+        res.writeHead(reply.status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...reply.headers });
         res.end(reply.body === undefined ? undefined : JSON.stringify(reply.body));
       });
     });

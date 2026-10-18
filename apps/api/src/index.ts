@@ -12,6 +12,7 @@ export * from "./auth-dev";
 export * from "./auth-oidc";
 export * from "./pg-db";
 export * from "./pg-listen";
+export * from "./rate-limit";
 export * from "./tickets";
 export * from "./ws";
 export * from "./server";

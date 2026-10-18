@@ -16,6 +16,9 @@ DATABASE_URL=postgres://app_user@localhost/wnext npm run start -w @wnext/api
 | `WS_MAX_PER_ACCOUNT` | `200` | Connexions WebSocket simultanées par compte ; au-delà, l'upgrade reçoit `429` + `Retry-After` (contrat realtime : `REALTIME_RETRY_AFTER_SECONDS`) (1–100000). |
 | `POLL_INTERVAL_MS` | `1000` | Période du sondage de `change_log` pour le flux temps réel (50–60000). |
 | `WS_TICKET_SECRET` | aléatoire par processus | Secret (32 caractères au moins) qui signe les tickets d'upgrade WebSocket ; **requis en production**, identique sur toutes les instances. |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60` | Durée de la fenêtre glissante des limites de débit ci-dessous (1–3600). |
+| `TICKET_RATE_PER_USER` / `TICKET_RATE_PER_ACCOUNT` | `30` / `300` | Tickets d'upgrade délivrés par utilisateur (dans un compte) et par compte et par fenêtre ; au-delà, `429` `RATE_LIMITED` (0 = pas de limite, max 1000000). |
+| `WS_UPGRADE_RATE_PER_ACCOUNT` | `120` | Tentatives de connexion WebSocket authentifiées par compte et par fenêtre ; au-delà, l'upgrade reçoit `429` + `Retry-After` (0 = pas de limite). |
 | `AUTH_MODE` | `dev` | `dev` (en-têtes sans preuve, refusé en production) ou `oidc` (jeton porteur). |
 | `OIDC_ISSUER` / `OIDC_AUDIENCE` / `OIDC_JWKS_URL` | — | Requis en mode `oidc` : émetteur (`iss`) et audience (`aud`) attendus, point JWKS du fournisseur (https en production). |
 
@@ -47,6 +50,7 @@ Premier message : `{"v":1,"type":"subscribe","cursor":"<changeCursor de GET /sch
 - Sans état : identité + échéance + identifiant aléatoire, signés en HMAC-SHA256 (`WS_TICKET_SECRET`) ; toute instance émet et accepte.
 - Usage unique **par instance** (mémoire des identifiants présentés) : un ticket rejoué sur une autre instance dans ses 30 s serait accepté. Risque accepté, le fermer demande un stockage partagé.
 - Avec `?ticket=`, le ticket est la seule preuve (jamais de repli sur les en-têtes) ; invalide, expiré, rejoué ou répété : 401.
+- **Limites de débit** (fenêtre glissante en mémoire, voir `RATE_LIMIT_WINDOW_SECONDS` et les trois variables associées) : l'émission d'un ticket est limitée par utilisateur puis par compte (`429` `RATE_LIMITED`, `params.retryAfterSeconds` et en-tête `Retry-After`), les tentatives de connexion par compte (`429` + `Retry-After` d'au moins `REALTIME_RETRY_AFTER_SECONDS`, comme le plafond de connexions simultanées). L'authentification passe avant : un anonyme ne consomme aucun quota, et une tentative refusée n'est pas comptée. **Limite par processus** : avec N instances, la limite effective d'une clé peut atteindre N fois la valeur configurée ; un quota exact demanderait un stockage partagé. Un ticket présenté à l'upgrade est consommé même si l'upgrade est refusé en 429 : le client en redemande un.
 - Le rôle est figé à l'émission (30 s) ; le flux ne diffuse que des références du compte, sans autorisation par rôle.
 
 ## Arrêt

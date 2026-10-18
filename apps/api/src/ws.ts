@@ -4,6 +4,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { createChangeHub, type ChangeNotifier } from "./change-hub";
 import type { Db, RequestContext } from "./db";
 import { createRealtimeSession } from "./realtime";
+import type { RateLimiter } from "./rate-limit";
 import type { TicketService } from "./tickets";
 
 // Adaptateur WebSocket de la session temps réel (contrat : packages/contracts/src/realtime.ts). Il ne fait que du transport :
@@ -22,6 +23,8 @@ export interface RealtimeAttachOptions {
   maxPerAccount?: number;
   /** Tickets d'upgrade (`?ticket=`) pour les clients sans en-tête ; absent = seuls les en-têtes authentifient. */
   tickets?: Pick<TicketService, "redeem">;
+  /** Limite de débit des tentatives de connexion authentifiées, par compte ; refus en 429 avec Retry-After. Absent = pas de limite. */
+  upgradeLimiter?: RateLimiter;
   onError?: (err: unknown) => void;
 }
 
@@ -65,6 +68,9 @@ export function attachRealtime(server: Server, opts: RealtimeAttachOptions): { c
     identity.then(
       (ctx) => {
         if (!ctx) return reject(socket, `${REALTIME_UPGRADE_STATUS.unauthenticated} Unauthorized`);
+        // Après l'authentification (un anonyme ne consomme rien) et avant la réservation d'une place : un refus ne retient pas de connexion.
+        const wait = opts.upgradeLimiter?.hit(ctx.accountId) ?? 0;
+        if (wait > 0) return reject(socket, `${REALTIME_UPGRADE_STATUS.tooManyConnections} Too Many Requests`, `Retry-After: ${Math.max(wait, REALTIME_RETRY_AFTER_SECONDS)}\r\n`);
         const release = reserve(ctx.accountId);
         if (!release) return reject(socket, `${REALTIME_UPGRADE_STATUS.tooManyConnections} Too Many Requests`, `Retry-After: ${REALTIME_RETRY_AFTER_SECONDS}\r\n`);
         socket.once("close", release);

@@ -16,7 +16,22 @@ export interface Config {
   wsMaxPerAccount: number;
   /** Secret des tickets d'upgrade WebSocket ; absent = aléatoire par processus (interdit en production : les instances doivent le partager). */
   wsTicketSecret?: string;
+  /** Limites de débit (fenêtre glissante, par processus) ; une valeur 0 désactive la limite correspondante. */
+  rateLimits: RateLimitConfig;
 }
+
+export interface RateLimitConfig {
+  /** Durée de la fenêtre glissante, en secondes. */
+  windowSeconds: number;
+  /** Tickets d'upgrade délivrés par utilisateur et par fenêtre (POST /realtime/ticket). */
+  ticketsPerUser: number;
+  /** Tickets délivrés par compte et par fenêtre. */
+  ticketsPerAccount: number;
+  /** Tentatives de connexion WebSocket (upgrades authentifiés) par compte et par fenêtre. */
+  upgradesPerAccount: number;
+}
+
+export const DEFAULT_RATE_LIMITS: RateLimitConfig = { windowSeconds: 60, ticketsPerUser: 30, ticketsPerAccount: 300, upgradesPerAccount: 120 };
 
 export function loadConfig(env: Record<string, string | undefined>): Config {
   const databaseUrl = env.DATABASE_URL;
@@ -55,5 +70,11 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     pollIntervalMs: int("POLL_INTERVAL_MS", 1000, 50, 60_000),
     wsMaxPerAccount: int("WS_MAX_PER_ACCOUNT", 200, 1, 100_000),
     wsTicketSecret,
+    rateLimits: {
+      windowSeconds: int("RATE_LIMIT_WINDOW_SECONDS", DEFAULT_RATE_LIMITS.windowSeconds, 1, 3600),
+      ticketsPerUser: int("TICKET_RATE_PER_USER", DEFAULT_RATE_LIMITS.ticketsPerUser, 0, 1_000_000),
+      ticketsPerAccount: int("TICKET_RATE_PER_ACCOUNT", DEFAULT_RATE_LIMITS.ticketsPerAccount, 0, 1_000_000),
+      upgradesPerAccount: int("WS_UPGRADE_RATE_PER_ACCOUNT", DEFAULT_RATE_LIMITS.upgradesPerAccount, 0, 1_000_000),
+    },
   };
 }
