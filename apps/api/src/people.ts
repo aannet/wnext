@@ -1,4 +1,4 @@
-import type { PersonCreate, PersonPatch, PersonProject } from "@wnext/contracts";
+import type { PersonCreate, PersonDeactivationQuery, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonPatch, PersonProject } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor, reader } from "./reference";
@@ -62,6 +62,74 @@ export async function updatePerson(db: Db, ctx: RequestContext, id: string, expe
     );
     if (!rows[0]) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: Number(cur.row_version) + 1 });
     return toSchedulePerson(rows[0]);
+  });
+}
+
+// --- Désactivation avec allocations futures (BR-31) --------------------------------------------------------------------
+// Voir le contrat (people.ts) : « futures » = fin effective (fin de série sinon fin) >= asOf, lignes traitées en entier. Une seule
+// transaction ; la personne (et le remplaçant, dans l'ordre croissant des identifiants : pas d'interblocage) est verrouillée, donc une
+// allocation insérée en parallèle attend la fin et la confirmation reste exacte.
+
+const FUTURE = "account_id = $1::bigint AND person_id = $2::bigint AND COALESCE(repeat_end_date, end_date) >= $3::date";
+const today = () => new Date().toISOString().slice(0, 10);
+
+async function loadDeactivation(tx: Queryable, ctx: RequestContext, id: string, asOf: string, lock: boolean, extraLock?: string) {
+  if (!isId(id)) throw notFound("person");
+  const ids = extraLock !== undefined && isId(extraLock) ? [id, extraLock] : [id];
+  const people = (await tx.query<Row>(
+    `SELECT id, active FROM people WHERE account_id = $1::bigint AND id = ANY ($2::bigint[]) ORDER BY id${lock ? " FOR UPDATE" : ""}`,
+    [ctx.accountId, ids],
+  )).rows;
+  const person = people.find((p) => String(p.id) === id);
+  if (!person) throw notFound("person");
+  const s = (await tx.query<Row>(
+    `SELECT count(*) AS n, count(DISTINCT project_id) AS projects, min(start_date)::text AS first, max(COALESCE(repeat_end_date, end_date))::text AS last
+       FROM allocations WHERE ${FUTURE}`,
+    [ctx.accountId, id, asOf],
+  )).rows[0]!;
+  const summary: PersonDeactivationSummary = {
+    alreadyInactive: !person.active, asOf, allocationCount: Number(s.n), projectCount: Number(s.projects),
+    firstAllocation: s.first === null ? null : String(s.first), lastAllocation: s.last === null ? null : String(s.last),
+  };
+  return { summary, replacement: extraLock === undefined ? undefined : people.find((p) => String(p.id) === extraLock) };
+}
+
+export async function getPersonDeactivationSummary(db: Db, ctx: RequestContext, id: string, query: PersonDeactivationQuery): Promise<PersonDeactivationSummary> {
+  assertWriter(ctx);
+  return withContext(db, ctx, async (tx) => (await loadDeactivation(tx, ctx, id, query.asOf ?? today(), false)).summary);
+}
+
+export async function deactivatePerson(db: Db, ctx: RequestContext, id: string, request: PersonDeactivationRequest): Promise<PersonDeactivationResult> {
+  assertWriter(ctx);
+  return withContext(db, ctx, async (tx) => {
+    const asOf = request.asOf ?? today();
+    const { summary, replacement } = await loadDeactivation(tx, ctx, id, asOf, true, request.replacementId);
+    // Les params d'erreur sont des scalaires : dates nulles omises.
+    const { firstAllocation, lastAllocation, ...rest } = summary;
+    const params = { ...rest, ...(firstAllocation && { firstAllocation }), ...(lastAllocation && { lastAllocation }) };
+    if (summary.allocationCount > 0) {
+      if (request.disposition === undefined || request.confirmation === undefined) throw new ApiFailure("PERSON_DEACTIVATION_CONFIRMATION_REQUIRED", params);
+      if (request.confirmation.allocationCount !== summary.allocationCount) throw new ApiFailure("PERSON_DEACTIVATION_STALE_CONFIRMATION", params);
+    }
+    let reassigned = 0;
+    let deleted = 0;
+    if (summary.allocationCount > 0 && request.disposition === "reassign") {
+      const rid = request.replacementId!;
+      if (rid === id) throw new ApiFailure("PERSON_DEACTIVATION_INVALID_REPLACEMENT", { reason: "same_person" });
+      if (!replacement) throw new ApiFailure("NOT_FOUND", { entity: "person", replacementId: rid });
+      if (!replacement.active) throw new ApiFailure("PERSON_DEACTIVATION_INVALID_REPLACEMENT", { reason: "inactive" });
+      reassigned = (await tx.query(`UPDATE allocations SET person_id = $4::bigint WHERE ${FUTURE} RETURNING id`, [ctx.accountId, id, asOf, rid])).rows.length;
+    } else if (summary.allocationCount > 0) {
+      deleted = (await tx.query(`DELETE FROM allocations WHERE ${FUTURE} RETURNING id`, [ctx.accountId, id, asOf])).rows.length;
+    }
+    // Rejouer sur une personne déjà inactive n'écrit pas (la version ne bouge pas).
+    const { rows } = await tx.query<Row>(
+      summary.alreadyInactive
+        ? `SELECT ${PERSON_COLUMNS} FROM people WHERE id = $1::bigint AND account_id = $2::bigint`
+        : `UPDATE people SET active = false WHERE id = $1::bigint AND account_id = $2::bigint RETURNING ${PERSON_COLUMNS}`,
+      [id, ctx.accountId],
+    );
+    return { person: toSchedulePerson(rows[0]!), reassignedAllocations: reassigned, deletedAllocations: deleted };
   });
 }
 

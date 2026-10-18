@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Id, orNull } from "./common";
+import { Id, IsoDate, orNull } from "./common";
 import { ReferenceListQuery } from "./reference";
 import { SchedulePage, SchedulePeopleType, SchedulePerson, ScheduleProject } from "./schedule";
 
@@ -80,3 +80,60 @@ export const PersonProjectListQuery = ReferenceListQuery.extend({
 });
 export type PersonProjectListQuery = z.infer<typeof PersonProjectListQuery>;
 export const PersonProjectList = z.object({ items: z.array(PersonProject), page: SchedulePage }).meta({ id: "PersonProjectList" });
+
+// Désactivation d'une personne avec ses allocations futures (BR-31 : suppression/désactivation, PAS réallocation automatique).
+// Désactiver par PATCH `active: false` ne touche à rien (BR-04) ; cette voie en deux temps règle le sort des allocations à venir,
+// sur le modèle du retrait d'équipe (BR-10, team.ts) : jamais de suppression silencieuse.
+//  1. GET  /people/{id}/deactivation-summary : récapitulatif des allocations « futures » (aucune écriture).
+//  2. POST /people/{id}/deactivation : désactive la personne et applique `disposition` à ses allocations futures, en UNE transaction.
+//  * « Futures » = lignes dont la fin effective (`repeatEndDate` pour une série, sinon `endDate`) est >= `asOf` (défaut : aujourd'hui,
+//    date UTC du serveur ; `asOf` existe pour rendre le calcul reproductible). Une allocation déjà commencée mais non terminée est
+//    donc concernée EN ENTIER (la ligne est réaffectée ou supprimée d'un bloc ; elle n'est jamais coupée). Le passé n'est jamais touché.
+//  * `disposition` : `reassign` (avec `replacementId`) change la personne des lignes futures ; `delete` les supprime. Les temps saisis
+//    (logged_time) ne sont jamais supprimés ni transférés : ils restent à la personne désactivée.
+//  * Le remplaçant est OPTIONNEL et jamais deviné par le serveur : c'est au client de le proposer. Il doit être une autre personne
+//    ACTIVE du compte (inconnu : 404 NOT_FOUND, params.entity = person, params.replacementId ; la personne elle-même ou une personne
+//    désactivée : 409 PERSON_DEACTIVATION_INVALID_REPLACEMENT, params.reason = same_person|inactive). Aucun contrôle de capacité (BR-01).
+//  * Garde de confirmation : s'il y a des allocations futures, `disposition` et `confirmation.allocationCount` (ce que l'utilisateur
+//    a vu) sont obligatoires : 428 PERSON_DEACTIVATION_CONFIRMATION_REQUIRED, `params` = récapitulatif. Si le décompte a changé :
+//    409 PERSON_DEACTIVATION_STALE_CONFIRMATION, `params` = nouveau récapitulatif. Sans allocation future, rien d'autre n'est requis.
+//  * Une personne déjà désactivée peut encore être traitée (ses allocations futures restantes) ; rejouer sans allocation future ne change rien.
+//  * Réservé à owner, admin et project_manager (403 FORBIDDEN, avant la validation du corps). Personne hors compte : 404 NOT_FOUND.
+//  * Le délai « Annuler » de 10 s (BR-40) est côté client. Les `params` d'erreur sont des scalaires : les dates absentes sont omises.
+export const PersonDeactivationQuery = z.object({ asOf: IsoDate.optional().describe("Date de référence de « futur » (défaut : aujourd'hui UTC)") });
+export type PersonDeactivationQuery = z.infer<typeof PersonDeactivationQuery>;
+
+export const PersonDeactivationSummary = z
+  .object({
+    alreadyInactive: z.boolean(),
+    asOf: IsoDate,
+    allocationCount: z.number().int().min(0).describe("Allocations dont la fin effective est >= asOf"),
+    projectCount: z.number().int().min(0).describe("Projets distincts concernés"),
+    firstAllocation: orNull(IsoDate).describe("Plus petit début parmi ces allocations"),
+    lastAllocation: orNull(IsoDate).describe("Plus grande fin effective (fin de série incluse)"),
+  })
+  .meta({ id: "PersonDeactivationSummary" });
+export type PersonDeactivationSummary = z.infer<typeof PersonDeactivationSummary>;
+
+export const PersonDeactivationDisposition = z.enum(["reassign", "delete"]).meta({ id: "PersonDeactivationDisposition" });
+export type PersonDeactivationDisposition = z.infer<typeof PersonDeactivationDisposition>;
+
+export const PersonDeactivationRequest = z
+  .object({
+    asOf: IsoDate.optional().describe("Doit être celle du récapitulatif vu (défaut : aujourd'hui UTC)"),
+    disposition: PersonDeactivationDisposition.optional().describe("Obligatoire s'il y a des allocations futures"),
+    replacementId: Id.optional().describe("Requis avec `reassign`, interdit avec `delete`"),
+    confirmation: z.object({ allocationCount: z.number().int().min(0) }).optional().describe("Obligatoire s'il y a des allocations futures"),
+  })
+  .refine((b) => (b.disposition === "reassign") === (b.replacementId !== undefined), { path: ["replacementId"], message: "replacementId requis avec reassign, interdit sinon" })
+  .meta({ id: "PersonDeactivationRequest" });
+export type PersonDeactivationRequest = z.infer<typeof PersonDeactivationRequest>;
+
+export const PersonDeactivationResult = z
+  .object({
+    person: SchedulePerson.describe("La personne, désactivée, avec sa version courante"),
+    reassignedAllocations: z.number().int().min(0),
+    deletedAllocations: z.number().int().min(0),
+  })
+  .meta({ id: "PersonDeactivationResult" });
+export type PersonDeactivationResult = z.infer<typeof PersonDeactivationResult>;
