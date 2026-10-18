@@ -142,4 +142,15 @@ describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
     const done = await api.removeFromTeam({ path, body: { confirmation: { allocationCount: 1, logCount: 0, logHours: 0 } } });
     expect(done.ok && done.data).toMatchObject({ removedAllocations: 1 });
   });
+
+  it("ajouter à l'équipe (PUT idempotent) puis retirer", async () => {
+    const api = client();
+    const path = { projectId: "1", personId: "2" };
+    const first = await api.addToTeam({ path, headers: {} });
+    expect(first.ok && first.data).toEqual({ added: true });
+    const again = await api.addToTeam({ path, headers: {} });
+    expect(again.ok && again.data).toEqual({ added: false });
+    const gone = await api.removeFromTeam({ path, body: {} });
+    expect(gone.ok && gone.data).toMatchObject({ wasInTeam: true, removedAllocations: 0 });
+  });
 });

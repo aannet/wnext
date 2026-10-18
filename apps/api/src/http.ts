@@ -6,7 +6,7 @@ import { ApiFailure } from "./failure";
 import { createAllocation, deleteAllocation, updateAllocation } from "./allocations";
 import { createPerson, updatePerson } from "./people";
 import { getSchedule } from "./schedule";
-import { getTeamRemovalSummary, removeFromTeam } from "./team";
+import { addToTeam, getTeamRemovalSummary, removeFromTeam } from "./team";
 import { createTimeoff, deleteTimeoff, updateTimeoff } from "./timeoffs";
 import { API_VERSION } from "./version";
 
@@ -129,6 +129,14 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId); // l'auth passe avant la validation : pas d'oracle pour un anonyme
       return { status: 200, body: await getSchedule(deps.db, ctx, parseScheduleQuery(url.searchParams)) };
+    }
+    const member = /^\/api\/v1\/projects\/([^/]+)\/team\/([^/]+)$/.exec(url.pathname);
+    if (member && req.method === "PUT") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (!WRITERS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
+      const [projectId, personId] = [member[1]!, member[2]!].map((v) => { try { return decodeURIComponent(v); } catch { return "%"; } }) as [string, string];
+      return { status: 200, body: await addToTeam(deps.db, ctx, projectId, personId) };
     }
     const team = /^\/api\/v1\/projects\/([^/]+)\/team\/([^/]+)\/(removal-summary|removal)$/.exec(url.pathname);
     if (team && (team[3] === "removal-summary" ? req.method === "GET" : req.method === "POST")) {

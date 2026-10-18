@@ -1,5 +1,5 @@
 import { planTeamRemoval, summarizeTeamRemoval, type TeamAllocation, type TeamLog, type TeamRemovalSummary as EngineSummary } from "@wnext/engine";
-import type { TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "@wnext/contracts";
+import type { TeamMembership, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import type { Row } from "./schedule";
@@ -69,5 +69,18 @@ export async function removeFromTeam(db: Db, ctx: RequestContext, projectId: str
     if (plan.deleteAllocationIds.length) await tx.query("DELETE FROM allocations WHERE account_id = $1::bigint AND id = ANY ($2::bigint[])", [ctx.accountId, plan.deleteAllocationIds]);
     await tx.query("DELETE FROM project_team WHERE account_id = $1::bigint AND project_id = $2::bigint AND person_id = $3::bigint", [ctx.accountId, projectId, personId]);
     return { removedAllocations: plan.deleteAllocationIds.length, removedLogs: plan.deleteLogIds.length, removedLogHours: plan.summary.logHours, wasInTeam: inTeam };
+  });
+}
+
+/** Ajout à l'équipe (PUT idempotent). N'écrit que project_team ; la personne est verrouillée comme pour le retrait, donc un retrait concurrent est sérialisé. */
+export async function addToTeam(db: Db, ctx: RequestContext, projectId: string, personId: string): Promise<TeamMembership> {
+  assertWriter(ctx);
+  return withContext(db, ctx, async (tx) => {
+    await assertExist(tx, ctx.accountId, projectId, personId, true);
+    const r = await tx.query(
+      `INSERT INTO project_team (project_id, person_id, account_id) VALUES ($1::bigint, $2::bigint, $3::bigint) ON CONFLICT DO NOTHING RETURNING 1`,
+      [projectId, personId, ctx.accountId],
+    );
+    return { added: r.rows.length > 0 };
   });
 }
