@@ -26,3 +26,22 @@ npm install
 npm test            # vitest
 npm run typecheck   # tsc --noEmit
 ```
+
+## Convention `detail` des événements (attendue par `src/core/aggregator.ts`)
+
+Le noyau (L9.2) agrège ses entrées depuis ces champs ; le runner réel (L9.3) doit les émettre.
+
+| `action` | Champs de `detail` |
+|---|---|
+| `git.commit` | `diff_hash`, `diff_simhash` (via `simhash64`), `lines_changed`, `file_hash:<chemin>` |
+| `ci.result` | `tests_green`, `error_signature` |
+| `llm.call` | `prompt_hash` |
+| `tool.exec` | (aucun champ imposé) |
+
+Un `kill.triggered` émis par un agent est traité comme une violation de permission.
+
+## Suivis connus (issus de L9.1, non appliqués)
+
+- `AgentState.assess_requested_at_ms` : rendrait `assess_request` idempotent (sans lui, la demande est ré-émise tant que le signal dure ; le noyau déduplique les `warn` et livre une seule fois chaque verdict).
+- `LineState.last_green_gain_at_ms` : horodater la hausse des tests verts, qui est un progrès au sens du §4.8.
+- Un signal de boucle de ligne vise l'Implémenteur, ou le premier agent à défaut (à confirmer).
