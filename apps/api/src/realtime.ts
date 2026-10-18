@@ -1,12 +1,13 @@
 import { REALTIME_PROTOCOL_VERSION, RealtimeClientMessage, type RealtimeServerMessage } from "@wnext/contracts";
 import { readChanges } from "./changes";
+import type { ChangeHub } from "./change-hub";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 
 // Session temps réel (contrat : packages/contracts/src/realtime.ts), indépendante du transport : elle reçoit des
 // messages texte et émet des messages via `send`. Le WebSocket/SSE n'est qu'un adaptateur par-dessus.
 // Le contexte (compte, utilisateur) est fixé à la création, depuis la session authentifiée : jamais depuis un message.
-// Le flux direct est un sondage de change_log via readChanges (poll) ; LISTEN/NOTIFY pourra le remplacer sans changer le contrat.
+// Le flux direct est un sondage de change_log via readChanges (poll), déclenché par le ChangeHub partagé (change-hub.ts) ; LISTEN/NOTIFY pourra le remplacer sans changer le contrat.
 
 export interface RealtimeSession {
   /** Traite un message du client (texte JSON). Les messages sont traités l'un après l'autre. */
@@ -22,6 +23,8 @@ export interface RealtimeOptions {
   send: (message: RealtimeServerMessage) => void;
   /** Période du sondage automatique en ms ; absent = pas de minuteur (appeler `poll`). */
   pollIntervalMs?: number;
+  /** Sondage partagé entre sessions : la session ne relit le journal que lorsque le hub signale un changement de tête. Prioritaire sur `pollIntervalMs`. */
+  hub?: ChangeHub;
   pageSize?: number;
   /** Appelé une fois quand la session s'arrête (close, resync, erreur de curseur ou interne) : le transport ferme alors son canal. */
   onEnd?: () => void;
@@ -35,6 +38,7 @@ export function createRealtimeSession(opts: RealtimeOptions): RealtimeSession {
   let closed = false;
   let queue: Promise<void> = Promise.resolve();
   let timer: ReturnType<typeof setInterval> | undefined;
+  let unsubscribe: (() => void) | undefined;
 
   const send = (m: RealtimeServerMessage) => { if (!closed) opts.send(m); };
   const fail = (code: Extract<RealtimeServerMessage, { type: "error" }>["code"], params: Record<string, string | number | boolean> = {}) => send({ v, type: "error", code, params });
@@ -72,6 +76,7 @@ export function createRealtimeSession(opts: RealtimeOptions): RealtimeSession {
     closed = true;
     opts.onEnd?.();
     if (timer) clearInterval(timer);
+    unsubscribe?.();
   }
 
   async function subscribe(after: string) {
@@ -79,7 +84,8 @@ export function createRealtimeSession(opts: RealtimeOptions): RealtimeSession {
     if (!(await drain())) return;
     live = true;
     send({ v, type: "ready", cursor: cursor! });
-    if (opts.pollIntervalMs) timer = setInterval(() => void session.poll(), opts.pollIntervalMs);
+    if (opts.hub) unsubscribe = opts.hub.subscribe(opts.ctx, () => void session.poll());
+    else if (opts.pollIntervalMs) timer = setInterval(() => void session.poll(), opts.pollIntervalMs);
   }
 
   const session: RealtimeSession = {

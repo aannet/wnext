@@ -36,7 +36,7 @@ SIGTERM / SIGINT : fermeture des WebSocket (1001), fin des requêtes en cours, f
 ## Limites connues
 
 - L'adaptateur `pg` n'est testé qu'avec un pool simulé (pas de Postgres dans l'environnement de développement) ; la concurrence réelle (`FOR UPDATE`) n'est pas éprouvée.
-- Le sondage ouvre une transaction par session et par période : à remplacer par `LISTEN/NOTIFY` + un sondeur partagé avant d'avoir beaucoup de connexions.
+- Le sondage est partagé (`ChangeHub`) : une lecture d'une ligne (`account_change_seq`) par compte et par période, et les sessions ne relisent `change_log` que si la tête a bougé. `LISTEN/NOTIFY` pourra remplacer le minuteur en réveillant le même hub, sans toucher au contrat. Reste à faire : plafond de connexions par compte.
 - Pas de limite du nombre de connexions WebSocket par compte, pas de TLS (à terminer en frontal).
 
 ## Tests de concurrence (vrai PostgreSQL)

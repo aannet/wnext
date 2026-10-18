@@ -1,6 +1,7 @@
 import type { IncomingHttpHeaders, Server } from "node:http";
 import { REALTIME_PATH, type RealtimeServerMessage } from "@wnext/contracts";
 import { WebSocket, WebSocketServer } from "ws";
+import { createChangeHub } from "./change-hub";
 import type { Db, RequestContext } from "./db";
 import { createRealtimeSession } from "./realtime";
 
@@ -20,6 +21,8 @@ export interface RealtimeAttachOptions {
 const MAX_MESSAGE_BYTES = 4096; // le seul message client (subscribe) tient en une centaine d'octets
 
 export function attachRealtime(server: Server, opts: RealtimeAttachOptions): { close(): void } {
+  // Un seul sondage pour toutes les sessions (sans période, pas de flux direct : les tests appellent poll à la main).
+  const hub = opts.pollIntervalMs ? createChangeHub({ db: opts.db, intervalMs: opts.pollIntervalMs, onError: opts.onError }) : undefined;
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_BYTES });
   const reject = (socket: import("node:stream").Duplex, status: string) => {
     socket.write(`HTTP/1.1 ${status}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
@@ -41,7 +44,7 @@ export function attachRealtime(server: Server, opts: RealtimeAttachOptions): { c
     const session = createRealtimeSession({
       db: opts.db,
       ctx,
-      pollIntervalMs: opts.pollIntervalMs,
+      hub,
       send: (m: RealtimeServerMessage) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m)); },
       onEnd: () => { if (ws.readyState === WebSocket.OPEN) ws.close(1000); },
     });
@@ -68,6 +71,7 @@ export function attachRealtime(server: Server, opts: RealtimeAttachOptions): { c
   return {
     close() {
       clearInterval(timer);
+      hub?.close();
       for (const ws of wss.clients) ws.close(1001); // going away
       wss.close();
     },

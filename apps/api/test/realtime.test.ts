@@ -5,7 +5,7 @@ import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist";
 import { citext } from "@electric-sql/pglite/contrib/citext";
 import { RealtimeServerMessage } from "@wnext/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createRealtimeSession, dispatch, type Db, type HttpDeps, type RequestContext } from "../src/index";
+import { createChangeHub, createRealtimeSession, dispatch, type Db, type HttpDeps, type RequestContext } from "../src/index";
 
 let pg: PGlite;
 const db: Db = { transaction: (fn) => pg.transaction(async (tx) => { await tx.query("SET LOCAL ROLE app_user"); return fn(tx as never); }) };
@@ -149,5 +149,106 @@ describe("session temps réel", () => {
     const c = await head();
     await Promise.all([session.receive(sub(c)), session.receive(sub(c))]);
     expect(out.map((m) => m.type)).toEqual(["ready", "error"]);
+  });
+});
+
+describe("sondage partagé (ChangeHub)", () => {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const counted = () => { const c = { n: 0 }; return { c, db: { transaction: (fn) => { c.n++; return db.transaction(fn); } } as Db }; };
+
+  it("au repos, une lecture par compte et par période, quel que soit le nombre de sessions", async () => {
+    const { c, db: cdb } = counted();
+    const hub = createChangeHub({ db: cdb, intervalMs: 20 });
+    const cur = await head();
+    const sessions = Array.from({ length: 5 }, () => {
+      const out: RealtimeServerMessage[] = [];
+      return { out, s: createRealtimeSession({ db, ctx: A, hub, send: (m) => out.push(m) }) };
+    });
+    for (const x of sessions) await x.s.receive(sub(cur));
+    await wait(30); // le réveil de rattrapage de l'abonnement est passé
+    const before = c.n;
+    await wait(200);
+    const ticks = c.n - before;
+    sessions.forEach((x) => x.s.close());
+    hub.close();
+    expect(ticks).toBeGreaterThan(0);
+    expect(ticks).toBeLessThanOrEqual(12); // ~10 périodes : 5 sessions n'ont pas coûté 50 lectures
+    expect(sessions.every((x) => x.out.length === 1)).toBe(true); // ready seul : aucun faux réveil visible
+  });
+
+  it("un changement réveille toutes les sessions du compte, pas celles des autres comptes", async () => {
+    const hub = createChangeHub({ db, intervalMs: 20 });
+    const mk = (ctx: RequestContext) => { const out: RealtimeServerMessage[] = []; return { out, s: createRealtimeSession({ db, ctx, hub, send: (m) => out.push(m) }) }; };
+    const a1 = mk(A), a2 = mk(A), b = mk(B);
+    await a1.s.receive(sub(await head()));
+    await a2.s.receive(sub(await head()));
+    await b.s.receive(sub("0"));
+    const bBefore = b.out.length;
+    await write("A");
+    await wait(150);
+    [a1, a2, b].forEach((x) => x.s.close());
+    hub.close();
+    for (const x of [a1, a2]) expect(x.out.map((m) => m.type)).toEqual(["ready", "changes"]);
+    expect(b.out.length).toBe(bBefore);
+  });
+
+  it("un changement survenu entre la lecture du rattrapage et l'abonnement n'est pas perdu", async () => {
+    const hub = createChangeHub({ db, intervalMs: 20 });
+    const first = open(A);
+    await first.session.receive(sub(await head())); // sans hub : sert seulement à créer du trafic
+    first.session.close();
+    // Le hub a déjà observé la tête courante, puis un changement part, puis une session s'abonne avec un curseur antérieur.
+    const noop = hub.subscribe(A, () => {});
+    await wait(60);
+    const c = await head();
+    const out: RealtimeServerMessage[] = [];
+    const late = createRealtimeSession({ db, ctx: A, hub, send: (m) => out.push(m) });
+    await late.receive(sub(c));
+    await write("A");
+    await wait(150);
+    late.close(); noop(); hub.close();
+    expect(out.map((m) => m.type)).toEqual(["ready", "changes"]);
+  });
+
+  it("close désabonne : plus aucune lecture une fois toutes les sessions parties", async () => {
+    const { c, db: cdb } = counted();
+    const hub = createChangeHub({ db: cdb, intervalMs: 20 });
+    const s = createRealtimeSession({ db, ctx: A, hub, send: () => {} });
+    await s.receive(sub(await head()));
+    await wait(60);
+    s.close();
+    const n = c.n;
+    await wait(120);
+    hub.close();
+    expect(c.n).toBe(n);
+  });
+
+  it("une erreur de lecture est signalée, n'arrête pas le hub, et le réveil est rejoué", async () => {
+    let fail = true;
+    const flaky: Db = { transaction: (fn) => (fail ? Promise.reject(new Error("db down")) : db.transaction(fn)) };
+    const errors: unknown[] = [];
+    const hub = createChangeHub({ db: flaky, intervalMs: 20, onError: (e) => errors.push(e) });
+    let wakes = 0;
+    const off = hub.subscribe(A, () => { wakes++; });
+    await wait(80);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(wakes).toBe(0);
+    fail = false;
+    await wait(80);
+    off(); hub.close();
+    expect(wakes).toBe(1);
+  });
+
+  it("réveil de rattrapage unique à l'abonnement, puis silence tant que la tête ne bouge pas", async () => {
+    const hub = createChangeHub({ db, intervalMs: 20 });
+    let w1 = 0, w2 = 0;
+    const off1 = hub.subscribe(A, () => { w1++; });
+    await wait(100);
+    expect(w1).toBe(1);
+    // Un arrivant tardif a pu lire le journal avant la tête déjà vue : il est réveillé une fois, même sans nouveau changement.
+    const off2 = hub.subscribe(A, () => { w2++; });
+    await wait(100);
+    off1(); off2(); hub.close();
+    expect(w2).toBe(1);
   });
 });

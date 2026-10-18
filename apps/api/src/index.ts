@@ -5,6 +5,7 @@ export * from "./schedule";
 export * from "./http";
 export * from "./allocations";
 export * from "./changes";
+export * from "./change-hub";
 export * from "./realtime";
 export * from "./config";
 export * from "./auth-dev";
