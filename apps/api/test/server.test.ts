@@ -130,4 +130,56 @@ describe("serveur HTTP + WebSocket", () => {
     expect(await closed).toBe(1001);
     await expect(http("GET", "/api/v1/health", {})).resolves.toBeDefined(); // l'autre serveur (srv) répond toujours
   });
+
+  describe("plafond de connexions par compte", () => {
+    let small: RunningServer;
+    const open = (port: number, h: Record<string, string>) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/api/v1/realtime`, { headers: h });
+      const result = new Promise<{ ws: WebSocket; status?: number; retryAfter?: string }>((res) => {
+        ws.once("open", () => res({ ws }));
+        ws.once("unexpected-response", (_r, resp) => res({ ws, status: resp.statusCode, retryAfter: String(resp.headers["retry-after"]) }));
+        ws.once("error", () => {}); // la socket coupée après le refus
+      });
+      return result;
+    };
+    const closeAndWait = (ws: WebSocket) => new Promise<void>((res) => { ws.once("close", () => res()); ws.close(); });
+    const poll = async (pred: () => Promise<boolean>) => { for (let i = 0; i < 100; i++) { if (await pred()) return true; await new Promise((r) => setTimeout(r, 25)); } return false; };
+
+    beforeAll(async () => { small = await startServer({ db, authenticate: devAuthenticate, pollIntervalMs: 30, maxPerAccount: 2, onError: () => {} }); });
+    afterAll(async () => { await small?.close(); });
+
+    it("la 3e connexion du compte reçoit 429 + Retry-After ; l'autre compte n'est pas touché ; une place libérée se réutilise", async () => {
+      const a1 = await open(small.port, headers());
+      const a2 = await open(small.port, headers());
+      expect(a1.status).toBeUndefined();
+      expect(a2.status).toBeUndefined();
+      const a3 = await open(small.port, headers());
+      expect(a3.status).toBe(429);
+      expect(a3.retryAfter).toBe("5");
+      const b1 = await open(small.port, headers("2"));
+      expect(b1.status).toBeUndefined(); // plafond par compte, pas global
+      await closeAndWait(a1.ws);
+      let again: Awaited<ReturnType<typeof open>> | undefined;
+      expect(await poll(async () => { again = await open(small.port, headers()); if (again.status === undefined) return true; return false; })).toBe(true);
+      await Promise.all([a2.ws, b1.ws, again!.ws].map(closeAndWait));
+    });
+
+    it("upgrades simultanés : jamais plus que le plafond n'est accepté, et les refusés ne consomment rien", async () => {
+      const results = await Promise.all(Array.from({ length: 8 }, () => open(small.port, headers())));
+      expect(results.filter((r) => r.status === undefined)).toHaveLength(2);
+      expect(results.filter((r) => r.status === 429)).toHaveLength(6);
+      await Promise.all(results.filter((r) => r.status === undefined).map((r) => closeAndWait(r.ws)));
+      let ok: Awaited<ReturnType<typeof open>> | undefined;
+      expect(await poll(async () => { ok = await open(small.port, headers()); return ok.status === undefined; })).toBe(true); // rien n'a fui
+      await closeAndWait(ok!.ws);
+    });
+
+    it("une authentification refusée ne réserve aucune place", async () => {
+      for (let i = 0; i < 5; i++) expect((await open(small.port, {})).status).toBe(401);
+      const a1 = await open(small.port, headers());
+      const a2 = await open(small.port, headers());
+      expect([a1.status, a2.status]).toEqual([undefined, undefined]);
+      await Promise.all([a1.ws, a2.ws].map(closeAndWait));
+    });
+  });
 });

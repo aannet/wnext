@@ -14,6 +14,7 @@ export interface StartOptions {
   pollIntervalMs?: number;
   notifier?: ChangeNotifier;
   heartbeatMs?: number;
+  maxPerAccount?: number;
   /** Journal des erreurs internes : identifiant de requête et erreur, jamais le corps ni les en-têtes. */
   onError?: (err: unknown, requestId?: string) => void;
 }
@@ -29,7 +30,7 @@ export interface RunningServer {
 export async function startServer(opts: StartOptions): Promise<RunningServer> {
   const onError = opts.onError ?? ((err, requestId) => console.error(JSON.stringify({ level: "error", requestId, error: err instanceof Error ? err.message : String(err) })));
   const server = createHttpServer({ db: opts.db, authenticate: opts.authenticate, newRequestId: randomUUID, onError });
-  const realtime = attachRealtime(server, { db: opts.db, authenticate: opts.authenticate, pollIntervalMs: opts.pollIntervalMs, notifier: opts.notifier, heartbeatMs: opts.heartbeatMs, onError });
+  const realtime = attachRealtime(server, { db: opts.db, authenticate: opts.authenticate, pollIntervalMs: opts.pollIntervalMs, notifier: opts.notifier, heartbeatMs: opts.heartbeatMs, maxPerAccount: opts.maxPerAccount, onError });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(opts.port ?? 0, opts.host ?? "127.0.0.1", () => resolve());

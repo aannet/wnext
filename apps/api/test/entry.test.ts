@@ -5,13 +5,14 @@ import { devAuthenticate, loadConfig, pgDb } from "../src/index";
 describe("loadConfig", () => {
   const base = { DATABASE_URL: "postgres://x" };
   it("valeurs par défaut", () => {
-    expect(loadConfig(base)).toEqual({ databaseUrl: "postgres://x", dbRole: undefined, host: "127.0.0.1", port: 3000, authMode: "dev", pollIntervalMs: 1000 });
+    expect(loadConfig(base)).toEqual({ databaseUrl: "postgres://x", dbRole: undefined, host: "127.0.0.1", port: 3000, authMode: "dev", pollIntervalMs: 1000, wsMaxPerAccount: 200 });
   });
   it.each([
     ["DATABASE_URL absent", {}],
     ["PORT non numérique", { ...base, PORT: "abc" }],
     ["PORT hors plage", { ...base, PORT: "70000" }],
     ["POLL_INTERVAL_MS trop bas", { ...base, POLL_INTERVAL_MS: "1" }],
+    ["WS_MAX_PER_ACCOUNT nul", { ...base, WS_MAX_PER_ACCOUNT: "0" }],
     ["AUTH_MODE inconnu", { ...base, AUTH_MODE: "jwt" }],
     ["DB_ROLE injectable", { ...base, DB_ROLE: "app_user; DROP TABLE x" }],
     ["mode dev en production", { ...base, NODE_ENV: "production" }],

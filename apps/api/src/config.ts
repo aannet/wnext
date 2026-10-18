@@ -10,6 +10,8 @@ export interface Config {
   /** Seul mode actuel : `dev` (identité lue dans des en-têtes). Le mécanisme réel est une décision ouverte. */
   authMode: "dev";
   pollIntervalMs: number;
+  /** Connexions WebSocket simultanées par compte. */
+  wsMaxPerAccount: number;
 }
 
 export function loadConfig(env: Record<string, string | undefined>): Config {
@@ -33,5 +35,6 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     port: int("PORT", 3000, 0, 65535),
     authMode,
     pollIntervalMs: int("POLL_INTERVAL_MS", 1000, 50, 60_000),
+    wsMaxPerAccount: int("WS_MAX_PER_ACCOUNT", 200, 1, 100_000),
   };
 }
