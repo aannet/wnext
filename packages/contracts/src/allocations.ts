@@ -12,8 +12,22 @@ import { SchedulePage, ScheduleAllocation } from "./schedule";
 //  * BR-04 : écrire une allocation sur un jour de congé n'est pas refusé non plus ; l'avertissement vient du moteur.
 //  * Le mode impose son champ via `load` (heures par jour OU pourcentage des heures brutes, plafond 500 %, BR-24).
 //  * Défauts appliqués par le serveur quand le champ est omis : status "confirmed", billable true, priority 0, repeatState "none".
-//  * Hors périmètre de ce contrat (à venir) : création multi-personnes / groupes (BR-26, « tous / celle-ci »), déplacement
-//    par lot, suppression en cascade d'équipe (BR-10, avec récapitulatif et confirmation).
+//  * Groupes (BR-26, allocation multi-personnes) : N lignes d'allocation (une par personne) liées par un `groupId` partagé.
+//      - POST /allocation-groups : crée le groupe (2 à 50 membres, personnes distinctes) en UNE transaction, tout ou rien. Les champs
+//        communs (projet, phase, tâche, nom, notes, dates, statut, facturable, priorité, répétition) sont dans le corps ; chaque membre
+//        a SES heures : `members[i].load`, ou à défaut le `load` commun (un membre sans l'un ni l'autre : 400). Réponse 201 :
+//        `{ groupId, items }`, `items` dans l'ORDRE des membres. Les droits sont ceux de l'écriture d'une allocation.
+//      - Édition « celle-ci » : PATCH/DELETE /allocations/{id} comme aujourd'hui ; la ligne reste dans le groupe (même si ses dates
+//        ou sa personne divergent ensuite).
+//      - Édition « tous » : PATCH/DELETE /allocations/{id}/group. `If-Match` porte la version de la ligne désignée par l'URL ; toutes
+//        les lignes du groupe sont verrouillées dans la même transaction, la précondition est contrôlée sur la ligne désignée seule, et
+//        chaque ligne reçoit les modifications communes SUR SA PROPRE VALEUR ACTUELLE (une date non citée reste celle de la ligne).
+//        Seuls les champs communs sont acceptables (`personId` et `load` propres à chaque ligne : 400 VALIDATION_FAILED, corps strict).
+//        PATCH répond `{ groupId, items }` (toutes les lignes, par id) ; DELETE répond 204 (supprime toutes les lignes du groupe).
+//        Allocation sans groupe : 404 NOT_FOUND (params.entity = allocation_group).
+//      - Un congé n'affecte que la ligne de la personne concernée (BR-05) : rien à faire ici, les lignes sont indépendantes.
+//  * Hors périmètre de ce contrat (à venir) : déplacement par lot, suppression en cascade d'équipe (BR-10, avec récapitulatif et
+//    confirmation), sortie d'une ligne du groupe, relecture d'un groupe par son identifiant.
 //  * Les écritures sont réservées aux rôles owner, admin et project_manager ; un autre rôle reçoit 403 FORBIDDEN.
 //  * Lecture (tout membre authentifié, comme GET /schedule ; mêmes champs que ScheduleAllocation) :
 //      - GET /allocations/{id} : une allocation avec sa `version` (relire après un VERSION_CONFLICT). Inconnue ou hors compte :
@@ -101,3 +115,39 @@ export const PersonAllocationListQuery = ReferenceListQuery.extend({
 });
 export type PersonAllocationListQuery = z.infer<typeof PersonAllocationListQuery>;
 export const PersonAllocationList = z.object({ items: z.array(ScheduleAllocation), page: SchedulePage }).meta({ id: "PersonAllocationList" });
+
+// --- Groupes (BR-26) ---
+export const AllocationGroupMax = 50;
+export const AllocationGroupCreate = z
+  .object({
+    ...fields,
+    load: AllocationLoad.optional().describe("Charge commune, utilisée par les membres qui n'ont pas la leur"),
+    members: z
+      .array(z.object({ personId: Id, load: AllocationLoad.optional().describe("Charge propre à ce membre") }))
+      .min(2)
+      .max(AllocationGroupMax),
+  })
+  .refine((a) => a.endDate >= a.startDate, { path: ["endDate"], message: "endDate < startDate" })
+  .refine(
+    (a) => (a.repeatState ?? "none") === "none" ? a.repeatEndDate == null : a.repeatEndDate != null && a.repeatEndDate >= a.endDate,
+    { path: ["repeatEndDate"], message: "répétition incohérente" },
+  )
+  .refine((a) => new Set(a.members.map((m) => m.personId)).size === a.members.length, { path: ["members"], message: "personne en double" })
+  .refine((a) => a.load !== undefined || a.members.every((m) => m.load !== undefined), { path: ["load"], message: "charge manquante" })
+  .meta({ id: "AllocationGroupCreate" });
+export type AllocationGroupCreate = z.infer<typeof AllocationGroupCreate>;
+
+// Champs COMMUNS seulement : la personne et la charge sont propres à chaque ligne. Corps strict : une clé inconnue est une erreur.
+export const AllocationGroupPatch = z
+  .object(fields)
+  .partial()
+  .strict()
+  .refine((a) => Object.keys(a).length > 0, { message: "corps vide" })
+  .refine((a) => !a.startDate || !a.endDate || a.endDate >= a.startDate, { path: ["endDate"], message: "endDate < startDate" })
+  .meta({ id: "AllocationGroupPatch" });
+export type AllocationGroupPatch = z.infer<typeof AllocationGroupPatch>;
+
+export const AllocationGroup = z
+  .object({ groupId: Id, items: z.array(ScheduleAllocation) })
+  .meta({ id: "AllocationGroup" });
+export type AllocationGroup = z.infer<typeof AllocationGroup>;

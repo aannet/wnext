@@ -173,6 +173,58 @@ export interface ProjectAllocationList {
   page: SchedulePage;
 }
 
+export interface AllocationGroup {
+  groupId: Id;
+  items: Array<ScheduleAllocation>;
+}
+
+export interface AllocationGroupCreate {
+  projectId: Id;
+  phaseId?: Id | null;
+  taskId?: Id | null;
+  name?: string | null;
+  notes?: string | null;
+  startDate: IsoDate;
+  endDate: IsoDate;
+  status?: "tentative" | "confirmed";
+  billable?: boolean;
+  priority?: number;
+  repeatState?: "none" | "daily" | "weekly" | "monthly";
+  repeatEndDate?: IsoDate | null;
+  load?: {
+    mode: "hours";
+    hoursPerDay: number;
+  } | {
+    mode: "percentage";
+    percent: number;
+  };
+  members: Array<{
+    personId: Id;
+    load?: {
+      mode: "hours";
+      hoursPerDay: number;
+    } | {
+      mode: "percentage";
+      percent: number;
+    };
+  }>;
+}
+
+export interface AllocationGroupPatch {
+  projectId?: Id;
+  phaseId?: Id | null;
+  taskId?: Id | null;
+  name?: string | null;
+  notes?: string | null;
+  startDate?: IsoDate;
+  endDate?: IsoDate;
+  status?: "tentative" | "confirmed";
+  billable?: boolean;
+  priority?: number;
+  repeatState?: "none" | "daily" | "weekly" | "monthly";
+  repeatEndDate?: IsoDate | null;
+}
+
 export interface AllocationCreate {
   personId: Id;
   projectId: Id;
@@ -740,6 +792,47 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as ProjectAllocationList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer une allocation multi-personnes (BR-26) : une ligne par membre, un groupId commun, tout ou rien (POST /api/v1/allocation-groups) */
+    async createAllocationGroup(input: {
+      body: AllocationGroupCreate;
+    }): Promise<ApiResult<AllocationGroup, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/allocation-groups", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as AllocationGroup }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier TOUTES les lignes du groupe de l'allocation (champs communs ; verrou optimiste sur la ligne designee) (PATCH /api/v1/allocations/{id}/group) */
+    async updateAllocationGroup(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: AllocationGroupPatch;
+    }): Promise<ApiResult<AllocationGroup, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/allocations/" + encodeURIComponent(String(input.path.id)) + "/group", { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as AllocationGroup }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer TOUTES les lignes du groupe de l'allocation (verrou optimiste sur la ligne designee) (DELETE /api/v1/allocations/{id}/group) */
+    async deleteAllocationGroup(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/allocations/" + encodeURIComponent(String(input.path.id)) + "/group", { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Creer une allocation (la sur-allocation n'est jamais refusee, BR-01) (POST /api/v1/allocations) */
