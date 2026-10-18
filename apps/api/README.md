@@ -15,6 +15,7 @@ DATABASE_URL=postgres://app_user@localhost/wnext npm run start -w @wnext/api
 | `HOST` / `PORT` | `127.0.0.1` / `3000` | Écoute. |
 | `WS_MAX_PER_ACCOUNT` | `200` | Connexions WebSocket simultanées par compte ; au-delà, l'upgrade reçoit `429` + `Retry-After` (contrat realtime : `REALTIME_RETRY_AFTER_SECONDS`) (1–100000). |
 | `POLL_INTERVAL_MS` | `1000` | Période du sondage de `change_log` pour le flux temps réel (50–60000). |
+| `WS_TICKET_SECRET` | aléatoire par processus | Secret (32 caractères au moins) qui signe les tickets d'upgrade WebSocket ; **requis en production**, identique sur toutes les instances. |
 | `AUTH_MODE` | `dev` | `dev` (en-têtes sans preuve, refusé en production) ou `oidc` (jeton porteur). |
 | `OIDC_ISSUER` / `OIDC_AUDIENCE` / `OIDC_JWKS_URL` | — | Requis en mode `oidc` : émetteur (`iss`) et audience (`aud`) attendus, point JWKS du fournisseur (https en production). |
 
@@ -36,13 +37,17 @@ externe émet des JWT, l'API les vérifie.
 **`AUTH_MODE=dev`** : DÉVELOPPEMENT SEULEMENT. Identité lue dans `x-dev-account-id`, `x-dev-user-id`, `x-dev-role`
 (owner|admin|project_manager|member|guest), **sans aucune preuve**. `NODE_ENV=production` refuse de démarrer dans ce mode.
 
-Limite : un navigateur ne peut pas poser d'en-tête `Authorization` sur un WebSocket ; l'upgrade temps réel depuis le web demandera un
-ticket à usage unique (à décider, touche le contrat).
-
 ## Temps réel
 
-`GET /api/v1/realtime` (upgrade WebSocket, même authentification). Protocole : `packages/contracts/src/realtime.ts`.
+`GET /api/v1/realtime` (upgrade WebSocket). Protocole : `packages/contracts/src/realtime.ts`.
 Premier message : `{"v":1,"type":"subscribe","cursor":"<changeCursor de GET /schedule>"}`.
+
+**Authentification de l'upgrade.** Hors navigateur : les en-têtes habituels. Navigateur (pas d'en-tête sur un WebSocket) : un ticket.
+`POST /api/v1/realtime/ticket` (authentifié, tout rôle) renvoie `{ ticket, expiresInSeconds: 30 }` ; on ouvre alors `/api/v1/realtime?ticket=<ticket>`.
+- Sans état : identité + échéance + identifiant aléatoire, signés en HMAC-SHA256 (`WS_TICKET_SECRET`) ; toute instance émet et accepte.
+- Usage unique **par instance** (mémoire des identifiants présentés) : un ticket rejoué sur une autre instance dans ses 30 s serait accepté. Risque accepté, le fermer demande un stockage partagé.
+- Avec `?ticket=`, le ticket est la seule preuve (jamais de repli sur les en-têtes) ; invalide, expiré, rejoué ou répété : 401.
+- Le rôle est figé à l'émission (30 s) ; le flux ne diffuse que des références du compte, sans autorisation par rôle.
 
 ## Arrêt
 
@@ -54,7 +59,7 @@ SIGTERM / SIGINT : fermeture des WebSocket (1001), fin des requêtes en cours, f
 - Le sondage est partagé (`ChangeHub`) : une lecture d'une ligne (`account_change_seq`) par compte et par période, et les sessions ne relisent `change_log` que si la tête a bougé.
 - Lecture des entités de référence : `GET /api/v1/{departments,roles,timeoff-types,holidays,projects}` (liste paginée par curseur sur `id`, `page.total`, filtres fériés `from`/`to` et projets `status`, archivés exclus par défaut) et `GET …/{id}` ; ouverte à tout membre authentifié.
 - `LISTEN/NOTIFY` : le trigger `log_change` émet `pg_notify('wnext_changes', <account_id>)` (livré au COMMIT, doublons d'une transaction fusionnés). `main.ts` écoute sur une connexion dédiée (`pgNotifier`, reconnexion avec attente croissante) et le hub relit le compte aussitôt ; à chaque reconnexion tout le monde relit, car les notifications émises pendant la coupure sont perdues. Écoute établie, le minuteur ne sert plus que de filet (30 s) ; coupée, il reprend `POLL_INTERVAL_MS`. Une notification n'est qu'un signal : le journal reste la source de vérité. Plafond par compte : voir `WS_MAX_PER_ACCOUNT` (réservation faite avant tout `await`, rendue à la fermeture de la socket).
-- Pas de limite du nombre de connexions WebSocket par compte, pas de TLS (à terminer en frontal).
+- Pas de TLS (à terminer en frontal) ; le plafond de connexions WebSocket est par compte et par processus, sans limite par utilisateur.
 
 ## Tests de concurrence (vrai PostgreSQL)
 

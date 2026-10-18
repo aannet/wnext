@@ -271,7 +271,7 @@ describe("serveur complet avec jeton porteur", () => {
 });
 
 describe("loadConfig : mode oidc", () => {
-  const base = { DATABASE_URL: "postgres://x", AUTH_MODE: "oidc", OIDC_ISSUER: ISS, OIDC_AUDIENCE: AUD, OIDC_JWKS_URL: "https://idp.example.test/jwks" };
+  const base = { DATABASE_URL: "postgres://x", WS_TICKET_SECRET: "s".repeat(32), AUTH_MODE: "oidc", OIDC_ISSUER: ISS, OIDC_AUDIENCE: AUD, OIDC_JWKS_URL: "https://idp.example.test/jwks" };
   it("valide, y compris en production", () => {
     expect(loadConfig(base).oidc).toEqual({ issuer: ISS, audience: AUD, jwksUrl: "https://idp.example.test/jwks" });
     expect(loadConfig({ ...base, NODE_ENV: "production" }).authMode).toBe("oidc");

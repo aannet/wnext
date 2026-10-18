@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingHttpHeaders, Server } from "node:http";
+import { randomBytes } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import type { ChangeNotifier } from "./change-hub";
 import type { Db, RequestContext } from "./db";
 import { createHttpServer } from "./http";
+import { createTicketService } from "./tickets";
 import { attachRealtime } from "./ws";
 
 export interface StartOptions {
@@ -15,6 +17,8 @@ export interface StartOptions {
   notifier?: ChangeNotifier;
   heartbeatMs?: number;
   maxPerAccount?: number;
+  /** Secret de signature des tickets d'upgrade (32 octets au moins), partagé par les instances ; absent = aléatoire, propre à ce processus. */
+  ticketSecret?: Buffer | string;
   /** Journal des erreurs internes : identifiant de requête et erreur, jamais le corps ni les en-têtes. */
   onError?: (err: unknown, requestId?: string) => void;
 }
@@ -29,8 +33,9 @@ export interface RunningServer {
 /** HTTP (REST) + WebSocket sur le même port. N'ouvre aucune connexion à la base : `db` est injectée. */
 export async function startServer(opts: StartOptions): Promise<RunningServer> {
   const onError = opts.onError ?? ((err, requestId) => console.error(JSON.stringify({ level: "error", requestId, error: err instanceof Error ? err.message : String(err) })));
-  const server = createHttpServer({ db: opts.db, authenticate: opts.authenticate, newRequestId: randomUUID, onError });
-  const realtime = attachRealtime(server, { db: opts.db, authenticate: opts.authenticate, pollIntervalMs: opts.pollIntervalMs, notifier: opts.notifier, heartbeatMs: opts.heartbeatMs, maxPerAccount: opts.maxPerAccount, onError });
+  const tickets = createTicketService({ secret: opts.ticketSecret ?? randomBytes(32) });
+  const server = createHttpServer({ db: opts.db, authenticate: opts.authenticate, tickets, newRequestId: randomUUID, onError });
+  const realtime = attachRealtime(server, { db: opts.db, authenticate: opts.authenticate, pollIntervalMs: opts.pollIntervalMs, notifier: opts.notifier, heartbeatMs: opts.heartbeatMs, maxPerAccount: opts.maxPerAccount, tickets, onError });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(opts.port ?? 0, opts.host ?? "127.0.0.1", () => resolve());

@@ -14,6 +14,8 @@ export interface Config {
   pollIntervalMs: number;
   /** Connexions WebSocket simultanées par compte. */
   wsMaxPerAccount: number;
+  /** Secret des tickets d'upgrade WebSocket ; absent = aléatoire par processus (interdit en production : les instances doivent le partager). */
+  wsTicketSecret?: string;
 }
 
 export function loadConfig(env: Record<string, string | undefined>): Config {
@@ -40,6 +42,9 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
   }
   const dbRole = env.DB_ROLE || undefined;
   if (dbRole !== undefined && !/^[a-z_][a-z0-9_]*$/.test(dbRole)) throw new Error("DB_ROLE invalide");
+  const wsTicketSecret = env.WS_TICKET_SECRET || undefined;
+  if (wsTicketSecret !== undefined && wsTicketSecret.length < 32) throw new Error("WS_TICKET_SECRET doit faire 32 caractères au moins");
+  if (wsTicketSecret === undefined && env.NODE_ENV === "production") throw new Error("WS_TICKET_SECRET est requis en production (partagé entre les instances)");
   return {
     databaseUrl,
     dbRole,
@@ -49,5 +54,6 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     oidc,
     pollIntervalMs: int("POLL_INTERVAL_MS", 1000, 50, 60_000),
     wsMaxPerAccount: int("WS_MAX_PER_ACCOUNT", 200, 1, 100_000),
+    wsTicketSecret,
   };
 }

@@ -1,9 +1,10 @@
 import type { IncomingHttpHeaders, Server } from "node:http";
-import { REALTIME_PATH, REALTIME_RETRY_AFTER_SECONDS, REALTIME_UPGRADE_STATUS, type RealtimeServerMessage } from "@wnext/contracts";
+import { REALTIME_PATH, REALTIME_RETRY_AFTER_SECONDS, REALTIME_TICKET_PARAM, REALTIME_UPGRADE_STATUS, type RealtimeServerMessage } from "@wnext/contracts";
 import { WebSocket, WebSocketServer } from "ws";
 import { createChangeHub, type ChangeNotifier } from "./change-hub";
 import type { Db, RequestContext } from "./db";
 import { createRealtimeSession } from "./realtime";
+import type { TicketService } from "./tickets";
 
 // Adaptateur WebSocket de la session temps réel (contrat : packages/contracts/src/realtime.ts). Il ne fait que du transport :
 // authentification à l'upgrade (le compte vient de la session, jamais d'un message), texte -> session.receive,
@@ -19,6 +20,8 @@ export interface RealtimeAttachOptions {
   heartbeatMs?: number;
   /** Connexions simultanées par compte (défaut 200) ; au-delà, l'upgrade est refusé en 429 avec Retry-After (contrat realtime). */
   maxPerAccount?: number;
+  /** Tickets d'upgrade (`?ticket=`) pour les clients sans en-tête ; absent = seuls les en-têtes authentifient. */
+  tickets?: Pick<TicketService, "redeem">;
   onError?: (err: unknown) => void;
 }
 
@@ -52,8 +55,14 @@ export function attachRealtime(server: Server, opts: RealtimeAttachOptions): { c
   };
 
   server.on("upgrade", (req, socket, head) => {
-    if (new URL(req.url ?? "/", "http://x").pathname !== REALTIME_PATH) return reject(socket, "404 Not Found");
-    opts.authenticate(req.headers).then(
+    const url = new URL(req.url ?? "/", "http://x");
+    if (url.pathname !== REALTIME_PATH) return reject(socket, "404 Not Found");
+    // Avec `?ticket=`, le ticket est la seule preuve : il ne se combine pas avec les en-têtes, et un paramètre répété est refusé.
+    const tickets = url.searchParams.getAll(REALTIME_TICKET_PARAM);
+    const identity = tickets.length === 0 || !opts.tickets
+      ? opts.authenticate(req.headers)
+      : Promise.resolve(tickets.length === 1 ? opts.tickets.redeem(tickets[0]!) : null);
+    identity.then(
       (ctx) => {
         if (!ctx) return reject(socket, `${REALTIME_UPGRADE_STATUS.unauthenticated} Unauthorized`);
         const release = reserve(ctx.accountId);

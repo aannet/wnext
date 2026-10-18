@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
+import { REALTIME_TICKET_PATH, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { createAllocation, deleteAllocation, updateAllocation } from "./allocations";
@@ -13,6 +13,7 @@ import {
 import { getSchedule } from "./schedule";
 import { addToTeam, getTeamRemovalSummary, removeFromTeam } from "./team";
 import { createTimeoff, deleteTimeoff, updateTimeoff } from "./timeoffs";
+import type { TicketService } from "./tickets";
 import { API_VERSION } from "./version";
 
 // Couche HTTP sans framework. `dispatch` est pure (requête -> statut + corps) : testable sans socket.
@@ -22,6 +23,8 @@ import { API_VERSION } from "./version";
 export interface HttpDeps {
   db: Db;
   authenticate(headers: Record<string, string | string[] | undefined>): Promise<RequestContext | null>;
+  /** Émission des tickets d'upgrade temps réel ; absent = la route n'existe pas. */
+  tickets?: Pick<TicketService, "issue">;
   newRequestId?(): string;
   onError?(err: unknown, requestId: string): void;
 }
@@ -146,6 +149,11 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
   try {
     const url = new URL(req.url, "http://localhost");
     if (req.method === "GET" && url.pathname === "/api/v1/health") return { status: 200, body: { status: "ok", version: API_VERSION } satisfies HealthResponse };
+    if (req.method === "POST" && url.pathname === REALTIME_TICKET_PATH && deps.tickets) {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      return { status: 200, body: deps.tickets.issue(ctx) };
+    }
     if (req.method === "GET" && url.pathname === "/api/v1/schedule") {
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId); // l'auth passe avant la validation : pas d'oracle pour un anonyme

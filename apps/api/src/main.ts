@@ -22,6 +22,7 @@ async function main() {
     port: config.port,
     pollIntervalMs: config.pollIntervalMs,
     maxPerAccount: config.wsMaxPerAccount,
+    ticketSecret: config.wsTicketSecret,
     notifier: pgNotifier({
       createClient: () => new pg.Client({ connectionString: config.databaseUrl }),
       onError: (err) => console.error(JSON.stringify({ level: "error", source: "listen", error: err instanceof Error ? err.message : String(err) })),
