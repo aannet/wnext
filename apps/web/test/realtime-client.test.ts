@@ -219,6 +219,21 @@ describe("authentification", () => {
   });
 });
 
+describe("entités du journal", () => {
+  it("transmet sans filtrer clients, phases, project_tasks, milestones et project_team", async () => {
+    const h = setup();
+    h.client.start();
+    await flush();
+    h.last().open();
+    h.last().say(ready("10"));
+    const entities = ["clients", "phases", "project_tasks", "milestones", "project_team"] as const;
+    const batch: Change[] = entities.map((entity, i) => ({ seq: String(11 + i), entity, id: "7", op: "update", version: 11 + i }));
+    h.last().say({ v: 1, type: "changes", changes: batch, cursor: "15", hasMore: false });
+    expect(h.errors).toEqual([]);
+    expect(h.got).toEqual([{ changes: batch, cursor: "15" }]);
+  });
+});
+
 describe("limitation de débit (429)", () => {
   it("ticketFrom : 429 avec params.retryAfterSeconds -> RealtimeRateLimitedError ; sans valeur -> erreur ordinaire", async () => {
     const err = await ticketFrom({ createRealtimeTicket: async () => ({ ok: false, status: 429, error: { params: { retryAfterSeconds: 42 } } }) })().catch((e) => e);
