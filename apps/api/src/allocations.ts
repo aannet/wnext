@@ -1,6 +1,7 @@
 import type { AllocationCreate, AllocationPatch } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
+import { assertWriter, day, invalid, isId, lockAndCheck as lockRow, notFound } from "./write";
 import { ALLOCATION_COLUMNS, toScheduleAllocation, type Row, type ScheduleAllocation } from "./schedule";
 
 // Écriture des allocations. Règles portées ici (le reste l'est par schema.sql : CHECK, FK composites, triggers) :
@@ -9,13 +10,6 @@ import { ALLOCATION_COLUMNS, toScheduleAllocation, type Row, type ScheduleAlloca
 //    donc deux écritures concurrentes sur la même version ne peuvent pas réussir toutes les deux ;
 //  * BR-01 / BR-04 : aucune vérification de capacité ni de congé, jamais de refus pour sur-allocation ;
 //  * isolation : RLS (app_user + contexte de withContext) ET account_id dans chaque requête.
-
-const WRITERS = new Set<RequestContext["role"]>(["owner", "admin", "project_manager"]);
-const assertWriter = (ctx: RequestContext) => {
-  if (!WRITERS.has(ctx.role)) throw new ApiFailure("FORBIDDEN", { role: ctx.role });
-};
-const invalid = (field: string) => new ApiFailure("VALIDATION_FAILED", { field });
-const notFound = (entity: string) => new ApiFailure("NOT_FOUND", { entity });
 
 /** Les références doivent exister DANS le compte ; phase et tâche dans le projet final. */
 async function assertReferences(tx: Queryable, accountId: string, ref: { personId?: string; projectId: string; phaseId?: string | null; taskId?: string | null }) {
@@ -27,9 +21,6 @@ async function assertReferences(tx: Queryable, accountId: string, ref: { personI
   if (ref.phaseId) await exists("SELECT 1 FROM phases WHERE id = $1::bigint AND project_id = $2::bigint AND account_id = $3::bigint", [ref.phaseId, ref.projectId, accountId], "phase");
   if (ref.taskId) await exists("SELECT 1 FROM project_tasks WHERE id = $1::bigint AND project_id = $2::bigint AND account_id = $3::bigint", [ref.taskId, ref.projectId, accountId], "task");
 }
-
-// Les identifiants sont des chaînes opaques ; un identifiant non numérique ne peut désigner aucune ligne.
-const isId = (v: string) => /^\d{1,18}$/.test(v);
 
 export async function createAllocation(db: Db, ctx: RequestContext, body: AllocationCreate): Promise<ScheduleAllocation> {
   assertWriter(ctx);
@@ -55,25 +46,13 @@ export async function createAllocation(db: Db, ctx: RequestContext, body: Alloca
   });
 }
 
-/** Ligne verrouillée + contrôle de version ; renvoie la ligne courante. */
-async function lockAndCheck(tx: Queryable, accountId: string, id: string, expected: number): Promise<Row> {
-  if (!isId(id)) throw notFound("allocation");
-  const { rows } = await tx.query<Row>(`SELECT ${ALLOCATION_COLUMNS} FROM allocations WHERE id = $1::bigint AND account_id = $2::bigint FOR UPDATE`, [id, accountId]);
-  const row = rows[0];
-  if (!row) throw notFound("allocation");
-  if (Number(row.row_version) !== expected) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: Number(row.row_version) });
-  return row;
-}
-
-const day = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v));
-
 export async function updateAllocation(db: Db, ctx: RequestContext, id: string, expectedVersion: number, patch: AllocationPatch): Promise<ScheduleAllocation> {
   assertWriter(ctx);
   for (const [v, entity] of [[patch.personId, "person"], [patch.projectId, "project"], [patch.phaseId, "phase"], [patch.taskId, "task"]] as const) {
     if (v && !isId(v)) throw notFound(entity);
   }
   return withContext(db, ctx, async (tx) => {
-    const cur = await lockAndCheck(tx, ctx.accountId, id, expectedVersion);
+    const cur = await lockRow(tx, "allocations", ALLOCATION_COLUMNS, "allocation", ctx.accountId, id, expectedVersion);
     const has = <K extends keyof AllocationPatch>(k: K) => k in patch && patch[k] !== undefined;
 
     const projectId = has("projectId") ? patch.projectId! : String(cur.project_id);
@@ -123,7 +102,7 @@ export async function updateAllocation(db: Db, ctx: RequestContext, id: string, 
 export async function deleteAllocation(db: Db, ctx: RequestContext, id: string, expectedVersion: number): Promise<void> {
   assertWriter(ctx);
   await withContext(db, ctx, async (tx) => {
-    await lockAndCheck(tx, ctx.accountId, id, expectedVersion);
+    await lockRow(tx, "allocations", ALLOCATION_COLUMNS, "allocation", ctx.accountId, id, expectedVersion);
     const { rows } = await tx.query("DELETE FROM allocations WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $3::int RETURNING id", [id, ctx.accountId, expectedVersion]);
     if (!rows.length) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: expectedVersion + 1 });
   });

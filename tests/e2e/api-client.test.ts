@@ -23,6 +23,7 @@ beforeAll(async () => {
     INSERT INTO accounts (name) VALUES ('A');
     INSERT INTO people (account_id, name, tags) VALUES (1, 'Alice', '{é &=?}'), (1, 'Bob', '{}');
     INSERT INTO projects (account_id, name) VALUES (1, 'P1');
+    INSERT INTO timeoff_types (account_id, name) VALUES (1, 'Vacances');
   `);
   const db: Db = { transaction: (fn) => pg.transaction(async (tx) => { await tx.query("SET LOCAL ROLE app_user"); return fn(tx as never); }) };
   server = createHttpServer({ db, authenticate: async (h) => (h.authorization === "Bearer ok" ? { accountId: "1", userId: "1", role: "admin" } : null) });
@@ -80,5 +81,30 @@ describe("écritures : client généré <-> serveur", () => {
     expect(del).toEqual({ ok: true, status: 204, data: undefined });
     const gone = await api.deleteAllocation({ path: { id: a.id }, headers: ifMatch(a.version + 1) });
     expect(gone.status).toBe(404);
+  });
+});
+
+describe("congés : client généré <-> serveur", () => {
+  it("créer, chevaucher (TIMEOFF_OVERLAP), modifier avec If-Match, supprimer (204)", async () => {
+    const api = client();
+    const body = { personId: "1", typeId: "1", startDate: "2026-07-06", endDate: "2026-07-10" };
+    const created = await api.createTimeoff({ body });
+    expect(created.status).toBe(201);
+    if (!created.ok) throw new Error("création refusée");
+    const t = created.data;
+
+    const overlap = await api.createTimeoff({ body: { ...body, startDate: "2026-07-08", endDate: "2026-07-08" } });
+    expect(overlap.ok).toBe(false);
+    if (!overlap.ok) expect([overlap.status, overlap.error]).toEqual([409, expect.objectContaining({ code: "TIMEOFF_OVERLAP" })]);
+
+    const ifMatch = (v: number) => ({ "If-Match": `"${v}"` });
+    const approved = await api.updateTimeoff({ path: { id: t.id }, headers: ifMatch(t.version), body: { approvalStatus: "approved" } });
+    expect(approved.ok && approved.data).toMatchObject({ approvalStatus: "approved", version: t.version + 1 });
+
+    const stale = await api.updateTimeoff({ path: { id: t.id }, headers: ifMatch(t.version), body: { notes: "périmée" } });
+    if (stale.ok) throw new Error("conflit attendu");
+    expect(stale.error).toMatchObject({ code: "VERSION_CONFLICT" });
+
+    expect(await api.deleteTimeoff({ path: { id: t.id }, headers: ifMatch(t.version + 1) })).toEqual({ ok: true, status: 204, data: undefined });
   });
 });

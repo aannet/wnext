@@ -32,6 +32,18 @@ export function toScheduleAllocation(r: Row): ScheduleAllocation {
     : { ...base, mode: "percentage" as const, hoursPerDay: null, percent: num(r.percent) };
 }
 
+export type ScheduleTimeoff = ScheduleResponse["timeoffs"][number];
+export const TIMEOFF_COLUMNS = `id, row_version, person_id, timeoff_type_id, start_date, end_date, scope, start_half, end_half,
+  hours_per_day, approval_status`;
+
+export function toScheduleTimeoff(r: Row): ScheduleTimeoff {
+  return {
+    id: idOf(r.id), version: num(r.row_version), personId: idOf(r.person_id), typeId: idOf(r.timeoff_type_id),
+    startDate: iso(r.start_date), endDate: iso(r.end_date), scope: r.scope, startHalf: r.start_half, endHalf: r.end_half,
+    hoursPerDay: r.hours_per_day === null ? null : num(r.hours_per_day), approvalStatus: r.approval_status,
+  };
+}
+
 interface PageCursor { name: string; id: string }
 const encodeCursor = (c: PageCursor) => Buffer.from(JSON.stringify(c)).toString("base64url");
 function decodeCursor(raw: string): PageCursor {
@@ -127,8 +139,7 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
     )).rows : [];
 
     const timeoffRows = personIds.length ? (await tx.query<Row>(
-      `SELECT id, row_version, person_id, timeoff_type_id, start_date, end_date, scope, start_half, end_half,
-              hours_per_day, approval_status
+      `SELECT ${TIMEOFF_COLUMNS}
          FROM timeoffs
         WHERE account_id = $1 AND start_date <= $3::date AND end_date >= $2::date AND person_id = ANY ($4::bigint[])
         ORDER BY person_id, start_date, id`,
@@ -165,11 +176,7 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
       },
       people,
       allocations,
-      timeoffs: timeoffRows.map((r) => ({
-        id: idOf(r.id), version: num(r.row_version), personId: idOf(r.person_id), typeId: idOf(r.timeoff_type_id),
-        startDate: iso(r.start_date), endDate: iso(r.end_date), scope: r.scope, startHalf: r.start_half, endHalf: r.end_half,
-        hoursPerDay: r.hours_per_day === null ? null : num(r.hours_per_day), approvalStatus: r.approval_status,
-      })),
+      timeoffs: timeoffRows.map(toScheduleTimeoff),
       holidays: holidayRows.rows.map((r) => ({
         id: idOf(r.id), name: String(r.name), date: iso(r.hdate), country: r.country === null ? null : String(r.country).trim(),
         departmentId: orNullId(r.department_id), hoursOff: r.hours_off === null ? null : num(r.hours_off),
