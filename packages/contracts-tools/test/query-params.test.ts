@@ -74,6 +74,21 @@ describe("client genere : parametres de requete", () => {
   });
 });
 
+describe("client genere : unions d'objets", () => {
+  it("un schema nomme en oneOf est un alias de type, pas une interface", () => {
+    const spec: any = specWith([]);
+    spec.components.schemas.Shape = { oneOf: [
+      { type: "object", properties: { kind: { type: "string", enum: ["a"] } }, required: ["kind"] },
+      { type: "object", properties: { kind: { type: "string", enum: ["b"] }, n: { type: "number" } }, required: ["kind", "n"] },
+    ] };
+    spec.components.schemas.Plain = { type: "object", properties: { x: { type: "string" } }, required: ["x"] };
+    const src = generateClient(spec);
+    expect(src).toMatch(/export type Shape = \{/);
+    expect(src).not.toMatch(/export interface Shape/);
+    expect(src).toMatch(/export interface Plain \{/);
+  });
+});
+
 describe("detection de rupture : parametres de requete", () => {
   const base = specWith([q("from", { type: "string" }, true), q("limit", { type: "integer" }), q("kind", { type: "string", enum: ["a", "b"] })]);
   it("identique : aucune rupture", () => {

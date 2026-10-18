@@ -67,7 +67,8 @@ export function generateClient(spec: Json): string {
   ];
   for (const [name, schema] of Object.entries<Json>(spec.components?.schemas ?? {})) {
     const body = tsType(schema);
-    out.push(body.startsWith("{") ? `export interface ${name} ${body}` : `export type ${name} = ${body};`, "");
+    const isInterface = (schema as Json).type === "object" && !(schema as Json).oneOf && !(schema as Json).anyOf && body.startsWith("{");
+    out.push(isInterface ? `export interface ${name} ${body}` : `export type ${name} = ${body};`, "");
   }
   out.push(
     "export interface FetchResponse {",
