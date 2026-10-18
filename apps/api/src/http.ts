@@ -37,6 +37,7 @@ const STATUS: Record<ApiError["code"], number> = {
   NOT_FOUND: 404,
   VERSION_CONFLICT: 409,
   PRECONDITION_REQUIRED: 428,
+  TIMEOFF_OVERLAP: 409,
 };
 
 const fail = (code: ApiError["code"], requestId: string, params: ApiError["params"] = {}): HttpReply =>

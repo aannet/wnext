@@ -13,3 +13,4 @@ export {
   Change, ChangeEntity, REALTIME_PATH, REALTIME_PROTOCOL_VERSION, RealtimeChanges, RealtimeClientMessage, RealtimeError,
   RealtimeReady, RealtimeResync, RealtimeServerMessage, RealtimeSubscribe,
 } from "./realtime";
+export { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";

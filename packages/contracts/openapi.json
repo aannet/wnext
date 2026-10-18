@@ -49,7 +49,8 @@
           "FORBIDDEN",
           "NOT_FOUND",
           "VERSION_CONFLICT",
-          "PRECONDITION_REQUIRED"
+          "PRECONDITION_REQUIRED",
+          "TIMEOFF_OVERLAP"
         ]
       },
       "HealthResponse": {
@@ -1038,6 +1039,144 @@
             "$ref": "#/components/schemas/AllocationLoad"
           }
         }
+      },
+      "TimeoffCreate": {
+        "type": "object",
+        "properties": {
+          "personId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "typeId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "startDate": {
+            "$ref": "#/components/schemas/IsoDate"
+          },
+          "endDate": {
+            "$ref": "#/components/schemas/IsoDate"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "full_day",
+              "partial"
+            ]
+          },
+          "startHalf": {
+            "type": "string",
+            "enum": [
+              "am",
+              "pm"
+            ]
+          },
+          "endHalf": {
+            "type": "string",
+            "enum": [
+              "am",
+              "pm"
+            ]
+          },
+          "hoursPerDay": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 24
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Obligatoire si scope = partial, absent ou null sinon"
+          },
+          "approvalStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "declined"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 5000
+          }
+        },
+        "required": [
+          "personId",
+          "typeId",
+          "startDate",
+          "endDate"
+        ]
+      },
+      "TimeoffPatch": {
+        "type": "object",
+        "properties": {
+          "personId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "typeId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "startDate": {
+            "$ref": "#/components/schemas/IsoDate"
+          },
+          "endDate": {
+            "$ref": "#/components/schemas/IsoDate"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "full_day",
+              "partial"
+            ]
+          },
+          "startHalf": {
+            "type": "string",
+            "enum": [
+              "am",
+              "pm"
+            ]
+          },
+          "endHalf": {
+            "type": "string",
+            "enum": [
+              "am",
+              "pm"
+            ]
+          },
+          "hoursPerDay": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 24
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Obligatoire si scope = partial, absent ou null sinon"
+          },
+          "approvalStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "declined"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 5000
+          }
+        }
       }
     },
     "parameters": {}
@@ -1478,6 +1617,315 @@
           },
           "404": {
             "description": "Allocation inconnue (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version perimee (VERSION_CONFLICT, params.currentVersion)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match absent (PRECONDITION_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/timeoffs": {
+      "post": {
+        "operationId": "createTimeoff",
+        "summary": "Creer un conge (jamais refuse pour cause d'allocations existantes, BR-04)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimeoffCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Conge cree",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleTimeoff"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Personne ou type de conge inconnu (NOT_FOUND, params.entity)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Chevauche un autre conge de la personne (TIMEOFF_OVERLAP)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/timeoffs/{id}": {
+      "patch": {
+        "operationId": "updateTimeoff",
+        "summary": "Modifier un conge (verrou optimiste If-Match)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\"\\d+\"$",
+              "description": "Version lue dans le Schedule, entre guillemets : \"3\""
+            },
+            "required": true,
+            "description": "Version lue dans le Schedule, entre guillemets : \"3\"",
+            "name": "If-Match",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimeoffPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Conge modifie (nouvelle version)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleTimeoff"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps ou en-tete invalide, ou etat resultant incoherent (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Conge ou reference inconnue (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version perimee (VERSION_CONFLICT, params.currentVersion) ou chevauchement (TIMEOFF_OVERLAP)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match absent (PRECONDITION_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteTimeoff",
+        "summary": "Supprimer un conge (verrou optimiste If-Match)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\"\\d+\"$",
+              "description": "Version lue dans le Schedule, entre guillemets : \"3\""
+            },
+            "required": true,
+            "description": "Version lue dans le Schedule, entre guillemets : \"3\"",
+            "name": "If-Match",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Supprime (journalise dans delete_log, BR-14)"
+          },
+          "400": {
+            "description": "En-tete invalide (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Conge inconnu (NOT_FOUND)",
             "content": {
               "application/json": {
                 "schema": {

@@ -11,6 +11,7 @@ export const ErrorCode = z.enum([
   "NOT_FOUND",
   "VERSION_CONFLICT",
   "PRECONDITION_REQUIRED",
+  "TIMEOFF_OVERLAP",
 ]).meta({ id: "ErrorCode" });
 
 export const ApiError = z

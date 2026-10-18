@@ -9,7 +9,7 @@ export interface ApiError {
   requestId: string;
 }
 
-export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED";
+export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP";
 
 export interface HealthResponse {
   status: "ok" | "degraded";
@@ -200,6 +200,32 @@ export interface AllocationPatch {
   load?: AllocationLoad;
 }
 
+export interface TimeoffCreate {
+  personId: Id;
+  typeId: Id;
+  startDate: IsoDate;
+  endDate: IsoDate;
+  scope?: "full_day" | "partial";
+  startHalf?: "am" | "pm";
+  endHalf?: "am" | "pm";
+  hoursPerDay?: number | null;
+  approvalStatus?: "pending" | "approved" | "declined";
+  notes?: string | null;
+}
+
+export interface TimeoffPatch {
+  personId?: Id;
+  typeId?: Id;
+  startDate?: IsoDate;
+  endDate?: IsoDate;
+  scope?: "full_day" | "partial";
+  startHalf?: "am" | "pm";
+  endHalf?: "am" | "pm";
+  hoursPerDay?: number | null;
+  approvalStatus?: "pending" | "approved" | "declined";
+  notes?: string | null;
+}
+
 export interface FetchResponse {
   status: number;
   json(): Promise<unknown>;
@@ -282,6 +308,47 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       };
     }): Promise<ApiResult<void, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/allocations/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer un conge (jamais refuse pour cause d'allocations existantes, BR-04) (POST /api/v1/timeoffs) */
+    async createTimeoff(input: {
+      body: TimeoffCreate;
+    }): Promise<ApiResult<ScheduleTimeoff, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/timeoffs", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleTimeoff }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier un conge (verrou optimiste If-Match) (PATCH /api/v1/timeoffs/{id}) */
+    async updateTimeoff(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: TimeoffPatch;
+    }): Promise<ApiResult<ScheduleTimeoff, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/timeoffs/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleTimeoff }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer un conge (verrou optimiste If-Match) (DELETE /api/v1/timeoffs/{id}) */
+    async deleteTimeoff(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/timeoffs/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as void }
