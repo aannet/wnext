@@ -47,6 +47,41 @@ function cmpSchema(a: Json | undefined, b: Json | undefined, oldSpec: Json, newS
   }
 }
 
+// Cote REQUETE le sens s'inverse : ce qui casse un client existant, c'est d'exiger plus (propriete requise nouvelle),
+// d'accepter moins (valeur d'enum retiree) ou de changer le type attendu. Retirer une propriete optionnelle n'est pas
+// detecte (le serveur peut l'ignorer ou la refuser : cela releve de la semantique).
+function cmpRequest(a: Json | undefined, b: Json | undefined, oldSpec: Json, newSpec: Json, where: string, out: string[], seen: Set<string>): void {
+  if (!a || !b) return;
+  if (a.$ref || b.$ref) {
+    if (a.$ref !== b.$ref) out.push(`${where} : $ref ${a.$ref ?? "inline"} -> ${b.$ref ?? "inline"}`);
+    const k = String(a.$ref);
+    if (a.$ref && seen.has(k)) return;
+    if (a.$ref) seen.add(k);
+    a = resolve(oldSpec, a);
+    b = resolve(newSpec, b);
+    if (!a || !b) return;
+  }
+  if (JSON.stringify(a.type) !== JSON.stringify(b.type)) {
+    out.push(`${where} : type ${JSON.stringify(a.type)} -> ${JSON.stringify(b.type)}`);
+    return;
+  }
+  if (a.enum) {
+    const gone = a.enum.filter((v: unknown) => !(b.enum ?? []).includes(v));
+    if (!b.enum || gone.length) out.push(`${where} : valeur(s) d'enum acceptee(s) retiree(s) ${JSON.stringify(gone.length ? gone : a.enum)}`);
+  }
+  for (const k of b.required ?? []) {
+    if (!(a.required ?? []).includes(k)) out.push(`${where}.${k} : nouvelle propriete requise`);
+  }
+  for (const [k, v] of Object.entries<Json>(a.properties ?? {})) {
+    if (b.properties?.[k]) cmpRequest(v, b.properties[k], oldSpec, newSpec, `${where}.${k}`, out, seen);
+  }
+  if (a.items) cmpRequest(a.items, b.items, oldSpec, newSpec, `${where}[]`, out, seen);
+  for (const k of ["anyOf", "oneOf"] as const) {
+    if ((a[k]?.length ?? 0) > (b[k]?.length ?? 0)) out.push(`${where} : variante(s) retiree(s) de ${k}`);
+    (a[k] ?? []).forEach((v: Json, i: number) => cmpRequest(v, b[k]?.[i], oldSpec, newSpec, `${where}|${i}`, out, seen));
+  }
+}
+
 /** Liste lisible des ruptures de `next` par rapport a `base` (vide = compatible). Cote reponses. */
 export function findBreakingChanges(base: Json, next: Json): string[] {
   const out: string[] = [];
@@ -66,6 +101,11 @@ export function findBreakingChanges(base: Json, next: Json): string[] {
         }
         cmpSchema(resp.content?.["application/json"]?.schema, nresp.content?.["application/json"]?.schema, base, next, `${id} ${code}`, out, new Set());
       }
+      const oldBody = op.requestBody;
+      const newBody = nop.requestBody;
+      if (oldBody && !newBody) out.push(`${id} : corps de requete supprime`);
+      if (newBody?.required && !oldBody?.required) out.push(`${id} : corps de requete devient requis`);
+      cmpRequest(oldBody?.content?.["application/json"]?.schema, newBody?.content?.["application/json"]?.schema, base, next, `${id} corps`, out, new Set());
       const key = (p: Json) => `${p.in}:${p.name}`;
       const baseParams = new Map<string, Json>((op.parameters ?? []).map((p: Json) => [key(p), p]));
       const nextParams = new Map<string, Json>((nop.parameters ?? []).map((p: Json) => [key(p), p]));

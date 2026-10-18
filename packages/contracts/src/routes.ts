@@ -12,6 +12,12 @@ export interface RouteContract {
   summary: string;
   /** Parametres de requete (valeurs scalaires ou tableaux de scalaires). */
   query?: z.ZodObject;
+  /** Parametres de chemin (`{nom}` dans `path`). */
+  params?: z.ZodObject;
+  /** En-tetes de requete ; la cle est le nom exact de l'en-tete (ex. "If-Match"). */
+  headers?: z.ZodObject;
+  /** Corps JSON de la requete (toujours requis). */
+  body?: z.ZodType;
   responses: Record<number, { description: string; schema: z.ZodType }>;
 }
 

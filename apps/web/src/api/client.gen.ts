@@ -181,7 +181,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
     /** Etat du service (GET /api/v1/health) */
     async getHealth(): Promise<ApiResult<HealthResponse, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/health", { method: "GET", headers: { accept: "application/json" } });
-      const body = await res.json();
+      const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as HealthResponse }
         : { ok: false, status: res.status, error: body as ApiError };
@@ -199,7 +199,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       cursor?: string;
     }): Promise<ApiResult<ScheduleResponse, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/schedule" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
-      const body = await res.json();
+      const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as ScheduleResponse }
         : { ok: false, status: res.status, error: body as ApiError };

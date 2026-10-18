@@ -43,18 +43,21 @@ function objectType(s: Json, indent: string): string {
 
 type Param = { name: string; in: string; required?: boolean; schema: Json };
 
-/** Parametres de requete d'une operation. Chemin, en-tete et cookie ne sont pas supportes : erreur explicite. */
-function queryParams(op: Json, where: string): Param[] {
-  const params: Param[] = op.parameters ?? [];
-  for (const p of params) {
-    if (p.in !== "query") throw new Error(`parametre ${p.in}:${p.name} non supporte par le generateur de client (${where})`);
+/** Parametres d'une operation. Les cookies ne sont pas supportes : erreur explicite. */
+function operationParams(op: Json, where: string): Record<"query" | "path" | "header", Param[]> {
+  const out = { query: [] as Param[], path: [] as Param[], header: [] as Param[] };
+  for (const p of (op.parameters ?? []) as Param[]) {
+    if (p.in !== "query" && p.in !== "path" && p.in !== "header") throw new Error(`parametre ${p.in}:${p.name} non supporte par le generateur de client (${where})`);
+    out[p.in].push(p);
   }
-  return params;
+  return out;
 }
 
-function queryType(params: Param[]): string {
-  const lines = params.map((p) => `      ${/^[A-Za-z_$][\w$]*$/.test(p.name) ? p.name : JSON.stringify(p.name)}${p.required ? "" : "?"}: ${tsType(p.schema)};`);
-  return `{\n${lines.join("\n")}\n    }`;
+const key = (name: string) => (/^[A-Za-z_$][\w$]*$/.test(name) ? name : JSON.stringify(name));
+
+function paramsType(params: Param[], indent: string): string {
+  const lines = params.map((p) => `${indent}  ${key(p.name)}${p.required ? "" : "?"}: ${tsType(p.schema)};`);
+  return `{\n${lines.join("\n")}\n${indent}}`;
 }
 
 const jsonSchema = (r: Json): Json | undefined => r?.content?.["application/json"]?.schema;
@@ -95,6 +98,34 @@ export function generateClient(spec: Json): string {
   for (const [path, item] of Object.entries<Json>(spec.paths ?? {})) {
     for (const [method, op] of Object.entries<Json>(item)) {
       if (!op.operationId) throw new Error(`operationId manquant : ${method} ${path}`);
+      const where = `${method.toUpperCase()} ${path}`;
+      const params = operationParams(op, where);
+      const bodySchema = jsonSchema(op.requestBody);
+      if (op.requestBody && !bodySchema) throw new Error(`corps de requete non JSON non supporte (${where})`);
+      const onlyQuery = !params.path.length && !params.header.length && !bodySchema;
+      const q = params.query;
+      const allOptional = q.every((p) => !p.required);
+      let arg = "";
+      let get = (k: "path" | "query" | "header" | "body") => k as string;
+      if (onlyQuery) {
+        // Forme historique : la requete est l'argument.
+        arg = q.length ? `query: ${paramsType(q, "    ")}${allOptional ? " = {}" : ""}` : "";
+        get = () => "query";
+      } else {
+        const members: string[] = [];
+        if (params.path.length) members.push(`path: ${paramsType(params.path, "      ")}`);
+        if (q.length) members.push(`query${allOptional ? "?" : ""}: ${paramsType(q, "      ")}`);
+        if (params.header.length) members.push(`headers${params.header.some((p) => p.required) ? "" : "?"}: ${paramsType(params.header, "      ")}`);
+        if (bodySchema) members.push(`body${op.requestBody.required ? "" : "?"}: ${tsType(bodySchema, "      ")}`);
+        arg = `input: {\n      ${members.join(";\n      ")};\n    }`;
+        get = (k) => `input.${k === "header" ? "headers" : k}`;
+      }
+      const target = JSON.stringify(path).replace(/\{(\w+)\}/g, (_m, n) => `" + encodeURIComponent(String(${get("path")}.${n})) + "`);
+      const urlExpr = `options.baseUrl + ${target}`.replace(/ \+ ""$/, "") + (q.length ? ` + toQueryString(${get("query")}${onlyQuery || !allOptional ? "" : " ?? {}"})` : "");
+      const headerParts = [`accept: "application/json"`];
+      if (bodySchema) headerParts.push(`"content-type": "application/json"`);
+      const headers = `{ ${headerParts.join(", ")}${params.header.length ? `, ...${get("header")}` : ""} }`;
+      const bodyInit = bodySchema ? `, body: JSON.stringify(${get("body")})` : "";
       const ok: string[] = [];
       const err: string[] = [];
       for (const [code, resp] of Object.entries<Json>(op.responses ?? {})) {
@@ -102,17 +133,13 @@ export function generateClient(spec: Json): string {
         const t = s ? tsType(s) : "void";
         (/^2/.test(code) ? ok : err).push(t);
       }
-      const params = queryParams(op, `${method.toUpperCase()} ${path}`);
-      const allOptional = params.every((p) => !p.required);
-      const arg = params.length ? `query: ${queryType(params)}${allOptional ? " = {}" : ""}` : "";
-      const url = params.length ? `options.baseUrl + ${JSON.stringify(path)} + toQueryString(query)` : `options.baseUrl + ${JSON.stringify(path)}`;
       const okT = [...new Set(ok)].join(" | ") || "void";
       const errT = [...new Set(err)].join(" | ") || "never";
       out.push(
         `    /** ${op.summary ?? op.operationId} (${method.toUpperCase()} ${path}) */`,
         `    async ${op.operationId}(${arg}): Promise<ApiResult<${okT}, ${errT}>> {`,
-        `      const res = await options.fetch(${url}, { method: ${JSON.stringify(method.toUpperCase())}, headers: { accept: "application/json" } });`,
-        `      const body = await res.json();`,
+        `      const res = await options.fetch(${urlExpr}, { method: ${JSON.stringify(method.toUpperCase())}, headers: ${headers}${bodyInit} });`,
+        `      const body = res.status === 204 ? undefined : await res.json();`,
         `      return res.status >= 200 && res.status < 300`,
         `        ? { ok: true, status: res.status, data: body as ${okT} }`,
         `        : { ok: false, status: res.status, error: body as ${errT} };`,

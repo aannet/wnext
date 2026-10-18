@@ -52,8 +52,8 @@ describe("client genere : parametres de requete", () => {
   it("aucun parametre : signature inchangee", () => {
     expect(generateClient(specWith([]))).toContain("async listThings(): Promise");
   });
-  it("parametre de chemin ou d'en-tete : erreur explicite (non supporte)", () => {
-    expect(() => generateClient(specWith([{ name: "id", in: "path", required: true, schema: { type: "string" } }]))).toThrow(/non supporte/);
+  it("parametre de cookie : erreur explicite (non supporte)", () => {
+    expect(() => generateClient(specWith([{ name: "sid", in: "cookie", required: true, schema: { type: "string" } }]))).toThrow(/non supporte/);
   });
   it("le client genere construit la bonne URL (execution reelle)", async () => {
     const dir = mkdtempSync(join(tmpdir(), "wnext-client-"));

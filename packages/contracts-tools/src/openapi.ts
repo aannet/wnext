@@ -14,7 +14,14 @@ export function buildSpec(): Record<string, unknown> {
       path: r.path,
       operationId: r.operationId,
       summary: r.summary,
-      request: r.query ? { query: r.query } : undefined,
+      request: r.query || r.params || r.headers || r.body
+        ? {
+            ...(r.params && { params: r.params }),
+            ...(r.query && { query: r.query }),
+            ...(r.headers && { headers: r.headers }),
+            ...(r.body && { body: { required: true, content: { "application/json": { schema: r.body } } } }),
+          }
+        : undefined,
       responses: Object.fromEntries(
         Object.entries(r.responses).map(([code, v]) => [
           code,
