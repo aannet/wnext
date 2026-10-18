@@ -8,7 +8,7 @@ import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
 import { REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket } from "./realtime";
 import { TeamBatchAdd, TeamBatchResult, TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
-import { PersonCreate, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProjectList, PersonProjectListQuery } from "./people";
+import { PersonDeactivationQuery, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonCreate, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProjectList, PersonProjectListQuery } from "./people";
 import { ScheduleDepartment, ScheduleHoliday, SchedulePerson, ScheduleAllocation, ScheduleRole, ScheduleTimeoffType, ScheduleQuery, ScheduleResponse, ScheduleTimeoff } from "./schedule";
 import {
   DepartmentCreate, DepartmentList, DepartmentPatch, HolidayCreate, HolidayList, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectDetail,
@@ -371,6 +371,40 @@ export const routes: RouteContract[] = [
       400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
       404: { description: "Personne inconnue ou hors compte (NOT_FOUND)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/people/{id}/deactivation-summary",
+    operationId: "getPersonDeactivationSummary",
+    summary: "Recapitulatif de la desactivation d'une personne (BR-31) : ses allocations futures, sans rien ecrire (owner, admin ou project_manager)",
+    params: PersonPathParams,
+    query: PersonDeactivationQuery,
+    responses: {
+      200: { description: "Recapitulatif a presenter avant confirmation", schema: PersonDeactivationSummary },
+      400: { description: "Requete invalide (VALIDATION_FAILED)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
+      404: { description: "Personne inconnue ou hors compte (NOT_FOUND)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/v1/people/{id}/deactivation",
+    operationId: "deactivatePerson",
+    summary: "Desactiver une personne et reaffecter ou supprimer ses allocations futures, apres confirmation (BR-31)",
+    params: PersonPathParams,
+    body: PersonDeactivationRequest,
+    responses: {
+      200: { description: "Personne desactivee ; comptes des allocations reaffectees et supprimees", schema: PersonDeactivationResult },
+      400: { description: "Corps invalide (VALIDATION_FAILED)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
+      404: { description: "Personne ou remplacant inconnu (NOT_FOUND, params.entity = person)", schema: ApiError },
+      409: { description: "Confirmation perimee (PERSON_DEACTIVATION_STALE_CONFIRMATION, params = nouveau recapitulatif) ou remplacant invalide (PERSON_DEACTIVATION_INVALID_REPLACEMENT, params.reason)", schema: ApiError },
+      428: { description: "Confirmation ou disposition absente alors qu'il y a des allocations futures (PERSON_DEACTIVATION_CONFIRMATION_REQUIRED, params = recapitulatif)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },

@@ -56,6 +56,9 @@
           "TEAM_REMOVAL_CONFIRMATION_REQUIRED",
           "TEAM_REMOVAL_STALE_CONFIRMATION",
           "TEAM_REMOVAL_LOCKED_LOGS",
+          "PERSON_DEACTIVATION_CONFIRMATION_REQUIRED",
+          "PERSON_DEACTIVATION_STALE_CONFIRMATION",
+          "PERSON_DEACTIVATION_INVALID_REPLACEMENT",
           "RATE_LIMITED"
         ]
       },
@@ -1593,6 +1596,194 @@
           "inTeam",
           "allocationCount"
         ]
+      },
+      "PersonDeactivationSummary": {
+        "type": "object",
+        "properties": {
+          "alreadyInactive": {
+            "type": "boolean"
+          },
+          "asOf": {
+            "$ref": "#/components/schemas/IsoDate"
+          },
+          "allocationCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Allocations dont la fin effective est >= asOf"
+          },
+          "projectCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Projets distincts concernés"
+          },
+          "firstAllocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Plus petit début parmi ces allocations"
+          },
+          "lastAllocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Plus grande fin effective (fin de série incluse)"
+          }
+        },
+        "required": [
+          "alreadyInactive",
+          "asOf",
+          "allocationCount",
+          "projectCount",
+          "firstAllocation",
+          "lastAllocation"
+        ]
+      },
+      "PersonDeactivationResult": {
+        "type": "object",
+        "properties": {
+          "person": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "version": {
+                "$ref": "#/components/schemas/Version"
+              },
+              "name": {
+                "type": "string"
+              },
+              "peopleType": {
+                "$ref": "#/components/schemas/SchedulePeopleType"
+              },
+              "departmentId": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "roleId": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "country": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[A-Z]{2}$",
+                "description": "ISO 3166-1 alpha-2 ; null = aucun férié de pays"
+              },
+              "workDaysHours": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 24
+                },
+                "description": "Heures ouvrées par jour, index 0 = lundi ... 6 = dimanche"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "avatarUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "active": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "version",
+              "name",
+              "peopleType",
+              "departmentId",
+              "roleId",
+              "country",
+              "workDaysHours",
+              "tags",
+              "avatarUrl",
+              "active"
+            ],
+            "description": "La personne, désactivée, avec sa version courante"
+          },
+          "reassignedAllocations": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "deletedAllocations": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "person",
+          "reassignedAllocations",
+          "deletedAllocations"
+        ]
+      },
+      "PersonDeactivationRequest": {
+        "type": "object",
+        "properties": {
+          "asOf": {
+            "type": "string",
+            "format": "date",
+            "description": "Doit être celle du récapitulatif vu (défaut : aujourd'hui UTC)"
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "reassign",
+              "delete"
+            ],
+            "description": "Obligatoire s'il y a des allocations futures"
+          },
+          "replacementId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Requis avec `reassign`, interdit avec `delete`"
+          },
+          "confirmation": {
+            "type": "object",
+            "properties": {
+              "allocationCount": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "allocationCount"
+            ],
+            "description": "Obligatoire s'il y a des allocations futures"
+          }
+        }
       },
       "PersonAllocationList": {
         "type": "object",
@@ -5153,6 +5344,205 @@
           },
           "404": {
             "description": "Personne inconnue ou hors compte (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{id}/deactivation-summary": {
+      "get": {
+        "operationId": "getPersonDeactivationSummary",
+        "summary": "Recapitulatif de la desactivation d'une personne (BR-31) : ses allocations futures, sans rien ecrire (owner, admin ou project_manager)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Date de référence de « futur » (défaut : aujourd'hui UTC)"
+            },
+            "required": false,
+            "description": "Date de référence de « futur » (défaut : aujourd'hui UTC)",
+            "name": "asOf",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recapitulatif a presenter avant confirmation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDeactivationSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Personne inconnue ou hors compte (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{id}/deactivation": {
+      "post": {
+        "operationId": "deactivatePerson",
+        "summary": "Desactiver une personne et reaffecter ou supprimer ses allocations futures, apres confirmation (BR-31)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonDeactivationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Personne desactivee ; comptes des allocations reaffectees et supprimees",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDeactivationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Personne ou remplacant inconnu (NOT_FOUND, params.entity = person)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Confirmation perimee (PERSON_DEACTIVATION_STALE_CONFIRMATION, params = nouveau recapitulatif) ou remplacant invalide (PERSON_DEACTIVATION_INVALID_REPLACEMENT, params.reason)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Confirmation ou disposition absente alors qu'il y a des allocations futures (PERSON_DEACTIVATION_CONFIRMATION_REQUIRED, params = recapitulatif)",
             "content": {
               "application/json": {
                 "schema": {

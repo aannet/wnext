@@ -9,7 +9,7 @@ export interface ApiError {
   requestId: string;
 }
 
-export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "ALREADY_EXISTS" | "REFERENCE_IN_USE" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS" | "RATE_LIMITED";
+export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "ALREADY_EXISTS" | "REFERENCE_IN_USE" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS" | "PERSON_DEACTIVATION_CONFIRMATION_REQUIRED" | "PERSON_DEACTIVATION_STALE_CONFIRMATION" | "PERSON_DEACTIVATION_INVALID_REPLACEMENT" | "RATE_LIMITED";
 
 export interface HealthResponse {
   status: "ok" | "degraded";
@@ -307,6 +307,42 @@ export interface PersonProject {
   project: ScheduleProject;
   inTeam: boolean;
   allocationCount: number;
+}
+
+export interface PersonDeactivationSummary {
+  alreadyInactive: boolean;
+  asOf: IsoDate;
+  allocationCount: number;
+  projectCount: number;
+  firstAllocation: IsoDate | null;
+  lastAllocation: IsoDate | null;
+}
+
+export interface PersonDeactivationResult {
+  person: {
+    id: Id;
+    version: Version;
+    name: string;
+    peopleType: SchedulePeopleType;
+    departmentId: Id | null;
+    roleId: Id | null;
+    country: string | null;
+    workDaysHours: Array<number>;
+    tags: Array<string>;
+    avatarUrl: string | null;
+    active: boolean;
+  };
+  reassignedAllocations: number;
+  deletedAllocations: number;
+}
+
+export interface PersonDeactivationRequest {
+  asOf?: string;
+  disposition?: "reassign" | "delete";
+  replacementId?: string;
+  confirmation?: {
+    allocationCount: number;
+  };
 }
 
 export interface PersonAllocationList {
@@ -955,6 +991,34 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as PersonProjectList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Recapitulatif de la desactivation d'une personne (BR-31) : ses allocations futures, sans rien ecrire (owner, admin ou project_manager) (GET /api/v1/people/{id}/deactivation-summary) */
+    async getPersonDeactivationSummary(input: {
+      path: {
+        id: Id;
+      };
+      query?: {
+        asOf?: string;
+      };
+    }): Promise<ApiResult<PersonDeactivationSummary, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/people/" + encodeURIComponent(String(input.path.id)) + "/deactivation-summary" + toQueryString(input.query ?? {}), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as PersonDeactivationSummary }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Desactiver une personne et reaffecter ou supprimer ses allocations futures, apres confirmation (BR-31) (POST /api/v1/people/{id}/deactivation) */
+    async deactivatePerson(input: {
+      path: {
+        id: Id;
+      };
+      body: PersonDeactivationRequest;
+    }): Promise<ApiResult<PersonDeactivationResult, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/people/" + encodeURIComponent(String(input.path.id)) + "/deactivation", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as PersonDeactivationResult }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Allocations d'une personne sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie) (GET /api/v1/people/{id}/allocations) */
