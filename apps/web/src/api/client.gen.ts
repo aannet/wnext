@@ -567,6 +567,64 @@ export interface MilestonePatch {
   dueDate?: IsoDate;
 }
 
+export interface ProjectExpenseList {
+  items: Array<ProjectExpense>;
+  page: SchedulePage;
+}
+
+export interface ProjectExpense {
+  id: Id;
+  version: Version;
+  projectId: Id;
+  name: string;
+  amount: string;
+  currency: string;
+  spentOn: IsoDate | null;
+}
+
+export interface ProjectExpenseCreate {
+  projectId: Id;
+  name: string;
+  amount: string;
+  currency?: string;
+  spentOn?: IsoDate | null;
+}
+
+export interface ProjectExpensePatch {
+  name?: string;
+  amount?: string;
+  currency?: string;
+  spentOn?: IsoDate | null;
+}
+
+export interface ProjectBudgetLineList {
+  items: Array<ProjectBudgetLine>;
+  page: SchedulePage;
+}
+
+export interface ProjectBudgetLine {
+  id: Id;
+  version: Version;
+  projectId: Id;
+  taskId: Id | null;
+  personId: Id | null;
+  hours: number | null;
+  amount: string | null;
+}
+
+export interface ProjectBudgetLineCreate {
+  projectId: Id;
+  taskId?: string;
+  personId?: string;
+  hours?: number;
+  amount?: string;
+}
+
+export interface ProjectBudgetLinePatch {
+  hours?: number | null;
+  amount?: string | null;
+}
+
 export interface FetchResponse {
   status: number;
   json(): Promise<unknown>;
@@ -1461,6 +1519,140 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       };
     }): Promise<ApiResult<void, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/milestones/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lister : depense de projet (pagine, tri par id ; owner, admin ou project_manager) (GET /api/v1/project-expenses) */
+    async listProjectExpenses(query: {
+      limit?: number;
+      cursor?: string;
+      projectId?: string;
+      spentFrom?: string;
+      spentTo?: string;
+    } = {}): Promise<ApiResult<ProjectExpenseList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-expenses" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectExpenseList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer : depense de projet (POST /api/v1/project-expenses) */
+    async createProjectExpense(input: {
+      body: ProjectExpenseCreate;
+    }): Promise<ApiResult<ProjectExpense, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-expenses", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectExpense }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire : depense de projet (owner, admin ou project_manager) (GET /api/v1/project-expenses/{id}) */
+    async getProjectExpense(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<ProjectExpense, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-expenses/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectExpense }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier : depense de projet (verrou optimiste If-Match) (PATCH /api/v1/project-expenses/{id}) */
+    async updateProjectExpense(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: ProjectExpensePatch;
+    }): Promise<ApiResult<ProjectExpense, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-expenses/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectExpense }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer : depense de projet (verrou optimiste If-Match ; refuse si reference) (DELETE /api/v1/project-expenses/{id}) */
+    async deleteProjectExpense(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-expenses/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lister : ligne de budget (pagine, tri par id ; owner, admin ou project_manager) (GET /api/v1/project-budget-lines) */
+    async listProjectBudgetLines(query: {
+      limit?: number;
+      cursor?: string;
+      projectId?: string;
+      taskId?: string;
+      personId?: string;
+    } = {}): Promise<ApiResult<ProjectBudgetLineList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-budget-lines" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectBudgetLineList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer : ligne de budget (POST /api/v1/project-budget-lines) */
+    async createProjectBudgetLine(input: {
+      body: ProjectBudgetLineCreate;
+    }): Promise<ApiResult<ProjectBudgetLine, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-budget-lines", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectBudgetLine }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire : ligne de budget (owner, admin ou project_manager) (GET /api/v1/project-budget-lines/{id}) */
+    async getProjectBudgetLine(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<ProjectBudgetLine, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-budget-lines/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectBudgetLine }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier : ligne de budget (verrou optimiste If-Match) (PATCH /api/v1/project-budget-lines/{id}) */
+    async updateProjectBudgetLine(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: ProjectBudgetLinePatch;
+    }): Promise<ApiResult<ProjectBudgetLine, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-budget-lines/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectBudgetLine }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer : ligne de budget (verrou optimiste If-Match ; refuse si reference) (DELETE /api/v1/project-budget-lines/{id}) */
+    async deleteProjectBudgetLine(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-budget-lines/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as void }

@@ -1,5 +1,9 @@
 import type { z } from "zod";
 import { AllocationCreate, AllocationPatch, AllocationPathParams, IfMatchHeader, PersonAllocationList, PersonAllocationListQuery, ProjectAllocationList, ProjectAllocationListQuery, ProjectPathParams } from "./allocations";
+import {
+  ProjectBudgetLine, ProjectBudgetLineCreate, ProjectBudgetLineList, ProjectBudgetLineListQuery, ProjectBudgetLinePatch,
+  ProjectExpense, ProjectExpenseCreate, ProjectExpenseList, ProjectExpenseListQuery, ProjectExpensePatch,
+} from "./budget";
 import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
 import { REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket } from "./realtime";
@@ -39,27 +43,30 @@ export interface RouteContract {
 // Entites de reference : GET (liste paginee, une entite), POST, PATCH (If-Match) et, sauf projets, DELETE (refuse tant que l'entite est referencee).
 function referenceRoutes(def: {
   path: string; name: string; label: string; create: z.ZodType; patch: z.ZodType; response: z.ZodType;
-  listQuery: z.ZodObject; list: z.ZodType; admin: boolean; remove: boolean; unique?: string; refs: string;
+  listQuery: z.ZodObject; list: z.ZodType; admin: boolean; remove: boolean; unique?: string; refs: string; restricted?: boolean;
 }): RouteContract[] {
   const who = def.admin ? "owner ou admin" : "owner, admin ou project_manager";
   const forbidden = { description: `Role insuffisant, ${who} requis (FORBIDDEN)`, schema: ApiError };
   const exists: Record<number, { description: string; schema: typeof ApiError }> = def.unique ? { 409: { description: `Deja existant (ALREADY_EXISTS) : ${def.unique}`, schema: ApiError } } : {};
+  const readForbidden: Record<number, { description: string; schema: typeof ApiError }> = def.restricted ? { 403: forbidden } : {};
   const common = { 401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError }, 403: forbidden };
   const out: RouteContract[] = [
     {
-      method: "get", path: def.path, operationId: `list${def.name}s`, summary: `Lister : ${def.label} (pagine, tri par id ; tout membre authentifie)`, query: def.listQuery,
+      method: "get", path: def.path, operationId: `list${def.name}s`, summary: `Lister : ${def.label} (pagine, tri par id ; ${def.restricted ? "owner, admin ou project_manager" : "tout membre authentifie"})`, query: def.listQuery,
       responses: {
         200: { description: `Page de ${def.label}s (items, page.nextCursor, page.total)`, schema: def.list },
         400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
         401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+        ...readForbidden,
         500: { description: "Erreur interne", schema: ApiError },
       },
     },
     {
-      method: "get", path: `${def.path}/{id}`, operationId: `get${def.name}`, summary: `Lire : ${def.label} (tout membre authentifie)`, params: ReferencePathParams,
+      method: "get", path: `${def.path}/{id}`, operationId: `get${def.name}`, summary: `Lire : ${def.label} (${def.restricted ? "owner, admin ou project_manager" : "tout membre authentifie"})`, params: ReferencePathParams,
       responses: {
         200: { description: `${def.label} (avec sa version courante)`, schema: def.response },
         401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+        ...readForbidden,
         404: { description: "Entite inconnue ou hors compte (NOT_FOUND)", schema: ApiError },
         500: { description: "Erreur interne", schema: ApiError },
       },
@@ -449,4 +456,6 @@ export const routes: RouteContract[] = [
   ...referenceRoutes({ path: "/api/v1/phases", name: "Phase", listQuery: PhaseListQuery, list: PhaseList, label: "phase", create: PhaseCreate, patch: PhasePatch, response: Phase, admin: false, remove: true, refs: "project" }),
   ...referenceRoutes({ path: "/api/v1/project-tasks", name: "ProjectTask", listQuery: ProjectTaskListQuery, list: ProjectTaskList, label: "tache de projet", create: ProjectTaskCreate, patch: ProjectTaskPatch, response: ProjectTask, admin: false, remove: true, refs: "project, phase (du meme projet)" }),
   ...referenceRoutes({ path: "/api/v1/milestones", name: "Milestone", listQuery: MilestoneListQuery, list: MilestoneList, label: "jalon", create: MilestoneCreate, patch: MilestonePatch, response: Milestone, admin: false, remove: true, refs: "project, phase (du meme projet)" }),
+  ...referenceRoutes({ path: "/api/v1/project-expenses", name: "ProjectExpense", listQuery: ProjectExpenseListQuery, list: ProjectExpenseList, label: "depense de projet", create: ProjectExpenseCreate, patch: ProjectExpensePatch, response: ProjectExpense, admin: false, remove: true, refs: "project", restricted: true }),
+  ...referenceRoutes({ path: "/api/v1/project-budget-lines", name: "ProjectBudgetLine", listQuery: ProjectBudgetLineListQuery, list: ProjectBudgetLineList, label: "ligne de budget", create: ProjectBudgetLineCreate, patch: ProjectBudgetLinePatch, response: ProjectBudgetLine, admin: false, remove: true, unique: "une ligne par cible (tache ou personne) et par projet (params.entity = budget_line)", refs: "project, project_task (du meme projet), person", restricted: true }),
 ];

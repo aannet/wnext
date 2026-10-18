@@ -25,3 +25,7 @@ export {
   Client, ClientCreate, ClientList, ClientPatch, Phase, PhaseCreate, PhaseList, PhaseListQuery, PhasePatch, ProjectTask, ProjectTaskCreate,
   Milestone, MilestoneCreate, MilestoneList, MilestoneListQuery, MilestonePatch, ProjectTaskList, ProjectTaskListQuery, ProjectTaskPatch,
 } from "./project-structure";
+export {
+  Money, ProjectBudgetLine, ProjectBudgetLineCreate, ProjectBudgetLineList, ProjectBudgetLineListQuery, ProjectBudgetLinePatch,
+  ProjectExpense, ProjectExpenseCreate, ProjectExpenseList, ProjectExpenseListQuery, ProjectExpensePatch,
+} from "./budget";
