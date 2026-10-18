@@ -5,7 +5,7 @@ import { request } from "node:http";
 import { PGlite } from "@electric-sql/pglite";
 import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist";
 import { citext } from "@electric-sql/pglite/contrib/citext";
-import { RealtimeServerMessage } from "@wnext/contracts";
+import { REALTIME_RETRY_AFTER_SECONDS, REALTIME_UPGRADE_STATUS, RealtimeServerMessage } from "@wnext/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { devAuthenticate, startServer, type Db, type RunningServer } from "../src/index";
@@ -155,7 +155,8 @@ describe("serveur HTTP + WebSocket", () => {
       expect(a2.status).toBeUndefined();
       const a3 = await open(small.port, headers());
       expect(a3.status).toBe(429);
-      expect(a3.retryAfter).toBe("5");
+      expect(a3.status).toBe(REALTIME_UPGRADE_STATUS.tooManyConnections);
+      expect(a3.retryAfter).toBe(String(REALTIME_RETRY_AFTER_SECONDS));
       const b1 = await open(small.port, headers("2"));
       expect(b1.status).toBeUndefined(); // plafond par compte, pas global
       await closeAndWait(a1.ws);

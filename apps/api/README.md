@@ -13,7 +13,7 @@ DATABASE_URL=postgres://app_user@localhost/wnext npm run start -w @wnext/api
 | `DATABASE_URL` | (requis) | Connexion Postgres. Se connecter en `app_user` (non propriétaire) : sinon la RLS de `schema.sql` ne s'applique pas. |
 | `DB_ROLE` | — | Alternative : `SET LOCAL ROLE <rôle>` à chaque transaction (le rôle de connexion doit en être membre). |
 | `HOST` / `PORT` | `127.0.0.1` / `3000` | Écoute. |
-| `WS_MAX_PER_ACCOUNT` | `200` | Connexions WebSocket simultanées par compte ; au-delà, l'upgrade reçoit `429` + `Retry-After: 5` (1–100000). |
+| `WS_MAX_PER_ACCOUNT` | `200` | Connexions WebSocket simultanées par compte ; au-delà, l'upgrade reçoit `429` + `Retry-After` (contrat realtime : `REALTIME_RETRY_AFTER_SECONDS`) (1–100000). |
 | `POLL_INTERVAL_MS` | `1000` | Période du sondage de `change_log` pour le flux temps réel (50–60000). |
 | `AUTH_MODE` | `dev` | Seul mode existant. |
 
