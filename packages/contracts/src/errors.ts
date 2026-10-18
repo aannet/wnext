@@ -7,6 +7,10 @@ export const ErrorCode = z.enum([
   "UNAUTHENTICATED",
   "SCHEDULE_RANGE_INVALID",
   "SCHEDULE_CURSOR_INVALID",
+  "FORBIDDEN",
+  "NOT_FOUND",
+  "VERSION_CONFLICT",
+  "PRECONDITION_REQUIRED",
 ]).meta({ id: "ErrorCode" });
 
 export const ApiError = z

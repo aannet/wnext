@@ -19,6 +19,6 @@ Un nouveau schéma nommé doit porter `.meta({ id: "Nom" })` pour devenir un com
 
 ## Limites
 
-- `check:breaking` est une comparaison structurelle maison (oasdiff n'est pas installable via npm). Couvre : opération/réponse supprimée, propriété supprimée, `required` retiré, type ou `$ref` changé, valeur d'enum retirée (côté réponses), nouveau paramètre requis. Ne couvre pas : corps de requête (durcissement), `allOf`, changements sémantiques, ni la déclaration d'une rupture « autorisée » (bump de version).
-- Le générateur de client est maison (`contracts-tools/src/client.ts`, sous-ensemble OpenAPI produit par zod-to-openapi ; erreur explicite sur construction inconnue). Pas encore de paramètres de chemin/requête ni de corps.
+- `check:breaking` est une comparaison structurelle maison (oasdiff n'est pas installable via npm). Couvre : opération/réponse supprimée, propriété supprimée, `required` retiré, type ou `$ref` changé, valeur d'enum retirée (côté réponses), nouveau paramètre requis. Côté requête : propriété requise ajoutée, valeur d'enum retirée, type changé, variante d'union retirée, corps devenu requis. Ne couvre pas : `allOf`, changements sémantiques, ni la déclaration d'une rupture « autorisée » (bump de version).
+- Le générateur de client est maison (`contracts-tools/src/client.ts`, sous-ensemble OpenAPI produit par zod-to-openapi ; erreur explicite sur construction inconnue). Gère paramètres de requête, de chemin et d'en-tête, corps JSON et réponse 204 (pas les cookies ni les corps non JSON).
 - WebSocket / AsyncAPI (ADR-003 §5) : non traité.

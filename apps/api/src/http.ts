@@ -30,6 +30,10 @@ const STATUS: Record<ApiError["code"], number> = {
   UNAUTHENTICATED: 401,
   SCHEDULE_RANGE_INVALID: 400,
   SCHEDULE_CURSOR_INVALID: 400,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  VERSION_CONFLICT: 409,
+  PRECONDITION_REQUIRED: 428,
 };
 
 const fail = (code: ApiError["code"], requestId: string, params: ApiError["params"] = {}): HttpReply =>

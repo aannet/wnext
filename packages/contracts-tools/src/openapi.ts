@@ -25,7 +25,7 @@ export function buildSpec(): Record<string, unknown> {
       responses: Object.fromEntries(
         Object.entries(r.responses).map(([code, v]) => [
           code,
-          { description: v.description, content: { "application/json": { schema: v.schema } } },
+          v.schema ? { description: v.description, content: { "application/json": { schema: v.schema } } } : { description: v.description },
         ]),
       ),
     });

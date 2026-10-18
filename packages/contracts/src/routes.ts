@@ -1,7 +1,8 @@
 import type { z } from "zod";
+import { AllocationCreate, AllocationPatch, AllocationPathParams, IfMatchHeader } from "./allocations";
 import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
-import { ScheduleQuery, ScheduleResponse } from "./schedule";
+import { ScheduleAllocation, ScheduleQuery, ScheduleResponse } from "./schedule";
 
 // Table des routes : donnees pures (zod uniquement). La spec OpenAPI en est derivee
 // hors serveur par packages/contracts-tools.
@@ -18,7 +19,8 @@ export interface RouteContract {
   headers?: z.ZodObject;
   /** Corps JSON de la requete (toujours requis). */
   body?: z.ZodType;
-  responses: Record<number, { description: string; schema: z.ZodType }>;
+  /** `schema` absent = reponse sans corps (204). */
+  responses: Record<number, { description: string; schema?: z.ZodType }>;
 }
 
 export const routes: RouteContract[] = [
@@ -42,6 +44,58 @@ export const routes: RouteContract[] = [
       200: { description: "Fenetre demandee", schema: ScheduleResponse },
       400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_RANGE_INVALID, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/v1/allocations",
+    operationId: "createAllocation",
+    summary: "Creer une allocation (la sur-allocation n'est jamais refusee, BR-01)",
+    body: AllocationCreate,
+    responses: {
+      201: { description: "Allocation creee", schema: ScheduleAllocation },
+      400: { description: "Corps invalide (VALIDATION_FAILED)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
+      404: { description: "Personne, projet, phase ou tache inconnue (NOT_FOUND, params.entity)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "patch",
+    path: "/api/v1/allocations/{id}",
+    operationId: "updateAllocation",
+    summary: "Modifier ou deplacer une allocation (verrou optimiste If-Match)",
+    params: AllocationPathParams,
+    headers: IfMatchHeader,
+    body: AllocationPatch,
+    responses: {
+      200: { description: "Allocation modifiee (nouvelle version)", schema: ScheduleAllocation },
+      400: { description: "Corps ou en-tete invalide (VALIDATION_FAILED)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
+      404: { description: "Allocation ou reference inconnue (NOT_FOUND)", schema: ApiError },
+      409: { description: "Version perimee (VERSION_CONFLICT, params.currentVersion) : recharger puis rejouer", schema: ApiError },
+      428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "delete",
+    path: "/api/v1/allocations/{id}",
+    operationId: "deleteAllocation",
+    summary: "Supprimer une allocation (verrou optimiste If-Match)",
+    params: AllocationPathParams,
+    headers: IfMatchHeader,
+    responses: {
+      204: { description: "Supprimee (journalisee dans delete_log, BR-14)" },
+      400: { description: "En-tete invalide (VALIDATION_FAILED)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
+      404: { description: "Allocation inconnue (NOT_FOUND)", schema: ApiError },
+      409: { description: "Version perimee (VERSION_CONFLICT, params.currentVersion)", schema: ApiError },
+      428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },
