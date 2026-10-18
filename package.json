@@ -22,6 +22,7 @@
     "guard:pr-size": "node scripts/guardrails/pr-size.mjs",
     "guard:br-coverage": "node scripts/guardrails/br-coverage.mjs",
     "test:guardrails": "vitest run tests/guardrails",
+    "prove:guardrails": "node tests/guardrails/prove-guardrails.mjs",
     "generate:contract": "npm run generate -w @wnext/contracts-tools",
     "check:contract": "npm run check:contract -w @wnext/contracts-tools",
     "check:breaking": "npm run check:breaking -w @wnext/contracts-tools"

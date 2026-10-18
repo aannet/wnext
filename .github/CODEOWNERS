@@ -39,3 +39,11 @@
 /.github/              @cpto @ai-engineer
 /factory/              @cpto @ai-engineer
 /.github/CODEOWNERS    @cpto
+
+# Garde-fous et configuration de la CI (l'Implémenteur ne les modifie pas, strategy §4.6.4)
+/scripts/guardrails/       @cpto @ai-engineer
+/tests/guardrails/         @cpto @ai-engineer
+/scripts/lint-boundaries.mjs  @cpto @ai-engineer
+/boundaries.config.mjs     @cpto @ai-engineer
+/tests/boundaries/         @cpto @ai-engineer
+/Makefile                  @cpto @ai-engineer
