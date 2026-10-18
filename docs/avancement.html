@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WNEXT — Avancement</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f7f8fa; --card: #fff; --ink: #1c2330; --muted: #667085; --line: #e3e7ee;
+    --accent: #2f5bea; --done: #1f9d62; --part: #e0a100; --todo: #c9d0db; --defer: #98a2b3;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .layout { display: flex; align-items: flex-start; }
+  nav { position: sticky; top: 0; width: 230px; flex: none; height: 100vh; overflow: auto; padding: 24px 16px; border-right: 1px solid var(--line); background: var(--card); }
+  nav h1 { font-size: 17px; margin: 0 0 16px; }
+  nav a { display: block; padding: 6px 10px; margin-bottom: 2px; border-radius: 6px; color: var(--muted); text-decoration: none; font-size: 14px; }
+  nav a:hover { background: var(--bg); }
+  nav a.active { background: #e8eefd; color: var(--accent); font-weight: 600; }
+  nav a .pc { float: right; font-variant-numeric: tabular-nums; }
+  main { flex: 1; min-width: 0; max-width: 960px; padding: 32px 32px 80px; }
+  section { margin-bottom: 40px; scroll-margin-top: 16px; }
+  h2 { font-size: 20px; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin-bottom: 14px; }
+  .bar { height: 12px; background: #e9edf3; border-radius: 6px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
+  .big { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; }
+  .big b { font-size: 44px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+  .head h3 { margin: 0; font-size: 16px; }
+  .head .pc { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .goal { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px; background: #eef1f6; color: var(--muted); margin-left: 8px; font-weight: 500; }
+  .tag.closed { background: #dff3e8; color: #17724a; }
+  .tag.now { background: #e8eefd; color: var(--accent); }
+  ul.items { list-style: none; margin: 14px 0 0; padding: 0; }
+  ul.items li { display: flex; gap: 10px; padding: 5px 0; border-top: 1px solid #f0f2f6; font-size: 14px; }
+  ul.items li:first-child { border-top: 0; }
+  .dot { flex: none; width: 18px; height: 18px; border-radius: 50%; margin-top: 2px; border: 2px solid var(--todo); background: #fff; position: relative; }
+  .dot.done { background: var(--done); border-color: var(--done); }
+  .dot.done::after { content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  .dot.part { border-color: var(--part); background: linear-gradient(90deg, var(--part) 50%, #fff 50%); }
+  .dot.defer { border-color: var(--defer); border-style: dashed; }
+  li .note { color: var(--muted); font-size: 13px; display: block; }
+  li.defer span.t { color: var(--muted); }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .dot { margin: 0; }
+  .next li { padding: 6px 0; }
+  .next ol { margin: 0; padding-left: 20px; }
+  details summary { cursor: pointer; font-size: 13px; color: var(--accent); }
+  @media (max-width: 880px) {
+    .layout { display: block; }
+    nav { position: static; width: auto; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 12px 16px; }
+    nav a { display: inline-block; }
+    main { padding: 20px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav id="nav">
+    <h1>WNEXT</h1>
+    <a href="#synthese">Synthèse</a>
+    <div id="nav-phases"></div>
+    <a href="#suite">Et maintenant ?</a>
+    <a href="#methode">Méthode</a>
+  </nav>
+
+  <main>
+    <section id="synthese">
+      <h2>Où en est WNEXT ?</h2>
+      <p class="sub">État au <span id="date"></span> — estimation faite à la main depuis le code et les commits.</p>
+      <div class="card">
+        <div class="big"><b id="global-pc"></b><span class="sub" style="margin:0">d'avancement global du MVP<br>(pondéré par le budget de chaque phase)</span></div>
+        <div class="bar"><i id="global-bar"></i></div>
+      </div>
+      <div class="legend">
+        <span><i class="dot done"></i>Fait</span>
+        <span><i class="dot part"></i>En cours / partiel (compte pour 50 %)</span>
+        <span><i class="dot"></i>À faire</span>
+        <span><i class="dot defer"></i>Reporté (non compté)</span>
+      </div>
+      <div id="overview"></div>
+    </section>
+
+    <div id="phases"></div>
+
+    <section id="suite">
+      <h2>Et maintenant ?</h2>
+      <p class="sub">Les chantiers qui débloquent le plus de reste à faire, dans l'ordre.</p>
+      <div class="card next"><ol id="next"></ol></div>
+    </section>
+
+    <section id="methode">
+      <h2>Méthode</h2>
+      <div class="card">
+        <p style="margin-top:0">Chaque phase est celle de <code>docs/factory/strategy.md</code> §1. Son pourcentage = (faits + 0,5 × partiels) / éléments comptés. Les éléments « reportés » sont exclus. Le total pondère chaque phase par son budget indicatif (25 / 70 / 90 / 120 / 70 / 45 M tokens), donc l'UI (P3) pèse plus que les fondations.</p>
+        <p style="margin-bottom:0">Pour mettre à jour : éditer le tableau <code>PHASES</code> en haut du script de ce fichier (<code>s</code> = <code>done</code>, <code>part</code>, <code>todo</code> ou <code>defer</code>).</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const AS_OF = "2026-10-19";
+
+// s: done | part | todo | defer — n: note courte
+const PHASES = [
+  { id: "p0", name: "P0 · Fondations", weight: 25, status: "closed",
+    goal: "Repo, monorepo TS, CI, garde-fous, chaîne de contrat.",
+    items: [
+      { t: "Monorepo TypeScript (contracts, engine, api, web)", s: "done" },
+      { t: "make check + CI (étage rapide)", s: "done" },
+      { t: "Lint de frontières entre paquets (ADR-003)", s: "done" },
+      { t: "Garde-fous prouvés (test affaibli, PR trop grosse, BR sans test)", s: "done" },
+      { t: "CODEOWNERS aligné sur l'arborescence", s: "done" },
+      { t: "Chaîne Zod → OpenAPI → client TS + check:contract", s: "done" },
+      { t: "Kill-switch testé", s: "done" },
+      { t: "Dashboard d'observabilité de la factory", s: "done" },
+      { t: "Superviseur et introspection de phase", s: "defer", n: "factory gelée (gel-factory.md)" },
+    ] },
+  { id: "p1", name: "P1 · Données et règles", weight: 70, status: "now",
+    goal: "schema.sql chargeable, migrations, RLS, triggers, règles métier en TS avec parité SQL.",
+    items: [
+      { t: "Schéma v1.1 chargeable et testé (suite SQL de non-régression)", s: "done" },
+      { t: "Capacité journalière : daily_capacity en TS (parité SQL)", s: "done" },
+      { t: "Charge planifiée et utilisation, BR-38", s: "done" },
+      { t: "BR-04 : conflits congé / allocations et report assisté", s: "done" },
+      { t: "BR-10 : récapitulatif de retrait d'équipe + confirmation", s: "done" },
+      { t: "BR-24 : pourcentage (base brute) et états de capacité", s: "done" },
+      { t: "Parité SQL ↔ TS sur données aléatoires", s: "done" },
+      { t: "Outbox change_log (séquence sans trou, purge ≥ 72 h)", s: "done" },
+      { t: "RLS cross-tenant sur 100 % des tables", s: "part", n: "RLS active et testée via l'API, couverture totale non prouvée" },
+      { t: "Triggers BR-10 / BR-12 / BR-14", s: "part", n: "change_log fait ; le reste à vérifier" },
+      { t: "Répétitions d'allocations", s: "todo" },
+      { t: "Outil de migrations (« migrations depuis zéro »)", s: "todo", n: "schema.sql pas encore branché sur un outil" },
+      { t: "Revue humaine des tests SQL", s: "todo" },
+      { t: "Couverture branches ≥ 95 % et mutation ≥ 70 %", s: "todo" },
+      { t: "Matrice BR : 100 % des BR du MVP avec un test", s: "part", n: "18 BR taguées @BR-xx" },
+      { t: "Tests de concurrence sur un vrai PostgreSQL (embedded-postgres)", s: "done" },
+    ] },
+  { id: "p2", name: "P2 · API et temps réel", weight: 90, status: "now",
+    goal: "API REST, authentification, CRUD, temps réel, gestion des conflits.",
+    items: [
+      { t: "Contrat GET /schedule (fenêtre, filtres, curseur)", s: "done" },
+      { t: "Contrat + API écriture des allocations (POST/PATCH/DELETE)", s: "done" },
+      { t: "Verrou optimiste : If-Match, 409 VERSION_CONFLICT, 428", s: "done" },
+      { t: "Rôles et isolation par compte (tests sous app_user)", s: "done" },
+      { t: "Lecture du journal de changements (readChanges)", s: "done" },
+      { t: "Client TS généré, check:breaking côté requête", s: "done" },
+      { t: "Contrat des événements temps réel (subscribe / changes / ready / resync / error)", s: "done" },
+      { t: "WebSocket : session, rattrapage par lots, resync, serveur HTTP+WS", s: "done" },
+      { t: "Écriture des personnes (POST/PATCH, désactivation sans suppression)", s: "done" },
+      { t: "Écriture des congés (POST/PATCH/DELETE, TIMEOFF_OVERLAP)", s: "done" },
+      { t: "Équipe projet : ajout idempotent et retrait BR-10 (récapitulatif + confirmation)", s: "done" },
+      { t: "Entités de référence : départements, rôles, types de congé, fériés, projets (lecture + écriture)", s: "done" },
+      { t: "Temps réel partagé : ChangeHub, LISTEN/NOTIFY, plafond de connexions par compte", s: "done" },
+      { t: "Refus à l'upgrade WebSocket (401/404/429/500, Retry-After) dans le contrat", s: "done" },
+      { t: "Serveur Fastify + Kysely", s: "part", n: "serveur node:http + pg pour l'instant" },
+      { t: "Authentification réelle : jeton porteur OIDC (JWT RS256/ES256 vérifié contre le JWKS)", s: "done" },
+      { t: "Clients, phases et tâches de projet (lecture + écriture If-Match)", s: "done" },
+      { t: "Lecture des personnes et de l'équipe projet, ajout en lot", s: "done" },
+      { t: "Ticket d'upgrade temps réel (POST /realtime)", s: "done" },
+      { t: "Lecture des allocations (par id, par projet, par personne sur une fenêtre)", s: "done" },
+      { t: "Allocations multi-personnes (BR-26) : création de groupe", s: "done" },
+      { t: "Limite de débit (RATE_LIMITED, 429) sur les tickets et tentatives WebSocket", s: "done" },
+      { t: "Jalons de projet (CRUD)", s: "done" },
+      { t: "Désactivation d'une personne avec allocations futures (BR-31) : récapitulatif, confirmation, réaffectation", s: "done" },
+      { t: "Temps réel de la structure des projets (clients, phases, tâches, jalons, équipe) dans le journal de changements", s: "done" },
+      { t: "Dépenses de projet et lignes de budget", s: "defer", n: "fait en avance, hors MVP (budgets en T3), non compté" },
+      { t: "Rattrapage après coupure", s: "done", n: "testé au niveau session, pas encore sous charge" },
+      { t: "Tests de contrat Schemathesis", s: "todo" },
+      { t: "Propagation p95 < 1 s à 50 clients (k6)", s: "todo" },
+    ] },
+  { id: "p3", name: "P3 · Schedule UI", weight: 120, status: "",
+    goal: "La grille people × jours, drag-and-drop, indicateurs de capacité.",
+    items: [
+      { t: "Spike DOM vs canvas (mesures faites)", s: "part", n: "ADR-005 : recommandation à valider par un humain" },
+      { t: "Application web : squelette", s: "part", n: "client généré et client temps réel seulement, pas d'écran" },
+      { t: "Client temps réel web (reconnexion, reprise par curseur, resync, retryAfterSeconds du 429)", s: "done" },
+      { t: "Adaptateur contrat → moteur (capacité côté client)", s: "done" },
+      { t: "Grille virtualisée 300 × 12 mois", s: "todo" },
+      { t: "Zooms jour / semaine / mois, navigation, « Aujourd'hui »", s: "todo" },
+      { t: "Blocs multi-jours à hauteur variable (moteur de layout)", s: "todo" },
+      { t: "Drag-and-drop + alternative clavier / tactile", s: "todo" },
+      { t: "Undo / redo de session", s: "todo" },
+      { t: "Indicateurs et barres de capacité", s: "todo" },
+      { t: "Avertissement BR-04 dans l'UI", s: "todo" },
+      { t: "i18n FR + EN", s: "todo" },
+      { t: "Benchmark 60 fps, E2E Playwright, axe-core AA", s: "todo" },
+    ] },
+  { id: "p4", name: "P4 · Congés, fériés, vues, permissions", weight: 70, status: "",
+    goal: "Fonctions autour du Schedule pour rendre le produit utilisable.",
+    items: [
+      { t: "Logique congés et conflits (moteur)", s: "done" },
+      { t: "Fériés par pays dans la capacité (moteur / SQL)", s: "done" },
+      { t: "Rôles simples côté API", s: "part", n: "posés sur allocations, personnes, congés, équipe" },
+      { t: "Parcours congés complet (demande, approbation, UI)", s: "part", n: "écriture API faite, approbation et UI à faire" },
+      { t: "Vues sauvegardées et filtres / recherche", s: "todo" },
+      { t: "Retrait d'équipe BR-10 : parcours complet", s: "part", n: "API et moteur faits, UI à faire" },
+      { t: "BR-14 : suppression retrouvée dans delete_log ≥ 72 h", s: "todo" },
+      { t: "Notifications in-app", s: "todo" },
+      { t: "Import CSV personnes / projets", s: "todo" },
+    ] },
+  { id: "p5", name: "P5 · Durcissement et release", weight: 45, status: "",
+    goal: "Performance, sécurité, résilience, mise en production.",
+    items: [
+      { t: "Perf 500 clients WebSocket (k6 nightly)", s: "todo" },
+      { t: "Scans sécurité (Semgrep, gitleaks, OSV, Trivy)", s: "todo" },
+      { t: "Restauration PITR testée", s: "todo" },
+      { t: "Runbooks", s: "todo" },
+      { t: "Staging → prod canary + smoke post-déploiement", s: "todo" },
+      { t: "Gate de release humain", s: "todo" },
+    ] },
+];
+
+const NEXT = [
+  "<b>Terminer P1</b> : outil de migrations, RLS prouvée sur toutes les tables, répétitions, et ta relecture des tests SQL (bloquant pour signer la phase).",
+  "<b>Valider la recommandation DOM vs canvas</b> (ADR-005) : décision humaine qui débloque tout P3.",
+  "<b>Fermer P2</b> : mesurer le temps réel (k6, p95 &lt; 1 s à 50 clients), Schemathesis, et décider du sort de Fastify + Kysely (serveur node:http + pg aujourd'hui).",
+  "<b>Démarrer l'UI</b> une fois le spike tranché : <code>apps/web</code> n'a encore aucun écran.",
+  "<b>Vérifier la convention de jour de l'API v3</b> (question encore ouverte, dossier §6 et §7).",
+];
+
+const W = { done: 1, part: 0.5, todo: 0 };
+const pct = (items) => {
+  const c = items.filter(i => i.s !== "defer");
+  return Math.round(100 * c.reduce((a, i) => a + W[i.s], 0) / c.length);
+};
+const count = (items, s) => items.filter(i => i.s === s).length;
+const tagFor = (p) => p.status === "closed" ? '<span class="tag closed">clos</span>' : p.status === "now" ? '<span class="tag now">en cours</span>' : "";
+
+document.getElementById("date").textContent = AS_OF.split("-").reverse().join("/");
+
+const totalW = PHASES.reduce((a, p) => a + p.weight, 0);
+const global = Math.round(PHASES.reduce((a, p) => a + p.weight * pct(p.items), 0) / totalW);
+document.getElementById("global-pc").textContent = global + " %";
+document.getElementById("global-bar").style.width = global + "%";
+
+document.getElementById("overview").innerHTML = PHASES.map(p => {
+  const v = pct(p.items);
+  return `<div class="card" style="padding:12px 20px"><div class="head" style="margin:0 0 6px"><h3>${p.name}${tagFor(p)}</h3><span class="pc">${v} %</span></div><div class="bar"><i style="width:${v}%"></i></div></div>`;
+}).join("");
+
+document.getElementById("nav-phases").innerHTML = PHASES.map(p =>
+  `<a href="#${p.id}">${p.name.split(" · ")[0]} — ${p.name.split(" · ")[1]}<span class="pc">${pct(p.items)}%</span></a>`).join("");
+
+document.getElementById("phases").innerHTML = PHASES.map(p => {
+  const v = pct(p.items);
+  const li = p.items.map(i => `<li class="${i.s}"><i class="dot ${i.s}"></i><div><span class="t">${i.t}</span>${i.n ? `<span class="note">${i.n}</span>` : ""}</div></li>`).join("");
+  return `<section id="${p.id}"><div class="card">
+    <div class="head"><h3>${p.name}${tagFor(p)}</h3><span class="pc">${v} %</span></div>
+    <p class="goal">${p.goal}</p>
+    <div class="bar"><i style="width:${v}%"></i></div>
+    <p class="goal" style="margin:8px 0 0">${count(p.items,"done")} faits · ${count(p.items,"part")} partiels · ${count(p.items,"todo")} à faire${count(p.items,"defer") ? ` · ${count(p.items,"defer")} reporté` : ""}</p>
+    <ul class="items">${li}</ul></div></section>`;
+}).join("");
+
+document.getElementById("next").innerHTML = NEXT.map(n => `<li>${n}</li>`).join("");
+
+// Lien actif dans la barre latérale
+const links = [...document.querySelectorAll("#nav a")];
+const secs = links.map(a => document.querySelector(a.getAttribute("href")));
+const onScroll = () => {
+  let cur = 0;
+  secs.forEach((s, i) => { if (s && s.getBoundingClientRect().top < 120) cur = i; });
+  links.forEach((a, i) => a.classList.toggle("active", i === cur));
+};
+addEventListener("scroll", onScroll, { passive: true }); onScroll();
+</script>
+</body>
+</html>

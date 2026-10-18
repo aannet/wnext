@@ -10,6 +10,10 @@ Date : 2026-10-18. Propriétaire de toutes les décisions : le CPTO. Entrée de 
 | 4 | Heures tentatives dans la charge | Décidé | Comptées dans la charge et la sur-allocation, **avec décomposition** : `planned_hours` = confirmé + tentatif, `tentative_hours` conservé. Ajouter un indicateur de sur-allocation sur le confirmé seul (rouge plein = confirmée, hachuré = potentielle). Aligné sur BR-20. |
 | 5 | Seuils de capacité | Décidé | Seuils **par compte**, stockés en JSONB, défaut sous-allocation < 80 %, **paramétrable**. Le seuil de sur-allocation est **fixé à 100 %** (BR-38, `is_overbooked`), non paramétrable. Les états (sous/OK/sur) restent hors de la fonction SQL, qui ne renvoie que des nombres. |
 
+## Vérification faite : convention de jours de l'API v3 (2026-10-19)
+
+Float v3 est **dimanche-first** : `work_days_hours` indexe 0 = dimanche, 1 = lundi, … 6 = samedi (source unique : https://developer.float.com/tutorial_importing_your_team.html ; la référence d'API ne détaille pas le champ). Le stockage WNEXT reste ISO (index 0 = lundi). Conversion, uniquement dans un éventuel adaptateur v3 : ISO vers Float `[iso[6], iso[0..5]]`, Float vers ISO `[f[1..6], f[0]]`, à tester avec un tableau asymétrique. Aucun effet sur `schema.sql` ni sur `packages/engine`. Non vérifiés : les autres champs de jours de Float (répétitions, etc.) ; un adaptateur reste optionnel (pas de compatibilité Float visée). Q-15 reste ouverte pour les CGU et l'argument d'adoption.
+
 ## Incohérences documentaires à corriger avant P1 (relevées par un agent, non revérifiées)
 
 - Numérotation des questions : le dossier v1.1 numérote Q-01 = tentatif, Q-04 = base du %, Q-02 = conflit temps réel ; `schema.sql` (l.823, l.905) appelle le tentatif « Q-02 » et cite « Q-06 » pour les timesheets (Q-05 dans le dossier).
