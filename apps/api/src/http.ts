@@ -1,11 +1,12 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
+import { AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { createAllocation, deleteAllocation, updateAllocation } from "./allocations";
 import { createPerson, updatePerson } from "./people";
 import { getSchedule } from "./schedule";
+import { getTeamRemovalSummary, removeFromTeam } from "./team";
 import { createTimeoff, deleteTimeoff, updateTimeoff } from "./timeoffs";
 import { API_VERSION } from "./version";
 
@@ -128,6 +129,15 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId); // l'auth passe avant la validation : pas d'oracle pour un anonyme
       return { status: 200, body: await getSchedule(deps.db, ctx, parseScheduleQuery(url.searchParams)) };
+    }
+    const team = /^\/api\/v1\/projects\/([^/]+)\/team\/([^/]+)\/(removal-summary|removal)$/.exec(url.pathname);
+    if (team && (team[3] === "removal-summary" ? req.method === "GET" : req.method === "POST")) {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (!WRITERS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
+      const [projectId, personId] = [team[1]!, team[2]!].map((v) => { try { return decodeURIComponent(v); } catch { return "%"; } }) as [string, string];
+      if (team[3] === "removal-summary") return { status: 200, body: await getTeamRemovalSummary(deps.db, ctx, projectId, personId) };
+      return { status: 200, body: await removeFromTeam(deps.db, ctx, projectId, personId, parseJsonBody(TeamRemovalRequest, req.body ?? "{}")) };
     }
     for (const resource of WRITE_RESOURCES) {
       const m = resource.pattern.exec(url.pathname);

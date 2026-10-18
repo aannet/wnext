@@ -126,3 +126,20 @@ describe("personnes : client généré <-> serveur", () => {
     expect([stale.status, stale.error.code]).toEqual([409, "VERSION_CONFLICT"]);
   });
 });
+
+describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
+  it("récapitulatif, refus sans confirmation, exécution avec confirmation", async () => {
+    const api = client();
+    await pg.exec(`INSERT INTO allocations (account_id, person_id, project_id, start_date, end_date, mode, hours_per_day) VALUES (1, 2, 1, '2026-09-07', '2026-09-08', 'hours', 4)`);
+    const path = { projectId: "1", personId: "2" };
+    const sum = await api.getTeamRemovalSummary({ path });
+    expect(sum.ok && sum.data).toMatchObject({ allocationCount: 1, canRemove: true });
+
+    const refused = await api.removeFromTeam({ path, body: {} });
+    if (refused.ok) throw new Error("confirmation exigée");
+    expect([refused.status, refused.error.code]).toEqual([428, "TEAM_REMOVAL_CONFIRMATION_REQUIRED"]);
+
+    const done = await api.removeFromTeam({ path, body: { confirmation: { allocationCount: 1, logCount: 0, logHours: 0 } } });
+    expect(done.ok && done.data).toMatchObject({ removedAllocations: 1 });
+  });
+});
