@@ -2,7 +2,7 @@ import type { z } from "zod";
 import { AllocationCreate, AllocationPatch, AllocationPathParams, IfMatchHeader } from "./allocations";
 import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
-import { TeamPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
+import { TeamMembership, TeamPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
 import { PersonCreate, PersonPatch, PersonPathParams } from "./people";
 import { SchedulePerson, ScheduleAllocation, ScheduleQuery, ScheduleResponse, ScheduleTimeoff } from "./schedule";
 import { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
@@ -218,6 +218,20 @@ export const routes: RouteContract[] = [
       404: { description: "Projet ou personne inconnu (NOT_FOUND, params.entity)", schema: ApiError },
       409: { description: "Confirmation perimee (TEAM_REMOVAL_STALE_CONFIRMATION, params = nouveau recapitulatif) ou temps verrouilles (TEAM_REMOVAL_LOCKED_LOGS)", schema: ApiError },
       428: { description: "Confirmation absente alors qu'il y a des suppressions (TEAM_REMOVAL_CONFIRMATION_REQUIRED, params = recapitulatif)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "put",
+    path: "/api/v1/projects/{projectId}/team/{personId}",
+    operationId: "addToTeam",
+    summary: "Ajouter une personne a l'equipe d'un projet (idempotent, sans corps)",
+    params: TeamPathParams,
+    responses: {
+      200: { description: "Personne dans l'equipe ; added=false si elle y etait deja", schema: TeamMembership },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
+      404: { description: "Projet ou personne inconnu (NOT_FOUND, params.entity)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },

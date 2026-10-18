@@ -276,6 +276,10 @@ export interface TeamRemovalRequest {
   };
 }
 
+export interface TeamMembership {
+  added: boolean;
+}
+
 export interface FetchResponse {
   status: number;
   json(): Promise<unknown>;
@@ -455,6 +459,19 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as TeamRemovalResult }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Ajouter une personne a l'equipe d'un projet (idempotent, sans corps) (PUT /api/v1/projects/{projectId}/team/{personId}) */
+    async addToTeam(input: {
+      path: {
+        projectId: Id;
+        personId: Id;
+      };
+    }): Promise<ApiResult<TeamMembership, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/projects/" + encodeURIComponent(String(input.path.projectId)) + "/team/" + encodeURIComponent(String(input.path.personId)), { method: "PUT", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as TeamMembership }
         : { ok: false, status: res.status, error: body as ApiError };
     },
   };

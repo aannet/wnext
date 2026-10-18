@@ -1,7 +1,7 @@
 // Contrat du retrait d'équipe (BR-10) : récapitulatif puis confirmation, codes dédiés, aucune écriture à la lecture.
 import "../src/zod-setup";
 import { describe, expect, it } from "vitest";
-import { ErrorCode, TeamRemovalRequest, TeamRemovalSummary, routes } from "@wnext/contracts";
+import { ErrorCode, TeamMembership, TeamRemovalRequest, TeamRemovalSummary, routes } from "@wnext/contracts";
 import { buildSpec } from "../src/openapi";
 
 const ok = (s: { safeParse(v: unknown): { success: boolean } }, v: unknown) => s.safeParse(v).success;
@@ -47,5 +47,24 @@ describe("routes et spec", () => {
   });
   it("trois codes dédiés, distincts des conflits de version", () => {
     for (const c of ["TEAM_REMOVAL_CONFIRMATION_REQUIRED", "TEAM_REMOVAL_STALE_CONFIRMATION", "TEAM_REMOVAL_LOCKED_LOGS"]) expect(ErrorCode.options).toContain(c);
+  });
+});
+
+describe("addToTeam (PUT)", () => {
+  const route = routes.find((r) => r.operationId === "addToTeam")!;
+  it("PUT idempotent sans corps, mêmes statuts d'accès que le retrait", () => {
+    expect(route.method).toBe("put");
+    expect(route.path).toBe("/api/v1/projects/{projectId}/team/{personId}");
+    expect(route.body).toBeUndefined();
+    expect(Object.keys(route.responses).map(Number)).toEqual([200, 401, 403, 404, 500]);
+  });
+  it("TeamMembership : added booléen obligatoire", () => {
+    expect(ok(TeamMembership, { added: false })).toBe(true);
+    expect(ok(TeamMembership, {})).toBe(false);
+  });
+  it("présent dans la spec avec ses deux ids en chemin", () => {
+    const op = (buildSpec() as any).paths["/api/v1/projects/{projectId}/team/{personId}"].put;
+    expect(op.operationId).toBe("addToTeam");
+    expect(op.parameters.map((p: any) => p.name).sort()).toEqual(["personId", "projectId"]);
   });
 });

@@ -50,3 +50,12 @@ export const TeamRemovalResult = z
   })
   .meta({ id: "TeamRemovalResult" });
 export type TeamRemovalResult = z.infer<typeof TeamRemovalResult>;
+
+// Ajout d'une personne à l'équipe d'un projet : PUT idempotent sur la ressource « appartenance », sans corps.
+//  * Rejouer ne change rien : `added` vaut false si la ligne existait déjà (200 dans les deux cas).
+//  * N'écrit que project_team : aucune allocation, aucun contrôle de capacité (BR-01) ; l'appartenance n'est pas exigée pour allouer (Q-07).
+//  * Mêmes rôles et mêmes 404 que le retrait (403 FORBIDDEN, 404 NOT_FOUND `params.entity` project|person).
+export const TeamMembership = z
+  .object({ added: z.boolean().describe("Faux si la personne était déjà dans l'équipe") })
+  .meta({ id: "TeamMembership" });
+export type TeamMembership = z.infer<typeof TeamMembership>;
