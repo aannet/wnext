@@ -300,4 +300,39 @@ describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
     if (missing.ok) throw new Error("404 attendu");
     expect([missing.status, missing.error.params.entity]).toEqual([404, "person"]);
   });
+
+  it("allocations d'un projet : création, lecture par id, liste sur une fenêtre avec filtres, 404 d'un projet inconnu", async () => {
+    const api = client();
+    const proj = await api.createProject({ body: { name: "Lecture des allocations" } });
+    const sched = await api.getSchedule({ from: "2026-03-02", to: "2026-03-06" });
+    if (!proj.ok || !sched.ok || !("people" in sched.data)) throw new Error("préparation");
+    const [alice, bob] = sched.data.people.map((p) => p.id) as [string, string];
+    const mk = async (personId: string, startDate: string, endDate: string, status?: "tentative" | "confirmed") => {
+      const r = await api.createAllocation({ body: { personId, projectId: proj.data.id, startDate, endDate, status, load: { mode: "hours", hoursPerDay: 4 } } });
+      if (!r.ok) throw new Error("allocation attendue");
+      return r.data;
+    };
+    const a = await mk(alice, "2026-03-02", "2026-03-03");
+    const b = await mk(bob, "2026-03-05", "2026-03-09", "tentative");
+    await mk(alice, "2026-04-01", "2026-04-02"); // hors fenêtre
+
+    const path = { projectId: proj.data.id };
+    const win = { from: "2026-03-02", to: "2026-03-06" };
+    const all = await api.listProjectAllocations({ path, query: win });
+    expect(all.ok && all.data.items.map((x) => x.id)).toEqual([a.id, b.id]);
+    const tent = await api.listProjectAllocations({ path, query: { ...win, status: "tentative" } });
+    expect(tent.ok && tent.data.items.map((x) => x.id)).toEqual([b.id]);
+    const mine = await api.listProjectAllocations({ path, query: { ...win, personId: alice } });
+    expect(mine.ok && mine.data.page.total).toBe(1);
+
+    const one = await api.getAllocation({ path: { id: a.id } });
+    expect(one.ok && one.data).toEqual(a);
+
+    const missing = await api.listProjectAllocations({ path: { projectId: "99999" }, query: win });
+    if (missing.ok) throw new Error("404 attendu");
+    expect([missing.status, missing.error.params.entity]).toEqual([404, "project"]);
+    const bad = await api.listProjectAllocations({ path, query: { from: "2026-03-06", to: "2026-03-02" } });
+    if (bad.ok) throw new Error("400 attendu");
+    expect(bad.error.code).toBe("SCHEDULE_RANGE_INVALID");
+  });
 });

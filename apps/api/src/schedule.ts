@@ -92,7 +92,7 @@ function decodeCursor(raw: string): PageCursor {
   throw new ApiFailure("SCHEDULE_CURSOR_INVALID");
 }
 
-function assertWindow(from: string, to: string): void {
+export function assertWindow(from: string, to: string): void {
   const span = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS;
   if (!(span >= 0 && span <= MAX_RANGE_DAYS)) throw new ApiFailure("SCHEDULE_RANGE_INVALID", { from, to, maxDays: MAX_RANGE_DAYS });
 }

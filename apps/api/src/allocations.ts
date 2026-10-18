@@ -1,8 +1,9 @@
-import type { AllocationCreate, AllocationPatch } from "@wnext/contracts";
+import type { AllocationCreate, AllocationPatch, ProjectAllocationListQuery } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
-import { assertWriter, day, invalid, isId, lockAndCheck as lockRow, notFound } from "./write";
-import { ALLOCATION_COLUMNS, toScheduleAllocation, type Row, type ScheduleAllocation } from "./schedule";
+import { assertWriter, day, idParam, invalid, isId, lockAndCheck as lockRow, notFound } from "./write";
+import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor, reader } from "./reference";
+import { ALLOCATION_COLUMNS, assertWindow, toScheduleAllocation, type Row, type ScheduleAllocation } from "./schedule";
 
 // Écriture des allocations. Règles portées ici (le reste l'est par schema.sql : CHECK, FK composites, triggers) :
 //  * rôle : owner, admin, project_manager ; sinon FORBIDDEN, avant tout accès aux données ;
@@ -105,5 +106,39 @@ export async function deleteAllocation(db: Db, ctx: RequestContext, id: string, 
     await lockRow(tx, "allocations", ALLOCATION_COLUMNS, "allocation", ctx.accountId, id, expectedVersion);
     const { rows } = await tx.query("DELETE FROM allocations WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $3::int RETURNING id", [id, ctx.accountId, expectedVersion]);
     if (!rows.length) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: expectedVersion + 1 });
+  });
+}
+
+// --- Lecture ----------------------------------------------------------------------------------------------------------
+// Tout membre authentifié lit (mêmes champs que GET /schedule). La RLS et `account_id` isolent les comptes.
+
+/** Lecture d'une allocation par id (avec sa version). Pas de liste globale : une liste se lit par fenêtre. */
+export const allocationReader = reader({ table: "allocations", columns: ALLOCATION_COLUMNS, entity: "allocation", map: toScheduleAllocation });
+
+/**
+ * Allocations d'un projet qui chevauchent [from, to] (même règle que le Schedule : une série compte jusqu'à `repeat_end_date`,
+ * renvoyée une fois, non développée). Page par curseur sur `id`.
+ */
+export async function listProjectAllocations(db: Db, ctx: RequestContext, projectId: string, q: ProjectAllocationListQuery): Promise<{ items: ScheduleAllocation[]; page: { nextCursor: string | null; total: number } }> {
+  assertWindow(q.from, q.to);
+  const after = q.cursor === undefined ? undefined : decodeCursor(q.cursor); // avant d'ouvrir une transaction
+  const n = Math.min(Math.max(1, Math.trunc(q.limit ?? DEFAULT_PAGE)), MAX_PAGE);
+  if (!isId(projectId)) throw notFound("project");
+  const personId = q.personId === undefined ? undefined : idParam("personId", q.personId);
+  return withContext(db, ctx, async (tx) => {
+    if (!(await tx.query("SELECT 1 FROM projects WHERE id = $1::bigint AND account_id = $2::bigint", [projectId, ctx.accountId])).rows.length) throw notFound("project");
+    const args: unknown[] = [ctx.accountId, projectId];
+    const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
+    const where = [
+      "account_id = $1::bigint", "project_id = $2::bigint",
+      `start_date <= ${bind(q.to)}::date`, `COALESCE(repeat_end_date, end_date) >= ${bind(q.from)}::date`,
+      ...(personId ? [`person_id = ${bind(personId)}::bigint`] : []),
+      ...(q.status ? [`status = ${bind(q.status)}::allocation_status`] : []),
+    ];
+    const total = Number((await tx.query<Row>(`SELECT count(*) AS n FROM allocations WHERE ${where.join(" AND ")}`, [...args])).rows[0]!.n);
+    if (after !== undefined) where.push(`id > ${bind(after)}::bigint`);
+    const { rows } = await tx.query<Row>(`SELECT ${ALLOCATION_COLUMNS} FROM allocations WHERE ${where.join(" AND ")} ORDER BY id LIMIT ${bind(n + 1)}::int`, args);
+    const page = rows.slice(0, n);
+    return { items: page.map(toScheduleAllocation), page: { nextCursor: rows.length > n ? encodeCursor(String(page[n - 1]!.id)) : null, total } };
   });
 }
