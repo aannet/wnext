@@ -15,15 +15,29 @@ DATABASE_URL=postgres://app_user@localhost/wnext npm run start -w @wnext/api
 | `HOST` / `PORT` | `127.0.0.1` / `3000` | Écoute. |
 | `WS_MAX_PER_ACCOUNT` | `200` | Connexions WebSocket simultanées par compte ; au-delà, l'upgrade reçoit `429` + `Retry-After` (contrat realtime : `REALTIME_RETRY_AFTER_SECONDS`) (1–100000). |
 | `POLL_INTERVAL_MS` | `1000` | Période du sondage de `change_log` pour le flux temps réel (50–60000). |
-| `AUTH_MODE` | `dev` | Seul mode existant. |
+| `AUTH_MODE` | `dev` | `dev` (en-têtes sans preuve, refusé en production) ou `oidc` (jeton porteur). |
+| `OIDC_ISSUER` / `OIDC_AUDIENCE` / `OIDC_JWKS_URL` | — | Requis en mode `oidc` : émetteur (`iss`) et audience (`aud`) attendus, point JWKS du fournisseur (https en production). |
 
 `schema.sql` doit déjà être chargé (pas d'outil de migration pour l'instant).
 
-## Authentification : DÉVELOPPEMENT SEULEMENT
+## Authentification
 
-Le mécanisme réel est une décision ouverte. En attendant, `AUTH_MODE=dev` lit l'identité dans les en-têtes
-`x-dev-account-id`, `x-dev-user-id`, `x-dev-role` (owner|admin|project_manager|member|guest), **sans aucune preuve**.
-`NODE_ENV=production` refuse de démarrer dans ce mode.
+Deux modes, même signature interne `authenticate(headers) -> RequestContext | null` (null = 401).
+
+**`AUTH_MODE=oidc`** (seul mode autorisé en production). L'API ne gère ni mot de passe ni session : un fournisseur d'identité OIDC
+externe émet des JWT, l'API les vérifie.
+- `Authorization: Bearer <jwt>` ; RS256 (RSA >= 2048 bits) ou ES256 (P-256) seulement ; signature contre les clés du JWKS
+  (cache 10 min, rechargement sur `kid` inconnu au plus toutes les 30 s), `iss`, `aud`, `exp` obligatoire, `nbf`, tolérance d'horloge 60 s.
+- `sub` -> `users.idp_subject` ; le compte est choisi par `x-account-id` (ou déduit s'il n'y a qu'une appartenance) et n'est accepté que
+  si l'utilisateur en est membre (`account_members`). **Le rôle vient de la base, jamais du jeton** : changer un rôle prend effet à la requête suivante.
+- Les utilisateurs doivent être provisionnés (`users.idp_subject`) : pas de création automatique à la première connexion.
+- Panne du JWKS sans clé connue : erreur 500 (pas un 401, le jeton n'est pas en cause).
+
+**`AUTH_MODE=dev`** : DÉVELOPPEMENT SEULEMENT. Identité lue dans `x-dev-account-id`, `x-dev-user-id`, `x-dev-role`
+(owner|admin|project_manager|member|guest), **sans aucune preuve**. `NODE_ENV=production` refuse de démarrer dans ce mode.
+
+Limite : un navigateur ne peut pas poser d'en-tête `Authorization` sur un WebSocket ; l'upgrade temps réel depuis le web demandera un
+ticket à usage unique (à décider, touche le contrat).
 
 ## Temps réel
 

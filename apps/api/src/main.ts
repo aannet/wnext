@@ -1,6 +1,7 @@
 // Point d'entrée exécutable : `npm run start -w @wnext/api` (voir README). Variables : voir config.ts.
 import pg from "pg";
 import { devAuthenticate } from "./auth-dev";
+import { createJwtVerifier, oidcAuthenticate, remoteJwks } from "./auth-oidc";
 import { loadConfig } from "./config";
 import { pgDb } from "./pg-db";
 import { pgNotifier } from "./pg-listen";
@@ -10,9 +11,13 @@ async function main() {
   const config = loadConfig(process.env);
   const pool = new pg.Pool({ connectionString: config.databaseUrl });
   pool.on("error", (err) => console.error(JSON.stringify({ level: "error", source: "pool", error: err.message }))); // connexion inactive perdue : ne pas planter
+  const db = pgDb(pool, { role: config.dbRole });
+  const authenticate = config.oidc
+    ? oidcAuthenticate({ db, verifier: createJwtVerifier({ issuer: config.oidc.issuer, audience: config.oidc.audience, keys: remoteJwks({ url: config.oidc.jwksUrl }) }) })
+    : devAuthenticate;
   const running = await startServer({
-    db: pgDb(pool, { role: config.dbRole }),
-    authenticate: devAuthenticate,
+    db,
+    authenticate,
     host: config.host,
     port: config.port,
     pollIntervalMs: config.pollIntervalMs,

@@ -7,8 +7,10 @@ export interface Config {
   dbRole?: string;
   host: string;
   port: number;
-  /** Seul mode actuel : `dev` (identité lue dans des en-têtes). Le mécanisme réel est une décision ouverte. */
-  authMode: "dev";
+  /** `dev` : identité lue dans des en-têtes, sans preuve (interdit en production). `oidc` : jeton porteur d'un fournisseur OIDC. */
+  authMode: "dev" | "oidc";
+  /** Présent si et seulement si `authMode` = `oidc`. */
+  oidc?: { issuer: string; audience: string; jwksUrl: string };
   pollIntervalMs: number;
   /** Connexions WebSocket simultanées par compte. */
   wsMaxPerAccount: number;
@@ -24,8 +26,18 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     return Number(raw);
   };
   const authMode = env.AUTH_MODE ?? "dev";
-  if (authMode !== "dev") throw new Error(`AUTH_MODE inconnu : ${authMode} (seul « dev » existe)`);
-  if (env.NODE_ENV === "production") throw new Error("AUTH_MODE=dev est interdit en production : l'authentification réelle n'est pas encore implémentée");
+  if (authMode !== "dev" && authMode !== "oidc") throw new Error(`AUTH_MODE inconnu : ${authMode} (dev ou oidc)`);
+  if (authMode === "dev" && env.NODE_ENV === "production") throw new Error("AUTH_MODE=dev est interdit en production : utiliser AUTH_MODE=oidc");
+  let oidc: Config["oidc"];
+  if (authMode === "oidc") {
+    const issuer = env.OIDC_ISSUER;
+    const audience = env.OIDC_AUDIENCE;
+    const jwksUrl = env.OIDC_JWKS_URL;
+    if (!issuer || !audience || !jwksUrl) throw new Error("AUTH_MODE=oidc exige OIDC_ISSUER, OIDC_AUDIENCE et OIDC_JWKS_URL");
+    if (!/^https?:\/\//.test(jwksUrl)) throw new Error("OIDC_JWKS_URL doit être une URL http(s)");
+    if (env.NODE_ENV === "production" && !jwksUrl.startsWith("https://")) throw new Error("OIDC_JWKS_URL doit être en https en production");
+    oidc = { issuer, audience, jwksUrl };
+  }
   const dbRole = env.DB_ROLE || undefined;
   if (dbRole !== undefined && !/^[a-z_][a-z0-9_]*$/.test(dbRole)) throw new Error("DB_ROLE invalide");
   return {
@@ -34,6 +46,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     host: env.HOST || "127.0.0.1",
     port: int("PORT", 3000, 0, 65535),
     authMode,
+    oidc,
     pollIntervalMs: int("POLL_INTERVAL_MS", 1000, 50, 60_000),
     wsMaxPerAccount: int("WS_MAX_PER_ACCOUNT", 200, 1, 100_000),
   };

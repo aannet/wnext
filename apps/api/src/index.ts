@@ -9,6 +9,7 @@ export * from "./change-hub";
 export * from "./realtime";
 export * from "./config";
 export * from "./auth-dev";
+export * from "./auth-oidc";
 export * from "./pg-db";
 export * from "./pg-listen";
 export * from "./ws";
