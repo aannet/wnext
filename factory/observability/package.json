@@ -1,0 +1,33 @@
+{
+  "name": "factory-observability",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Observabilité de la dark factory : contrat d'événements, store SQLite, dashboard, scribe Haiku.",
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "simulate": "tsx scripts/simulate.ts",
+    "scribe": "tsx scribe/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "ajv": "^8.20.0",
+    "better-sqlite3": "^12.11.1",
+    "next": "^16.4.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.12"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://factory.local/schema/event.json",
+  "title": "Événement d'observabilité de la dark factory",
+  "description": "Contrat strategy.md §5. Une ligne JSONL = un événement. Aucun contenu sensible (ni code, ni prompt, ni PII).",
+  "x-schema-version": "1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ts", "run_id", "line", "phase", "agent", "model", "action", "tokens_in", "tokens_out", "cost", "duration_ms", "status"],
+  "properties": {
+    "schema_version": {
+      "description": "Version du contrat. Optionnel à l'émission (défaut 1.0) ; toute autre valeur est rejetée.",
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "ts": {
+      "description": "Fin de l'action, ISO-8601 UTC au millième.",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "run_id": { "description": "ULID du run de ligne, stable sur les retries.", "type": "string", "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$" },
+    "line": { "description": "Ligne de production (P1-017) ou _phase / _global.", "type": "string", "pattern": "^(P[0-5]-\\d{3}|_phase|_global)$" },
+    "phase": { "type": "string", "enum": ["P0", "P1", "P2", "P3", "P4", "P5"] },
+    "agent": {
+      "type": "string",
+      "enum": ["orchestrateur", "architecte", "specifieur", "testeur", "implementeur", "reviseur", "sentinelle", "integrateur", "depanneur", "scribe", "router", "superviseur", "introspecteur"]
+    },
+    "model": { "description": "ID exact du modèle, ou none pour du code déterministe.", "type": "string", "pattern": "^(none|claude-[a-z0-9.-]+)$", "maxLength": 64 },
+    "action": { "description": "Taxonomie verbe.objet (llm.call, tool.exec, git.commit, ci.result, review.verdict, retry.start, escalate.model, loop.detected, kill.triggered, merge.done...).", "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$", "maxLength": 64 },
+    "tokens_in": { "description": "Tokens d'entrée hors cache.", "type": "integer", "minimum": 0 },
+    "tokens_out": { "type": "integer", "minimum": 0 },
+    "cost": { "description": "USD, 6 décimales max.", "type": "number", "minimum": 0 },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "status": { "type": "string", "enum": ["ok", "error", "retry", "blocked", "looping", "killed", "escalated", "skipped"] },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "parent_id": { "description": "Corrélation / référence vers l'artefact brut stocké ailleurs.", "type": "string", "maxLength": 128 },
+    "tokens_cache_read": { "type": "integer", "minimum": 0 },
+    "tokens_cache_write": { "type": "integer", "minimum": 0 },
+    "budget_remaining": { "description": "Tokens restants pour la ligne/phase.", "type": "integer" },
+    "detail": {
+      "description": "Objet court : signature d'erreur, nom du test, hash de diff, verdict. Valeurs scalaires courtes uniquement ; clés de contenu (prompt, code, content, email...) interdites.",
+      "type": "object",
+      "maxProperties": 12,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]{0,39}$",
+        "not": { "enum": ["prompt", "completion", "code", "content", "diff", "body", "text", "message", "email", "name", "password", "secret", "token", "api_key"] }
+      },
+      "additionalProperties": { "type": ["string", "number", "boolean", "null"], "maxLength": 200 }
+    }
+  }
+}

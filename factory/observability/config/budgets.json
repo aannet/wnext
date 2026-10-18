@@ -1,0 +1,13 @@
+{
+  "$comment": "Budgets indicatifs par phase (tokens totaux entrée+sortie+cache, strategy.md §1). Alerte à alert_ratio du budget ; plafond dur = hard_ceiling_factor x budget.",
+  "alert_ratio": 0.8,
+  "hard_ceiling_factor": 1.3,
+  "phases": {
+    "P0": 25000000,
+    "P1": 70000000,
+    "P2": 90000000,
+    "P3": 120000000,
+    "P4": 70000000,
+    "P5": 45000000
+  }
+}

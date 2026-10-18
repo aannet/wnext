@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Écrans et parcours Float v1.1</title>
+<style>
+/* Page locale, hors ligne : polices système uniquement. Lecture en une colonne, plan du site puis parcours. */
+:root {
+  color-scheme: light;
+  --bg: #f6f7f5; --surface: #ffffff; --fg: #1d2421; --muted: #5c6661; --line: #d5dad6;
+  --node: #eef1ee; --t1: #dfe9e4; --accent: #1b6b66; --warn: #b3361f; --ok: #1f7a4d;
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); line-height: 1.55;
+  padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { min-width: 0; display: grid; gap: 40px; }
+h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 6px; font-weight: 650; text-wrap: balance; }
+h2 { font-size: 1.15rem; margin: 0 0 6px; font-weight: 650; text-wrap: balance; }
+h3 { font-size: .98rem; margin: 0; font-weight: 650; }
+p { margin: 0; max-width: 70ch; }
+.muted { color: var(--muted); }
+code, .mono { font-family: var(--font-mono); font-size: .86em; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; font-size: .9rem; }
+nav.toc a { color: var(--accent); }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px; }
+.scroll { overflow-x: auto; }
+svg { display: block; width: 100%; min-width: 720px; height: auto; color: var(--fg); }
+figcaption { margin-top: 10px; color: var(--muted); font-size: .88rem; max-width: 76ch; }
+.n rect { fill: var(--node); stroke: var(--line); stroke-width: 1; }
+.n.t1 rect { fill: var(--t1); stroke: var(--accent); }
+.n.t2 rect { fill: var(--surface); stroke: var(--accent); stroke-dasharray: 6 3; }
+.n.t3 rect { fill: var(--surface); stroke: var(--muted); stroke-dasharray: 2 3; }
+.n text { font-size: 12px; fill: var(--fg); font-family: var(--font-body); }
+.n .tg { font-family: var(--font-mono); font-size: 10px; fill: var(--muted); }
+.nav rect { fill: var(--fg); }
+.nav text { fill: var(--bg); font-size: 13px; font-weight: 600; font-family: var(--font-body); }
+.stem { stroke: var(--line); stroke-width: 1.3; fill: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 10px; font-size: .85rem; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend i { width: 26px; height: 14px; border-radius: 2px; border: 1px solid var(--accent); display: inline-block; background: var(--t1); }
+.legend i.l2 { background: var(--surface); border-style: dashed; }
+.legend i.l3 { background: var(--surface); border-style: dotted; border-color: var(--muted); }
+.journey { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.jhead { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.badge { font-family: var(--font-mono); font-size: .75rem; padding: 1px 7px; border-radius: 3px; border: 1px solid var(--accent); color: var(--accent); white-space: nowrap; }
+.badge.b2 { border-style: dashed; }
+.badge.crit { border-color: var(--warn); color: var(--warn); }
+ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px 0; align-items: stretch; }
+ol.steps li { display: flex; align-items: stretch; min-width: 0; }
+.step { background: var(--node); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; width: 184px; font-size: .84rem; display: grid; gap: 3px; align-content: start; }
+.step .scr { font-family: var(--font-mono); font-size: .72rem; color: var(--accent); }
+.step.dec { border-color: var(--accent); background: var(--t1); }
+.step.end { border-color: var(--ok); }
+.step.risk { border-color: var(--warn); }
+.arr { display: flex; align-items: center; padding: 0 6px; color: var(--muted); font-size: 1rem; }
+.rule { font-size: .84rem; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; max-width: 90ch; }
+.rule b { color: var(--fg); font-weight: 600; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+pre.wf { margin: 0; overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px; font-family: var(--font-mono); font-size: 12px; line-height: 1.35; min-width: 0; }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; }
+details + details { margin-top: 10px; }
+summary { cursor: pointer; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: .76rem; text-transform: uppercase; letter-spacing: .05em; }
+.tw { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+@media (max-width: 560px) { .step { width: 100%; } ol.steps li { width: 100%; } .arr { display: none; } ol.steps { gap: 8px; } }
+
+/* Sidebar d'ancres, thème clair uniquement */
+.layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 36px; max-width: 1260px; margin: 0 auto; align-items: start; }
+.side { position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto; font-size: .88rem; border-right: 1px solid var(--line); padding-right: 16px; }
+.side .doc { font-weight: 650; margin: 0 0 10px; line-height: 1.3; }
+.side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.side ul ul { margin: 2px 0 6px 12px; }
+.side a { display: block; padding: 4px 8px; border-radius: 3px; color: var(--muted); text-decoration: none; }
+.side a:hover { color: var(--fg); background: var(--node); }
+.side a.on { color: var(--accent); background: var(--node); font-weight: 600; }
+.side a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+@media (max-width: 880px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .side { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); padding: 0 0 12px; }
+  .side ul { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+  .side ul ul { margin: 0; display: contents; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="side"><nav aria-label="Sommaire">
+  <p class="doc">Écrans et parcours</p>
+  <ul>
+    <li><a href="#plan">Plan des écrans</a></li>
+    <li><a href="#schedule">Schedule : interactions</a></li>
+    <li><a href="#parcours">Parcours</a>
+      <ul>
+        <li><a href="#p1">1. Première allocation</a></li>
+        <li><a href="#p2">2. Surbooking</a></li>
+        <li><a href="#p3">3. Congé sur allocations</a></li>
+        <li><a href="#p4">4. Retrait d'équipe</a></li>
+        <li><a href="#p5">5. Timesheet « Yep »</a></li>
+        <li><a href="#p6">6. Import CSV</a></li>
+      </ul></li>
+    <li><a href="#wireframes">Wireframes existants</a></li>
+    <li><a href="#etats">États à concevoir</a></li>
+  </ul>
+</nav></aside>
+<main>
+  <header>
+    <h1>Écrans et parcours Float v1.1</h1>
+    <p class="muted">Inventaire des écrans prévus et des parcours prioritaires, tiré de <code>docs/dossier-fondamentaux-v1.1.md</code> et <code>docs/review/ux-ui.md</code>. Seuls trois écrans ont un wireframe (Schedule, popover d'allocation, timesheet mobile). Les autres sont déduits des exigences et n'ont pas de maquette.</p>
+  </header>
+
+  <section id="plan">
+    <h2>Plan des écrans</h2>
+    <figure>
+      <div class="scroll">
+      <svg viewBox="0 0 900 430" role="img" aria-label="Navigation principale en cinq entrées, Schedule, Projects, People, Time et Reports, avec leurs écrans enfants classés par tranche T1, T2 ou T3, et une rangée d'écrans transverses.">
+        <g class="nav">
+          <rect x="20" y="14" width="156" height="34" rx="4"/><text x="34" y="36">Schedule</text>
+          <rect x="196" y="14" width="156" height="34" rx="4"/><text x="210" y="36">Projects</text>
+          <rect x="372" y="14" width="156" height="34" rx="4"/><text x="386" y="36">People</text>
+          <rect x="548" y="14" width="156" height="34" rx="4"/><text x="562" y="36">Time</text>
+          <rect x="724" y="14" width="156" height="34" rx="4"/><text x="738" y="36">Reports</text>
+        </g>
+        <!-- stems -->
+        <path class="stem" d="M98,48 V80 M274,48 V80 M450,48 V80 M626,48 V80 M802,48 V80"/>
+
+        <!-- Schedule -->
+        <g class="n t1"><rect x="20" y="82" width="156" height="36" rx="3"/><text x="30" y="98">Grille jour/sem./mois</text><text class="tg" x="30" y="111">T1</text></g>
+        <g class="n t1"><rect x="20" y="126" width="156" height="36" rx="3"/><text x="30" y="142">Vue Liste/Table</text><text class="tg" x="30" y="155">T1 · accessibilité</text></g>
+        <g class="n t1"><rect x="20" y="170" width="156" height="36" rx="3"/><text x="30" y="186">Popover d'allocation</text><text class="tg" x="30" y="199">T1 · volet</text></g>
+        <g class="n t1"><rect x="20" y="214" width="156" height="36" rx="3"/><text x="30" y="230">ConflictPanel surbooking</text><text class="tg" x="30" y="243">T1 · volet</text></g>
+        <g class="n t1"><rect x="20" y="258" width="156" height="36" rx="3"/><text x="30" y="274">Report assisté (congé)</text><text class="tg" x="30" y="287">T1 · dialogue</text></g>
+
+        <!-- Projects -->
+        <g class="n t1"><rect x="196" y="82" width="156" height="36" rx="3"/><text x="206" y="98">Liste projets / clients</text><text class="tg" x="206" y="111">T1</text></g>
+        <g class="n t1"><rect x="196" y="126" width="156" height="36" rx="3"/><text x="206" y="142">Fiche projet + équipe</text><text class="tg" x="206" y="155">T1</text></g>
+        <g class="n t1"><rect x="196" y="170" width="156" height="36" rx="3"/><text x="206" y="186">Retrait d'équipe</text><text class="tg" x="206" y="199">T1 · dialogue</text></g>
+        <g class="n t3"><rect x="196" y="214" width="156" height="36" rx="3"/><text x="206" y="230">Phases, tâches, dépenses</text><text class="tg" x="206" y="243">T3</text></g>
+        <g class="n t3"><rect x="196" y="258" width="156" height="36" rx="3"/><text x="206" y="274">Budget, baseline, marge</text><text class="tg" x="206" y="287">T3</text></g>
+
+        <!-- People -->
+        <g class="n t1"><rect x="372" y="82" width="156" height="36" rx="3"/><text x="382" y="98">Liste des personnes</text><text class="tg" x="382" y="111">T1</text></g>
+        <g class="n t1"><rect x="372" y="126" width="156" height="36" rx="3"/><text x="382" y="142">Fiche personne</text><text class="tg" x="382" y="155">T1 · horaires, pays</text></g>
+        <g class="n t1"><rect x="372" y="170" width="156" height="36" rx="3"/><text x="382" y="186">Demande de congé</text><text class="tg" x="382" y="199">T1</text></g>
+        <g class="n t1"><rect x="372" y="214" width="156" height="36" rx="3"/><text x="382" y="230">Approbation des congés</text><text class="tg" x="382" y="243">T1</text></g>
+        <g class="n t1"><rect x="372" y="258" width="156" height="36" rx="3"/><text x="382" y="274">Import CSV</text><text class="tg" x="382" y="287">T1</text></g>
+
+        <!-- Time -->
+        <g class="n t2"><rect x="548" y="82" width="156" height="36" rx="3"/><text x="558" y="98">Timesheet de la semaine</text><text class="tg" x="558" y="111">T2</text></g>
+        <g class="n t2"><rect x="548" y="126" width="156" height="36" rx="3"/><text x="558" y="142">Verrou / déverrouillage</text><text class="tg" x="558" y="155">T2 · admin</text></g>
+        <g class="n t3"><rect x="548" y="170" width="156" height="36" rx="3"/><text x="558" y="186">Mobile : temps en 2 taps</text><text class="tg" x="558" y="199">T3</text></g>
+
+        <!-- Reports -->
+        <g class="n t2"><rect x="724" y="82" width="156" height="36" rx="3"/><text x="734" y="98">Rapport People</text><text class="tg" x="734" y="111">T2</text></g>
+        <g class="n t2"><rect x="724" y="126" width="156" height="36" rx="3"/><text x="734" y="142">Rapport Projects</text><text class="tg" x="734" y="155">T2</text></g>
+        <g class="n t3"><rect x="724" y="170" width="156" height="36" rx="3"/><text x="734" y="186">Forecast de capacité</text><text class="tg" x="734" y="199">T3</text></g>
+
+        <!-- transverse -->
+        <text x="20" y="334" style="font-size:12px;fill:var(--muted);font-family:var(--font-body)">Transverses, accessibles de partout</text>
+        <path class="stem" d="M20,342 H880"/>
+        <g class="n t1"><rect x="20" y="352" width="160" height="38" rx="3"/><text x="30" y="368">Assistant 1re allocation</text><text class="tg" x="30" y="382">T1 · compte vide</text></g>
+        <g class="n t1"><rect x="196" y="352" width="160" height="38" rx="3"/><text x="206" y="368">Recherche ⌘K</text><text class="tg" x="206" y="382">T1</text></g>
+        <g class="n t1"><rect x="372" y="352" width="160" height="38" rx="3"/><text x="382" y="368">Filtres, vues sauvegardées</text><text class="tg" x="382" y="382">T1</text></g>
+        <g class="n t1"><rect x="548" y="352" width="160" height="38" rx="3"/><text x="558" y="368">Notifications in-app</text><text class="tg" x="558" y="382">T1</text></g>
+        <g class="n t1"><rect x="724" y="352" width="156" height="38" rx="3"/><text x="734" y="368">Compte, membres, rôles</text><text class="tg" x="734" y="382">T1 · Owner/Admin</text></g>
+      </svg>
+      </div>
+      <div class="legend" aria-label="Légende des tranches">
+        <span><i></i>T1 : MVP Schedule + capacité</span>
+        <span><i class="l2"></i>T2 : timesheets et rapports</span>
+        <span><i class="l3"></i>T3 : budgets, forecast, mobile</span>
+      </div>
+      <figcaption>La navigation à cinq entrées vient du wireframe A. Les volets et dialogues sont signalés dans chaque boîte. Le mobile est classé T3 par la roadmap du dossier (FR-14), alors que le rapport UX le range en P1 : cet écart est à trancher. T4 (Smart Assign, Talent Intelligence) n'a pas d'écran défini.</figcaption>
+    </figure>
+  </section>
+
+  <section id="schedule">
+    <h2>Le Schedule : interactions (ADR-002)</h2>
+    <div class="grid2" style="margin-top:10px">
+      <div class="journey">
+        <h3>Barre du haut</h3>
+        <ul style="margin:0;padding-left:1.1rem;display:grid;gap:4px;font-size:.88rem">
+          <li>Zoom <b>Jour | Semaine | Mois</b>, point central conservé.</li>
+          <li><b>Aujourd'hui</b> (raccourci <code>T</code>) recale la vue sur la date du jour, au même zoom.</li>
+          <li>Précédent / suivant, aller à une date.</li>
+          <li>Défilement horizontal continu dans le passé et le futur, données chargées par fenêtre.</li>
+          <li>Barre de saisie rapide : « Refonte 6h lun-mer », aperçu du bloc avant validation.</li>
+        </ul>
+      </div>
+      <div class="journey">
+        <h3>Blocs</h3>
+        <ul style="margin:0;padding-left:1.1rem;display:grid;gap:4px;font-size:.88rem">
+          <li>Largeur = durée, y compris un bloc d'une seule journée.</li>
+          <li>Hauteur = part de la capacité du jour (6 h sur 8 h = 75 %).</li>
+          <li>Blocs d'une personne empilés ; au-delà de 100 %, sur-allocation ▲.</li>
+          <li>Déplacer, étirer à gauche/droite, poignée haut/bas pour les heures ou le %, Alt + glisser pour dupliquer.</li>
+          <li>Chaque geste a un équivalent clavier.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:10px">Écran People : chaque personne affiche son état d'accès (« a un accès », « invité », « sans accès »). Les utilisateurs qui se connectent et les personnes planifiées sont deux entités distinctes. Détail dans <code>docs/decisions/ADR-002-identite-zoom-navigation-i18n-fluidite.md</code>.</p>
+  </section>
+
+  <section id="parcours" style="display:grid;gap:16px">
+    <div>
+      <h2>Parcours</h2>
+      <p class="muted">Six parcours issus de <code>docs/review/ux-ui.md</code> §5.1 et des critères d'acceptation du dossier. Le badge « bloquant » reprend la priorité du rapport UX.</p>
+    </div>
+
+    <article class="journey" id="p1">
+      <div class="jhead"><h3>1. Première allocation d'un compte vide</h3><span class="badge crit">bloquant</span><span class="badge">T1</span><span class="mono muted">cible &lt; 5 min</span></div>
+      <ol class="steps">
+        <li><div class="step"><b>Compte vide</b><span class="scr">Schedule (état vide)</span>« Ajoutez vos premières personnes »</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step"><b>1. Équipe</b><span class="scr">Import CSV ou ajout</span>Nom, type, horaires par défaut</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step"><b>2. Premier projet</b><span class="scr">Fiche projet</span>Client, code, couleur, dates</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step"><b>3. Premier bloc</b><span class="scr">Grille, drag guidé</span>L'utilisateur pose l'allocation</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step end"><b>Schedule rempli</b><span class="scr">Grille</span>Capacité visible tout de suite</div></li>
+      </ol>
+      <p class="rule"><b>Règle :</b> un placeholder n'exige pas d'e-mail ; moins de 3 champs obligatoires pour une personne (US-1.1). Import : 300 lignes en moins de 30 s (US-1.2).</p>
+    </article>
+
+    <article class="journey" id="p2">
+      <div class="jhead"><h3>2. Détecter et résoudre un surbooking</h3><span class="badge crit">bloquant</span><span class="badge">T1</span><span class="mono muted">north star : &lt; 10 s</span></div>
+      <ol class="steps">
+        <li><div class="step risk"><b>Alerte sur la ligne</b><span class="scr">Grille</span>▲ +4 h, icône et texte, pas la couleur seule</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step"><b>Ouvrir le conflit</b><span class="scr">ConflictPanel</span>Jours et projets en cause</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step dec"><b>« Trouver quelqu'un »</b><span class="scr">Filtre automatique</span>Même rôle, disponible sur la plage</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step"><b>Choisir ou glisser</b><span class="scr">Grille</span>Alternative clavier : Alt+Flèches</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step end"><b>Résolu</b><span class="scr">Grille</span>Sans quitter la grille</div></li>
+      </ol>
+      <p class="rule"><b>Règle :</b> BR-01, la sur-allocation est signalée et jamais bloquée à l'insertion. Un autre client voit le changement en moins de 1 s (US-3.5).</p>
+    </article>
+
+    <article class="journey" id="p3">
+      <div class="jhead"><h3>3. Congé posé sur des allocations existantes</h3><span class="badge">T1</span><span class="mono muted">BR-04</span></div>
+      <ol class="steps">
+        <li><div class="step"><b>Demande de congé</b><span class="scr">Demande de congé</span>Type, dates, journée entière ou partielle</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step risk"><b>Avertissement</b><span class="scr">Report assisté</span>« 3 allocations impactées » avec la liste</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step dec"><b>Choix</b><span class="scr">Report assisté</span>Reporter, laisser, ou réduire</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step"><b>Badge de conflit</b><span class="scr">Grille</span>Tant que rien n'est résolu</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step end"><b>Approbation</b><span class="scr">Approbation des congés</span>Approuvé ou refusé</div></li>
+      </ol>
+      <p class="rule"><b>Règle :</b> aucune allocation n'est supprimée, et le temps loggé n'est jamais modifié (US-5.2). Écart avec Float, qui supprime les blocs. <b>À trancher :</b> un congé encore <code>pending</code> déduit-il la capacité ? Le schéma déduit tout sauf <code>declined</code>.</p>
+    </article>
+
+    <article class="journey" id="p4">
+      <div class="jhead"><h3>4. Retirer une personne d'un projet</h3><span class="badge">T1</span><span class="mono muted">BR-10</span></div>
+      <ol class="steps">
+        <li><div class="step"><b>Retirer de l'équipe</b><span class="scr">Fiche projet</span>Action sur un membre</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step risk"><b>Récapitulatif</b><span class="scr">Retrait d'équipe</span>« 12 allocations, 34 h loggées seront supprimées »</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step dec"><b>Confirmer ou réaffecter</b><span class="scr">Retrait d'équipe</span>Saisie si &gt; N éléments, lien « Plutôt réaffecter »</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step"><b>Toast « Annuler » 10 s</b><span class="scr">Fiche projet</span>Rien de supprimé avant l'échéance</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step end"><b>Suppression</b><span class="scr">—</span>Une entrée <code>delete_log</code> par ligne</div></li>
+      </ol>
+      <p class="rule"><b>Règle :</b> ADR-001 n°10. Ctrl+Z ne rejoue pas les cascades ; le toast à 10 s remplace l'undo pour ce cas. Attention : le schéma refuse la suppression d'une personne ayant du temps loggé (RESTRICT), il faut donc décider ce que devient ce retrait dans ce cas.</p>
+    </article>
+
+    <article class="journey" id="p5">
+      <div class="jhead"><h3>5. Timesheet « Yep »</h3><span class="badge b2">T2</span><span class="mono muted">BR-11, BR-12</span></div>
+      <ol class="steps">
+        <li><div class="step"><b>Carte du jour</b><span class="scr">Timesheet</span>Pré-remplie depuis les allocations confirmées</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step dec"><b>Yep ou Ajuster</b><span class="scr">Timesheet</span>Ajustement inline</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step"><b>Confirmer la semaine</b><span class="scr">Timesheet</span>Bouton unique</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step risk"><b>Verrouillage</b><span class="scr">Timesheet</span>Explication du verrou à la soumission</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step end"><b>Déverrouillage</b><span class="scr">Verrou / déverrouillage</span>Owner ou Admin seulement</div></li>
+      </ol>
+      <p class="rule"><b>Règle :</b> heures en décimal partout. La granularité du verrou (jour, semaine, période) est une question ouverte (Q-06).</p>
+    </article>
+
+    <article class="journey" id="p6">
+      <div class="jhead"><h3>6. Import CSV de personnes, projets, clients</h3><span class="badge">T1</span><span class="mono muted">US-1.2</span></div>
+      <ol class="steps">
+        <li><div class="step"><b>Choisir le fichier</b><span class="scr">Import CSV</span>Personnes, projets ou clients</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step"><b>Mapper les colonnes</b><span class="scr">Import CSV</span>Correspondance proposée</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step dec"><b>Prévisualiser</b><span class="scr">Import CSV</span>Lignes valides et en erreur</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step risk"><b>Rapport d'erreurs</b><span class="scr">Import CSV</span>Ligne par ligne</div></li>
+        <li><span class="arr" aria-hidden="true">→</span><div class="step end"><b>Importé</b><span class="scr">Liste des personnes</span>Ré-import idempotent (e-mail, code projet)</div></li>
+      </ol>
+    </article>
+  </section>
+
+  <section id="wireframes" style="display:grid;gap:14px">
+    <div>
+      <h2>Wireframes existants</h2>
+      <p class="muted">Repris tels quels de <code>docs/review/ux-ui.md</code> §5.2 à 5.4. Ce sont des croquis ASCII, pas des maquettes.</p>
+    </div>
+    <details open>
+      <summary>A. Schedule, vue Semaine</summary>
+<pre class="wf">┌──────────────────────────────────────────────────────────────────────────────────┐
+│ Float*  [Schedule][Projects][People][Time][Reports]        🔍 /  ⌘K   ● Synchro  │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│ Vue: [Design team ▾]  Filtres: [Rôle: Designer ×] [Surbookés ×] [+]              │
+│ [‹] [Aujourd'hui] [›]   Oct 2026      Zoom: (Jour|■Semaine|Mois)   [+ Allocation]│
+├───────────────────┬──────────────────────────────────────────────────────────────┤
+│                   │  S41 12-16   │  S42 19-23   │  S43 26-30   │  S44 02-06     │
+│                   │ L M M J V    │ L M M J V    │ L M M J V    │ L M M J V      │
+├───────────────────┼──────────────────────────────────────────────────────────────┤
+│▾ Design (4)       │                                                              │
+│ (A) Alice  ▓▓▓░░  │ [▓▓ Refonte 6h ▓▓▓▓▓▓][░ ? Pitch 4h (tentatif) ░░░░]          │
+│     Designer 85%  │        ▲ capacité OK                                         │
+│ (B) Bob    ▓▓▓▓▲  │ [▓▓ Refonte 8h ▓▓▓][▓ App 4h ▓▓▓▓▓]   ▲ +4h sur-alloué       │
+│     Designer 120% │ ········································ [//Vacances//////]  │
+│ (C) Chloé  ▓░░░░  │ [▓ App 3h ▓▓▓]                       « 5 h libres »          │
+│ (·) Designer ?    │                                                              │
+│     Placeholder   │                                                              │
+├───────────────────┼──────────────────────────────────────────────────────────────┤
+│ Total équipe      │ ▂▅▇▆▅ │ ▅▇█▇▅ │ ▃▄▅▄▂ │ ▂▃▃▂▁   (charge vs capacité)         │
+└───────────────────┴──────────────────────────────────────────────────────────────┘
+ Légende: ▓ confirmé  ░ tentatif (pointillé)  // congé  ▲ sur-allocation</pre>
+    </details>
+    <div class="grid2">
+      <details open>
+        <summary>B. Popover d'allocation</summary>
+<pre class="wf">┌─────────────────────────────────────────┐
+│ Refonte site — Acme            [⋯] [✕] │
+│ Alice Martin                            │
+│ Dates   [12/10/26] → [14/10/26]  3 j    │
+│ Charge  (●) Heures/jour [ 6.0 ]  ( ) %  │
+│ Statut  (●) Confirmé   ( ) Tentatif     │
+│ Phase   [Concept ▾]   Tâche [ — ▾ ]     │
+│ Nom     [Concepting________________]    │
+│ ☑ Facturable    ↻ Répéter: [Jamais ▾]   │
+│ ⚠ Alice: 120 % le 13/10  [Voir conflit] │
+│ Notes   [__________________________]    │
+│ [Supprimer]        [Annuler] [Enregistrer]│
+└─────────────────────────────────────────┘</pre>
+      </details>
+      <details open>
+        <summary>C. Timesheet mobile et congé</summary>
+<pre class="wf">┌──────────────────────┐ ┌──────────────────────┐
+│ ‹ Semaine 42      ✕  │ │ Demande de congé  ✕  │
+├──────────────────────┤ ├──────────────────────┤
+│ Lun 19    7,5 h  ✓   │ │ Type  [Vacances ▾]   │
+│  ▓ Refonte  6,0 h    │ │ Du    [26/10/26]     │
+│  ▓ App      1,5 h    │ │ Au    [30/10/26]     │
+│ Mar 20    8,0 h  ✓   │ │ ◉ Journée entière    │
+│ Mer 21    8,0 h  ○   │ │ ○ Partiel [ 4 ] h/j  │
+│  ▓ Refonte  8,0 h    │ │ ⚠ 3 allocations      │
+│   [Ajuster] [Yep ✓]  │ │   impactées (voir)   │
+│ Jeu 22    — à venir  │ │ Note  [__________]   │
+├──────────────────────┤ │ [Annuler] [Envoyer]  │
+│ [ Confirmer semaine ]│ └──────────────────────┘
+├──────────────────────┤
+│ Planning|Temps|Congés│
+└──────────────────────┘</pre>
+      </details>
+    </div>
+  </section>
+
+  <section id="etats">
+    <h2>États à concevoir pour chaque écran</h2>
+    <p class="muted" style="margin-bottom:10px">Tableau de <code>docs/review/ux-ui.md</code> §4.3. Aucun de ces états n'a de maquette.</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Contexte</th><th>Vide</th><th>Chargement</th><th>Erreur</th></tr></thead>
+        <tbody>
+          <tr><td>Schedule, 0 personne</td><td>« Ajoutez vos premières personnes », Importer CSV, Ajouter</td><td>Squelette des lignes, en-têtes réels</td><td>Bannière « Réessayer », grille en cache conservée</td></tr>
+          <tr><td>Personne sans allocation</td><td>Ligne « Libre », clic ou drag pour créer</td><td>Squelette de blocs</td><td>—</td></tr>
+          <tr><td>Filtres sans résultat</td><td>« Aucun résultat », Réinitialiser les filtres</td><td>—</td><td>—</td></tr>
+          <tr><td>Projet sans équipe</td><td>« Ajouter des personnes »</td><td>—</td><td>—</td></tr>
+          <tr><td>Rapports, période vide (T2)</td><td>Explication et lien vers le Schedule</td><td>Squelette tableau et graphe</td><td>Message et code d'incident</td></tr>
+          <tr><td>Timesheet (T2)</td><td>« Rien de planifié cette semaine », Ajouter une ligne</td><td>Squelette</td><td>Soumission échouée : la saisie est conservée</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="margin-top:10px">Permissions : un Member ne voit que ses assignations et reçoit « Vous n'avez pas accès à cette vue ». Un Guest est en lecture seule, les poignées sont masquées plutôt que désactivées. Une mutation échouée annule le bloc et le marque « non synchronisé ».</p>
+  </section>
+</main>
+</div>
+<script>
+(function () {
+  var links = [].slice.call(document.querySelectorAll('.side a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var targets = Object.keys(map).map(function (id) { return document.getElementById(id); }).filter(Boolean);
+  if (!('IntersectionObserver' in window)) return;
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      if (e.isIntersecting) { links.forEach(function (l) { l.classList.remove('on'); }); map[e.target.id].classList.add('on'); }
+    });
+  }, { rootMargin: '0px 0px -70% 0px' });
+  targets.forEach(function (t) { io.observe(t); });
+})();
+</script>
+
+</body>
+</html>

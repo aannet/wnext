@@ -1,0 +1,378 @@
+-- ============================================================
+-- Float Rebuild — Schéma PostgreSQL v1.0
+-- Dérivé du modèle de données du dossier de fondamentaux
+-- (entités alignées sur l'API v3 de Float)
+-- ============================================================
+
+-- ---------- ENUMS ----------
+CREATE TYPE people_type        AS ENUM ('employee','contractor','placeholder');
+CREATE TYPE allocation_mode    AS ENUM ('hours','percentage');
+CREATE TYPE allocation_status  AS ENUM ('tentative','confirmed');
+CREATE TYPE log_status         AS ENUM ('draft','submitted','approved','locked');
+CREATE TYPE project_status     AS ENUM ('tentative','planned','in_progress','on_hold','completed','archived');
+CREATE TYPE budget_type        AS ENUM ('hours_by_task','hours_by_person','money_by_task','money_by_person','fees');
+CREATE TYPE timeoff_scope      AS ENUM ('full_day','partial');
+CREATE TYPE approval_status    AS ENUM ('pending','approved','declined');
+CREATE TYPE repeat_state_t     AS ENUM ('none','daily','weekly','monthly');
+
+-- ---------- TENANT ----------
+CREATE TABLE accounts (
+  id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name               TEXT    NOT NULL,
+  timezone           TEXT    NOT NULL DEFAULT 'UTC',
+  currency_code      CHAR(3) NOT NULL DEFAULT 'USD',
+  week_start         SMALLINT NOT NULL DEFAULT 1 CHECK (week_start BETWEEN 0 AND 6),
+  default_work_hours NUMERIC(4,2) NOT NULL DEFAULT 8.00,
+  plan               TEXT    NOT NULL DEFAULT 'starter',
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ---------- ORGANISATION ----------
+CREATE TABLE departments (
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  account_id  BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  name       TEXT   NOT NULL,
+  UNIQUE (account_id, name)
+);
+
+CREATE TABLE roles (
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  account_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  name       TEXT   NOT NULL,          -- ex. "Design Senior"
+  UNIQUE (account_id, name)
+);
+
+CREATE TABLE rate_cards (
+  id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  account_id    BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  name          TEXT   NOT NULL,
+  currency_code CHAR(3) NOT NULL DEFAULT 'USD',
+  valid_from    DATE   NOT NULL,
+  valid_to      DATE,
+  created_by    BIGINT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE rates (
+  id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  rate_card_id  BIGINT NOT NULL REFERENCES rate_cards(id) ON DELETE CASCADE,
+  role_id       BIGINT      REFERENCES roles(id) ON DELETE CASCADE,
+  person_id     BIGINT,              -- NULL = taux par rôle, sinon surcharge individuelle
+  cost_rate     NUMERIC(10,2) NOT NULL CHECK (cost_rate >= 0),
+  bill_rate     NUMERIC(10,2) NOT NULL CHECK (bill_rate >= 0),
+  UNIQUE (rate_card_id, role_id, person_id)
+);
+
+-- ---------- PERSONNES ----------
+CREATE TABLE people (
+  id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  account_id      BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  department_id   BIGINT REFERENCES departments(id) ON DELETE SET NULL,
+  role_id         BIGINT REFERENCES roles(id) ON DELETE SET NULL,
+  name            TEXT   NOT NULL,
+  email           TEXT   CHECK (email IS NULL OR email ~* '^[^@]+@[^@]+\.[^@]+$'),
+  people_type     people_type NOT NULL DEFAULT 'employee',
+  work_days_hours NUMERIC(4,2)[7] NOT NULL   -- index 0 = lundi, ex. '{0,8,8,8,8,8,0}'
+                 DEFAULT '{0,8,8,8,8,8,0}',
+  tags            TEXT[] NOT NULL DEFAULT '{}',
+  avatar_url      TEXT,
+  cost_rate       NUMERIC(10,2) CHECK (cost_rate IS NULL OR cost_rate >= 0),
+  active          BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by      BIGINT,
+  modified_by     BIGINT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  modified_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_people_account_active ON people (account_id) WHERE active;
+CREATE INDEX idx_people_tags ON people USING GIN (tags);
+
+-- ---------- CLIENTS & PROJETS ----------
+CREATE TABLE clients (
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  account_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  name       TEXT   NOT NULL,
+  short_name TEXT,
+  tags       TEXT[] NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE projects (
+  id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  account_id         BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  client_id          BIGINT REFERENCES clients(id) ON DELETE SET NULL,
+  project_manager_id BIGINT REFERENCES people(id) ON DELETE SET NULL,
+  name               TEXT   NOT NULL,
+  project_code       TEXT,               -- référence externe, ex. 'job-12345/11'
+  color              CHAR(7) NOT NULL DEFAULT '#3B82F6' CHECK (color ~ '^#[0-9A-Fa-f]{6}$'),
+  start_date         DATE,
+  end_date           DATE   CHECK (end_date IS NULL OR end_date >= start_date),
+  status             project_status NOT NULL DEFAULT 'planned',
+  budget_type        budget_type NOT NULL DEFAULT 'hours_by_task',
+  budget_amount      NUMERIC(14,2) CHECK (budget_amount >= 0),
+  baseline_amount    NUMERIC(14,2),      -- version figée du budget initial
+  baseline_at        TIMESTAMPTZ,
+  non_billable       BOOLEAN NOT NULL DEFAULT FALSE,
+  tentative          BOOLEAN NOT NULL DEFAULT FALSE,
+  tags               TEXT[] NOT NULL DEFAULT '{}',
+  notes              TEXT,
+  created_by         BIGINT,
+  modified_by        BIGINT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  modified_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_projects_account  ON projects (account_id, status);
+CREATE INDEX idx_projects_client   ON projects (client_id);
+CREATE UNIQUE INDEX uq_projects_code ON projects (account_id, project_code)
+  WHERE project_code IS NOT NULL;
+
+CREATE TABLE phases (
+  id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  project_id    BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name          TEXT   NOT NULL,
+  start_date    DATE,
+  end_date      DATE   CHECK (end_date IS NULL OR end_date >= start_date),
+  status        project_status NOT NULL DEFAULT 'planned',
+  color         CHAR(7),
+  non_billable  BOOLEAN NOT NULL DEFAULT FALSE,
+  notes         TEXT,
+  position      SMALLINT NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_phases_project ON phases (project_id);
+
+CREATE TABLE project_tasks (
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  phase_id   BIGINT      REFERENCES phases(id) ON DELETE SET NULL,
+  name       TEXT   NOT NULL,            -- ex. 'Design', 'Concepting'
+  billable   BOOLEAN NOT NULL DEFAULT TRUE,
+  position   SMALLINT NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_ptasks_project ON project_tasks (project_id);
+
+CREATE TABLE milestones (
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  phase_id   BIGINT      REFERENCES phases(id) ON DELETE CASCADE,
+  name       TEXT   NOT NULL,
+  due_date   DATE   NOT NULL
+);
+CREATE INDEX idx_milestones_project ON milestones (project_id, due_date);
+
+CREATE TABLE project_expenses (
+  id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  project_id  BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  amount      NUMERIC(14,2) NOT NULL CHECK (amount >= 0),
+  currency    CHAR(3) NOT NULL DEFAULT 'USD',
+  spent_on    DATE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE project_team (
+  project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  person_id   BIGINT NOT NULL REFERENCES people(id)    ON DELETE CASCADE,
+  PRIMARY KEY (project_id, person_id)
+);
+
+-- ---------- ALLOCATIONS (entité pivot du Schedule) ----------
+CREATE TABLE allocations (
+  id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  account_id      BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  person_id       BIGINT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+  project_id      BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  phase_id        BIGINT      REFERENCES phases(id) ON DELETE SET NULL,
+  project_task_id BIGINT      REFERENCES project_tasks(id) ON DELETE SET NULL,
+  name            TEXT,                    -- label libre, ex. 'Concepting'
+  notes           TEXT,
+  start_date      DATE NOT NULL,
+  end_date        DATE NOT NULL CHECK (end_date >= start_date),
+  mode            allocation_mode NOT NULL DEFAULT 'hours',
+  hours_per_day   NUMERIC(4,2),            -- requis si mode = 'hours'
+  percent         NUMERIC(5,2),            -- requis si mode = 'percentage' (0-100)
+  status          allocation_status NOT NULL DEFAULT 'confirmed',
+  billable        BOOLEAN NOT NULL DEFAULT TRUE,
+  priority        SMALLINT NOT NULL DEFAULT 0,
+  repeat_state    repeat_state_t NOT NULL DEFAULT 'none',
+  repeat_end_date DATE,
+  created_by      BIGINT,
+  modified_by     BIGINT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  modified_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_alloc_hours CHECK (
+    (mode = 'hours'   AND hours_per_day IS NOT NULL AND hours_per_day > 0 AND hours_per_day <= 24)
+    OR
+    (mode = 'percentage' AND percent IS NOT NULL AND percent > 0 AND percent <= 100)
+  ),
+  CONSTRAINT chk_alloc_repeat CHECK (repeat_state = 'none' OR repeat_end_date >= start_date)
+);
+CREATE INDEX idx_alloc_person ON allocations (person_id, start_date, end_date);
+CREATE INDEX idx_alloc_project ON allocations (project_id, start_date);
+CREATE INDEX idx_alloc_range ON allocations (account_id, start_date);
+
+-- ---------- TEMPS RÉEL (timesheets) ----------
+CREATE TABLE logged_time (
+  id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  account_id      BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  person_id       BIGINT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+  project_id      BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  phase_id        BIGINT      REFERENCES phases(id) ON DELETE SET NULL,
+  project_task_id BIGINT      REFERENCES project_tasks(id) ON DELETE SET NULL,
+  work_date       DATE NOT NULL,
+  hours           NUMERIC(4,2) NOT NULL CHECK (hours > 0 AND hours <= 24),
+  billable        BOOLEAN NOT NULL DEFAULT TRUE,
+  notes           TEXT,
+  status          log_status NOT NULL DEFAULT 'draft',
+  submitted_at    TIMESTAMPTZ,
+  approved_by     BIGINT REFERENCES people(id),
+  locked_at       TIMESTAMPTZ,
+  created_by      BIGINT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  modified_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_log_person_date ON logged_time (person_id, work_date);
+CREATE INDEX idx_log_project ON logged_time (project_id, work_date);
+-- BR-12 : verrouillage — le verrou se lève uniquement par un admin (contrôle applicatif)
+CREATE INDEX idx_log_status ON logged_time (account_id, status) WHERE status <> 'locked';
+
+-- ---------- CONGÉS & JOURS FÉRIÉS ----------
+CREATE TABLE timeoff_types (
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  account_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  name       TEXT   NOT NULL,            -- 'Vacances', 'Maladie', 'Formation'...
+  deducted   BOOLEAN NOT NULL DEFAULT TRUE,  -- déduit de la capacité ?
+  UNIQUE (account_id, name)
+);
+
+CREATE TABLE timeoffs (
+  id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  account_id      BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  person_id       BIGINT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+  timeoff_type_id BIGINT NOT NULL REFERENCES timeoff_types(id),
+  start_date      DATE NOT NULL,
+  end_date        DATE NOT NULL CHECK (end_date >= start_date),
+  scope           timeoff_scope NOT NULL DEFAULT 'full_day',
+  hours_per_day   NUMERIC(4,2) CHECK (hours_per_day > 0 AND hours_per_day <= 24),
+  approval_status approval_status NOT NULL DEFAULT 'pending',
+  notes           TEXT,
+  created_by      BIGINT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_timeoff_hours CHECK (scope = 'full_day' OR hours_per_day IS NOT NULL)
+);
+CREATE INDEX idx_timeoff_person ON timeoffs (person_id, start_date, end_date);
+CREATE INDEX idx_timeoff_range ON timeoffs (account_id, start_date, end_date);
+
+CREATE TABLE holidays (
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  account_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  name       TEXT   NOT NULL,
+  hdate      DATE   NOT NULL,
+  country    CHAR(2),            -- NULL = global au compte
+  UNIQUE (account_id, hdate, country, name)
+);
+CREATE INDEX idx_holidays_date ON holidays (account_id, hdate);
+
+-- ---------- AUDIT & SYNC ----------
+CREATE TABLE delete_log (
+  id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  account_id   BIGINT NOT NULL,
+  entity       TEXT   NOT NULL,          -- 'allocations','logged_time','timeoffs',...
+  entity_id    BIGINT NOT NULL,
+  deleted_by   BIGINT,
+  deleted_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_delete_log ON delete_log (account_id, entity, deleted_at);
+-- BR-14 : purge après 72 h minimum (job applicatif)
+
+-- ---------- TRIGGER updated_at ----------
+CREATE OR REPLACE FUNCTION touch_modified_at() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.modified_at = now();
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_people_touch     BEFORE UPDATE ON people     FOR EACH ROW EXECUTE FUNCTION touch_modified_at();
+CREATE TRIGGER trg_projects_touch   BEFORE UPDATE ON projects   FOR EACH ROW EXECUTE FUNCTION touch_modified_at();
+CREATE TRIGGER trg_alloc_touch      BEFORE UPDATE ON allocations FOR EACH ROW EXECUTE FUNCTION touch_modified_at();
+CREATE TRIGGER trg_log_touch        BEFORE UPDATE ON logged_time FOR EACH ROW EXECUTE FUNCTION touch_modified_at();
+
+-- ============================================================
+-- CALCULS CŒUR (règles BR-01..BR-03)
+-- ============================================================
+
+-- Charge planifiée par personne et par jour sur une période,
+-- expansion des allocations répétées incluse (BR : la répétition
+-- s'arrête à repeat_end_date ou à la fin de période).
+CREATE OR REPLACE FUNCTION daily_planned_load(
+  p_account_id BIGINT,
+  p_from DATE,
+  p_to   DATE
+) RETURNS TABLE (person_id BIGINT, day DATE, planned_hours NUMERIC)
+LANGUAGE sql STABLE AS $$
+  SELECT a.person_id,
+         d::date,
+         SUM(COALESCE(a.hours_per_day, p.work_days_hours[(EXTRACT(ISODOW FROM d))::int] * a.percent / 100))::numeric
+  FROM allocations a
+  JOIN people p ON p.id = a.person_id
+  CROSS JOIN LATERAL generate_series(
+    GREATEST(a.start_date, p_from),
+    LEAST(a.end_date, COALESCE(a.repeat_end_date, a.end_date), p_to),
+    CASE a.repeat_state WHEN 'daily' THEN '1 day'::interval
+                        WHEN 'weekly' THEN '7 days'::interval
+                        WHEN 'monthly' THEN '1 month'::interval
+                        ELSE (a.end_date - a.start_date + 1)::text::interval END  -- none : pas d'expansion (1 pas)
+  ) d
+  WHERE a.account_id = p_account_id
+  GROUP BY a.person_id, d
+$$;
+
+-- Capacité journalière effective d'une personne :
+-- heures ouvrées − congés déductibles − jours fériés (BR-02)
+CREATE OR REPLACE FUNCTION daily_capacity(
+  p_person_id BIGINT,
+  p_from DATE,
+  p_to   DATE
+) RETURNS TABLE (person_id BIGINT, day DATE, capacity_hours NUMERIC)
+LANGUAGE sql STABLE AS $$
+  SELECT pe.id,
+         d::date,
+         GREATEST(pe.work_days_hours[(EXTRACT(ISODOW FROM d))::int] - COLESCE(pt.hours, 0), 0)
+  FROM people pe
+  CROSS JOIN LATERAL generate_series(p_from, p_to, '1 day') d
+  LEFT JOIN LATERAL (
+    SELECT CASE WHEN t.scope = 'full_day'
+                THEN pe.work_days_hours[(EXTRACT(ISODOW FROM d))::int]
+                ELSE t.hours_per_day END AS hours
+    FROM timeoffs t
+    JOIN timeoff_types tt ON tt.id = t.timeoff_type_id AND tt.deducted
+    WHERE t.person_id = pe.id
+      AND d BETWEEN t.start_date AND t.end_date
+      AND t.approval_status <> 'declined'
+    LIMIT 1
+  ) pt ON TRUE
+  WHERE pe.id = p_person_id
+    AND NOT EXISTS (SELECT 1 FROM holidays h
+                    WHERE h.account_id = pe.account_id AND h.hdate = d
+                      AND (h.country IS NULL OR h.country = pe.country))
+$$;
+
+-- Vue d'utilisation (BR-03, BR-13) : charge vs capacité, surtemps
+CREATE OR REPLACE VIEW v_utilization AS
+SELECT c.person_id, c.day, c.capacity_hours,
+       COALESCE(l.planned_hours, 0) AS planned_hours,
+       CASE WHEN c.capacity_hours = 0 THEN NULL
+            ELSE COALESCE(l.planned_hours, 0) / c.capacity_hours END AS utilization
+FROM daily_capacity(0, NULL, NULL) c   -- voir note d'usage : paramétrer via requête applicative
+LEFT JOIN daily_planned_load(0, NULL, NULL) l USING (person_id, day);
+-- En pratique, appeler les fonctions avec (account_id, from, to) bornés.
+
+-- ============================================================
+-- NOTES D'ARBITRAGE
+-- 1. BR-01 : une allocation peut dépasser la capacité (sur-allocation
+--    signalée par v_utilization > 1, jamais bloquée à l'insertion).
+-- 2. BR-04 (Float) : congé pleine journée vs allocations existantes ->
+--    géré côté application : avertir + proposer report (pas de DELETE cascade).
+-- 3. BR-15 : un siège payé = toute personne "active" (work_days_hours > 0),
+--    y compris placeholders ; Guests hors modèle (lecture seule).
+-- 4. Les heures sont stockées en décimal (affichage BR-11).
+-- ============================================================

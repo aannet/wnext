@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schéma Float v1.1</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: lecture technique, une colonne étroite; deux figures puis tableaux de contrôle. */
+:root {
+  color-scheme: light;
+  --bg: #f6f7f5;
+  --surface: #ffffff;
+  --fg: #1d2421;
+  --muted: #5c6661;
+  --line: #d5dad6;
+  --node: #eef1ee;
+  --node-hub: #dfe9e4;
+  --edge: #3b4641;
+  --restrict: #b3361f;
+  --ok: #1f7a4d;
+  --accent: #1b6b66;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); line-height: 1.55;
+  padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { min-width: 0; display: grid; gap: 36px; }
+h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 6px; text-wrap: balance; font-weight: 600; }
+h2 { font-size: 1.05rem; margin: 0 0 4px; font-weight: 600; text-wrap: balance; }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); }
+code, .mono { font-family: var(--font-mono); font-size: .86em; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: .85rem; margin-top: 10px; }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); padding: 14px; border-radius: 6px; }
+.scroll { overflow-x: auto; }
+svg { display: block; width: 100%; min-width: 640px; height: auto; color: var(--fg); }
+figcaption { margin-top: 10px; color: var(--muted); font-size: .88rem; max-width: 72ch; }
+.n rect { fill: var(--node); stroke: var(--line); stroke-width: 1; }
+.n.hub rect { fill: var(--node-hub); stroke: var(--accent); }
+.n text { font-family: var(--font-mono); font-size: 12px; fill: var(--fg); }
+.band rect { fill: var(--node-hub); stroke: var(--accent); }
+.band text { font-size: 12px; fill: var(--fg); font-family: var(--font-body); }
+.e { fill: none; stroke: var(--edge); stroke-width: 1.3; }
+.e.sn { stroke-dasharray: 5 4; }
+.e.rs { stroke: var(--restrict); stroke-width: 2.2; }
+.lbl { font-family: var(--font-mono); font-size: 10.5px; fill: var(--muted); }
+.lbl.rs { fill: var(--restrict); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 10px; font-size: .85rem; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend svg { width: 38px; min-width: 38px; height: 10px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px; min-width: 0; }
+.card h3 { margin: 0 0 8px; font-size: .95rem; }
+table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; }
+.tw { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.tag { font-family: var(--font-mono); font-size: .78rem; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--line); white-space: nowrap; }
+.tag.rs { color: var(--restrict); border-color: var(--restrict); }
+.tag.ok { color: var(--ok); border-color: var(--ok); }
+ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 6px; }
+.warn { border-left: 3px solid var(--restrict); padding-left: 12px; }
+
+/* Sidebar d'ancres, thème clair uniquement */
+.layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 36px; max-width: 1260px; margin: 0 auto; align-items: start; }
+.side { position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto; font-size: .88rem; border-right: 1px solid var(--line); padding-right: 16px; }
+.side .doc { font-weight: 650; margin: 0 0 10px; line-height: 1.3; }
+.side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.side ul ul { margin: 2px 0 6px 12px; }
+.side a { display: block; padding: 4px 8px; border-radius: 3px; color: var(--muted); text-decoration: none; }
+.side a:hover { color: var(--fg); background: var(--node); }
+.side a.on { color: var(--accent); background: var(--node); font-weight: 600; }
+.side a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+@media (max-width: 880px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .side { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); padding: 0 0 12px; }
+  .side ul { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+  .side ul ul { margin: 0; display: contents; }
+}
+</style>
+
+</head>
+<body>
+<div class="layout">
+<aside class="side"><nav aria-label="Sommaire">
+  <p class="doc">Schéma Float v1.1</p>
+  <ul>
+    <li><a href="#noyau">Noyau du planning</a></li>
+    <li><a href="#etancheite">Étanchéité entre clients</a></li>
+    <li><a href="#hors-figure">Les 13 autres tables</a></li>
+    <li><a href="#controle">Contrôlé et non contrôlé</a></li>
+  </ul>
+</nav></aside>
+<main>
+  <header>
+    <h1>Schéma Float v1.1</h1>
+    <p class="lede">Vue des 25 tables de <code>schema.sql</code> à valider avant tout rejeu sur PostgreSQL. Le noyau du planning est dessiné avec le comportement de chaque suppression.</p>
+    <div class="meta"><span>Baseline v1.1</span><span>25 tables</span><span>161 assertions, exécutées sur PGlite seulement</span></div>
+  </header>
+
+  <section id="noyau">
+    <h2>Noyau du planning</h2>
+    <figure>
+      <div class="scroll">
+      <svg viewBox="0 0 880 520" role="img" aria-label="Les tables people et projects portent le planning : allocations est supprimée avec une personne ou un projet, logged_time bloque cette suppression.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+          <marker id="ar-rs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--restrict)"/></marker>
+        </defs>
+
+        <g class="band"><rect x="20" y="14" width="840" height="34" rx="4"/><text x="34" y="35">accounts : chaque table porte account_id, et chaque clé étrangère est composite (id, account_id)</text></g>
+
+        <!-- edges (enfant → parent, la flèche pointe le parent) -->
+        <g>
+          <path class="e sn" marker-end="url(#ar)" d="M260,118 L180,108"/>
+          <path class="e sn" marker-end="url(#ar)" d="M260,128 L180,172"/>
+          <path class="e sn" marker-end="url(#ar)" d="M630,135 L700,108"/>
+          <path class="e sn" marker-end="url(#ar)" d="M480,125 L410,125" />
+          <path class="e" marker-end="url(#ar)" d="M700,190 L630,150"/>
+          <path class="e" marker-end="url(#ar)" d="M700,255 L630,150"/>
+          <path class="e sn" marker-end="url(#ar)" d="M775,245 L775,226"/>
+          <path class="e" marker-end="url(#ar)" d="M445,228 L350,161"/>
+          <path class="e" marker-end="url(#ar)" d="M520,228 L540,161"/>
+          <path class="e" marker-end="url(#ar)" d="M480,352 L395,161"/>
+          <path class="e" marker-end="url(#ar)" d="M575,334 L575,161"/>
+          <path class="e sn" marker-end="url(#ar)" d="M630,340 L700,208"/>
+          <path class="e sn" marker-end="url(#ar)" d="M630,350 L710,270"/>
+          <path class="e rs" marker-end="url(#ar-rs)" d="M480,452 C 250,430 270,300 300,161"/>
+          <path class="e rs" marker-end="url(#ar-rs)" d="M630,458 C 700,420 690,230 630,148"/>
+          <path class="e sn" marker-end="url(#ar)" d="M555,440 L555,372"/>
+          <path class="e" marker-end="url(#ar)" d="M215,336 L290,161"/>
+          <path class="e rs" marker-end="url(#ar-rs)" d="M140,372 L100,432"/>
+        </g>
+
+        <!-- nodes -->
+        <g class="n"><rect x="30" y="90" width="150" height="36" rx="3"/><text x="42" y="113">departments</text></g>
+        <g class="n"><rect x="30" y="160" width="150" height="36" rx="3"/><text x="42" y="183">roles</text></g>
+        <g class="n hub"><rect x="260" y="125" width="150" height="36" rx="3"/><text x="272" y="148">people</text></g>
+        <g class="n"><rect x="700" y="82" width="150" height="36" rx="3"/><text x="712" y="105">clients</text></g>
+        <g class="n hub"><rect x="480" y="125" width="150" height="36" rx="3"/><text x="492" y="148">projects</text></g>
+        <g class="n"><rect x="700" y="172" width="150" height="36" rx="3"/><text x="712" y="195">phases</text></g>
+        <g class="n"><rect x="700" y="244" width="150" height="36" rx="3"/><text x="712" y="267">project_tasks</text></g>
+        <g class="n"><rect x="370" y="228" width="150" height="36" rx="3"/><text x="382" y="251">project_team</text></g>
+        <g class="n hub"><rect x="480" y="334" width="150" height="36" rx="3"/><text x="492" y="357">allocations</text></g>
+        <g class="n hub"><rect x="480" y="440" width="150" height="36" rx="3"/><text x="492" y="463">logged_time</text></g>
+        <g class="n"><rect x="140" y="336" width="150" height="36" rx="3"/><text x="152" y="359">timeoffs</text></g>
+        <g class="n"><rect x="30" y="432" width="150" height="36" rx="3"/><text x="42" y="455">timeoff_types</text></g>
+
+        <text class="lbl" x="196" y="96">SET NULL</text>
+        <text class="lbl" x="196" y="196">SET NULL</text>
+        <text class="lbl" x="440" y="116">chef de projet</text>
+        <text class="lbl rs" x="318" y="400">RESTRICT</text>
+        <text class="lbl rs" x="676" y="400">RESTRICT</text>
+        <text class="lbl rs" x="30" y="408">RESTRICT</text>
+      </svg>
+      </div>
+      <div class="legend" aria-label="Légende">
+        <span><svg viewBox="0 0 38 10" aria-hidden="true"><path class="e" d="M0,5 L38,5"/></svg>CASCADE : le parent supprimé emporte l'enfant</span>
+        <span><svg viewBox="0 0 38 10" aria-hidden="true"><path class="e sn" d="M0,5 L38,5"/></svg>SET NULL : la référence est vidée, la ligne reste</span>
+        <span><svg viewBox="0 0 38 10" aria-hidden="true"><path class="e rs" d="M0,5 L38,5"/></svg>RESTRICT : la suppression du parent est refusée</span>
+      </div>
+      <figcaption>Supprimer une personne emporte ses allocations et ses congés, mais échoue tant qu'elle a du temps loggé. Idem pour un projet : ses allocations partent, ses logs le bloquent. Les flèches pointent vers la table référencée. Les colonnes <code>created_by</code> et <code>modified_by</code> vers <code>users</code> sont omises.</figcaption>
+    </figure>
+  </section>
+
+  <section id="etancheite">
+    <h2>Étanchéité entre clients</h2>
+    <figure>
+      <div class="scroll">
+      <svg viewBox="0 0 880 220" role="img" aria-label="people ne contient que la paire (7, 1). Une allocation du compte 1 vers la personne 7 est acceptée, une allocation du compte 2 vers la personne 7 est refusée.">
+        <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+        <marker id="a2x" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--restrict)"/></marker></defs>
+        <g class="n hub"><rect x="40" y="84" width="250" height="52" rx="3"/><text x="54" y="106">people</text><text x="54" y="124" style="fill:var(--muted)">id = 7 · account_id = 1</text></g>
+        <g class="n"><rect x="560" y="30" width="280" height="52" rx="3"/><text x="574" y="52">allocations (compte 1)</text><text x="574" y="70" style="fill:var(--muted)">person_id = 7 · account_id = 1</text></g>
+        <g class="n"><rect x="560" y="138" width="280" height="52" rx="3"/><text x="574" y="160">allocations (compte 2)</text><text x="574" y="178" style="fill:var(--muted)">person_id = 7 · account_id = 2</text></g>
+        <path class="e" marker-end="url(#a2)" d="M560,56 L292,100"/>
+        <path class="e rs" marker-end="url(#a2x)" d="M560,164 L292,120" style="stroke-dasharray:5 4"/>
+        <text class="lbl" x="330" y="62">(7, 1) existe dans people : acceptée</text>
+        <text class="lbl rs" x="330" y="190">(7, 2) n'existe pas : refusée par la clé étrangère</text>
+      </svg>
+      </div>
+      <figcaption>Sans clé composite, une allocation pourrait pointer vers la personne d'un autre client avec un simple <code>person_id</code>. Ici la base refuse la paire inexistante, en plus de la RLS.</figcaption>
+    </figure>
+  </section>
+
+  <section id="hors-figure">
+    <h2>Les 13 tables hors figure</h2>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Table</th><th>Parents</th><th>À la suppression du parent</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">users, accounts</td><td>racines</td><td>—</td></tr>
+          <tr><td class="mono">account_members</td><td>accounts, users, people</td><td><span class="tag">CASCADE</span> · personne : <span class="tag">SET NULL</span></td></tr>
+          <tr><td class="mono">saved_views</td><td>account_members</td><td><span class="tag">CASCADE</span></td></tr>
+          <tr><td class="mono">rate_cards, rates</td><td>rates : rate_cards, roles, people</td><td><span class="tag">CASCADE</span></td></tr>
+          <tr><td class="mono">project_managers</td><td>projects, account_members</td><td><span class="tag">CASCADE</span></td></tr>
+          <tr><td class="mono">milestones</td><td>projects, phases</td><td><span class="tag">CASCADE</span></td></tr>
+          <tr><td class="mono">project_expenses</td><td>projects</td><td><span class="tag">CASCADE</span></td></tr>
+          <tr><td class="mono">project_budget_lines</td><td>projects, project_tasks, people</td><td><span class="tag">CASCADE</span></td></tr>
+          <tr><td class="mono">project_baselines</td><td>projects</td><td><span class="tag">CASCADE</span></td></tr>
+          <tr><td class="mono">holidays</td><td>accounts, departments</td><td><span class="tag">CASCADE</span></td></tr>
+          <tr><td class="mono">delete_log</td><td>aucune clé étrangère</td><td>journal append-only par trigger</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="cols" id="controle">
+    <div class="card">
+      <h3>Contrôlé</h3>
+      <ul>
+        <li>Le schéma se charge sur une base vierge (PGlite).</li>
+        <li>161 assertions passent : multi-jours, répétitions, jours non ouvrés, congés, fériés par pays, sur-allocation, RLS, clés composites.</li>
+      </ul>
+    </div>
+    <div class="card warn">
+      <h3>Non contrôlé</h3>
+      <ul>
+        <li>Aucun rejeu sur un vrai PostgreSQL 15, ni avec un rôle propriétaire non-superuser.</li>
+        <li>Les tests ont été écrits par l'auteur du schéma. Aucune relecture indépendante de la v1.1.</li>
+        <li>Hors baseline : <span class="mono">change_log</span>, <span class="mono">api_tokens</span>, historisation datée (BR-19).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>À trancher en relisant</h3>
+      <ul>
+        <li><span class="mono">percent</span> monte à 500 % (la revue gardait 100 %).</li>
+        <li>Un log verrouillé peut encore perdre une référence (phase, tâche, allocation) par SET NULL.</li>
+        <li>Le plafond de 24 h par jour n'est pas protégé contre les écritures concurrentes.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+</div>
+<script>
+(function () {
+  var links = [].slice.call(document.querySelectorAll('.side a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var targets = Object.keys(map).map(function (id) { return document.getElementById(id); }).filter(Boolean);
+  if (!('IntersectionObserver' in window)) return;
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      if (e.isIntersecting) { links.forEach(function (l) { l.classList.remove('on'); }); map[e.target.id].classList.add('on'); }
+    });
+  }, { rootMargin: '0px 0px -70% 0px' });
+  targets.forEach(function (t) { io.observe(t); });
+})();
+</script>
+
+</body>
+</html>
