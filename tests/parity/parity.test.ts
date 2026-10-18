@@ -7,11 +7,12 @@ import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist";
 import { citext } from "@electric-sql/pglite/contrib/citext";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
-  dailyCapacity, dailyPlannedLoad, utilization,
+  dailyCapacity, dailyPlannedLoad, summarizeTeamRemoval, utilization,
+  type TeamAllocation, type TeamLog,
   type AllocationInput, type HolidayInput, type PersonInput, type TimeoffInput,
 } from "../../packages/engine/src/index";
 
-// @BR-01 @BR-02 @BR-03 @BR-04 @BR-20 @BR-21 @BR-25 @BR-30 @BR-38
+// @BR-10 @BR-12 @BR-01 @BR-02 @BR-03 @BR-04 @BR-20 @BR-21 @BR-25 @BR-30 @BR-38
 const FROM = "2026-03-01";
 const TO = "2026-05-09"; // 70 jours
 const SCENARIOS = Number(process.env.PARITY_SCENARIOS ?? 60);
@@ -195,5 +196,59 @@ describe(`parité SQL <-> TS (${SCENARIOS} scénarios aléatoires, ${FROM}..${TO
       }
     }
     expect(compared).toBeGreaterThan(SCENARIOS * 20); // garde-fou : le générateur produit bien des lignes
+  }, 300_000);
+});
+
+describe(`parité team_removal_summary (BR-10, ${SCENARIOS} scénarios aléatoires)`, () => {
+  it("le récapitulatif de retrait SQL et summarizeTeamRemoval donnent les mêmes valeurs", async () => {
+    for (let seed = 1; seed <= SCENARIOS; seed++) {
+      const r = rng(1000 + seed);
+      const int = (lo: number, hi: number) => lo + Math.floor(r() * (hi - lo + 1));
+      const pick = <T,>(xs: readonly T[]): T => xs[int(0, xs.length - 1)]!;
+      const q = async (sql: string, params: unknown[] = []) => (await db.query<any>(sql, params)).rows;
+      await db.exec("BEGIN");
+      try {
+        await db.exec("SELECT set_config('app.role', 'admin', true)"); // création directe de logs verrouillés
+        const acc = (await q("INSERT INTO accounts(name) VALUES ('P') RETURNING id"))[0].id as number;
+        const people: number[] = [], projects: number[] = [];
+        for (let i = 0; i < 2; i++) people.push((await q("INSERT INTO people(account_id, name) VALUES ($1,'p') RETURNING id", [acc]))[0].id);
+        for (let i = 0; i < 2; i++) projects.push((await q("INSERT INTO projects(account_id, name) VALUES ($1,$2) RETURNING id", [acc, `pr${i}`]))[0].id);
+
+        const allocations: TeamAllocation[] = [];
+        for (let i = 0; i < int(0, 6); i++) {
+          const personId = pick(people), projectId = pick(projects);
+          const sd = addDays("2026-03-01", int(0, 60)), ed = addDays(sd, int(0, 5));
+          const rep = pick(["none", "none", "weekly"] as const);
+          const rend = rep === "none" ? null : addDays(ed, int(0, 40));
+          const id = (await q(`INSERT INTO allocations(account_id, person_id, project_id, start_date, end_date, hours_per_day, repeat_state, repeat_end_date)
+                               VALUES ($1,$2,$3,$4,$5,4,$6,$7) RETURNING id`, [acc, personId, projectId, sd, ed, rep, rend]))[0].id;
+          allocations.push({ id: String(id), projectId: String(projectId), personId: String(personId), startDate: sd, endDate: ed, repeatEndDate: rend });
+        }
+        const logged: TeamLog[] = [];
+        for (let i = 0; i < int(0, 6); i++) {
+          const personId = pick(people), projectId = pick(projects);
+          const status = pick(["draft", "draft", "draft", "submitted", "approved", "locked"] as const);
+          const hours = pick([0.5, 1, 2.25, 4, 8]);
+          const id = (await q("INSERT INTO logged_time(account_id, person_id, project_id, work_date, hours, status) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
+            [acc, personId, projectId, addDays("2026-03-01", i), hours, status]))[0].id;
+          logged.push({ id: String(id), projectId: String(projectId), personId: String(personId), hours, status });
+        }
+
+        for (const projectId of projects) for (const personId of people) {
+          const sql = (await q("SELECT allocation_count, first_allocation::text AS f, last_allocation::text AS l, log_count, log_hours, locked_log_count, can_remove FROM team_removal_summary($1,$2)", [projectId, personId]))[0];
+          const ts = summarizeTeamRemoval({ projectId: String(projectId), personId: String(personId), allocations, logged });
+          const where = `seed ${seed} projet ${projectId} personne ${personId}`;
+          expect(ts.allocationCount, where).toBe(Number(sql.allocation_count));
+          expect(ts.firstAllocation, where).toBe(sql.f);
+          expect(ts.lastAllocation, where).toBe(sql.l);
+          expect(ts.logCount, where).toBe(Number(sql.log_count));
+          expect(ts.logHours, where).toBeCloseTo(Number(sql.log_hours), 6);
+          expect(ts.lockedLogCount, where).toBe(Number(sql.locked_log_count));
+          expect(ts.canRemove, where).toBe(sql.can_remove);
+        }
+      } finally {
+        await db.exec("ROLLBACK");
+      }
+    }
   }, 300_000);
 });
