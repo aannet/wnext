@@ -63,6 +63,18 @@ describe("chaque regle echoue sur un import interdit", () => {
   it("import('...') en position de type qui sort du paquet interdit", () => {
     expect(rules("escape-type-import")).toContain("no-package-escape");
   });
+  it("apps/web ne peut pas importer contracts-tools", () => {
+    expect(rules("web-imports-tools")).toEqual(["no-import-contracts-tools"]);
+  });
+  it("contracts ne peut pas importer contracts-tools", () => {
+    expect(rules("contracts-imports-tools")).toEqual(["no-import-contracts-tools"]);
+  });
+  it("contracts-tools -> api interdit", () => {
+    expect(rules("tools-imports-api")).toEqual(["tools-only-contracts"]);
+  });
+  it("contracts-tools : @wnext/contracts, zod, @asteasolutions/zod-to-openapi et node:* autorises", () => {
+    expect(run(fixture("tools-ok"))).toEqual([]);
+  });
   it("les violations indiquent fichier et specifier", () => {
     const [v] = run(fixture("web-imports-api"));
     expect(v?.file).toBe("apps/web/src/index.ts");

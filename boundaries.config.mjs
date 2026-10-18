@@ -10,6 +10,19 @@ export default {
     "@wnext/api": { dir: "apps/api", monorepo: ["@wnext/contracts", "@wnext/engine"], rule: "app-isolation" },
     "@wnext/contracts": { dir: "packages/contracts", monorepo: [], rule: "contracts-no-monorepo", external: ["zod"], externalRule: "contracts-only-zod" },
     "@wnext/engine": { dir: "packages/engine", monorepo: ["@wnext/contracts"], rule: "engine-only-contracts" },
+    // Outillage hors graphe runtime (Zod -> OpenAPI -> client) : n'importe que contracts ; personne ne l'importe (cf. forbidden).
+    "@wnext/contracts-tools": {
+      dir: "packages/contracts-tools",
+      monorepo: ["@wnext/contracts"],
+      rule: "tools-only-contracts",
+      // vitest : import des tests uniquement (devDependency racine).
+      external: ["zod", "@asteasolutions/zod-to-openapi", "tsx", "vitest", "node:*"],
+      externalRule: "tools-only-allowed-externals",
+    },
+  },
+  // Paquets importables par personne : toute importation, quel que soit le paquet appelant, est rapportee avec cette regle.
+  forbidden: {
+    "@wnext/contracts-tools": "no-import-contracts-tools",
   },
   // Dossiers du monorepo : un import nu qui y commence est un contournement.
   monorepoRoots: ["apps/", "packages/"],

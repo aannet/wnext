@@ -57,6 +57,7 @@ function check(spec, owner, pkgDir, file, cfg) {
     return null;
   }
   const name = packageName(spec);
+  if (cfg.forbidden?.[name]) return [cfg.forbidden[name], `${name} n'est importable par aucun autre paquet`];
   if (name.startsWith(cfg.scope)) {
     if (!monorepo.includes(name)) return [rule, `${name} n'est pas importable ici (autorises : ${monorepo.join(", ") || "aucun"})`];
     if (spec !== name) return ["no-deep-import", `import profond ${spec} : n'importer que ${name}`];
@@ -65,7 +66,9 @@ function check(spec, owner, pkgDir, file, cfg) {
   if (cfg.monorepoRoots.some((r) => spec.startsWith(r))) {
     return [rule, "import nu vers un dossier du monorepo"];
   }
-  if (external && !external.includes(name)) {
+  // `node:*` designe tous les builtins prefixes (node:fs, node:path, ...).
+  const builtin = name.startsWith("node:") && external?.includes("node:*");
+  if (external && !external.includes(name) && !builtin) {
     return [owner.externalRule, `dependance externe ${name} interdite (autorisees : ${external.join(", ")})`];
   }
   return null;

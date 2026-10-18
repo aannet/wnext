@@ -6,6 +6,8 @@ check:
 	$(MAKE) typecheck
 	$(MAKE) lint
 	$(MAKE) test
+	npm run check:contract
+	npm run test:guardrails
 	npm run test:boundaries
 
 typecheck:

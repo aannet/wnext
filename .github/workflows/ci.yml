@@ -26,9 +26,23 @@ jobs:
     steps:
       # Épinglage par tag majeur ; l'épinglage par SHA de commit est recommandé.
       - uses: actions/checkout@v7
+        with:
+          # Historique complet : le merge-base des garde-fous exige la base (origin/<base_ref>).
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: make check
+      # Le label test-change-approved (derogation de test-weakening) ne doit etre pose que par un humain
+      # (droits de triage du depot) ; la CI ne le deduit jamais et aucun agent ne doit le poser.
+      - name: Garde-fous de PR
+        if: github.event_name == 'pull_request'
+        env:
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          npm run guard:test-weakening -- --base "origin/$BASE_REF"
+          npm run guard:pr-size -- --base "origin/$BASE_REF"
+          npm run guard:br-coverage
