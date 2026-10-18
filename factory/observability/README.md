@@ -60,6 +60,17 @@ Section « Agents et sous-agents lancés » de l'onglet Production : arbre orche
 - La clé d'idempotence devient `(run_id, ts, action, agent, instance_id)` pour que des sous-agents parallèles ne s'écrasent pas. Une base existante est migrée (colonnes ajoutées) mais garde l'ancienne contrainte tant qu'elle n'est pas recréée (supprimer `data/events.db`).
 - `npm run simulate` émet la ligne `P1-004` pilotée par un orchestrateur avec sous-agents parallèles.
 
+### Brancher une vraie session Claude Code
+
+`hooks/obs-hook.mjs` (Node seul, sans dépendance) transforme les hooks Claude Code en événements : `SessionStart` / `SubagentStart` -> `agent.start`, `PostToolUse` -> `tool.exec`, `SubagentStop` / `SessionEnd` -> `agent.stop` avec tokens et coût sommés depuis le transcript (dédoublonnés par `message.id`, prix dans `config/prices.json`, valeurs de démo). Session = `session_id`, sous-agent = `agent_id` (parent = la session). Il ne bloque jamais (erreurs avalées, exit 0, timeout 1,5 s).
+
+```json
+{ "hooks": { "SessionStart": [{ "matcher": "", "hooks": [{ "type": "command", "command": "node /abs/factory/observability/hooks/obs-hook.mjs" }] }] } }
+```
+(même entrée pour `SubagentStart`, `PostToolUse`, `SubagentStop`, `SessionEnd`). Contexte posé par l'orchestrateur dans l'environnement du `claude -p` : `OBS_URL`, `OBS_RUN_ID` (ULID), `OBS_LINE`, `OBS_PHASE`, `OBS_AGENT` (rôle), `OBS_PARENT_INSTANCE` (son propre `instance_id`, qu'il émet lui-même via `agent.start` / `agent.stop`), `OBS_MODEL` (repli). Sans contexte, une session ordinaire apparaît sous `_global`.
+
+Limites : les tokens ne viennent que du transcript, donc rien avec `--no-session-persistence` (l'orchestrateur peut alors poster le `usage` du résultat JSON lui-même) ; un sous-agent est toujours rattaché à la session, pas à un éventuel sous-agent parent (le payload ne le dit pas) ; `tool.exec` simultanés du même outil à la milliseconde près sont dédoublonnés. Démo : `spikes/orchestrateur/run-obs.sh [LIGNE]` (serveur lancé).
+
 ## Notes
 
 - Tokens d'une phase = entrée + sortie + cache lu + cache écrit (§1 : « cache compris »).

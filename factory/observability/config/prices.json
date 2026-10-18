@@ -1,0 +1,7 @@
+{
+  "_comment": "USD par million de tokens : [entrée, sortie, cache lu, cache écrit]. Valeurs de démo, à aligner sur la grille officielle.",
+  "claude-fable-5-1": [10, 50, 0.25, 12.5],
+  "claude-opus-5-5": [4, 20, 0.2, 5],
+  "claude-sonnet-5-5": [2, 10, 0.2, 2.5],
+  "claude-haiku-5-5": [0.1, 0.5, 0.01, 0.125]
+}

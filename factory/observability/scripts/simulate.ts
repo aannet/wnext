@@ -8,6 +8,7 @@
  */
 import { ulid } from "../src/lib/ulid";
 import type { FactoryEvent } from "../src/lib/types";
+import pricesJson from "../config/prices.json";
 
 const args = new Map<string, string>();
 for (let i = 2; i < process.argv.length; i += 2) args.set(process.argv[i].replace(/^--/, ""), process.argv[i + 1]);
@@ -23,13 +24,8 @@ const rand = () => {
 };
 const between = (a: number, b: number) => Math.round(a + rand() * (b - a));
 
-// Grille de prix versionnée (USD / M tokens) : in, out, cache_read, cache_write. Valeurs de démo.
-const PRICES: Record<string, [number, number, number, number]> = {
-  "claude-fable-5-1": [10, 50, 0.25, 12.5],
-  "claude-opus-5-5": [4, 20, 0.2, 5],
-  "claude-sonnet-5-5": [2, 10, 0.2, 2.5],
-  "claude-haiku-5-5": [0.1, 0.5, 0.01, 0.125],
-};
+// Grille de prix partagée avec le hook (config/prices.json, USD / M tokens : in, out, cache_read, cache_write). Valeurs de démo.
+const PRICES = Object.fromEntries(Object.entries(pricesJson).filter(([k]) => !k.startsWith("_"))) as Record<string, [number, number, number, number]>;
 const O = "claude-opus-5-5", S = "claude-sonnet-5-5", H = "claude-haiku-5-5", F = "claude-fable-5-1";
 
 type Draft = Omit<FactoryEvent, "ts" | "run_id"> & { _run: string };
