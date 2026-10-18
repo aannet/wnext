@@ -24,6 +24,8 @@ export interface FactoryEvent {
   status: string;
   attempt?: number;
   parent_id?: string;
+  instance_id?: string;
+  parent_instance_id?: string;
   tokens_cache_read?: number;
   tokens_cache_write?: number;
   budget_remaining?: number;

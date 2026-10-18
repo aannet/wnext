@@ -1,5 +1,6 @@
 import { rowToEvent, type Store } from "./store";
 import { inferFlow, type Call, type FlowEdge } from "./flow";
+import { buildInstances, type Instances } from "./instances";
 import { AGENTS, PHASES, type StoredEvent } from "./types";
 
 export type UnitState = "running" | "muted" | "blocked";
@@ -26,6 +27,7 @@ export interface Production {
   matrix: MatrixCell[];
   edges: FlowEdge[];
   calls: Call[];
+  instances: Instances;
 }
 
 interface LineLast { line: string; phase: string; agent: string; model: string; action: string; status: string; ts: string }
@@ -134,5 +136,5 @@ export function buildProduction(
   const { calls, edges } = inferFlow(events);
 
   const lineOpts = lineLast.map((r) => ({ line: r.line, phase: r.phase }));
-  return { generated_at: now.toISOString(), filter: { phase, line }, lines: lineOpts, agents, counts, phases, matrix, edges, calls };
+  return { generated_at: now.toISOString(), filter: { phase, line }, lines: lineOpts, agents, counts, phases, matrix, edges, calls, instances: buildInstances(store, { phase, line, now, muteAfterS }) };
 }

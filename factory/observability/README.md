@@ -50,6 +50,16 @@ Vue haut niveau, ouverte par défaut (`#projet`) : santé du projet, indicateurs
 
 Deux onglets : **AI Ops** (coûts, budgets, alertes) et **Production** (qui tourne). Un carré = une ligne ; couleur et lettre = modèle (F/O/S/H, gris = code déterministe) ; bordure pleine = actif, pointillée = muet (> `OBS_MUTE_AFTER_S`), ⏸ = bloqué. Un agent est actif s'il tient une ligne non terminée ou a émis dans les `OBS_ACTIVE_WINDOW_S` dernières secondes (défaut 120). La matrice phase × agent sert de filtre ; le graphe et la timeline suivent le filtre phase/ligne. Les agents sont groupés en **Agents LLM** (architecte, spécifieur, testeur, implémenteur, réviseur, dépanneur + router/scribe marqués « léger », Haiku) et **Automatismes** (orchestrateur, sentinelle, intégrateur : code déterministe, cadre pointillé dans le graphe) ; classification dans `src/components/shared.ts` (`AGENT_KIND`). Le **graphe des flux** n'affiche par défaut que les agents ayant des liens dans le filtre courant (case « Afficher tous les agents »). La section **Boucle d'une ligne** (`src/lib/loop.ts`, `LineLoop.tsx`) montre les 6 étapes spec → tests → impl → CI → review → merge de la ligne filtrée (sinon la première ligne en cours) : agent, modèle, état (✓ fait, ● en cours, ✕ échec, ⏸ bloqué, ○ à venir), essais, tokens. Après une mise à jour du schéma (nouvelles vues), redémarrer `npm run dev` : le store est un singleton.
 
+## Agents et sous-agents lancés
+
+Section « Agents et sous-agents lancés » de l'onglet Production : arbre orchestrateur → agents → sous-agents (`src/lib/instances.ts`, `AgentTree.tsx`), filtré par phase/ligne. Il repose sur deux champs optionnels du contrat (additifs, `schema_version` reste 1.0) :
+
+- `instance_id` : identifiant de l'instance (session) qui émet ; `parent_instance_id` : instance qui l'a lancée (absent = racine, p. ex. l'orchestrateur). Les événements sans `instance_id` n'apparaissent pas dans l'arbre.
+- Convention : `agent.start` ouvre une instance (`detail.subagent_type` = libellé libre, p. ex. `Explore`), `agent.stop` ou un statut `killed` la ferme. Sans événement depuis `OBS_MUTE_AFTER_S` : muet.
+- Un sous-agent émet avec le champ `agent` de son rôle (pas de nouvelle valeur d'enum) ; `instance_id` le distingue. Un parent inconnu ou un cycle fait de l'instance une racine. Tokens et coût sont donnés par instance et pour le sous-arbre.
+- La clé d'idempotence devient `(run_id, ts, action, agent, instance_id)` pour que des sous-agents parallèles ne s'écrasent pas. Une base existante est migrée (colonnes ajoutées) mais garde l'ancienne contrainte tant qu'elle n'est pas recréée (supprimer `data/events.db`).
+- `npm run simulate` émet la ligne `P1-004` pilotée par un orchestrateur avec sous-agents parallèles.
+
 ## Notes
 
 - Tokens d'une phase = entrée + sortie + cache lu + cache écrit (§1 : « cache compris »).

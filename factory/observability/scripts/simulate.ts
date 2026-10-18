@@ -48,6 +48,8 @@ function mk(run: string, line: string, phase: FactoryEvent["phase"], agent: stri
   if (cr) d.tokens_cache_read = cr;
   if (cw) d.tokens_cache_write = cw;
   if (o.detail) d.detail = o.detail;
+  if (o.instance_id) d.instance_id = o.instance_id;
+  if (o.parent_instance_id) d.parent_instance_id = o.parent_instance_id;
   return d;
 }
 
@@ -132,6 +134,39 @@ function supervisedLine(line: string, phase: FactoryEvent["phase"]): Draft[] {
   return ev;
 }
 
+/**
+ * Ligne pilotée par un orchestrateur qui lance des agents, dont certains lancent eux-mêmes des sous-agents
+ * (instance_id / parent_instance_id). Les sous-agents d'exploration tournent en parallèle ; le dernier reste ouvert.
+ */
+function orchestratedLine(line: string, phase: FactoryEvent["phase"]): Draft[] {
+  const run = ulid(Date.now(), rand);
+  const id = (n: string) => `${line}.${n}`;
+  const inst = (name: string, parent?: string) => ({ instance_id: id(name), ...(parent ? { parent_instance_id: id(parent) } : {}) });
+  const start = (agent: string, model: string, name: string, parent?: string, subagent_type?: string) =>
+    mk(run, line, phase, agent, model, "agent.start", { duration_ms: 5, ...inst(name, parent), ...(subagent_type ? { detail: { subagent_type } } : {}) });
+  const stop = (agent: string, model: string, name: string, parent?: string) =>
+    mk(run, line, phase, agent, model, "agent.stop", { duration_ms: 5, ...inst(name, parent) });
+  const call = (agent: string, model: string, name: string, parent?: string, scale = 1) => ({ ...llm(run, line, phase, agent, model, 1, scale), ...inst(name, parent) });
+  return [
+    start("orchestrateur", "none", "orch"),
+    start("implementeur", S, "impl", "orch"),
+    start("implementeur", H, "explore-1", "impl", "Explore"),
+    start("implementeur", H, "explore-2", "impl", "Explore"),
+    call("implementeur", S, "impl", "orch"),
+    call("implementeur", H, "explore-1", "impl", 0.3),
+    call("implementeur", H, "explore-2", "impl", 0.3),
+    stop("implementeur", H, "explore-1", "impl"),
+    start("implementeur", S, "tests-sub", "impl", "general-purpose"),
+    call("implementeur", S, "tests-sub", "impl", 0.5),
+    stop("implementeur", H, "explore-2", "impl"),
+    call("implementeur", S, "impl", "orch"),
+    stop("implementeur", S, "tests-sub", "impl"),
+    stop("implementeur", S, "impl", "orch"),
+    start("reviseur", O, "review", "orch"),
+    call("reviseur", O, "review", "orch"),
+  ];
+}
+
 /** Événements hors ligne : plan de phase (architecte) et rapport de gate (scribe). */
 function phaseLine(phase: FactoryEvent["phase"], agent: "architecte" | "scribe", model: string, action: string): Draft[] {
   const run = ulid(Date.now(), rand);
@@ -148,6 +183,7 @@ const scripts: Draft[][] = [
   healthyLine("P1-001", "P1", { retries: 2, escalate: true }),
   healthyLine("P1-002", "P1"),
   healthyLine("P1-003", "P1", { blockAtEnd: true }),
+  orchestratedLine("P1-004", "P1"),
   phaseLine("P0", "scribe", H, "gate.report"),
 ];
 

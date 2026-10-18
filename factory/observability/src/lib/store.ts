@@ -30,16 +30,19 @@ CREATE TABLE IF NOT EXISTS events (
   status             TEXT    NOT NULL,
   attempt            INTEGER,
   parent_id          TEXT,
+  instance_id        TEXT    NOT NULL DEFAULT '',          -- instance d'agent émettrice ('' = non renseignée)
+  parent_instance_id TEXT,
   tokens_cache_read  INTEGER,
   tokens_cache_write INTEGER,
   budget_remaining   INTEGER,
   detail             TEXT,                                 -- JSON court
   received_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  UNIQUE (run_id, ts, action, agent)                       -- clé d'idempotence (strategy.md §5.3)
+  UNIQUE (run_id, ts, action, agent, instance_id)          -- clé d'idempotence (strategy.md §5.3) ; instance_id distingue des sous-agents parallèles
 );
 CREATE INDEX IF NOT EXISTS ix_events_line  ON events (line, ts);
 CREATE INDEX IF NOT EXISTS ix_events_phase ON events (phase);
 CREATE INDEX IF NOT EXISTS ix_events_ts    ON events (ts);
+CREATE INDEX IF NOT EXISTS ix_events_inst  ON events (instance_id) WHERE instance_id <> '';
 
 -- Append-only : aucune modification ni suppression.
 CREATE TRIGGER IF NOT EXISTS events_no_update BEFORE UPDATE ON events
@@ -154,6 +157,7 @@ export class Store {
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("busy_timeout = 5000");
+    this.migrate();
     this.db.exec(DDL);
     this.budgets = budgets;
     const up = this.db.prepare(
@@ -162,6 +166,17 @@ export class Store {
     );
     for (const p of PHASES) up.run(p, budgets.phases[p], budgets.alert_ratio, budgets.hard_ceiling_factor);
     this.bus.setMaxListeners(0);
+  }
+
+  /**
+   * Base créée avant l'arbre des agents : ajoute les colonnes d'instance. Les événements existants gardent
+   * `instance_id = ''` ; l'ancienne contrainte d'unicité (sans instance_id) subsiste jusqu'à recréation de la base.
+   */
+  private migrate() {
+    const cols = this.db.prepare("PRAGMA table_info(events)").all() as { name: string }[];
+    if (!cols.length) return; // base neuve : le DDL crée tout
+    if (!cols.some((c) => c.name === "instance_id")) this.db.exec("ALTER TABLE events ADD COLUMN instance_id TEXT NOT NULL DEFAULT ''");
+    if (!cols.some((c) => c.name === "parent_instance_id")) this.db.exec("ALTER TABLE events ADD COLUMN parent_instance_id TEXT");
   }
 
   private bump(name: string, by: number) {
@@ -190,9 +205,9 @@ export class Store {
     const insert = this.db.prepare(
       `INSERT OR IGNORE INTO events
        (schema_version, ts, run_id, line, phase, agent, model, action, tokens_in, tokens_out, cost, duration_ms, status,
-        attempt, parent_id, tokens_cache_read, tokens_cache_write, budget_remaining, detail)
+        attempt, parent_id, instance_id, parent_instance_id, tokens_cache_read, tokens_cache_write, budget_remaining, detail)
        VALUES (@schema_version,@ts,@run_id,@line,@phase,@agent,@model,@action,@tokens_in,@tokens_out,@cost,@duration_ms,@status,
-        @attempt,@parent_id,@tokens_cache_read,@tokens_cache_write,@budget_remaining,@detail)`,
+        @attempt,@parent_id,@instance_id,@parent_instance_id,@tokens_cache_read,@tokens_cache_write,@budget_remaining,@detail)`,
     );
     const getById = this.db.prepare("SELECT * FROM events WHERE id = ?");
     const fresh: StoredEvent[] = [];
@@ -214,6 +229,7 @@ export class Store {
           tokens_in: e.tokens_in, tokens_out: e.tokens_out, cost: Math.round(e.cost * 1e6) / 1e6,
           duration_ms: e.duration_ms, status: e.status,
           attempt: e.attempt ?? null, parent_id: e.parent_id ?? null,
+          instance_id: e.instance_id ?? "", parent_instance_id: e.parent_instance_id ?? null,
           tokens_cache_read: e.tokens_cache_read ?? null, tokens_cache_write: e.tokens_cache_write ?? null,
           budget_remaining: e.budget_remaining ?? null, detail: e.detail ? JSON.stringify(e.detail) : null,
         });
@@ -266,7 +282,7 @@ type Row = Omit<StoredEvent, "detail"> & { detail: string | null };
 
 export function rowToEvent(r: Row): StoredEvent {
   const e: Record<string, unknown> = { ...r, detail: r.detail ? JSON.parse(r.detail) : undefined };
-  for (const k of Object.keys(e)) if (e[k] === null || e[k] === undefined) delete e[k];
+  for (const k of Object.keys(e)) if (e[k] === null || e[k] === undefined || (k === "instance_id" && e[k] === "")) delete e[k];
   delete e.received_at;
   return e as unknown as StoredEvent;
 }

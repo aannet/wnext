@@ -8,6 +8,7 @@ import { pickLoopLine } from "@/lib/loop";
 import { LineLoop } from "./LineLoop";
 import { FlowGraph } from "./FlowGraph";
 import { CallTimeline } from "./CallTimeline";
+import { AgentTree } from "./AgentTree";
 
 const STATE_GLYPH = { running: "▣", muted: "◌", blocked: "⏸", idle: "·" } as const;
 const STATE_LABEL = { running: "actif", muted: "muet", blocked: "bloqué", idle: "inactif" } as const;
@@ -102,6 +103,11 @@ export function Production({ tick }: { tick: number }) {
             </div>
           );
         })}
+      </section>
+
+      <section className="card" aria-labelledby="h-tree">
+        <h2 id="h-tree">Agents et sous-agents lancés</h2>
+        <AgentTree data={data.instances} />
       </section>
 
       <section className="card" aria-labelledby="h-matrix">

@@ -34,6 +34,8 @@
     "status": { "type": "string", "enum": ["ok", "error", "retry", "blocked", "looping", "killed", "escalated", "skipped"] },
     "attempt": { "type": "integer", "minimum": 1 },
     "parent_id": { "description": "Corrélation / référence vers l'artefact brut stocké ailleurs.", "type": "string", "maxLength": 128 },
+    "instance_id": { "description": "Instance d'agent (session) qui émet : orchestrateur, agent ou sous-agent. Optionnel ; sans lui l'événement n'apparaît pas dans l'arbre des agents lancés.", "type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,64}$" },
+    "parent_instance_id": { "description": "Instance qui a lancé celle-ci (absent = racine, p. ex. un orchestrateur).", "type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,64}$" },
     "tokens_cache_read": { "type": "integer", "minimum": 0 },
     "tokens_cache_write": { "type": "integer", "minimum": 0 },
     "budget_remaining": { "description": "Tokens restants pour la ligne/phase.", "type": "integer" },

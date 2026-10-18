@@ -54,3 +54,41 @@ describe("buildProduction", () => {
     expect(buildProduction(seed(), { now: NOW, line: "n'importe quoi" }).filter.line).toBeNull();
   });
 });
+
+describe("buildProduction : arbre des agents lancés", () => {
+  const inst = (s: number, name: string, parent: string | undefined, over: Record<string, unknown> = {}) =>
+    ev({ ts: at(s), agent: "implementeur", instance_id: name, ...(parent ? { parent_instance_id: parent } : {}), ...over });
+
+  it("rattache les sous-agents à leur parent et agrège le sous-arbre", () => {
+    const s = memStore();
+    s.ingest([
+      inst(1, "orch", undefined, { agent: "orchestrateur", model: "none", action: "agent.start", tokens_in: 0, tokens_out: 0, cost: 0 }),
+      inst(2, "impl", "orch", { action: "agent.start" }),
+      inst(3, "sub-a", "impl", { action: "agent.start", detail: { subagent_type: "Explore" } }),
+      inst(4, "sub-a", "impl", { tokens_in: 100, tokens_out: 0, cost: 0.5 }),
+      inst(5, "sub-a", "impl", { action: "agent.stop", tokens_in: 0, tokens_out: 0, cost: 0 }),
+      inst(6, "sub-b", "impl", { action: "agent.start" }),
+    ]);
+    const { instances: t } = buildProduction(s, { now: NOW });
+    expect(t.roots.map((r) => r.instance_id)).toEqual(["orch"]);
+    const impl = t.roots[0].children[0];
+    expect(impl.children.map((c) => [c.instance_id, c.state, c.subagent_type])).toEqual([["sub-a", "done", "Explore"], ["sub-b", "running", null]]);
+    expect(impl.descendants).toBe(2);
+    expect(t.roots[0].descendants).toBe(3);
+    expect(t.counts).toMatchObject({ total: 4, roots: 1, max_depth: 2, done: 1, active: 3 });
+  });
+
+  it("garde deux sous-agents parallèles qui émettent au même instant", () => {
+    const s = memStore();
+    const r = s.ingest([inst(1, "a", "orch", { action: "agent.start" }), inst(1, "b", "orch", { action: "agent.start" })]);
+    expect(r.accepted).toBe(2);
+  });
+
+  it("traite un parent inconnu ou un cycle comme une racine, et ignore les événements sans instance", () => {
+    const s = memStore();
+    s.ingest([inst(1, "x", "absent"), inst(2, "p", "q"), inst(3, "q", "p"), ev({ ts: at(4) })]);
+    const { instances: t } = buildProduction(s, { now: NOW });
+    expect(t.counts.total).toBe(3);
+    expect(t.roots.length).toBeGreaterThanOrEqual(2);
+  });
+});

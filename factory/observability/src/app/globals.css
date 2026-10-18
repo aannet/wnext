@@ -186,3 +186,9 @@ svg.flow { max-width: 100%; }
 tr.detail > td { background: var(--page); padding: 8px 12px; }
 details.agents-sum > summary { margin: 0; color: var(--ink); }
 @media (max-width: 900px) { .road { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Arbre des agents lancés */
+ul.tree { list-style: none; margin: 0; padding: 0; }
+.tn { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 4px 0; border-bottom: 1px solid var(--grid); }
+.tn .tname { font-weight: 600; }
+.tn-done, .tn-killed { opacity: .65; }
