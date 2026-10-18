@@ -2,7 +2,7 @@
 // vérifiée par test/capacity.test.ts (mêmes cas que tests/sql/schema_tests.sql T05..T07).
 // Dates : chaînes ISO "YYYY-MM-DD" (pas de fuseau). work_days_hours : index 0 = lundi (ADR-001).
 
-export const MAX_RANGE_DAYS = 400;
+import { DAY_MS, assertRange, toIso, toMs, workHours } from "./dates";
 
 export type Half = "am" | "pm";
 
@@ -52,21 +52,9 @@ export interface CapacityRow {
   capacityHours: number;
 }
 
-const DAY_MS = 86_400_000;
-const toMs = (d: string) => Date.parse(`${d}T00:00:00Z`);
-const toIso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-
-/** Heures ouvrées d'un jour : ISODOW 1..7 = lundi..dimanche -> index 0..6. */
-export function workHours(workDaysHours: readonly number[], day: string): number {
-  return workDaysHours[(new Date(toMs(day)).getUTCDay() + 6) % 7] ?? 0;
-}
-
 export function dailyCapacity(input: CapacityInput): CapacityRow[] {
   const { from, to } = input;
-  const span = (toMs(to) - toMs(from)) / DAY_MS;
-  if (!Number.isFinite(span) || span < 0 || span > MAX_RANGE_DAYS) {
-    throw new Error(`INVALID_RANGE: ${from}..${to} (plage invalide ou > ${MAX_RANGE_DAYS} jours)`);
-  }
+  assertRange(from, to);
 
   const rows: CapacityRow[] = [];
   for (const p of input.people) {
