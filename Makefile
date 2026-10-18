@@ -1,0 +1,18 @@
+.PHONY: check typecheck lint test
+
+# Étage rapide local = étage rapide CI (docs/factory/strategy.md §4.5).
+# S'arrête au premier échec.
+check:
+	$(MAKE) typecheck
+	$(MAKE) lint
+	$(MAKE) test
+	npm run test:boundaries
+
+typecheck:
+	npm run typecheck
+
+lint:
+	npm run lint:boundaries
+
+test:
+	npm test

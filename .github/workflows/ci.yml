@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Étages à venir (docs/factory/strategy.md §4.1) :
+#   - db    : migrations et tests SQL sur PostgreSQL (< 5 min)
+#   - contract : contrat / intégration API (< 8 min)
+#   - e2e   : E2E sélectif, déclenché par chemin
+#   - guardrails : anti-affaiblissement des tests, taille de PR, BR sans test
+
+jobs:
+  fast:
+    name: Étage rapide
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      # Épinglage par tag majeur ; l'épinglage par SHA de commit est recommandé.
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: make check
