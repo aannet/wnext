@@ -1,0 +1,13 @@
+import { z } from "zod";
+
+// ADR-003 §4 : { code, params, requestId }. `code` stable, jamais de texte localise.
+export const ErrorCode = z.enum(["INTERNAL_ERROR", "VALIDATION_FAILED", "UNAUTHENTICATED"]).meta({ id: "ErrorCode" });
+
+export const ApiError = z
+  .object({
+    code: ErrorCode,
+    params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+    requestId: z.string(),
+  })
+  .meta({ id: "ApiError" });
+export type ApiError = z.infer<typeof ApiError>;

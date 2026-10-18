@@ -10,13 +10,21 @@
     "apps/web",
     "apps/api",
     "packages/contracts",
-    "packages/engine"
+    "packages/engine",
+    "packages/contracts-tools"
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint:boundaries": "node scripts/lint-boundaries.mjs",
-    "test:boundaries": "vitest run tests/boundaries"
+    "test:boundaries": "vitest run tests/boundaries",
+    "guard:test-weakening": "node scripts/guardrails/test-weakening.mjs",
+    "guard:pr-size": "node scripts/guardrails/pr-size.mjs",
+    "guard:br-coverage": "node scripts/guardrails/br-coverage.mjs",
+    "test:guardrails": "vitest run tests/guardrails",
+    "generate:contract": "npm run generate -w @wnext/contracts-tools",
+    "check:contract": "npm run check:contract -w @wnext/contracts-tools",
+    "check:breaking": "npm run check:breaking -w @wnext/contracts-tools"
   },
   "devDependencies": {
     "oxc-parser": "0.154.0",

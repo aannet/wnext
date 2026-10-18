@@ -1,0 +1,23 @@
+{
+  "name": "@wnext/contracts-tools",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Outillage hors graphe runtime : Zod -> OpenAPI -> client TS, dérive et ruptures. Importé par aucun apps/*.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "generate": "tsx src/cli.ts generate",
+    "check:contract": "tsx src/cli.ts check",
+    "check:breaking": "tsx src/cli.ts breaking"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "9.1.0",
+    "@wnext/contracts": "*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "tsx": "^4.23.15"
+  }
+}
