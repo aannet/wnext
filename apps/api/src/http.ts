@@ -1,9 +1,10 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonPatch, PersonProjectListQuery, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
+import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonPatch, PersonProjectListQuery, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { allocationReader, createAllocation, deleteAllocation, listPersonAllocations, listProjectAllocations, updateAllocation } from "./allocations";
+import { budgetLineReader, createBudgetLine, createExpense, deleteBudgetLine, deleteExpense, expenseReader, updateBudgetLine, updateExpense } from "./budget";
 import { createPerson, listPersonProjects, personReader, updatePerson } from "./people";
 import {
   createDepartment, createHoliday, createProject, createRole, createTimeoffType, deleteDepartment, deleteHoliday, deleteRole, deleteTimeoffType,
@@ -112,6 +113,8 @@ interface WriteResource {
   pattern: RegExp;
   /** Configuration du compte : owner et admin seulement (403 avant la validation du corps). */
   adminOnly?: boolean;
+  /** Données financières : la LECTURE exige aussi un rôle d'écriture (403 après l'authentification, avant la validation de la requête). */
+  restricted?: boolean;
   create(db: Db, ctx: RequestContext, raw: string | undefined): Promise<unknown>;
   update(db: Db, ctx: RequestContext, id: string, version: number, raw: string | undefined): Promise<unknown>;
   /** Lecture ouverte à tout membre authentifié ; absente = la ressource n'a pas encore de GET. */
@@ -120,7 +123,7 @@ interface WriteResource {
   remove?(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
 }
 function resource<C, P>(def: {
-  pattern: RegExp; adminOnly?: boolean; read?: WriteResource["read"]; createSchema: Parser<C>; patchSchema: Parser<P>;
+  pattern: RegExp; adminOnly?: boolean; restricted?: boolean; read?: WriteResource["read"]; createSchema: Parser<C>; patchSchema: Parser<P>;
   create(db: Db, ctx: RequestContext, body: C): Promise<unknown>;
   update(db: Db, ctx: RequestContext, id: string, version: number, patch: P): Promise<unknown>;
   remove?(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
@@ -128,6 +131,7 @@ function resource<C, P>(def: {
   return {
     pattern: def.pattern,
     adminOnly: def.adminOnly,
+    restricted: def.restricted,
     read: def.read,
     create: (db, ctx, raw) => def.create(db, ctx, parseJsonBody(def.createSchema, raw)),
     update: (db, ctx, id, version, raw) => def.update(db, ctx, id, version, parseJsonBody(def.patchSchema, raw)),
@@ -147,6 +151,8 @@ const WRITE_RESOURCES: WriteResource[] = [
   resource({ pattern: /^\/api\/v1\/phases(?:\/([^/]+))?$/, read: { querySchema: PhaseListQuery, list: phaseReader.list, get: phaseReader.get }, createSchema: PhaseCreate, patchSchema: PhasePatch, create: createPhase, update: updatePhase, remove: deletePhase }),
   resource({ pattern: /^\/api\/v1\/project-tasks(?:\/([^/]+))?$/, read: { querySchema: ProjectTaskListQuery, list: projectTaskReader.list, get: projectTaskReader.get }, createSchema: ProjectTaskCreate, patchSchema: ProjectTaskPatch, create: createProjectTask, update: updateProjectTask, remove: deleteProjectTask }),
   resource({ pattern: /^\/api\/v1\/milestones(?:\/([^/]+))?$/, read: { querySchema: MilestoneListQuery, list: milestoneReader.list, get: milestoneReader.get }, createSchema: MilestoneCreate, patchSchema: MilestonePatch, create: createMilestone, update: updateMilestone, remove: deleteMilestone }),
+  resource({ restricted: true, pattern: /^\/api\/v1\/project-expenses(?:\/([^/]+))?$/, read: { querySchema: ProjectExpenseListQuery, list: expenseReader.list, get: expenseReader.get }, createSchema: ProjectExpenseCreate, patchSchema: ProjectExpensePatch, create: createExpense, update: updateExpense, remove: deleteExpense }),
+  resource({ restricted: true, pattern: /^\/api\/v1\/project-budget-lines(?:\/([^/]+))?$/, read: { querySchema: ProjectBudgetLineListQuery, list: budgetLineReader.list, get: budgetLineReader.get }, createSchema: ProjectBudgetLineCreate, patchSchema: ProjectBudgetLinePatch, create: createBudgetLine, update: updateBudgetLine, remove: deleteBudgetLine }),
 ];
 
 export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpReply> {
@@ -234,6 +240,7 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId);
       if (reading) {
+        if (resource.restricted && !WRITERS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
         const read = resource.read!;
         if (id !== undefined) return { status: 200, body: await read.get(deps.db, ctx, id) };
         return { status: 200, body: await read.list!(deps.db, ctx, parseQuery(read.querySchema!, url.searchParams) as never) };

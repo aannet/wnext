@@ -27,7 +27,7 @@ function translate(entity: string, field?: string): (err: unknown) => never {
 }
 
 /** `writers` : la suppression est ouverte à owner, admin et project_manager (données de projet) au lieu de owner et admin (configuration). */
-export interface Removal { table: "departments" | "roles" | "timeoff_types" | "holidays" | "clients" | "phases" | "project_tasks" | "milestones"; entity: string; columns: string; dependents: Record<string, string>; writers?: boolean }
+export interface Removal { table: "departments" | "roles" | "timeoff_types" | "holidays" | "clients" | "phases" | "project_tasks" | "milestones" | "project_expenses" | "project_budget_lines"; entity: string; columns: string; dependents: Record<string, string>; writers?: boolean }
 
 /** Suppression vérifiée : version, puis refus s'il reste des lignes liées (comptes en params), sinon DELETE exact. */
 export async function remove(db: Db, ctx: RequestContext, def: Removal, id: string, expected: number): Promise<void> {
@@ -220,7 +220,7 @@ export async function updateProject(db: Db, ctx: RequestContext, id: string, exp
 export const DEFAULT_PAGE = 200;
 export const MAX_PAGE = 500;
 
-export interface ListQuery { limit?: number; cursor?: string; from?: string; to?: string; status?: string; projectId?: string; phaseId?: string; dueFrom?: string; dueTo?: string; departmentId?: string; roleId?: string; tag?: string; search?: string; includeInactive?: boolean }
+export interface ListQuery { limit?: number; cursor?: string; from?: string; to?: string; status?: string; projectId?: string; phaseId?: string; dueFrom?: string; dueTo?: string; spentFrom?: string; spentTo?: string; taskId?: string; personId?: string; departmentId?: string; roleId?: string; tag?: string; search?: string; includeInactive?: boolean }
 export interface Reader<T> {
   list(db: Db, ctx: RequestContext, q: ListQuery): Promise<{ items: T[]; page: { nextCursor: string | null; total: number } }>;
   get(db: Db, ctx: RequestContext, id: string): Promise<T>;
@@ -236,9 +236,10 @@ export function decodeCursor(raw: string): string {
 }
 
 /** Lecteur d'une table. `filters` traduit les filtres de la requête en conditions SQL paramétrées (table et colonnes sont des constantes du code). */
-export function reader<T>(def: { table: string; columns: string; entity: string; map: (r: Row) => T; filters?: (q: ListQuery, bind: (v: unknown) => string) => string[] }): Reader<T> {
+export function reader<T>(def: { /** Données financières : lecture réservée aux rôles d'écriture (en plus de la couche HTTP). */ restricted?: boolean; table: string; columns: string; entity: string; map: (r: Row) => T; filters?: (q: ListQuery, bind: (v: unknown) => string) => string[] }): Reader<T> {
   return {
     async list(db, ctx, q) {
+      if (def.restricted) assertWriter(ctx);
       const after = q.cursor === undefined ? undefined : decodeCursor(q.cursor); // avant d'ouvrir une transaction
       const n = Math.min(Math.max(1, Math.trunc(q.limit ?? DEFAULT_PAGE)), MAX_PAGE);
       return withContext(db, ctx, async (tx) => {
@@ -253,6 +254,7 @@ export function reader<T>(def: { table: string; columns: string; entity: string;
       });
     },
     async get(db, ctx, id) {
+      if (def.restricted) assertWriter(ctx);
       if (!isId(id)) throw notFound(def.entity);
       return withContext(db, ctx, async (tx) => {
         const r = (await tx.query<Row>(`SELECT ${def.columns} FROM ${def.table} WHERE id = $1::bigint AND account_id = $2::bigint`, [id, ctx.accountId])).rows[0];

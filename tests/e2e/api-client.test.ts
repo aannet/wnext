@@ -254,6 +254,33 @@ describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
     expect((await api.deletePhase({ path: { id: ph.data.id }, headers: { "If-Match": '"1"' } })).status).toBe(204);
   });
 
+  it("dépenses et lignes de budget : création, filtres, unicité de la cible, suppression", async () => {
+    const api = client();
+    const proj = await api.createProject({ body: { name: "Budget" } });
+    if (!proj.ok) throw new Error("projet attendu");
+    const task = await api.createProjectTask({ body: { projectId: proj.data.id, name: "Dev" } });
+    if (!task.ok) throw new Error("tâche attendue");
+    const exp = await api.createProjectExpense({ body: { projectId: proj.data.id, name: "Licences", amount: "1250.5", spentOn: "2026-03-02" } });
+    if (!exp.ok) throw new Error("dépense attendue");
+    expect(exp.data).toMatchObject({ amount: "1250.50", spentOn: "2026-03-02", version: 1 });
+    const inRange = await api.listProjectExpenses({ projectId: proj.data.id, spentFrom: "2026-03-01", spentTo: "2026-03-31" });
+    expect(inRange.ok && inRange.data.items.map((x) => x.id)).toEqual([exp.data.id]);
+    const updated = await api.updateProjectExpense({ path: { id: exp.data.id }, headers: { "If-Match": '"1"' }, body: { amount: "1300" } });
+    expect(updated.ok && updated.data).toMatchObject({ amount: "1300.00", version: 2 });
+
+    const line = await api.createProjectBudgetLine({ body: { projectId: proj.data.id, taskId: task.data.id, hours: 40, amount: "6000" } });
+    if (!line.ok) throw new Error("ligne attendue");
+    expect(line.data).toMatchObject({ taskId: task.data.id, personId: null, hours: 40, amount: "6000.00" });
+    const dup = await api.createProjectBudgetLine({ body: { projectId: proj.data.id, taskId: task.data.id, hours: 1 } });
+    if (dup.ok) throw new Error("doublon refusé attendu");
+    expect([dup.status, dup.error.code, dup.error.params.entity]).toEqual([409, "ALREADY_EXISTS", "budget_line"]);
+    const refused = await api.deleteProjectTask({ path: { id: task.data.id }, headers: { "If-Match": '"1"' } });
+    if (refused.ok) throw new Error("refus attendu");
+    expect([refused.status, refused.error.params.budget_lines]).toEqual([409, 1]);
+    expect((await api.deleteProjectBudgetLine({ path: { id: line.data.id }, headers: { "If-Match": '"1"' } })).status).toBe(204);
+    expect((await api.deleteProjectExpense({ path: { id: exp.data.id }, headers: { "If-Match": '"2"' } })).status).toBe(204);
+  });
+
   it("équipe d'un projet : ajout, lecture paginée, retrait, 404 d'un projet inconnu", async () => {
     const api = client();
     const proj = await api.createProject({ body: { name: "Équipe" } });
