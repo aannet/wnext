@@ -1,9 +1,9 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonPatch, PersonProjectListQuery, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
+import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonPatch, PersonProjectListQuery, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
-import { allocationReader, createAllocation, deleteAllocation, listPersonAllocations, listProjectAllocations, updateAllocation } from "./allocations";
+import { allocationReader, createAllocation, createAllocationGroup, deleteAllocation, deleteAllocationGroup, updateAllocationGroup, listPersonAllocations, listProjectAllocations, updateAllocation } from "./allocations";
 import { budgetLineReader, createBudgetLine, createExpense, deleteBudgetLine, deleteExpense, expenseReader, updateBudgetLine, updateExpense } from "./budget";
 import { createPerson, listPersonProjects, personReader, updatePerson } from "./people";
 import {
@@ -193,6 +193,26 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       let personId: string;
       try { personId = decodeURIComponent(personProjects[1]!); } catch { personId = "%"; }
       return { status: 200, body: await listPersonProjects(deps.db, ctx, personId, parseQuery(PersonProjectListQuery, url.searchParams) as { limit?: number; cursor?: string; status?: string }) };
+    }
+    if (url.pathname === "/api/v1/allocation-groups" && req.method === "POST") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (!WRITERS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role }); // avant la validation du corps
+      return { status: 201, body: await createAllocationGroup(deps.db, ctx, parseJsonBody(AllocationGroupCreate, req.body)) };
+    }
+    const allocationGroup = /^\/api\/v1\/allocations\/([^/]+)\/group$/.exec(url.pathname);
+    if (allocationGroup && (req.method === "PATCH" || req.method === "DELETE")) {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (!WRITERS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
+      let id: string;
+      try { id = decodeURIComponent(allocationGroup[1]!); } catch { id = "%"; }
+      const version = expectedVersion(req.headers);
+      if (req.method === "DELETE") {
+        await deleteAllocationGroup(deps.db, ctx, id, version);
+        return { status: 204, body: undefined };
+      }
+      return { status: 200, body: await updateAllocationGroup(deps.db, ctx, id, version, parseJsonBody(AllocationGroupPatch, req.body)) };
     }
     const teamList = /^\/api\/v1\/projects\/([^/]+)\/team$/.exec(url.pathname);
     if (teamList && req.method === "POST") {

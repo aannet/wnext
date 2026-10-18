@@ -1,4 +1,5 @@
-import type { AllocationCreate, AllocationPatch, PersonAllocationListQuery, ProjectAllocationListQuery } from "@wnext/contracts";
+import { randomUUID } from "node:crypto";
+import type { AllocationCreate, AllocationGroup, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, PersonAllocationListQuery, ProjectAllocationListQuery } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { assertWriter, day, idParam, invalid, isId, lockAndCheck as lockRow, notFound } from "./write";
@@ -49,11 +50,24 @@ export async function createAllocation(db: Db, ctx: RequestContext, body: Alloca
 
 export async function updateAllocation(db: Db, ctx: RequestContext, id: string, expectedVersion: number, patch: AllocationPatch): Promise<ScheduleAllocation> {
   assertWriter(ctx);
+  assertPatchIds(patch);
+  return withContext(db, ctx, async (tx) => {
+    const cur = await lockRow(tx, "allocations", ALLOCATION_COLUMNS, "allocation", ctx.accountId, id, expectedVersion);
+    return applyPatch(tx, ctx, cur, patch);
+  });
+}
+
+function assertPatchIds(patch: AllocationPatch) {
   for (const [v, entity] of [[patch.personId, "person"], [patch.projectId, "project"], [patch.phaseId, "phase"], [patch.taskId, "task"]] as const) {
     if (v && !isId(v)) throw notFound(entity);
   }
-  return withContext(db, ctx, async (tx) => {
-    const cur = await lockRow(tx, "allocations", ALLOCATION_COLUMNS, "allocation", ctx.accountId, id, expectedVersion);
+}
+
+/** Applique `patch` à la ligne verrouillée `cur` (valeurs absentes = valeurs actuelles de CETTE ligne) et réécrit la ligne. */
+async function applyPatch(tx: Queryable, ctx: RequestContext, cur: Row, patch: AllocationPatch): Promise<ScheduleAllocation> {
+  const id = String(cur.id);
+  const expectedVersion = Number(cur.row_version);
+  {
     const has = <K extends keyof AllocationPatch>(k: K) => k in patch && patch[k] !== undefined;
 
     const projectId = has("projectId") ? patch.projectId! : String(cur.project_id);
@@ -97,7 +111,7 @@ export async function updateAllocation(db: Db, ctx: RequestContext, id: string, 
     // Ceinture et bretelles : le verrou de ligne suffit, mais la condition de version garde l'écriture correcte même sans lui.
     if (!rows[0]) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: Number(cur.row_version) + 1 });
     return toScheduleAllocation(rows[0]!);
-  });
+  }
 }
 
 export async function deleteAllocation(db: Db, ctx: RequestContext, id: string, expectedVersion: number): Promise<void> {
@@ -106,6 +120,79 @@ export async function deleteAllocation(db: Db, ctx: RequestContext, id: string, 
     await lockRow(tx, "allocations", ALLOCATION_COLUMNS, "allocation", ctx.accountId, id, expectedVersion);
     const { rows } = await tx.query("DELETE FROM allocations WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $3::int RETURNING id", [id, ctx.accountId, expectedVersion]);
     if (!rows.length) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: expectedVersion + 1 });
+  });
+}
+
+// --- Groupes (BR-26) --------------------------------------------------------------------------------------------------
+// Une allocation multi-personnes = N lignes (une par personne) liées par `group_id`. Création en une transaction (tout ou rien).
+// Édition « tous » : toutes les lignes du groupe sont verrouillées dans l'ordre des id (pas d'interblocage entre deux éditions du
+// même groupe), la version n'est comparée que sur la ligne désignée, et chaque ligne applique le patch à SA valeur actuelle.
+
+export async function createAllocationGroup(db: Db, ctx: RequestContext, body: AllocationGroupCreate): Promise<AllocationGroup> {
+  assertWriter(ctx);
+  for (const m of body.members) if (!isId(m.personId)) throw notFound("person");
+  if (!isId(body.projectId)) throw notFound("project");
+  if (body.phaseId && !isId(body.phaseId)) throw notFound("phase");
+  if (body.taskId && !isId(body.taskId)) throw notFound("task");
+  const groupId = randomUUID();
+  return withContext(db, ctx, async (tx) => {
+    await assertReferences(tx, ctx.accountId, body);
+    const items: ScheduleAllocation[] = [];
+    for (const m of body.members) {
+      await assertReferences(tx, ctx.accountId, { personId: m.personId, projectId: body.projectId }); // première personne inconnue, dans l'ordre du corps
+      const load = (m.load ?? body.load)!; // le contrat garantit une charge pour chaque membre
+      const { rows } = await tx.query<Row>(
+        `INSERT INTO allocations (account_id, person_id, project_id, phase_id, project_task_id, group_id, name, notes, start_date, end_date,
+                                  mode, hours_per_day, percent, status, billable, priority, repeat_state, repeat_end_date)
+         VALUES ($1::bigint, $2::bigint, $3::bigint, $4::bigint, $5::bigint, $6::uuid, $7, $8, $9::date, $10::date,
+                 $11::allocation_mode, $12::numeric, $13::numeric, $14::allocation_status, $15::boolean, $16::smallint, $17::repeat_state_t, $18::date)
+         RETURNING ${ALLOCATION_COLUMNS}`,
+        [
+          ctx.accountId, m.personId, body.projectId, body.phaseId ?? null, body.taskId ?? null, groupId, body.name ?? null, body.notes ?? null,
+          body.startDate, body.endDate, load.mode, load.mode === "hours" ? load.hoursPerDay : null, load.mode === "percentage" ? load.percent : null,
+          body.status ?? "confirmed", body.billable ?? true, body.priority ?? 0, body.repeatState ?? "none", body.repeatEndDate ?? null,
+        ],
+      );
+      items.push(toScheduleAllocation(rows[0]!));
+    }
+    return { groupId, items };
+  });
+}
+
+/** Verrouille toutes les lignes du groupe de l'allocation `id` (ordre des id) et contrôle la version de la ligne désignée seule. */
+async function lockGroup(tx: Queryable, ctx: RequestContext, id: string, expectedVersion: number): Promise<{ groupId: string; rows: Row[] }> {
+  if (!isId(id)) throw notFound("allocation");
+  const head = (await tx.query<Row>("SELECT group_id FROM allocations WHERE id = $1::bigint AND account_id = $2::bigint", [id, ctx.accountId])).rows[0];
+  if (!head) throw notFound("allocation");
+  if (head.group_id === null || head.group_id === undefined) throw notFound("allocation_group");
+  const groupId = String(head.group_id);
+  const { rows } = await tx.query<Row>(
+    `SELECT ${ALLOCATION_COLUMNS} FROM allocations WHERE group_id = $1::uuid AND account_id = $2::bigint ORDER BY id FOR UPDATE`,
+    [groupId, ctx.accountId],
+  );
+  const target = rows.find((r) => String(r.id) === id);
+  if (!target) throw notFound("allocation"); // supprimée entre la lecture et le verrou
+  if (Number(target.row_version) !== expectedVersion) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: Number(target.row_version) });
+  return { groupId, rows };
+}
+
+export async function updateAllocationGroup(db: Db, ctx: RequestContext, id: string, expectedVersion: number, patch: AllocationGroupPatch): Promise<AllocationGroup> {
+  assertWriter(ctx);
+  assertPatchIds(patch);
+  return withContext(db, ctx, async (tx) => {
+    const { groupId, rows } = await lockGroup(tx, ctx, id, expectedVersion);
+    const items: ScheduleAllocation[] = [];
+    for (const cur of rows) items.push(await applyPatch(tx, ctx, cur, patch));
+    return { groupId, items };
+  });
+}
+
+export async function deleteAllocationGroup(db: Db, ctx: RequestContext, id: string, expectedVersion: number): Promise<void> {
+  assertWriter(ctx);
+  await withContext(db, ctx, async (tx) => {
+    const { groupId, rows } = await lockGroup(tx, ctx, id, expectedVersion);
+    const del = await tx.query("DELETE FROM allocations WHERE group_id = $1::uuid AND account_id = $2::bigint RETURNING id", [groupId, ctx.accountId]);
+    if (del.rows.length !== rows.length) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: expectedVersion + 1 }); // filet : les lignes sont verrouillées
   });
 }
 

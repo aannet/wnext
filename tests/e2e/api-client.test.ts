@@ -281,6 +281,28 @@ describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
     expect((await api.deleteProjectExpense({ path: { id: exp.data.id }, headers: { "If-Match": '"2"' } })).status).toBe(204);
   });
 
+  it("allocation multi-personnes : création, édition « tous », suppression du groupe", async () => {
+    const api = client();
+    const proj = await api.createProject({ body: { name: "Groupe" } });
+    if (!proj.ok) throw new Error("projet attendu");
+    const people = await api.getSchedule({ from: "2026-03-02", to: "2026-03-06" });
+    if (!people.ok || !("people" in people.data)) throw new Error("planning attendu");
+    const [p1, p2] = people.data.people.map((p) => p.id);
+    if (!p1 || !p2) throw new Error("deux personnes attendues");
+    const g = await api.createAllocationGroup({ body: { projectId: proj.data.id, startDate: "2026-03-02", endDate: "2026-03-06", load: { mode: "hours", hoursPerDay: 4 }, members: [{ personId: p1 }, { personId: p2, load: { mode: "hours", hoursPerDay: 2 } }] } });
+    if (!g.ok) throw new Error("groupe attendu");
+    expect(g.data.items.map((a) => [a.personId, a.hoursPerDay, a.groupId])).toEqual([[p1, 4, g.data.groupId], [p2, 2, g.data.groupId]]);
+
+    const edited = await api.updateAllocationGroup({ path: { id: g.data.items[1]!.id }, headers: { "If-Match": '"1"' }, body: { name: "Tous" } });
+    expect(edited.ok && edited.data.items.map((a) => [a.name, a.version])).toEqual([["Tous", 2], ["Tous", 2]]);
+    const stale = await api.deleteAllocationGroup({ path: { id: g.data.items[0]!.id }, headers: { "If-Match": '"1"' } });
+    if (stale.ok) throw new Error("conflit attendu");
+    expect([stale.status, stale.error.code, stale.error.params.currentVersion]).toEqual([409, "VERSION_CONFLICT", 2]);
+    expect((await api.deleteAllocationGroup({ path: { id: g.data.items[0]!.id }, headers: { "If-Match": '"2"' } })).status).toBe(204);
+    const gone = await api.getAllocation({ path: { id: g.data.items[1]!.id } });
+    expect(gone.ok).toBe(false);
+  });
+
   it("équipe d'un projet : ajout, lecture paginée, retrait, 404 d'un projet inconnu", async () => {
     const api = client();
     const proj = await api.createProject({ body: { name: "Équipe" } });

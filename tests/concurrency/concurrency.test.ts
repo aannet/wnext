@@ -330,3 +330,66 @@ describe("LISTEN/NOTIFY (réveil temps réel)", () => {
     expect(elapsed).toBeLessThan(2000); // la période de sondage est de 60 s, le filet de 30 s
   });
 });
+
+describe("allocations multi-personnes (BR-26)", () => {
+  const h = (x: number) => ({ mode: "hours", hoursPerDay: x }) as const;
+  const group = async (people: string[], d = nextDay()) => {
+    const r = await send("POST", "/api/v1/allocation-groups", { projectId: "1", startDate: d, endDate: d, load: h(1), members: people.map((personId) => ({ personId })) });
+    expect(r.status).toBe(201);
+    return (r.body as { groupId: string; items: { id: string }[] });
+  };
+
+  it("deux éditions « tous » simultanées depuis deux lignes du même groupe : une gagne, l'autre est refusée, sans interblocage", async () => {
+    for (let round = 0; round < 5; round++) {
+      const g = await group(["5", "6", "7"]);
+      const patch = (id: string, name: string) => send("PATCH", `/api/v1/allocations/${id}/group`, { name }, { "if-match": '"1"' });
+      const [x, y] = await Promise.all([patch(g.items[0]!.id, "X"), patch(g.items[2]!.id, "Y")]);
+      expect([x.status, y.status].sort()).toEqual([200, 409]);
+      expect(await n(`SELECT count(DISTINCT name) AS n FROM allocations WHERE group_id = '${g.groupId}'`)).toBe(1); // jamais un mélange
+      expect(await n(`SELECT count(DISTINCT row_version) AS n FROM allocations WHERE group_id = '${g.groupId}'`)).toBe(1);
+    }
+  });
+
+  it("une édition « tous » attend une écriture concurrente sur une AUTRE ligne du groupe, puis l'applique à sa valeur validée", async () => {
+    const g = await group(["8", "9"]);
+    const holder = await c.hold(ctx);
+    await holder.query(`UPDATE allocations SET hours_per_day = 5 WHERE id = ${g.items[1]!.id}`); // l'autre ligne passe en version 2, non validée
+    const p = send("PATCH", `/api/v1/allocations/${g.items[0]!.id}/group`, { name: "Tous" }, { "if-match": '"1"' });
+    await c.waitBlocked();
+    expect(await pending(p)).toBe(true);
+    await holder.commit();
+    const r = await p;
+    expect(r.status).toBe(200); // la ligne désignée est à jour : seule SA version compte
+    const items = (r.body as { items: { hoursPerDay: number; name: string; version: number }[] }).items;
+    expect(items.map((a) => [a.hoursPerDay, a.name, a.version])).toEqual([[1, "Tous", 2], [5, "Tous", 3]]); // l'écriture concurrente n'est pas écrasée
+  });
+
+  it("une suppression « tous » attend de même, puis supprime les lignes dans leur état validé", async () => {
+    const g = await group(["10", "11"]);
+    const holder = await c.hold(ctx);
+    await holder.query(`UPDATE allocations SET hours_per_day = 5 WHERE id = ${g.items[1]!.id}`);
+    const p = send("DELETE", `/api/v1/allocations/${g.items[0]!.id}/group`, undefined, { "if-match": '"1"' });
+    await c.waitBlocked();
+    await holder.commit();
+    expect((await p).status).toBe(204);
+    expect(await n(`SELECT count(*) AS n FROM allocations WHERE group_id = '${g.groupId}'`)).toBe(0);
+  });
+
+  it("une création de groupe est atomique face à un lecteur concurrent : on voit tout le groupe ou rien", async () => {
+    const d = nextDay();
+    const seen = new Set<number>();
+    let stop = false;
+    const reader = (async () => {
+      while (!stop) {
+        const k = await n(`SELECT count(*) AS n FROM allocations WHERE start_date = '${d}' AND project_id = 1 AND group_id IS NOT NULL`);
+        seen.add(k);
+        await new Promise((r) => setTimeout(r, 1));
+      }
+    })();
+    for (let i = 0; i < 5; i++) await group(["1", "2", "3", "4"], d);
+    stop = true;
+    await reader;
+    for (const k of seen) expect(k % 4, `lignes visibles : ${k}`).toBe(0);
+  });
+});
+
