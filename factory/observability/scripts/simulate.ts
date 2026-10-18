@@ -55,8 +55,8 @@ function mk(run: string, line: string, phase: FactoryEvent["phase"], agent: stri
 
 const llm = (run: string, line: string, ph: FactoryEvent["phase"], agent: string, model: string, attempt: number, scale = 1) =>
   mk(run, line, ph, agent, model, "llm.call", {
-    attempt, tokens_in: between(6000, 20000) * scale, tokens_out: between(900, 6000) * scale,
-    cr: between(20000, 90000) * scale, tokens_cache_write: between(0, 8000) * scale, duration_ms: between(4000, 25000),
+    attempt, tokens_in: Math.round(between(6000, 20000) * scale), tokens_out: Math.round(between(900, 6000) * scale),
+    cr: Math.round(between(20000, 90000) * scale), tokens_cache_write: Math.round(between(0, 8000) * scale), duration_ms: between(4000, 25000),
   });
 
 function healthyLine(line: string, phase: FactoryEvent["phase"], opts: { retries?: number; escalate?: boolean; blockAtEnd?: boolean } = {}): Draft[] {
