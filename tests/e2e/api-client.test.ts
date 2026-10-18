@@ -22,9 +22,10 @@ beforeAll(async () => {
     INSERT INTO users (email) VALUES ('u@x.test');
     INSERT INTO accounts (name) VALUES ('A');
     INSERT INTO people (account_id, name, tags) VALUES (1, 'Alice', '{é &=?}'), (1, 'Bob', '{}');
+    INSERT INTO projects (account_id, name) VALUES (1, 'P1');
   `);
   const db: Db = { transaction: (fn) => pg.transaction((tx) => fn(tx as never)) };
-  server = createHttpServer({ db, authenticate: async (h) => (h.authorization === "Bearer ok" ? { accountId: "1", userId: "1", role: "member" } : null) });
+  server = createHttpServer({ db, authenticate: async (h) => (h.authorization === "Bearer ok" ? { accountId: "1", userId: "1", role: "admin" } : null) });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 }, 120_000);
@@ -52,5 +53,32 @@ describe("client généré <-> serveur", () => {
 
   it("sans jeton : 401", async () => {
     expect((await client({}).getSchedule({ from: "2026-03-02", to: "2026-03-06" })).status).toBe(401);
+  });
+});
+
+describe("écritures : client généré <-> serveur", () => {
+  it("créer, modifier avec If-Match, subir un conflit, recharger, rejouer, supprimer (204)", async () => {
+    const api = client();
+    const created = await api.createAllocation({ body: { personId: "1", projectId: "1", startDate: "2026-03-02", endDate: "2026-03-06", load: { mode: "percentage", percent: 150 } } });
+    expect(created.status).toBe(201);
+    if (!created.ok) throw new Error("création refusée");
+    const a = created.data;
+    const ifMatch = (v: number) => ({ "If-Match": `"${v}"` });
+
+    const moved = await api.updateAllocation({ path: { id: a.id }, headers: ifMatch(a.version), body: { personId: "2", name: "déplacée / test" } });
+    expect(moved.ok && moved.data).toMatchObject({ personId: "2", name: "déplacée / test", version: a.version + 1 });
+
+    const stale = await api.updateAllocation({ path: { id: a.id }, headers: ifMatch(a.version), body: { name: "périmée" } });
+    expect(stale.ok).toBe(false);
+    if (!stale.ok) expect(stale.error).toMatchObject({ code: "VERSION_CONFLICT", params: { currentVersion: a.version + 1 } });
+
+    const noHeader = await createClient({ baseUrl: base, fetch: (u, i) => fetch(u, { ...i, headers: { ...i.headers, ...auth } }) as never })
+      .updateAllocation({ path: { id: a.id }, headers: {} as never, body: { name: "x" } });
+    expect(noHeader.status).toBe(428);
+
+    const del = await api.deleteAllocation({ path: { id: a.id }, headers: ifMatch(a.version + 1) });
+    expect(del).toEqual({ ok: true, status: 204, data: undefined });
+    const gone = await api.deleteAllocation({ path: { id: a.id }, headers: ifMatch(a.version + 1) });
+    expect(gone.status).toBe(404);
   });
 });

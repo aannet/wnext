@@ -13,7 +13,24 @@ const num = (v: unknown) => Number(v);
 const idOf = (v: unknown) => String(v);
 const orNullId = (v: unknown) => (v === null || v === undefined ? null : String(v));
 
-type Row = Record<string, any>;
+export type ScheduleAllocation = ScheduleResponse["allocations"][number];
+export type Row = Record<string, any>;
+
+export const ALLOCATION_COLUMNS = `id, row_version, person_id, project_id, phase_id, project_task_id, group_id, name, notes,
+  start_date, end_date, mode, hours_per_day, percent, status, billable, priority, repeat_state, repeat_end_date`;
+
+export function toScheduleAllocation(r: Row): ScheduleAllocation {
+  const base = {
+    id: idOf(r.id), version: num(r.row_version), personId: idOf(r.person_id), projectId: idOf(r.project_id),
+    phaseId: orNullId(r.phase_id), taskId: orNullId(r.project_task_id), groupId: orNullId(r.group_id),
+    name: r.name ?? null, notes: r.notes ?? null, startDate: iso(r.start_date), endDate: iso(r.end_date),
+    status: r.status, billable: Boolean(r.billable), priority: num(r.priority), repeatState: r.repeat_state,
+    repeatEndDate: r.repeat_end_date === null ? null : iso(r.repeat_end_date),
+  };
+  return r.mode === "hours"
+    ? { ...base, mode: "hours" as const, hoursPerDay: num(r.hours_per_day), percent: null }
+    : { ...base, mode: "percentage" as const, hoursPerDay: null, percent: num(r.percent) };
+}
 
 interface PageCursor { name: string; id: string }
 const encodeCursor = (c: PageCursor) => Buffer.from(JSON.stringify(c)).toString("base64url");
@@ -146,18 +163,7 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
     ]);
     const account = accountRows.rows[0]!;
 
-    const allocations = allocRows.map((r) => {
-      const base = {
-        id: idOf(r.id), version: num(r.row_version), personId: idOf(r.person_id), projectId: idOf(r.project_id),
-        phaseId: orNullId(r.phase_id), taskId: orNullId(r.project_task_id), groupId: orNullId(r.group_id),
-        name: r.name ?? null, notes: r.notes ?? null, startDate: iso(r.start_date), endDate: iso(r.end_date),
-        status: r.status, billable: Boolean(r.billable), priority: num(r.priority), repeatState: r.repeat_state,
-        repeatEndDate: r.repeat_end_date === null ? null : iso(r.repeat_end_date),
-      };
-      return r.mode === "hours"
-        ? { ...base, mode: "hours" as const, hoursPerDay: num(r.hours_per_day), percent: null }
-        : { ...base, mode: "percentage" as const, hoursPerDay: null, percent: num(r.percent) };
-    });
+    const allocations = allocRows.map(toScheduleAllocation);
 
     return {
       window: { from: q.from, to: q.to },

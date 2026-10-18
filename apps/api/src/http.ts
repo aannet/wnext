@@ -1,8 +1,9 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { ScheduleQuery, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
+import { AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
+import { createAllocation, deleteAllocation, updateAllocation } from "./allocations";
 import { getSchedule } from "./schedule";
 import { API_VERSION } from "./version";
 
@@ -21,6 +22,8 @@ export interface HttpRequest {
   method: string;
   url: string;
   headers: Record<string, string | string[] | undefined>;
+  /** Corps brut (texte) ; absent = aucun corps. */
+  body?: string;
 }
 export interface HttpReply { status: number; body: unknown }
 
@@ -61,6 +64,27 @@ function parseScheduleQuery(search: URLSearchParams): ScheduleQueryT {
   return parsed.data;
 }
 
+const MAX_BODY_BYTES = 1_000_000;
+const WRITERS = new Set(["owner", "admin", "project_manager"]);
+
+function parseJsonBody<T>(schema: { safeParse(v: unknown): { success: true; data: T } | { success: false; error: { issues: Array<{ path: PropertyKey[] }> } } }, raw: string | undefined): T {
+  if (raw === undefined || raw === "") throw new ApiFailure("VALIDATION_FAILED", { field: "body" });
+  let json: unknown;
+  try { json = JSON.parse(raw); } catch { throw new ApiFailure("VALIDATION_FAILED", { field: "body" }); }
+  const parsed = schema.safeParse(json);
+  if (!parsed.success) throw new ApiFailure("VALIDATION_FAILED", { field: String(parsed.error.issues[0]?.path[0] ?? "body") });
+  return parsed.data;
+}
+
+/** If-Match: "3" -> 3. Absent = 428 ; mal formé = 400. */
+function expectedVersion(headers: HttpRequest["headers"]): number {
+  const raw = headers["if-match"];
+  if (raw === undefined) throw new ApiFailure("PRECONDITION_REQUIRED");
+  const parsed = IfMatchHeader.safeParse({ "If-Match": Array.isArray(raw) ? raw.join(",") : raw });
+  if (!parsed.success) throw new ApiFailure("VALIDATION_FAILED", { field: "If-Match" });
+  return Number(parsed.data["If-Match"].slice(1, -1));
+}
+
 export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpReply> {
   const requestId = deps.newRequestId?.() ?? randomUUID();
   try {
@@ -71,7 +95,24 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       if (!ctx) return fail("UNAUTHENTICATED", requestId); // l'auth passe avant la validation : pas d'oracle pour un anonyme
       return { status: 200, body: await getSchedule(deps.db, ctx, parseScheduleQuery(url.searchParams)) };
     }
-    return { status: 404, body: { code: "NOT_FOUND" } };
+    const alloc = /^\/api\/v1\/allocations(?:\/([^/]+))?$/.exec(url.pathname);
+    if (alloc) {
+      const id = alloc[1] !== undefined ? decodeURIComponent(alloc[1]) : undefined;
+      const known = id === undefined ? req.method === "POST" : req.method === "PATCH" || req.method === "DELETE";
+      if (known) {
+        const ctx = await deps.authenticate(req.headers);
+        if (!ctx) return fail("UNAUTHENTICATED", requestId);
+        if (!WRITERS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
+        if (id === undefined) return { status: 201, body: await createAllocation(deps.db, ctx, parseJsonBody(AllocationCreate, req.body)) };
+        const version = expectedVersion(req.headers);
+        if (req.method === "DELETE") {
+          await deleteAllocation(deps.db, ctx, id, version);
+          return { status: 204, body: undefined };
+        }
+        return { status: 200, body: await updateAllocation(deps.db, ctx, id, version, parseJsonBody(AllocationPatch, req.body)) };
+      }
+    }
+    return fail("NOT_FOUND", requestId, { entity: "route" });
   } catch (err) {
     if (err instanceof ApiFailure) return fail(err.code, requestId, err.params);
     deps.onError?.(err, requestId);
@@ -81,9 +122,20 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
 
 export function createHttpServer(deps: HttpDeps): Server {
   return createServer((incoming: IncomingMessage, res: ServerResponse) => {
-    dispatch(deps, { method: incoming.method ?? "GET", url: incoming.url ?? "/", headers: incoming.headers }).then((reply) => {
-      res.writeHead(reply.status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
-      res.end(JSON.stringify(reply.body));
+    const chunks: Buffer[] = [];
+    let size = 0;
+    let tooLarge = false;
+    incoming.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > MAX_BODY_BYTES) tooLarge = true;
+      else chunks.push(c);
+    });
+    incoming.on("end", () => {
+      const req: HttpRequest = { method: incoming.method ?? "GET", url: incoming.url ?? "/", headers: incoming.headers, body: tooLarge ? "\u0000" : size ? Buffer.concat(chunks).toString("utf8") : undefined };
+      dispatch(deps, req).then((reply) => {
+        res.writeHead(reply.status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+        res.end(reply.body === undefined ? undefined : JSON.stringify(reply.body));
+      });
     });
   });
 }
