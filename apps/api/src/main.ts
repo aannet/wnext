@@ -3,6 +3,7 @@ import pg from "pg";
 import { devAuthenticate } from "./auth-dev";
 import { loadConfig } from "./config";
 import { pgDb } from "./pg-db";
+import { pgNotifier } from "./pg-listen";
 import { startServer } from "./server";
 
 async function main() {
@@ -15,6 +16,10 @@ async function main() {
     host: config.host,
     port: config.port,
     pollIntervalMs: config.pollIntervalMs,
+    notifier: pgNotifier({
+      createClient: () => new pg.Client({ connectionString: config.databaseUrl }),
+      onError: (err) => console.error(JSON.stringify({ level: "error", source: "listen", error: err instanceof Error ? err.message : String(err) })),
+    }),
   });
   console.log(JSON.stringify({ level: "info", msg: "api démarrée", host: config.host, port: running.port, authMode: config.authMode }));
 

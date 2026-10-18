@@ -1,7 +1,7 @@
 import type { IncomingHttpHeaders, Server } from "node:http";
 import { REALTIME_PATH, type RealtimeServerMessage } from "@wnext/contracts";
 import { WebSocket, WebSocketServer } from "ws";
-import { createChangeHub } from "./change-hub";
+import { createChangeHub, type ChangeNotifier } from "./change-hub";
 import type { Db, RequestContext } from "./db";
 import { createRealtimeSession } from "./realtime";
 
@@ -13,6 +13,8 @@ export interface RealtimeAttachOptions {
   db: Db;
   authenticate: (headers: IncomingHttpHeaders) => Promise<RequestContext | null>;
   pollIntervalMs?: number;
+  /** Réveil par LISTEN/NOTIFY ; le sondage ne sert alors que de filet (voir ChangeHub). */
+  notifier?: ChangeNotifier;
   /** Période des ping ; une connexion qui ne répond pas avant le suivant est coupée. */
   heartbeatMs?: number;
   onError?: (err: unknown) => void;
@@ -22,7 +24,7 @@ const MAX_MESSAGE_BYTES = 4096; // le seul message client (subscribe) tient en u
 
 export function attachRealtime(server: Server, opts: RealtimeAttachOptions): { close(): void } {
   // Un seul sondage pour toutes les sessions (sans période, pas de flux direct : les tests appellent poll à la main).
-  const hub = opts.pollIntervalMs ? createChangeHub({ db: opts.db, intervalMs: opts.pollIntervalMs, onError: opts.onError }) : undefined;
+  const hub = opts.pollIntervalMs ? createChangeHub({ db: opts.db, intervalMs: opts.pollIntervalMs, notifier: opts.notifier, onError: opts.onError }) : undefined;
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_BYTES });
   const reject = (socket: import("node:stream").Duplex, status: string) => {
     socket.write(`HTTP/1.1 ${status}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);

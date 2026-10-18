@@ -671,6 +671,9 @@ BEGIN
   INSERT INTO change_log (account_id, seq, entity, entity_id, op, version, changed_by)
   VALUES (v_row.account_id, v_seq, TG_TABLE_NAME, v_row.id, lower(TG_OP),
           CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE NEW.row_version END, app_user_id());
+  -- Réveil des écouteurs temps réel (LISTEN wnext_changes) : livré au COMMIT seulement, doublons d'une même transaction fusionnés.
+  -- Le payload est le seul account_id ; le journal reste la source de vérité (une notification perdue ne perd aucun changement).
+  PERFORM pg_notify('wnext_changes', v_row.account_id::text);
   RETURN NULL;
 END $$;
 

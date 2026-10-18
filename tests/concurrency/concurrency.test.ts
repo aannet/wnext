@@ -1,7 +1,8 @@
 // Concurrence réelle (deux connexions ou plus) sur PostgreSQL : verrous de ligne, verrou optimiste, exclusion des congés,
 // journal de changements, retrait d'équipe BR-10. Ce que PGlite (une seule connexion) ne peut pas prouver.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { dispatch, readChanges, type HttpDeps, type RequestContext } from "../../apps/api/src/index";
+import pg from "pg";
+import { createChangeHub, createRealtimeSession, dispatch, pgNotifier, readChanges, type HttpDeps, type RequestContext } from "../../apps/api/src/index";
 import { startCluster, type Cluster } from "./pg-harness";
 
 // @BR-01 @BR-10 @BR-14
@@ -246,5 +247,51 @@ describe("adaptateur pg sur un vrai pool", () => {
     const rows = (await h.query("SELECT count(*)::int AS n FROM people WHERE account_id = 2")).rows;
     await h.rollback();
     expect(rows[0].n).toBe(0);
+  });
+});
+
+describe("LISTEN/NOTIFY (réveil temps réel)", () => {
+  const listener = async () => {
+    const l = new pg.Client({ connectionString: c.url });
+    await l.connect();
+    const got: string[] = [];
+    l.on("notification", (m) => { if (m.channel === "wnext_changes") got.push(m.payload ?? ""); });
+    await l.query("LISTEN wnext_changes");
+    return { l, got };
+  };
+  const settle = (ms = 150) => new Promise((r) => setTimeout(r, ms));
+
+  it("la notification n'est livrée qu'au COMMIT, une seule fois par transaction, et pas du tout après un ROLLBACK", async () => {
+    const { l, got } = await listener();
+    const h = await c.hold(ctx);
+    for (let i = 0; i < 3; i++) await h.query("INSERT INTO allocations (account_id, person_id, project_id, start_date, end_date, mode, hours_per_day) VALUES (1, 3, 1, $1, $1, 'hours', 1)", [nextDay()]);
+    await settle();
+    expect(got).toEqual([]); // rien tant que la transaction est ouverte
+    await h.commit();
+    await settle();
+    expect(got).toEqual(["1"]); // trois changements, un réveil, le seul identifiant du compte
+    const r = await c.hold(ctx);
+    await r.query("INSERT INTO allocations (account_id, person_id, project_id, start_date, end_date, mode, hours_per_day) VALUES (1, 3, 1, $1, $1, 'hours', 1)", [nextDay()]);
+    await r.rollback();
+    await settle();
+    expect(got).toEqual(["1"]);
+    await l.end();
+  });
+
+  it("de bout en bout : une écriture de l'API réveille la session en bien moins qu'une période de sondage", async () => {
+    const hub = createChangeHub({ db: c.db, intervalMs: 60_000, notifier: pgNotifier({ createClient: () => new pg.Client({ connectionString: c.url }) }) });
+    const out: Array<{ type: string }> = [];
+    const head = (await readChanges(c.db, ctx, "0")).head;
+    const session = createRealtimeSession({ db: c.db, ctx, hub, send: (m) => out.push(m) });
+    await session.receive(JSON.stringify({ v: 1, type: "subscribe", cursor: head }));
+    await settle(300); // l'écoute s'établit
+    out.length = 0;
+    const t0 = Date.now();
+    await send("POST", "/api/v1/allocations", alloc("4"));
+    while (!out.some((m) => m.type === "changes") && Date.now() - t0 < 5000) await settle(10);
+    const elapsed = Date.now() - t0;
+    session.close(); hub.close();
+    expect(out.some((m) => m.type === "changes")).toBe(true);
+    expect(elapsed).toBeLessThan(2000); // la période de sondage est de 60 s, le filet de 30 s
   });
 });

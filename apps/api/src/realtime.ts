@@ -7,7 +7,7 @@ import { ApiFailure } from "./failure";
 // Session temps réel (contrat : packages/contracts/src/realtime.ts), indépendante du transport : elle reçoit des
 // messages texte et émet des messages via `send`. Le WebSocket/SSE n'est qu'un adaptateur par-dessus.
 // Le contexte (compte, utilisateur) est fixé à la création, depuis la session authentifiée : jamais depuis un message.
-// Le flux direct est un sondage de change_log via readChanges (poll), déclenché par le ChangeHub partagé (change-hub.ts) ; LISTEN/NOTIFY pourra le remplacer sans changer le contrat.
+// Le flux direct est un sondage de change_log via readChanges (poll), déclenché par le ChangeHub partagé (change-hub.ts), lui-même réveillé par LISTEN/NOTIFY (pg-listen.ts) ou, à défaut, par son minuteur.
 
 export interface RealtimeSession {
   /** Traite un message du client (texte JSON). Les messages sont traités l'un après l'autre. */

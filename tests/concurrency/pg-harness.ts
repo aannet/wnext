@@ -14,6 +14,8 @@ export interface Cluster {
   /** Pool applicatif : transactions en SET LOCAL ROLE app_user, comme en production (pgDb). */
   pool: pg.Pool;
   db: ReturnType<typeof pgDb>;
+  /** Chaîne de connexion superutilisateur (écouteurs LISTEN, clients dédiés). */
+  url: string;
   /** Transaction ouverte à la main sous app_user + contexte, pour tenir un verrou pendant qu'une opération de l'API s'y heurte. */
   hold(ctx: RequestContext): Promise<Held>;
   /** Attend que `n` requêtes soient bloquées sur un verrou (pg_stat_activity). */
@@ -37,7 +39,7 @@ export async function startCluster(): Promise<Cluster> {
   const pool = new pg.Pool({ connectionString: url, max: 12 });
   const open: pg.Client[] = [];
   return {
-    admin, pool, db: pgDb(pool, { role: "app_user" }),
+    admin, pool, url, db: pgDb(pool, { role: "app_user" }),
     async hold(ctx) {
       const c = new pg.Client({ connectionString: url });
       await c.connect();
