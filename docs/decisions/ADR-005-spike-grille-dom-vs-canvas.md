@@ -106,14 +106,48 @@ A fait un zoom en détruisant puis recréant toutes les lignes visibles (non opt
 - A non optimisé, B sans DPR/texte riche/accessibilité : **la comparaison de coût est donc favorable à B en mesure, défavorable à B en fonctionnalités**. Mesure d'INP via Event Timing à 8 ms de résolution, pas l'INP de production.
 - Pas de mesure sur Firefox / Safari.
 
-## 7. Recommandation
+## 7. Second tour (A optimisé, B complet, B + overlay a11y)
+
+Conditions : DPR 2, ralentissement CPU x1 / x4 / x6 (proxy du poste lent, **le poste de référence P3 n'est pas défini**), Chromium headless, i7-10750H, WSL2, SwiftShader sans GPU, 5 runs. Données brutes : `spikes/grille/results/r2-*.json` ; synthèse : `node spikes/grille/bench/summarize2.mjs`.
+
+- **A2** : DOM virtualisé optimisé. **B2** : canvas complet (DPR 2). **B3** : canvas + overlay DOM `role=grid` (fenêtre visible).
+
+| Mesure (médiane) | A2 x1 / x4 / x6 | B2 x1 / x4 / x6 | B3 x1 / x4 |
+|---|---|---|---|
+| Scroll horizontal, i/s p95 | 59,9 / 59,5 / 59,5 | 59,5 / **15** / **10** | 59,9 / **15** |
+| Scroll vertical, i/s p95 | 59,9 / 59,9 / 59,9 | 59,5 / **15** / **10** | 59,9 / **15** |
+| Scroll diagonal, i/s p95 | 59,9 / 59,5 / **29,9** | 59,9 / 15 / 10 | 59,5 / 15 |
+| Longtasks cumulées en scroll | 0 ms (x6 diagonal : 104 ms) | ~4 000 ms à x4 et x6 | ~4 000 ms à x4 |
+| Coût JS de rendu en drag, p95 | 0,2 / 1,0 / 1,5 ms | 0,3 / 1,1 / 1,8 ms | 0,4 / 1,5 ms |
+| Zoom, p50 | 28 / 87 / 137 ms | 28 / 32 / 37 ms | 29 / 44 ms |
+| Clic, Event Timing max | 104 / 184 / 224 ms | 24 / 40 / 64 ms | 24 / 88 ms |
+| Premier rendu | 56 / 249 / 338 ms | 74 / 311 / 462 ms | 77 / 326 ms |
+| Nœuds DOM après scroll | 548 / 546 / 540 | 17 | ~220 à 250 (dont ~200 à 230 overlay) |
+
+Lecture :
+- **Renversement par rapport au premier tour.** Une fois optimisé, A tient ~60 i/s en scroll horizontal et vertical jusqu'à x6 ; seule la diagonale à x6 passe à ~30 i/s. À DPR 2, B s'effondre au scroll (15 i/s à x4, 10 i/s à x6) alors que son coût JS de rendu reste faible (≤ 2,5 ms) : le temps est perdu hors JS, très probablement dans la rastérisation d'un canvas à DPR 2 **en rendu logiciel (SwiftShader)**. Cette cause n'est pas prouvée ; sur un poste avec GPU, le résultat peut être très différent.
+- B garde l'avantage sur le zoom et le clic.
+- Le surcoût de l'overlay d'accessibilité est faible (~200 nœuds, 0,1 à 1,1 ms de JS au scroll).
+
+Limites propres à ce tour : une machine, headless, sans GPU ; **B3 à x6 non mesuré** ; la métrique de clic (Event Timing, résolution 8 ms) est grossière (104 ms dès x1 pour A2) ; **les vérifications d'accessibilité automatisées (`bench/a11y.mjs`) n'ont pas de résultat enregistré** et aucun lecteur d'écran réel n'a été testé ; le coût de rendu de A pendant le drag est désormais enregistré (colonne « drag »).
+
+## 8. Recommandation (mise à jour après le second tour)
+
+1. **Choix par défaut : DOM virtualisé optimisé (A2).** Il tient le budget de scroll jusqu'à x6 sans GPU, l'accessibilité (`role=grid`, focus, lecteurs d'écran) y est native, et un seul moteur de rendu est à maintenir. Point faible à surveiller : scroll diagonal à x6 (~30 i/s) et clic (max 224 ms à x6).
+2. **Le canvas est le repli**, à n'envisager que si le banc P3 sur un poste réel avec GPU montre que A2 rate le budget. Dans ce cas, le canvas devra être mesuré sur ce même poste (le résultat défavorable de B ci-dessus est possiblement dû à l'absence de GPU).
+3. Le moteur de layout TypeScript pur (commun à A et B) reste valable et indépendant du choix de rendu.
+4. **Décision à confirmer** lors du benchmark de la phase P3 : fixer un poste de référence (CPU, RAM, GPU) et y mesurer A2. Ce choix amende ADR-001 n°9 (« canvas + overlay DOM ») et confirme la direction DOM d'ADR-002.
+
+## 9. Recommandation du premier tour (périmée, conservée pour trace)
+
+> Remplacée par la section 8 : elle reposait sur un A non optimisé et un B sans DPR 2 ni accessibilité.
 
 1. **Le DOM seul (A) ne tient pas le budget de façon robuste** : il passe sur une machine de développement rapide (marge d'un facteur ~2 sur le coût JS de rendu) et échoue à x4 de ralentissement CPU, sur le scroll, le zoom et l'INP du clic. Ces chiffres ne prouvent pas que des optimisations (réutilisation des nœuds, suppression des réécritures de style, transform au lieu de left/top, en-tête par canvas ou CSS) ne suffiraient pas ; **elles n'ont pas été essayées**.
 2. **Le canvas (B) a un coût de rendu environ 10x plus faible et une courbe plate** sous ralentissement, au prix de l'accessibilité et de l'édition sur place, que l'ADR-002 §6 cherchait à préserver.
 3. Recommandation : **conserver l'architecture de l'ADR-001 n°9 « canvas + overlay DOM »** (qui est aussi celle de la phase P3 de la factory) : grille et blocs en canvas ; DOM uniquement pour le bloc focalisé / en édition, les poignées, le popover, et un arbre `role=grid` / `aria` réduit pour les lecteurs d'écran. Le moteur de layout TypeScript pur (commun à A et B dans ce spike) reste valable tel quel. Le choix final dépend du **poste cible** : si le plancher matériel est un poste rapide avec GPU, un A optimisé reste envisageable et plus simple pour l'accessibilité.
 4. À faire avant P3 (non fait ici) : mesurer sur un vrai poste avec GPU et DPR 2, essayer un A optimisé avec le même banc (`bench/run.mjs`), tester le canvas avec accessibilité, 500+ personnes et 36 mois. Fixer un matériel de référence dans le critère P3 : « 60 fps » sans machine de référence n'est pas vérifiable.
 
-## 8. Bibliothèques : versions et licences (vérifiées le 2026-10-18 via `npm view`)
+## 10. Bibliothèques : versions et licences (vérifiées le 2026-10-18 via `npm view`)
 
 | Paquet | Version | Licence |
 |---|---|---|
@@ -129,7 +163,7 @@ A fait un zoom en détruisant puis recréant toutes les lignes visibles (non opt
 
 Toutes permissives. Le moteur de layout, lui, n'a aucune dépendance. Les licences sont celles déclarées par le registre npm ; seuls les fichiers LICENSE de TanStack, Playwright, TypeScript, Vite et `@lingui/core` ont été ouverts, pas ceux des dépendances transitives.
 
-## 9. i18n : FormatJS vs Lingui
+## 11. i18n : FormatJS vs Lingui
 
 Sources : `npm view`, API de téléchargements npm, bundles de test construits dans un dossier temporaire (hors dépôt). Fichiers de test jetables, ne pas les considérer comme un benchmark.
 

@@ -78,7 +78,7 @@ Barre de charge par cellule/colonne (fine, en bas de cellule) + jauge récapitul
 | Limite | = 100 % exact | vert plein | — |
 | Sur-allocation | > 100 % | rouge `#D32F2F` + trait supérieur hachuré + icône ▲ | « +2 h » affiché |
 | Dispo = 0 (congé plein/férié) | n/a | cellule grisée + motif | libellé congé |
-Note : le dossier §4.1 parle de vert/orange/rouge ; définir clairement orange = 90–100 % (limite) vs rouge > 100 %. **[IMPORTANT]** (à valider PM, cf. §6).
+Note : le dossier §4.1 parle de vert/orange/rouge ; définir clairement orange = 90–100 % (limite) vs rouge > 100 %. **[IMPORTANT]** (à valider PM, cf. §6). *Orange 90–100 % non retenu : seuils décidés le 2026-10-18 (sous < 80 %, paramétrable par compte ; sur > 100 %, fixe).*
 - Le surbooking est « non intrusif mais identifiable » : pas de modal ni de bandeau, uniquement bordure/hachures + compteur dans l'en-tête de ligne ; clic sur l'icône ⇒ liste des allocations en conflit + actions (« Déplacer », « Réduire », « Trouver quelqu'un »).
 - Heures de la personne : calcul via `daily_capacity()` serveur ; le client ne recalcule que l'optimiste (delta local), réconcilié par le push serveur.
 

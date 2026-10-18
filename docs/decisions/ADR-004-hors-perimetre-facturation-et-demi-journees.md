@@ -48,7 +48,7 @@ Règle d'interface : la popin affiche toujours **les deux champs, liés** (heure
 
 Sur un bloc multi-jours dont la capacité varie (jours de 8 h et de 6 h), la valeur dérivée est indicative (« ≈ ») et calculée pour le jour de référence ; le calcul de charge reste fait jour par jour (`daily_planned_load`).
 
-Différence de comportement à connaître : une allocation en heures reste identique si la capacité du jour change (congé, férié) ; une allocation en % suit la capacité. Si le comportement unique « tout en heures » est préféré (plus simple, `percent` supprimé), c'est une décision à prendre ; elle ferait perdre le suivi de la capacité.
+Différence de comportement à connaître : une allocation en heures reste identique si la capacité du jour change (congé, férié) ; une allocation en % suit les heures ouvrées contractuelles du jour (base brute), pas la disponibilité nette après congés et fériés. Si le comportement unique « tout en heures » est préféré (plus simple, `percent` supprimé), c'est une décision à prendre ; elle ferait perdre le suivi des heures ouvrées du jour.
 
 ## Impacts reportés
 

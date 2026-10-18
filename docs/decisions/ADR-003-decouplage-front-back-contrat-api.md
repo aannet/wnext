@@ -1,6 +1,6 @@
 # ADR-003 — Découplage front/back et contrat d'API
 
-Statut : proposé (principes à valider ; outils marqués **[proposé]** à confirmer avant P0).
+Statut : **accepté** (décision du CPTO, 2026-10-18). Les éléments marqués **[proposé]** restent à confirmer en P0 ; le choix d'outillage (voir « Questions ouvertes ») est décidé sous réserve de vérification des versions.
 Complète : ADR-001 n°9 (stack), ADR-002 (moteur de layout partagé), `docs/factory/strategy.md` §4.
 
 ## 1. Principe
@@ -42,7 +42,7 @@ Règle d'import vérifiée en CI (lint de frontières) : `apps/web` ne peut pas 
 - Messages WebSocket décrits par des schémas versionnés dans `contracts` (comme le contrat d'événements de la factory).
 - Source : outbox `change_log`. Chaque message porte un curseur monotone ; à la reconnexion, le client reprend depuis son dernier curseur, ou recharge la fenêtre visible si le curseur est trop ancien.
 - Les mutations passent par REST ; le WebSocket ne fait que diffuser (pas d'écriture par le canal).
-- **Reste ouvert (avant P1)** : stratégie de conflit (dernier écrit gagne vs versionnage optimiste par `modified_at`/version).
+- **Stratégie de conflit (décidée, 2026-10-18) : versionnage optimiste.** Chaque entité modifiable porte une version (ETag) ; une écriture sur une version périmée est refusée en `409` avec un code d'erreur stable, et le client recharge puis rejoue. Cohérent avec `docs/factory/strategy.md` P2 (ETag/409). Le détail (colonne de version vs `modified_at`, entités concernées, ce qui reste en dernier écrit gagne) est à spécifier en P1/P2.
 
 ## 6. Tests de contrat
 
@@ -66,7 +66,7 @@ Règle d'import vérifiée en CI (lint de frontières) : `apps/web` ne peut pas 
 
 ## Questions ouvertes
 
-- Outil de génération (Zod → OpenAPI → client) : choix à faire en P0.
-- Stratégie de conflit temps réel (voir §5).
+- Outil de génération (Zod → OpenAPI → client) : **décidé le 2026-10-18** : Fastify + type provider Zod + génération OpenAPI, spec commitée, client TS généré depuis la spec. Paquets, versions et compatibilité Zod/Fastify **à confirmer** (vérification en cours, voir `docs/decisions/questions-ouvertes-avant-p1.md`).
+- ~~Stratégie de conflit temps réel~~ : décidée (voir §5).
 - Existence et authentification d'une API publique (jetons `api_tokens`, absents du schéma v1.1).
 - Les mentions « aligné sur Float API v3 » du dossier v1.0 et de `schema.sql` deviennent caduques : à retirer lors de la mise à jour du dossier.

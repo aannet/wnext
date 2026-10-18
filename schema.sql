@@ -409,7 +409,7 @@ CREATE TABLE allocations (
   end_date        DATE NOT NULL CHECK (end_date >= start_date),
   mode            allocation_mode NOT NULL DEFAULT 'hours',
   hours_per_day   NUMERIC(4,2),            -- requis (et seul) si mode = 'hours'
-  percent         NUMERIC(5,2),            -- requis (et seul) si mode = 'percentage' ; base = capacité BRUTE du jour (Q-04 ouverte)
+  percent         NUMERIC(5,2),            -- requis (et seul) si mode = 'percentage' ; base = capacité BRUTE du jour (Q-04, décidé 2026-10-18)
   status          allocation_status NOT NULL DEFAULT 'confirmed',
   billable        BOOLEAN NOT NULL DEFAULT TRUE,
   priority        SMALLINT NOT NULL DEFAULT 0,
@@ -728,7 +728,7 @@ $$;
 -- Les jours non ouvrés sont ignorés ; fériés et congés NE retirent PAS la charge
 -- (elle apparaît en sur-allocation). Tentatif effectif = allocation OU projet tentatif (BR-20).
 -- Facturable = allocation ET projet/phase/tâche facturables ET confirmé (BR-21, BR-13).
--- mode percentage : % x heures ouvrées BRUTES du jour.
+-- mode percentage : % x heures ouvrées BRUTES du jour (base brute décidée, Q-04 ; l'alerte compare à la capacité nette, BR-38).
 CREATE FUNCTION daily_planned_load(p_account_id BIGINT, p_from DATE, p_to DATE)
 RETURNS TABLE (person_id BIGINT, day DATE, planned_hours NUMERIC, tentative_hours NUMERIC, billable_hours NUMERIC)
 LANGUAGE plpgsql STABLE AS $$
@@ -820,7 +820,7 @@ END $$;
 -- Utilisation (remplace la vue v_utilization, qui ne pouvait pas être paramétrée).
 --  * overtime_hours = max(planifié - capacité nette, 0) (BR-03/BR-38) : > 0 même à capacité 0.
 --  * utilization NULL si capacité 0 ; is_overbooked reste TRUE si planifié > capacité (jamais masqué).
---  * Inclut les heures tentatives dans planned_hours (décomposées dans tentative_hours) ; Q-02 ouverte.
+--  * Inclut les heures tentatives dans planned_hours (décomposées dans tentative_hours) ; Q-01 décidé 2026-10-18.
 --  * Personnes inactives exclues (capacité calculée pour les actives seulement).
 CREATE FUNCTION utilization(p_account_id BIGINT, p_from DATE, p_to DATE)
 RETURNS TABLE (person_id BIGINT, day DATE, capacity_hours NUMERIC, planned_hours NUMERIC,
@@ -902,7 +902,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO app_user;
 -- 2. BR-04 : aucun trigger/cascade ne touche aux allocations sur congé (avertir + replanifier côté app).
 -- 3. Facturation du produit : hors périmètre (ADR-004) ; aucune notion de plan ni de siège.
 -- 4. Heures stockées en décimal ; arrondi d'affichage côté client.
--- 5. Ouvert (hors baseline) : heures tentatives dans la charge (Q-02), base du % (Q-04),
---    granularité/verrou des périodes de timesheet (Q-06), 
+-- 5. Ouvert (hors baseline) : heures tentatives dans la charge (Q-01) et base du % (Q-04) sont décidées (2026-10-18) ;
+--    reste ouverte : granularité/verrou des périodes de timesheet (Q-05), 
 --    change_log (outbox temps réel), api_tokens et historisation à effet daté (BR-19).
 -- ============================================================
