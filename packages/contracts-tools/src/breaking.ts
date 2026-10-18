@@ -66,9 +66,25 @@ export function findBreakingChanges(base: Json, next: Json): string[] {
         }
         cmpSchema(resp.content?.["application/json"]?.schema, nresp.content?.["application/json"]?.schema, base, next, `${id} ${code}`, out, new Set());
       }
-      const baseParams = new Set((op.parameters ?? []).map((p: Json) => `${p.in}:${p.name}`));
-      for (const p of nop.parameters ?? []) {
-        if (p.required && !baseParams.has(`${p.in}:${p.name}`)) out.push(`${id} : nouveau parametre requis ${p.in}:${p.name}`);
+      const key = (p: Json) => `${p.in}:${p.name}`;
+      const baseParams = new Map<string, Json>((op.parameters ?? []).map((p: Json) => [key(p), p]));
+      const nextParams = new Map<string, Json>((nop.parameters ?? []).map((p: Json) => [key(p), p]));
+      for (const [k, p] of nextParams) {
+        if (p.required && !baseParams.has(k)) out.push(`${id} : nouveau parametre requis ${k}`);
+      }
+      for (const [k, p] of baseParams) {
+        const n = nextParams.get(k);
+        if (!n) {
+          out.push(`${id} : parametre supprime ${k}`);
+          continue;
+        }
+        if (n.required && !p.required) out.push(`${id} : ${k} : devient requis`);
+        if (JSON.stringify(p.schema?.type) !== JSON.stringify(n.schema?.type)) {
+          out.push(`${id} : ${k} : type ${JSON.stringify(p.schema?.type)} -> ${JSON.stringify(n.schema?.type)}`);
+        }
+        // Cote requete, retirer une valeur acceptee casse les clients existants (l'inverse est compatible).
+        const gone = (p.schema?.enum ?? []).filter((v: unknown) => !(n.schema?.enum ?? []).includes(v));
+        if (p.schema?.enum && gone.length) out.push(`${id} : ${k} : valeur(s) d'enum retiree(s) ${JSON.stringify(gone)}`);
       }
     }
   }

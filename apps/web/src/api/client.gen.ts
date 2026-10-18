@@ -24,6 +24,16 @@ export type Fetcher = (url: string, init: { method: string; headers?: Record<str
 
 export type ApiResult<T, E> = { ok: true; status: number; data: T } | { ok: false; status: number; error: E };
 
+/** Valeurs indefinies omises ; un tableau repete la cle (?tag=a&tag=b). */
+function toQueryString(query: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined) continue;
+    for (const item of Array.isArray(value) ? value : [value]) parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(item))}`);
+  }
+  return parts.length ? `?${parts.join("&")}` : "";
+}
+
 export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
   return {
     /** Etat du service (GET /api/v1/health) */

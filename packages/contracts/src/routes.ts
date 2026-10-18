@@ -9,6 +9,8 @@ export interface RouteContract {
   path: string;
   operationId: string;
   summary: string;
+  /** Parametres de requete (valeurs scalaires ou tableaux de scalaires). */
+  query?: z.ZodObject;
   responses: Record<number, { description: string; schema: z.ZodType }>;
 }
 

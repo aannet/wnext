@@ -41,6 +41,22 @@ function objectType(s: Json, indent: string): string {
   return lines.length ? `{\n${lines.join("\n")}\n${indent}}` : "Record<string, never>";
 }
 
+type Param = { name: string; in: string; required?: boolean; schema: Json };
+
+/** Parametres de requete d'une operation. Chemin, en-tete et cookie ne sont pas supportes : erreur explicite. */
+function queryParams(op: Json, where: string): Param[] {
+  const params: Param[] = op.parameters ?? [];
+  for (const p of params) {
+    if (p.in !== "query") throw new Error(`parametre ${p.in}:${p.name} non supporte par le generateur de client (${where})`);
+  }
+  return params;
+}
+
+function queryType(params: Param[]): string {
+  const lines = params.map((p) => `      ${/^[A-Za-z_$][\w$]*$/.test(p.name) ? p.name : JSON.stringify(p.name)}${p.required ? "" : "?"}: ${tsType(p.schema)};`);
+  return `{\n${lines.join("\n")}\n    }`;
+}
+
 const jsonSchema = (r: Json): Json | undefined => r?.content?.["application/json"]?.schema;
 
 export function generateClient(spec: Json): string {
@@ -62,6 +78,16 @@ export function generateClient(spec: Json): string {
     "",
     "export type ApiResult<T, E> = { ok: true; status: number; data: T } | { ok: false; status: number; error: E };",
     "",
+    "/** Valeurs indefinies omises ; un tableau repete la cle (?tag=a&tag=b). */",
+    "function toQueryString(query: Record<string, unknown>): string {",
+    "  const parts: string[] = [];",
+    "  for (const [key, value] of Object.entries(query)) {",
+    "    if (value === undefined) continue;",
+    "    for (const item of Array.isArray(value) ? value : [value]) parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(item))}`);",
+    "  }",
+    "  return parts.length ? `?${parts.join(\"&\")}` : \"\";",
+    "}",
+    "",
     "export function createClient(options: { baseUrl: string; fetch: Fetcher }) {",
     "  return {",
   );
@@ -75,12 +101,16 @@ export function generateClient(spec: Json): string {
         const t = s ? tsType(s) : "void";
         (/^2/.test(code) ? ok : err).push(t);
       }
+      const params = queryParams(op, `${method.toUpperCase()} ${path}`);
+      const allOptional = params.every((p) => !p.required);
+      const arg = params.length ? `query: ${queryType(params)}${allOptional ? " = {}" : ""}` : "";
+      const url = params.length ? `options.baseUrl + ${JSON.stringify(path)} + toQueryString(query)` : `options.baseUrl + ${JSON.stringify(path)}`;
       const okT = ok.join(" | ") || "void";
       const errT = err.join(" | ") || "never";
       out.push(
         `    /** ${op.summary ?? op.operationId} (${method.toUpperCase()} ${path}) */`,
-        `    async ${op.operationId}(): Promise<ApiResult<${okT}, ${errT}>> {`,
-        `      const res = await options.fetch(options.baseUrl + ${JSON.stringify(path)}, { method: ${JSON.stringify(method.toUpperCase())}, headers: { accept: "application/json" } });`,
+        `    async ${op.operationId}(${arg}): Promise<ApiResult<${okT}, ${errT}>> {`,
+        `      const res = await options.fetch(${url}, { method: ${JSON.stringify(method.toUpperCase())}, headers: { accept: "application/json" } });`,
         `      const body = await res.json();`,
         `      return res.status >= 200 && res.status < 300`,
         `        ? { ok: true, status: res.status, data: body as ${okT} }`,

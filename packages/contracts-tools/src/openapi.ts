@@ -14,6 +14,7 @@ export function buildSpec(): Record<string, unknown> {
       path: r.path,
       operationId: r.operationId,
       summary: r.summary,
+      request: r.query ? { query: r.query } : undefined,
       responses: Object.fromEntries(
         Object.entries(r.responses).map(([code, v]) => [
           code,
