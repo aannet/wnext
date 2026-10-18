@@ -144,16 +144,47 @@ Action : arrêt, snapshot du contexte, Dépanneur, changement de stratégie (mod
 
 ### 4.7 CODEOWNERS (revue humaine obligatoire)
 ```
+# CODEOWNERS de WNEXT (strategy.md §4.7, ADR-003 §7).
+#
+# Revue humaine obligatoire sur ces chemins. Les agents de la factory
+# (Architecte, Implémenteur, Intégrateur, Testeur, etc.) n'ont PAS le rôle
+# d'approbation sur ces chemins : une PR qui les touche ne peut pas être
+# mergée sans approbation d'un humain listé ci-dessous. L'Intégrateur ne merge
+# pas sans cette approbation.
+#
+# Les comptes @po-metier, @ai-engineer, @dba-humain et @securite sont des
+# PLACEHOLDERS : à remplacer par de vrais comptes ou équipes GitHub avant
+# d'activer la protection de branche.
+#
+# Écarts avec strategy §4.7 (chemins transposés à l'arborescence réelle) :
+#   /contracts/          : absent ; le paquet réel est /packages/contracts/ (ADR-003 §2).
+#   /packages/rules/     : absent ; pas de paquet "rules" dans ADR-003 §2. Non déclaré, à décider.
+#   /packages/auth/      : absent du repo et de ADR-003 §2 (aucun paquet auth prévu). Non déclaré, à décider.
+#   /docs/adr/           : remplacé par /docs/decisions/ (chemin réel des ADR).
+#   /CODEOWNERS          : remplacé par /.github/CODEOWNERS (emplacement réel du fichier).
+#   /.github/  /factory/ : scindé en deux lignes (un motif par ligne dans CODEOWNERS).
+#
+# Note : /.github/CODEOWNERS est repris explicitement ; sa règle est la dernière
+# qui correspond, elle ne demande donc que @cpto (comme la stratégie).
+
+# Données et sécurité
 /db/migrations/        @cpto @dba-humain
 /db/rls/               @cpto @securite
-/packages/auth/        @cpto @securite
-/packages/rules/       @cpto @po-metier
-/tests/critical/       @cpto @po-metier
-/contracts/            @cpto
+
+# Moteur de capacité (critique) et contrat d'API
 /packages/contracts/   @cpto
-/docs/adr/             @cpto
-/.github/  /factory/   @cpto @ai-engineer
-/CODEOWNERS            @cpto
+/packages/engine/      @cpto
+
+# Décisions d'architecture
+/docs/decisions/       @cpto
+
+# Tests critiques
+/tests/critical/       @cpto @po-metier
+
+# Factory (pipeline d'agents, garde-fous, CI)
+/.github/              @cpto @ai-engineer
+/factory/              @cpto @ai-engineer
+/.github/CODEOWNERS    @cpto
 ```
 Les agents n'ont pas le rôle d'approbation sur ces chemins ; l'Intégrateur ne merge pas sans l'approbation humaine, qui peut être **groupée** par lot pour limiter les interruptions (une revue par ligne sensible, jamais par commit). Le comptage du temps humain est une métrique (§6).
 
