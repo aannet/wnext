@@ -43,7 +43,9 @@
         "enum": [
           "INTERNAL_ERROR",
           "VALIDATION_FAILED",
-          "UNAUTHENTICATED"
+          "UNAUTHENTICATED",
+          "SCHEDULE_RANGE_INVALID",
+          "SCHEDULE_CURSOR_INVALID"
         ]
       },
       "HealthResponse": {
@@ -64,6 +66,745 @@
           "status",
           "version"
         ]
+      },
+      "ScheduleResponse": {
+        "type": "object",
+        "properties": {
+          "window": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              "to": {
+                "$ref": "#/components/schemas/IsoDate"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ]
+          },
+          "changeCursor": {
+            "type": "string",
+            "description": "Position du journal change_log à la lecture ; point de reprise du WebSocket"
+          },
+          "page": {
+            "$ref": "#/components/schemas/SchedulePage"
+          },
+          "account": {
+            "$ref": "#/components/schemas/ScheduleAccount"
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SchedulePerson"
+            }
+          },
+          "allocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleAllocation"
+            },
+            "description": "Allocations de la page recoupant la fenêtre (séries répétées incluses)"
+          },
+          "timeoffs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleTimeoff"
+            }
+          },
+          "holidays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleHoliday"
+            },
+            "description": "Tous les fériés du compte dans la fenêtre ; le moteur applique pays et département"
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleProject"
+            },
+            "description": "Projets référencés par les allocations renvoyées"
+          },
+          "timeoffTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleTimeoffType"
+            }
+          },
+          "departments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleDepartment"
+            }
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleRole"
+            }
+          }
+        },
+        "required": [
+          "window",
+          "changeCursor",
+          "page",
+          "account",
+          "people",
+          "allocations",
+          "timeoffs",
+          "holidays",
+          "projects",
+          "timeoffTypes",
+          "departments",
+          "roles"
+        ]
+      },
+      "IsoDate": {
+        "type": "string",
+        "format": "date",
+        "description": "Jour AAAA-MM-JJ, sans fuseau"
+      },
+      "SchedulePage": {
+        "type": "object",
+        "properties": {
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "null = dernière page"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Nombre total de personnes correspondant aux filtres"
+          }
+        },
+        "required": [
+          "nextCursor",
+          "total"
+        ]
+      },
+      "ScheduleAccount": {
+        "type": "object",
+        "properties": {
+          "weekStart": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7,
+            "description": "Premier jour affiché, ISO : 1 = lundi ... 7 = dimanche (affichage seulement)"
+          },
+          "capacityThresholds": {
+            "type": "object",
+            "properties": {
+              "underPercent": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "underPercent"
+            ],
+            "description": "Seuil de sous-allocation du compte ; la sur-allocation est fixe à 100 %"
+          }
+        },
+        "required": [
+          "weekStart",
+          "capacityThresholds"
+        ]
+      },
+      "SchedulePerson": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "name": {
+            "type": "string"
+          },
+          "peopleType": {
+            "$ref": "#/components/schemas/SchedulePeopleType"
+          },
+          "departmentId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "roleId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Z]{2}$",
+            "description": "ISO 3166-1 alpha-2 ; null = aucun férié de pays"
+          },
+          "workDaysHours": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 24
+            },
+            "description": "Heures ouvrées par jour, index 0 = lundi ... 6 = dimanche"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "name",
+          "peopleType",
+          "departmentId",
+          "roleId",
+          "country",
+          "workDaysHours",
+          "tags",
+          "avatarUrl",
+          "active"
+        ]
+      },
+      "Id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Identifiant opaque (chaîne)"
+      },
+      "Version": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Version de l'entité (verrou optimiste)"
+      },
+      "SchedulePeopleType": {
+        "type": "string",
+        "enum": [
+          "employee",
+          "contractor",
+          "placeholder"
+        ]
+      },
+      "ScheduleAllocation": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "version": {
+                "$ref": "#/components/schemas/Version"
+              },
+              "personId": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "phaseId": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "taskId": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "groupId": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Allocation multi-personnes : lignes liées par un même groupe (BR-26)"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "startDate": {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              "endDate": {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "tentative",
+                  "confirmed"
+                ]
+              },
+              "billable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "type": "integer"
+              },
+              "repeatState": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "daily",
+                  "weekly",
+                  "monthly"
+                ]
+              },
+              "repeatEndDate": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/IsoDate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Fin de série ; null si repeatState = none"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "hours"
+                ]
+              },
+              "hoursPerDay": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 24
+              },
+              "percent": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "id",
+              "version",
+              "personId",
+              "projectId",
+              "phaseId",
+              "taskId",
+              "groupId",
+              "name",
+              "notes",
+              "startDate",
+              "endDate",
+              "status",
+              "billable",
+              "priority",
+              "repeatState",
+              "repeatEndDate",
+              "mode",
+              "hoursPerDay",
+              "percent"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "version": {
+                "$ref": "#/components/schemas/Version"
+              },
+              "personId": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "phaseId": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "taskId": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "groupId": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Allocation multi-personnes : lignes liées par un même groupe (BR-26)"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "startDate": {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              "endDate": {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "tentative",
+                  "confirmed"
+                ]
+              },
+              "billable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "type": "integer"
+              },
+              "repeatState": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "daily",
+                  "weekly",
+                  "monthly"
+                ]
+              },
+              "repeatEndDate": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/IsoDate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Fin de série ; null si repeatState = none"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "percentage"
+                ]
+              },
+              "hoursPerDay": {
+                "type": "null"
+              },
+              "percent": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 500
+              }
+            },
+            "required": [
+              "id",
+              "version",
+              "personId",
+              "projectId",
+              "phaseId",
+              "taskId",
+              "groupId",
+              "name",
+              "notes",
+              "startDate",
+              "endDate",
+              "status",
+              "billable",
+              "priority",
+              "repeatState",
+              "repeatEndDate",
+              "mode",
+              "hoursPerDay",
+              "percent"
+            ]
+          }
+        ]
+      },
+      "ScheduleTimeoff": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "personId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "typeId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "startDate": {
+            "$ref": "#/components/schemas/IsoDate"
+          },
+          "endDate": {
+            "$ref": "#/components/schemas/IsoDate"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "full_day",
+              "partial"
+            ]
+          },
+          "startHalf": {
+            "type": "string",
+            "enum": [
+              "am",
+              "pm"
+            ]
+          },
+          "endHalf": {
+            "type": "string",
+            "enum": [
+              "am",
+              "pm"
+            ]
+          },
+          "hoursPerDay": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "maximum": 24,
+            "description": "Renseigné seulement si scope = partial"
+          },
+          "approvalStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "declined"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "personId",
+          "typeId",
+          "startDate",
+          "endDate",
+          "scope",
+          "startHalf",
+          "endHalf",
+          "hoursPerDay",
+          "approvalStatus"
+        ]
+      },
+      "ScheduleHoliday": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "date": {
+            "$ref": "#/components/schemas/IsoDate"
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Z]{2}$",
+            "description": "null = tous pays"
+          },
+          "departmentId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = tous départements"
+          },
+          "hoursOff": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "maximum": 24,
+            "description": "null = journée entière"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "date",
+          "country",
+          "departmentId",
+          "hoursOff"
+        ]
+      },
+      "ScheduleProject": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "projectCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "tentative",
+              "planned",
+              "in_progress",
+              "on_hold",
+              "completed",
+              "archived"
+            ]
+          },
+          "nonBillable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "projectCode",
+          "color",
+          "status",
+          "nonBillable"
+        ]
+      },
+      "ScheduleTimeoffType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "deducted": {
+            "type": "boolean",
+            "description": "Déduit de la capacité"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "deducted"
+        ]
+      },
+      "ScheduleDepartment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "ScheduleRole": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
       }
     },
     "parameters": {}
@@ -80,6 +821,155 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedule": {
+      "get": {
+        "operationId": "getSchedule",
+        "summary": "Fenetre du Schedule (personnes, allocations, conges, feries, projets)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Début de la fenêtre (inclus)"
+            },
+            "required": true,
+            "description": "Début de la fenêtre (inclus)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Fin de la fenêtre (incluse). 400 jours au plus, sinon SCHEDULE_RANGE_INVALID"
+            },
+            "required": true,
+            "description": "Fin de la fenêtre (incluse). 400 jours au plus, sinon SCHEDULE_RANGE_INVALID",
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Seulement les personnes de ce département"
+            },
+            "required": false,
+            "description": "Seulement les personnes de ce département",
+            "name": "departmentId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Seulement les personnes de ce rôle"
+            },
+            "required": false,
+            "description": "Seulement les personnes de ce rôle",
+            "name": "roleId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Seulement les personnes allouées à ce projet dans la fenêtre (leurs autres allocations restent renvoyées)"
+            },
+            "required": false,
+            "description": "Seulement les personnes allouées à ce projet dans la fenêtre (leurs autres allocations restent renvoyées)",
+            "name": "projectId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Seulement les personnes portant ce tag"
+            },
+            "required": false,
+            "description": "Seulement les personnes portant ce tag",
+            "name": "tag",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "boolean",
+              "description": "Inclure les personnes désactivées (défaut : non)"
+            },
+            "required": false,
+            "description": "Inclure les personnes désactivées (défaut : non)",
+            "name": "includeInactive",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Personnes par page (défaut 200)"
+            },
+            "required": false,
+            "description": "Personnes par page (défaut 200)",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Curseur de page renvoyé par page.nextCursor"
+            },
+            "required": false,
+            "description": "Curseur de page renvoyé par page.nextCursor",
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fenetre demandee",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (VALIDATION_FAILED, SCHEDULE_RANGE_INVALID, SCHEDULE_CURSOR_INVALID)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }

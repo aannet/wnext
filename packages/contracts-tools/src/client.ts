@@ -106,8 +106,8 @@ export function generateClient(spec: Json): string {
       const allOptional = params.every((p) => !p.required);
       const arg = params.length ? `query: ${queryType(params)}${allOptional ? " = {}" : ""}` : "";
       const url = params.length ? `options.baseUrl + ${JSON.stringify(path)} + toQueryString(query)` : `options.baseUrl + ${JSON.stringify(path)}`;
-      const okT = ok.join(" | ") || "void";
-      const errT = err.join(" | ") || "never";
+      const okT = [...new Set(ok)].join(" | ") || "void";
+      const errT = [...new Set(err)].join(" | ") || "never";
       out.push(
         `    /** ${op.summary ?? op.operationId} (${method.toUpperCase()} ${path}) */`,
         `    async ${op.operationId}(${arg}): Promise<ApiResult<${okT}, ${errT}>> {`,

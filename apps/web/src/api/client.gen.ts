@@ -9,11 +9,153 @@ export interface ApiError {
   requestId: string;
 }
 
-export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED";
+export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID";
 
 export interface HealthResponse {
   status: "ok" | "degraded";
   version: string;
+}
+
+export interface ScheduleResponse {
+  window: {
+    from: IsoDate;
+    to: IsoDate;
+  };
+  changeCursor: string;
+  page: SchedulePage;
+  account: ScheduleAccount;
+  people: Array<SchedulePerson>;
+  allocations: Array<ScheduleAllocation>;
+  timeoffs: Array<ScheduleTimeoff>;
+  holidays: Array<ScheduleHoliday>;
+  projects: Array<ScheduleProject>;
+  timeoffTypes: Array<ScheduleTimeoffType>;
+  departments: Array<ScheduleDepartment>;
+  roles: Array<ScheduleRole>;
+}
+
+export type IsoDate = string;
+
+export interface SchedulePage {
+  nextCursor: string | null;
+  total: number;
+}
+
+export interface ScheduleAccount {
+  weekStart: number;
+  capacityThresholds: {
+    underPercent: number;
+  };
+}
+
+export interface SchedulePerson {
+  id: Id;
+  version: Version;
+  name: string;
+  peopleType: SchedulePeopleType;
+  departmentId: Id | null;
+  roleId: Id | null;
+  country: string | null;
+  workDaysHours: Array<number>;
+  tags: Array<string>;
+  avatarUrl: string | null;
+  active: boolean;
+}
+
+export type Id = string;
+
+export type Version = number;
+
+export type SchedulePeopleType = "employee" | "contractor" | "placeholder";
+
+export type ScheduleAllocation = {
+  id: Id;
+  version: Version;
+  personId: Id;
+  projectId: Id;
+  phaseId: Id | null;
+  taskId: Id | null;
+  groupId: Id | null;
+  name: string | null;
+  notes: string | null;
+  startDate: IsoDate;
+  endDate: IsoDate;
+  status: "tentative" | "confirmed";
+  billable: boolean;
+  priority: number;
+  repeatState: "none" | "daily" | "weekly" | "monthly";
+  repeatEndDate: IsoDate | null;
+  mode: "hours";
+  hoursPerDay: number;
+  percent: null;
+} | {
+  id: Id;
+  version: Version;
+  personId: Id;
+  projectId: Id;
+  phaseId: Id | null;
+  taskId: Id | null;
+  groupId: Id | null;
+  name: string | null;
+  notes: string | null;
+  startDate: IsoDate;
+  endDate: IsoDate;
+  status: "tentative" | "confirmed";
+  billable: boolean;
+  priority: number;
+  repeatState: "none" | "daily" | "weekly" | "monthly";
+  repeatEndDate: IsoDate | null;
+  mode: "percentage";
+  hoursPerDay: null;
+  percent: number;
+};
+
+export interface ScheduleTimeoff {
+  id: Id;
+  version: Version;
+  personId: Id;
+  typeId: Id;
+  startDate: IsoDate;
+  endDate: IsoDate;
+  scope: "full_day" | "partial";
+  startHalf: "am" | "pm";
+  endHalf: "am" | "pm";
+  hoursPerDay: number | null;
+  approvalStatus: "pending" | "approved" | "declined";
+}
+
+export interface ScheduleHoliday {
+  id: Id;
+  name: string;
+  date: IsoDate;
+  country: string | null;
+  departmentId: Id | null;
+  hoursOff: number | null;
+}
+
+export interface ScheduleProject {
+  id: Id;
+  name: string;
+  projectCode: string | null;
+  color: string;
+  status: "tentative" | "planned" | "in_progress" | "on_hold" | "completed" | "archived";
+  nonBillable: boolean;
+}
+
+export interface ScheduleTimeoffType {
+  id: Id;
+  name: string;
+  deducted: boolean;
+}
+
+export interface ScheduleDepartment {
+  id: Id;
+  name: string;
+}
+
+export interface ScheduleRole {
+  id: Id;
+  name: string;
 }
 
 export interface FetchResponse {
@@ -42,6 +184,24 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as HealthResponse }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Fenetre du Schedule (personnes, allocations, conges, feries, projets) (GET /api/v1/schedule) */
+    async getSchedule(query: {
+      from: string;
+      to: string;
+      departmentId?: string;
+      roleId?: string;
+      projectId?: string;
+      tag?: string;
+      includeInactive?: boolean;
+      limit?: number;
+      cursor?: string;
+    }): Promise<ApiResult<ScheduleResponse, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/schedule" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleResponse }
         : { ok: false, status: res.status, error: body as ApiError };
     },
   };

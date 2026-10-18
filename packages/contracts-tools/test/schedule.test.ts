@@ -49,7 +49,8 @@ describe("route GET /api/v1/schedule", () => {
   });
   it("le client généré expose getSchedule avec from/to requis", () => {
     const src = generateClient(spec);
-    expect(src).toMatch(/async getSchedule\(query: \{\s+from: IsoDate;\s+to: IsoDate;/);
+    expect(src).toContain("Promise<ApiResult<ScheduleResponse, ApiError>>");
+    expect(src).toMatch(/async getSchedule\(query: \{\s+from: string;\s+to: string;/);
   });
 });
 
