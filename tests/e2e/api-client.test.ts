@@ -275,4 +275,29 @@ describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
     if (dup.ok) throw new Error("400 attendu");
     expect([dup.status, dup.error.params.field]).toEqual([400, "personIds"]);
   });
+
+  it("personnes : liste filtrée, lecture par id, projets d'une personne", async () => {
+    const api = client();
+    const created = await api.createPerson({ body: { name: "Zélie Lecture", tags: ["lecture"] } });
+    if (!created.ok) throw new Error("personne attendue");
+    const found = await api.listPeople({ search: "zélie", tag: "lecture" });
+    expect(found.ok && found.data.items.map((p) => p.id)).toEqual([created.data.id]);
+    const one = await api.getPerson({ path: { id: created.data.id } });
+    expect(one.ok && one.data).toEqual(created.data);
+
+    await api.updatePerson({ path: { id: created.data.id }, headers: { "If-Match": '"1"' }, body: { active: false } });
+    const hidden = await api.listPeople({ search: "zélie" });
+    const shown = await api.listPeople({ search: "zélie", includeInactive: true });
+    expect([hidden.ok && hidden.data.items.length, shown.ok && shown.data.items.length]).toEqual([0, 1]);
+
+    const proj = await api.createProject({ body: { name: "Projets de Zélie" } });
+    if (!proj.ok) throw new Error("projet attendu");
+    await api.addToTeam({ path: { projectId: proj.data.id, personId: created.data.id } });
+    const mine = await api.listPersonProjects({ path: { id: created.data.id } });
+    expect(mine.ok && mine.data.items.map((i) => [i.project.id, i.inTeam, i.allocationCount])).toEqual([[proj.data.id, true, 0]]);
+
+    const missing = await api.getPerson({ path: { id: "99999" } });
+    if (missing.ok) throw new Error("404 attendu");
+    expect([missing.status, missing.error.params.entity]).toEqual([404, "person"]);
+  });
 });

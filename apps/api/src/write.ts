@@ -19,6 +19,9 @@ export const notFound = (entity: string) => new ApiFailure("NOT_FOUND", { entity
 // Les identifiants sont des chaînes opaques ; un identifiant non numérique ne peut désigner aucune ligne.
 export const isId = (v: string) => /^\d{1,18}$/.test(v);
 
+/** Filtre par identifiant : une valeur non numérique est une requête invalide (400), pas une erreur de cast en base. */
+export const idParam = (field: string, v: string) => { if (!isId(v)) throw invalid(field); return v; };
+
 export const day = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v));
 
 /** Ligne verrouillée (FOR UPDATE) + contrôle de version dans la même transaction ; renvoie la ligne courante. `table` et `columns` sont des constantes du code. */

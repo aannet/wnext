@@ -3,7 +3,7 @@ import { withContext, type Db, type Queryable, type RequestContext } from "./db"
 import { ApiFailure } from "./failure";
 import { count, reader, remove } from "./reference";
 import type { Row } from "./schedule";
-import { assertWriter, day, invalid, isId, lockAndCheck, notFound } from "./write";
+import { assertWriter, day, idParam, invalid, isId, lockAndCheck, notFound } from "./write";
 
 // Clients, phases et tâches de projet (contrat : packages/contracts/src/project-structure.ts). Données de projet : owner, admin et
 // project_manager écrivent, tout membre lit. Même mécanique que reference.ts (verrou optimiste, suppression sans cascade silencieuse,
@@ -26,8 +26,6 @@ function translate(reference: string): (err: unknown) => never {
   };
 }
 
-/** Filtre par identifiant : une valeur non numérique est une requête invalide (400), pas une erreur de cast en base. */
-const idParam = (field: string, v: string) => { if (!isId(v)) throw invalid(field); return v; };
 const idOf = (v: unknown) => String(v);
 const orNullId = (v: unknown) => (v === null || v === undefined ? null : String(v));
 const orNullDay = (v: unknown) => (v === null || v === undefined ? null : day(v));

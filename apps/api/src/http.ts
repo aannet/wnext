@@ -1,10 +1,10 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
+import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonListQuery, PersonPatch, PersonProjectListQuery, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { createAllocation, deleteAllocation, updateAllocation } from "./allocations";
-import { createPerson, updatePerson } from "./people";
+import { createPerson, listPersonProjects, personReader, updatePerson } from "./people";
 import {
   createDepartment, createHoliday, createProject, createRole, createTimeoffType, deleteDepartment, deleteHoliday, deleteRole, deleteTimeoffType,
   departmentReader, holidayReader, projectReader, roleReader, timeoffTypeReader,
@@ -136,7 +136,7 @@ function resource<C, P>(def: {
 }
 const WRITE_RESOURCES: WriteResource[] = [
   resource({ pattern: /^\/api\/v1\/allocations(?:\/([^/]+))?$/, createSchema: AllocationCreate, patchSchema: AllocationPatch, create: createAllocation, update: updateAllocation, remove: deleteAllocation }),
-  resource({ pattern: /^\/api\/v1\/people(?:\/([^/]+))?$/, createSchema: PersonCreate, patchSchema: PersonPatch, create: createPerson, update: updatePerson }),
+  resource({ pattern: /^\/api\/v1\/people(?:\/([^/]+))?$/, read: { querySchema: PersonListQuery, list: personReader.list, get: personReader.get }, createSchema: PersonCreate, patchSchema: PersonPatch, create: createPerson, update: updatePerson }),
   resource({ pattern: /^\/api\/v1\/timeoffs(?:\/([^/]+))?$/, createSchema: TimeoffCreate, patchSchema: TimeoffPatch, create: createTimeoff, update: updateTimeoff, remove: deleteTimeoff }),
   resource({ adminOnly: true, pattern: /^\/api\/v1\/departments(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: departmentReader.list, get: departmentReader.get }, createSchema: DepartmentCreate, patchSchema: DepartmentPatch, create: createDepartment, update: updateDepartment, remove: deleteDepartment }),
   resource({ adminOnly: true, pattern: /^\/api\/v1\/roles(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: roleReader.list, get: roleReader.get }, createSchema: RoleCreate, patchSchema: RolePatch, create: createRole, update: updateRole, remove: deleteRole }),
@@ -162,6 +162,14 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId); // l'auth passe avant la validation : pas d'oracle pour un anonyme
       return { status: 200, body: await getSchedule(deps.db, ctx, parseQuery<ScheduleQueryT>(ScheduleQuery, url.searchParams)) };
+    }
+    const personProjects = /^\/api\/v1\/people\/([^/]+)\/projects$/.exec(url.pathname);
+    if (personProjects && req.method === "GET") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      let personId: string;
+      try { personId = decodeURIComponent(personProjects[1]!); } catch { personId = "%"; }
+      return { status: 200, body: await listPersonProjects(deps.db, ctx, personId, parseQuery(PersonProjectListQuery, url.searchParams) as { limit?: number; cursor?: string; status?: string }) };
     }
     const teamList = /^\/api\/v1\/projects\/([^/]+)\/team$/.exec(url.pathname);
     if (teamList && req.method === "POST") {

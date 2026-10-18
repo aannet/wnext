@@ -220,7 +220,7 @@ export async function updateProject(db: Db, ctx: RequestContext, id: string, exp
 export const DEFAULT_PAGE = 200;
 export const MAX_PAGE = 500;
 
-export interface ListQuery { limit?: number; cursor?: string; from?: string; to?: string; status?: string; projectId?: string; phaseId?: string }
+export interface ListQuery { limit?: number; cursor?: string; from?: string; to?: string; status?: string; projectId?: string; phaseId?: string; departmentId?: string; roleId?: string; tag?: string; search?: string; includeInactive?: boolean }
 export interface Reader<T> {
   list(db: Db, ctx: RequestContext, q: ListQuery): Promise<{ items: T[]; page: { nextCursor: string | null; total: number } }>;
   get(db: Db, ctx: RequestContext, id: string): Promise<T>;
