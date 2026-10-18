@@ -733,6 +733,20 @@ BEGIN
   RETURN v_n;
 END $$;
 
+-- Purge de delete_log, mêmes règles que purge_change_log : rétention >= 72 h (BR-14), conseillée 7 jours, rôle BYPASSRLS.
+-- Retourne le nombre de lignes purgées.
+CREATE FUNCTION purge_delete_log(p_retain INTERVAL DEFAULT INTERVAL '7 days') RETURNS BIGINT
+LANGUAGE plpgsql AS $$
+DECLARE v_n bigint;
+BEGIN
+  IF p_retain < INTERVAL '72 hours' THEN
+    RAISE EXCEPTION 'purge_delete_log : rétention < 72 h interdite (BR-14)' USING ERRCODE = '22023';
+  END IF;
+  DELETE FROM delete_log WHERE deleted_at < clock_timestamp() - p_retain;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN v_n;
+END $$;
+
 -- BR-12 / BR-28 / BR-27 portés par la base.
 --  * Une ligne non-draft est immuable (UPDATE/DELETE) sauf rôle app.role = owner|admin.
 --    Fermé par défaut : app.role absent => non admin.

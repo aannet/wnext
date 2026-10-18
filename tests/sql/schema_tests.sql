@@ -6,7 +6,7 @@
 -- Tout est dans une transaction annulée à la fin (aucune trace). Première
 -- assertion en échec => exception 'FAIL: <libellé>' et arrêt.
 -- Traçabilité : BR-01..03 (charge/capacité), BR-04, BR-05, BR-07, BR-10, BR-12,
--- BR-14 (delete_log, change_log), BR-15, BR-20/21, BR-25 (répétitions), BR-27, BR-28, BR-30, BR-32, BR-38.
+-- BR-14 (delete_log, change_log, purges), BR-15, BR-20/21, BR-25 (répétitions), BR-27, BR-28, BR-30, BR-32 (RLS, T16 et T18), BR-38.
 -- Calendrier de référence : 2026-03-02 = lundi (vérifié en T00).
 -- ============================================================
 BEGIN;
@@ -726,6 +726,165 @@ SELECT t.ok('T17v purge : lignes anciennes supprimées, récentes conservées',
 SELECT t.eq('T17w purged_through = plus grand seq purgé', (SELECT purged_through FROM account_change_seq WHERE account_id = t.id('C')), 3);
 INSERT INTO roles(account_id, name) VALUES (t.id('C'), 'Après purge');
 SELECT t.eq('T17x le seq continue après purge (6, pas de réutilisation)', t.head('C'), 6);
+
+-- ============================================================
+-- T18 RLS sur 100 % des tables (BR-32) : inventaire fermé et preuve par table
+-- ============================================================
+-- Toute table nouvelle doit être classée : à account_id (donc cloisonnée) ou globale (liste ci-dessous).
+SELECT t.ok('T18a seules users et accounts n ont pas d account_id',
+  (SELECT array_agg(c.relname::text ORDER BY c.relname) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind IN ('r','p','v','m')
+      AND NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'account_id' AND NOT a.attisdropped))
+  = ARRAY['accounts','users']);
+SELECT t.eq('T18b aucune vue ni vue matérialisée (une vue contournerait la RLS de l appelant)',
+  (SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind IN ('v','m')), 0);
+SELECT t.eq('T18c chaque table à account_id a la politique tenant_isolation (USING et WITH CHECK sur app_account_id())',
+  (SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname <> 'accounts'
+      AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'account_id' AND NOT a.attisdropped)
+      AND NOT EXISTS (SELECT 1 FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = c.relname
+                        AND p.policyname = 'tenant_isolation' AND p.cmd = 'ALL' AND p.permissive = 'PERMISSIVE'
+                        AND p.qual = '(account_id = app_account_id())' AND p.with_check = '(account_id = app_account_id())')), 0);
+SELECT t.ok('T18d seule politique supplémentaire : own_memberships (lecture seule de ses appartenances)',
+  (SELECT array_agg(tablename || '.' || policyname || ':' || cmd) FROM pg_policies
+    WHERE schemaname = 'public' AND policyname <> 'tenant_isolation') = ARRAY['account_members.own_memberships:SELECT']);
+SELECT t.eq('T18e aucune fonction SECURITY DEFINER (elle contournerait la RLS)',
+  (SELECT COUNT(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.prosecdef), 0);
+
+-- Compte Z : au moins une ligne dans CHAQUE table cloisonnée, pour que la preuve ci-dessous porte sur toutes.
+SELECT t.mkaccount('Z'); SELECT t.mkuser('uz');
+DO $$
+DECLARE z bigint := t.id('Z'); v_dep bigint; v_role bigint; v_rc bigint; v_pe bigint; v_cl bigint; v_pr bigint;
+        v_ph bigint; v_tk bigint; v_tt bigint; v_tmp bigint;
+BEGIN
+  INSERT INTO departments(account_id, name) VALUES (z, 'dz') RETURNING id INTO v_dep;
+  INSERT INTO roles(account_id, name) VALUES (z, 'rz') RETURNING id INTO v_role;
+  INSERT INTO rate_cards(account_id, name, valid_from) VALUES (z, 'cz', '2026-01-01') RETURNING id INTO v_rc;
+  INSERT INTO people(account_id, name, department_id) VALUES (z, 'pz', v_dep) RETURNING id INTO v_pe;
+  INSERT INTO rates(account_id, rate_card_id, person_id, cost_rate, bill_rate) VALUES (z, v_rc, v_pe, 1, 2);
+  INSERT INTO account_members(account_id, user_id, role) VALUES (z, t.id('uz'), 'admin');
+  INSERT INTO clients(account_id, name) VALUES (z, 'clz') RETURNING id INTO v_cl;
+  INSERT INTO projects(account_id, name, client_id) VALUES (z, 'prz', v_cl) RETURNING id INTO v_pr;
+  INSERT INTO project_managers(project_id, account_id, user_id) VALUES (v_pr, z, t.id('uz'));
+  INSERT INTO phases(account_id, project_id, name) VALUES (z, v_pr, 'phz') RETURNING id INTO v_ph;
+  INSERT INTO project_tasks(account_id, project_id, name) VALUES (z, v_pr, 'tkz') RETURNING id INTO v_tk;
+  INSERT INTO milestones(account_id, project_id, name, due_date) VALUES (z, v_pr, 'msz', '2026-04-01');
+  INSERT INTO project_expenses(account_id, project_id, name, amount, spent_on) VALUES (z, v_pr, 'dz', 1, '2026-03-02');
+  INSERT INTO project_team(account_id, project_id, person_id) VALUES (z, v_pr, v_pe);
+  INSERT INTO project_budget_lines(account_id, project_id, person_id, hours) VALUES (z, v_pr, v_pe, 1);
+  INSERT INTO project_baselines(account_id, project_id, version, budget_type) VALUES (z, v_pr, 1, 'fees');
+  INSERT INTO allocations(account_id, person_id, project_id, start_date, end_date, hours_per_day)
+    VALUES (z, v_pe, v_pr, '2026-03-02', '2026-03-02', 1);
+  INSERT INTO logged_time(account_id, person_id, project_id, work_date, hours) VALUES (z, v_pe, v_pr, '2026-03-02', 1);
+  INSERT INTO timeoff_types(account_id, name) VALUES (z, 'ttz') RETURNING id INTO v_tt;
+  INSERT INTO timeoffs(account_id, person_id, timeoff_type_id, start_date, end_date) VALUES (z, v_pe, v_tt, '2026-03-03', '2026-03-03');
+  INSERT INTO holidays(account_id, name, hdate) VALUES (z, 'hz', '2026-05-01');
+  INSERT INTO saved_views(account_id, owner_user_id, name) VALUES (z, t.id('uz'), 'vz');
+  INSERT INTO roles(account_id, name) VALUES (z, 'jetable') RETURNING id INTO v_tmp;
+  DELETE FROM roles WHERE id = v_tmp; -- alimente delete_log ; change_log et account_change_seq le sont déjà
+END $$;
+
+-- Preuve par le comportement, table par table : sous app_user, contexte A, aucune ligne d'un autre compte n'est
+-- visible ni modifiable, et toutes les lignes de A le sont. Les comptages de référence sont faits par le propriétaire.
+CREATE TEMP TABLE t18 AS
+  SELECT c.relname::text AS tbl, 0::bigint AS own, 0::bigint AS other
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname <> 'accounts'
+    AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'account_id' AND NOT a.attisdropped);
+DO $$
+DECLARE r record; v_own bigint; v_other bigint;
+BEGIN
+  FOR r IN SELECT tbl FROM t18 LOOP
+    EXECUTE format('SELECT COUNT(*) FILTER (WHERE account_id = $1), COUNT(*) FILTER (WHERE account_id <> $1) FROM %I', r.tbl)
+      INTO v_own, v_other USING t.id('A');
+    UPDATE t18 SET own = v_own, other = v_other WHERE tbl = r.tbl;
+  END LOOP;
+END $$;
+SELECT t.ok('T18f chaque table cloisonnée a des lignes hors du compte A (la preuve porte sur toutes)',
+  (SELECT bool_and(other > 0) FROM t18));
+GRANT SELECT ON t18 TO app_user;
+CREATE TEMP TABLE t18_res (tbl text, visible_own bigint, visible_other bigint, upd bigint, del bigint);
+GRANT ALL ON t18_res TO app_user;
+
+SET LOCAL ROLE app_user;
+SELECT t.ctx('A');
+SELECT set_config('app.role', 'owner', true); -- lève le verrou BR-12 : seule la RLS doit filtrer ici
+DO $$
+DECLARE r record; v_own bigint; v_other bigint; v_upd bigint; v_del bigint;
+BEGIN
+  FOR r IN SELECT tbl FROM t18 LOOP
+    EXECUTE format('SELECT COUNT(*) FILTER (WHERE account_id = $1), COUNT(*) FILTER (WHERE account_id <> $1) FROM %I', r.tbl)
+      INTO v_own, v_other USING t.id('A');
+    EXECUTE format('UPDATE %I SET account_id = account_id WHERE account_id <> $1', r.tbl) USING t.id('A');
+    GET DIAGNOSTICS v_upd = ROW_COUNT;
+    -- DELETE dans un sous-bloc annulé : seul le nombre de lignes atteintes compte.
+    BEGIN
+      EXECUTE format('DELETE FROM %I WHERE account_id <> $1', r.tbl) USING t.id('A');
+      GET DIAGNOSTICS v_del = ROW_COUNT;
+      RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 't18_rollback';
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN NULL;
+    END;
+    INSERT INTO t18_res VALUES (r.tbl, v_own, v_other, v_upd, v_del);
+  END LOOP;
+END $$;
+SELECT t.eq('T18g contexte A : aucune ligne d un autre compte visible, sur toutes les tables',
+  (SELECT COALESCE(SUM(visible_other), 0) FROM t18_res), 0);
+SELECT t.ok('T18h contexte A : toutes les lignes de A visibles, table par table',
+  (SELECT bool_and(r.visible_own = x.own) FROM t18_res r JOIN t18 x USING (tbl)));
+SELECT t.eq('T18i contexte A : UPDATE hors compte n atteint aucune ligne, sur toutes les tables',
+  (SELECT COALESCE(SUM(upd), 0) FROM t18_res), 0);
+SELECT t.eq('T18j contexte A : DELETE hors compte n atteint aucune ligne, sur toutes les tables',
+  (SELECT COALESCE(SUM(del), 0) FROM t18_res), 0);
+SELECT t.eq('T18k toutes les tables cloisonnées ont été sondées', (SELECT COUNT(*) FROM t18_res), (SELECT COUNT(*) FROM t18));
+SELECT set_config('app.role', '', true);
+RESET ROLE;
+
+-- ============================================================
+-- T19 delete_log : inventaire des tables journalisées, cascade complète, purge >= 72 h (BR-14, BR-31)
+-- ============================================================
+SELECT t.ok('T19a tables portant le trigger delete_log (liste fermée)',
+  (SELECT array_agg(c.relname::text ORDER BY c.relname) FROM pg_trigger tg JOIN pg_class c ON c.oid = tg.tgrelid
+    WHERE tg.tgname = 'trg_91_delete_log' AND NOT tg.tgisinternal)
+  = ARRAY['allocations','clients','departments','holidays','logged_time','milestones','people','phases',
+          'project_expenses','project_tasks','projects','roles','timeoff_types','timeoffs']);
+-- Suppression d'un projet complet : chaque entité supprimée en cascade et journalisable laisse une ligne.
+SELECT t.mkaccount('E');
+SELECT set_config('app.user_id', t.id('u1')::text, true);
+INSERT INTO people(account_id, name) VALUES (t.id('E'), 'Ève');
+INSERT INTO clients(account_id, name) VALUES (t.id('E'), 'Cli');
+INSERT INTO projects(account_id, name, client_id) SELECT t.id('E'), 'Pro', id FROM clients WHERE account_id = t.id('E');
+INSERT INTO phases(account_id, project_id, name) SELECT t.id('E'), id, 'ph' FROM projects WHERE account_id = t.id('E');
+INSERT INTO project_tasks(account_id, project_id, name) SELECT t.id('E'), id, 'tk' FROM projects WHERE account_id = t.id('E');
+INSERT INTO milestones(account_id, project_id, name, due_date) SELECT t.id('E'), id, 'ms', '2026-04-01' FROM projects WHERE account_id = t.id('E');
+INSERT INTO project_expenses(account_id, project_id, name, amount, spent_on) SELECT t.id('E'), id, 'dep', 10, '2026-03-02' FROM projects WHERE account_id = t.id('E');
+INSERT INTO allocations(account_id, person_id, project_id, phase_id, start_date, end_date, hours_per_day)
+  SELECT t.id('E'), pe.id, pr.id, ph.id, '2026-03-02', '2026-03-03', 4
+  FROM people pe, projects pr, phases ph WHERE pe.account_id = t.id('E') AND pr.account_id = t.id('E') AND ph.project_id = pr.id;
+INSERT INTO logged_time(account_id, person_id, project_id, work_date, hours)
+  SELECT t.id('E'), pe.id, pr.id, '2026-03-02', 3 FROM people pe, projects pr WHERE pe.account_id = t.id('E') AND pr.account_id = t.id('E');
+-- logged_time bloque la suppression du projet (RESTRICT, BR-31) : la ligne draft est supprimée d'abord, et journalisée.
+SELECT t.raises('T19a2 projet avec temps loggé : suppression refusée (RESTRICT)', $q$ DELETE FROM projects WHERE account_id = t.id('E') $q$, '23001');
+DELETE FROM logged_time WHERE account_id = t.id('E');
+DELETE FROM projects WHERE account_id = t.id('E');
+SELECT t.ok('T19b temps loggé puis projet supprimés : projet, phase, tâche, jalon, dépense, allocation et temps loggé journalisés',
+  (SELECT array_agg(entity ORDER BY entity) FROM delete_log WHERE account_id = t.id('E'))
+  = ARRAY['allocations','logged_time','milestones','phases','project_expenses','project_tasks','projects']);
+SELECT t.ok('T19c chaque ligne porte l id de l entité supprimée et l auteur',
+  (SELECT bool_and(entity_id > 0 AND deleted_by = t.id('u1')) FROM delete_log WHERE account_id = t.id('E')));
+DELETE FROM clients WHERE account_id = t.id('E');
+SELECT t.eq('T19d suppression du client journalisée', (SELECT COUNT(*) FROM delete_log WHERE account_id = t.id('E') AND entity = 'clients'), 1);
+-- Suppression du compte : ses propres triggers ne bloquent pas (pas de FK de delete_log vers accounts).
+DELETE FROM accounts WHERE id = t.id('E');
+SELECT t.ok('T19e suppression du compte : cascade sans erreur, la personne est journalisée',
+  (SELECT COUNT(*) FROM delete_log WHERE account_id = t.id('E') AND entity = 'people') = 1);
+-- Purge : >= 72 h, lignes récentes conservées.
+SELECT t.raises('T19f purge_delete_log : rétention < 72 h refusée', $q$ SELECT purge_delete_log(INTERVAL '71 hours') $q$, '22023');
+UPDATE delete_log SET deleted_at = now() - INTERVAL '8 days' WHERE account_id = t.id('E') AND entity IN ('projects','phases');
+CREATE TEMP TABLE t19 AS SELECT (SELECT COUNT(*) FROM delete_log WHERE deleted_at < now() - INTERVAL '7 days') AS old_rows,
+                                (SELECT COUNT(*) FROM delete_log) AS total;
+SELECT t.eq('T19g purge 7 jours : seules les lignes anciennes supprimées', purge_delete_log(), (SELECT old_rows FROM t19));
+SELECT t.eq('T19h purge : le reste est conservé', (SELECT COUNT(*) FROM delete_log), (SELECT total - old_rows FROM t19));
+SELECT t.eq('T19i purge à 72 h pile acceptée (rien de plus à purger)', purge_delete_log(INTERVAL '72 hours'), 0);
 
 -- ============================================================
 -- Bilan
