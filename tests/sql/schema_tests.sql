@@ -665,13 +665,42 @@ SELECT t.ok('T17m cascade : la suppression de l allocation est journalisée avec
      FROM change_log WHERE account_id = t.id('D') AND seq > (SELECT h FROM t17_before)));
 CREATE TEMP TABLE t17_h AS SELECT t.head('D') AS h;
 INSERT INTO phases(account_id, project_id, name) SELECT t.id('D'), id, 'ph' FROM projects WHERE account_id = t.id('D');
-SELECT t.ok('T17n entités hors Schedule non journalisées (phases)',
-  t.head('D') = (SELECT h FROM t17_h) AND NOT EXISTS (SELECT 1 FROM change_log WHERE entity = 'phases'));
+SELECT t.ok('T17n structure des projets journalisée (phase : insert, version 1)',
+  (SELECT COUNT(*) = 1 AND bool_and(version = 1) FROM change_log WHERE account_id = t.id('D') AND seq > (SELECT h FROM t17_h) AND entity = 'phases' AND op = 'insert'));
+INSERT INTO clients(account_id, name) VALUES (t.id('D'), 'Cl');
+INSERT INTO project_tasks(account_id, project_id, name) SELECT t.id('D'), id, 'tk' FROM projects WHERE account_id = t.id('D');
+INSERT INTO milestones(account_id, project_id, name, due_date) SELECT t.id('D'), id, 'ms', '2026-04-01' FROM projects WHERE account_id = t.id('D');
+SELECT t.ok('T17n2 clients, tâches et jalons journalisés',
+  (SELECT array_agg(entity ORDER BY entity) = ARRAY['clients','milestones','project_tasks'] FROM change_log WHERE account_id = t.id('D') AND seq > (SELECT h FROM t17_h) AND entity <> 'phases'));
+-- Dépenses et lignes de budget : jamais dans le journal.
+INSERT INTO people(account_id, name) VALUES (t.id('D'), 'Yan');
+CREATE TEMP TABLE t17_h2 AS SELECT t.head('D') AS h;
+INSERT INTO project_expenses(account_id, project_id, name, amount, spent_on) SELECT t.id('D'), id, 'dep', 10, '2026-03-02' FROM projects WHERE account_id = t.id('D');
+INSERT INTO project_budget_lines(account_id, project_id, person_id, hours) SELECT t.id('D'), pr.id, pe.id, 5 FROM projects pr, people pe WHERE pr.account_id = t.id('D') AND pe.account_id = t.id('D') LIMIT 1;
+SELECT t.ok('T17n3 dépenses et lignes de budget non journalisées',
+  t.head('D') = (SELECT h FROM t17_h2) AND NOT EXISTS (SELECT 1 FROM change_log WHERE entity IN ('project_expenses','project_budget_lines')));
+-- Équipe : entité = projet, op update, version = seq ; supprimer le projet n'ajoute rien de plus que projects.
+UPDATE t17_h2 SET h = t.head('D');
+INSERT INTO project_team(account_id, project_id, person_id)
+  SELECT t.id('D'), (SELECT id FROM projects WHERE account_id = t.id('D')), (SELECT id FROM people WHERE account_id = t.id('D'));
+SELECT t.ok('T17n4 ajout à l équipe : project_team, id = projet, update, version = seq',
+  (SELECT entity = 'project_team' AND op = 'update' AND entity_id = (SELECT id FROM projects WHERE account_id = t.id('D')) AND version = seq
+     FROM change_log WHERE account_id = t.id('D') AND seq = t.head('D')) AND t.head('D') = (SELECT h FROM t17_h2) + 1);
+UPDATE t17_h2 SET h = t.head('D');
+DELETE FROM project_team WHERE account_id = t.id('D');
+SELECT t.ok('T17n5 retrait de l équipe journalisé', t.head('D') = (SELECT h FROM t17_h2) + 1);
+INSERT INTO project_team(account_id, project_id, person_id)
+  SELECT t.id('D'), (SELECT id FROM projects WHERE account_id = t.id('D')), (SELECT id FROM people WHERE account_id = t.id('D'));
+UPDATE t17_h2 SET h = t.head('D');
+DELETE FROM projects WHERE account_id = t.id('D');
+SELECT t.ok('T17n6 suppression du projet : aucune entrée project_team ajoutée (cascade silencieuse)',
+  NOT EXISTS (SELECT 1 FROM change_log WHERE account_id = t.id('D') AND seq > (SELECT h FROM t17_h2) AND entity = 'project_team')
+  AND EXISTS (SELECT 1 FROM change_log WHERE account_id = t.id('D') AND seq > (SELECT h FROM t17_h2) AND entity = 'projects' AND op = 'delete'));
 
-SELECT t.ok('T17y les 8 entités du Schedule portent le trigger de journal',
+SELECT t.ok('T17y les entités journalisées portent le trigger de journal',
   (SELECT array_agg(c.relname::text ORDER BY c.relname) FROM pg_trigger tg JOIN pg_class c ON c.oid = tg.tgrelid
     WHERE tg.tgname = 'trg_92_change_log' AND NOT tg.tgisinternal)
-  = ARRAY['allocations','departments','holidays','people','projects','roles','timeoff_types','timeoffs']);
+  = ARRAY['allocations','clients','departments','holidays','milestones','people','phases','project_tasks','project_team','projects','roles','timeoff_types','timeoffs']);
 
 -- RLS : le journal est cloisonné par compte et les triggers fonctionnent sous app_user.
 SELECT set_config('app.user_id', '', true);
