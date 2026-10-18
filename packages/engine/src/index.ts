@@ -13,3 +13,4 @@ export * from "./repeat";
 export * from "./layout";
 export * from "./viewport";
 export * from "./undo";
+export * from "./capacity-bars";
