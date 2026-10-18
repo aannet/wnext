@@ -11,9 +11,12 @@
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "lint:boundaries": "node scripts/lint-boundaries.mjs",
+    "test:boundaries": "vitest run tests/boundaries"
   },
   "devDependencies": {
+    "oxc-parser": "0.154.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.12"
   }
