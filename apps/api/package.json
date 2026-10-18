@@ -10,10 +10,18 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "start": "node --import tsx src/main.ts"
   },
   "dependencies": {
     "@wnext/contracts": "*",
-    "@wnext/engine": "*"
+    "@wnext/engine": "*",
+    "pg": "^8.23.1",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15"
   }
 }

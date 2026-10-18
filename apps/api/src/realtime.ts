@@ -23,6 +23,8 @@ export interface RealtimeOptions {
   /** Période du sondage automatique en ms ; absent = pas de minuteur (appeler `poll`). */
   pollIntervalMs?: number;
   pageSize?: number;
+  /** Appelé une fois quand la session s'arrête (close, resync, erreur de curseur ou interne) : le transport ferme alors son canal. */
+  onEnd?: () => void;
 }
 
 const v = REALTIME_PROTOCOL_VERSION;
@@ -65,8 +67,10 @@ export function createRealtimeSession(opts: RealtimeOptions): RealtimeSession {
   }
 
   function stop() {
+    if (closed) return;
     live = false;
     closed = true;
+    opts.onEnd?.();
     if (timer) clearInterval(timer);
   }
 
