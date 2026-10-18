@@ -36,7 +36,7 @@ beforeAll(async () => {
   await pg.exec(`
     INSERT INTO users (email) VALUES ('u@x.test');
     INSERT INTO accounts (name) VALUES ('A'), ('B');
-    INSERT INTO people (account_id, name, active) VALUES (1,'hal',true), (1,'eve',true), (1,'vide',true), (1,'inactive',false), (2,'intrus',true);
+    INSERT INTO people (account_id, name, active) VALUES (1,'hal',true), (1,'eve',true), (1,'vide',true), (1,'inactive',false), (2,'intrus',true), (1,'gwen',true), (1,'ian',true), (1,'zoe',true);
     INSERT INTO projects (account_id, name) VALUES (1,'P'), (1,'Q'), (2,'R');
     INSERT INTO allocations (account_id, person_id, project_id, start_date, end_date, mode, hours_per_day, repeat_state, repeat_end_date) VALUES
       (1,1,1,'2026-05-25','2026-05-29','hours',8,'none',NULL),
@@ -45,6 +45,12 @@ beforeAll(async () => {
       (1,1,1,'2026-01-05','2026-01-06','hours',2,'weekly','2026-07-31'),
       (1,2,1,'2026-06-08','2026-06-09','hours',8,'none',NULL),
       (1,4,1,'2026-06-08','2026-06-09','hours',8,'none',NULL);
+    -- BR-26 : gwen (6) et ian (7) ont chacun une ligne du groupe 1111… ; gwen a aussi une ligne hors groupe.
+    INSERT INTO allocations (account_id, person_id, project_id, group_id, start_date, end_date, mode, hours_per_day, repeat_state) VALUES
+      (1,6,1,'11111111-1111-4111-8111-111111111111','2026-09-07','2026-09-08','hours',4,'none'),
+      (1,7,1,'11111111-1111-4111-8111-111111111111','2026-09-07','2026-09-08','hours',4,'none');
+    INSERT INTO allocations (account_id, person_id, project_id, start_date, end_date, mode, hours_per_day, repeat_state) VALUES
+      (1,6,2,'2026-10-05','2026-10-06','hours',4,'none');
     INSERT INTO logged_time (account_id, person_id, project_id, work_date, hours) VALUES (1,1,1,'2026-05-26',8);
   `);
 }, 120_000);
@@ -116,6 +122,21 @@ describe("POST .../deactivation", () => {
     expect(err(await deactivate("1", { ...base, replacementId: "4" }))).toMatchObject({ code: "PERSON_DEACTIVATION_INVALID_REPLACEMENT", params: { reason: "inactive" } });
     expect(await n("SELECT count(*) AS n FROM allocations WHERE person_id = 1")).toBe(4);
     expect(await n("SELECT count(*) AS n FROM people WHERE id = 1 AND active")).toBe(1);
+  });
+
+  it("BR-26 : remplaçant déjà membre du groupe d'une allocation à réaffecter -> 409 already_in_group, rien changé", async () => {
+    const r = await deactivate("6", { asOf: AS_OF, disposition: "reassign", replacementId: "7", confirmation: { allocationCount: 2 } });
+    expect(r.status).toBe(409);
+    expect(err(r)).toMatchObject({ code: "PERSON_DEACTIVATION_INVALID_REPLACEMENT", params: { reason: "already_in_group", conflictingAllocations: 1 } });
+    expect(await n("SELECT count(*) AS n FROM allocations WHERE person_id = 6")).toBe(2);
+    expect(await n("SELECT count(*) AS n FROM allocations WHERE person_id = 7")).toBe(1);
+    expect(await n("SELECT count(*) AS n FROM people WHERE id = 6 AND active")).toBe(1);
+  });
+
+  it("BR-26 : avec un remplaçant hors du groupe la réaffectation passe, le group_id est conservé", async () => {
+    const r = await deactivate("6", { asOf: AS_OF, disposition: "reassign", replacementId: "8", confirmation: { allocationCount: 2 } });
+    expect(r.status).toBe(200);
+    expect(await n("SELECT count(*) AS n FROM allocations WHERE person_id = 8 AND group_id = '11111111-1111-4111-8111-111111111111'")).toBe(1);
   });
 
   it("rôles : member 403 (même corps invalide), anonyme 401, autre compte 404", async () => {

@@ -118,6 +118,14 @@ export async function deactivatePerson(db: Db, ctx: RequestContext, id: string, 
       if (rid === id) throw new ApiFailure("PERSON_DEACTIVATION_INVALID_REPLACEMENT", { reason: "same_person" });
       if (!replacement) throw new ApiFailure("NOT_FOUND", { entity: "person", replacementId: rid });
       if (!replacement.active) throw new ApiFailure("PERSON_DEACTIVATION_INVALID_REPLACEMENT", { reason: "inactive" });
+      // BR-26 : une ligne par personne et par groupe. Les lignes d'un groupe peuvent diverger : on refuse plutôt que de supprimer la redondante.
+      const clash = Number((await tx.query<Row>(
+        `SELECT count(*) AS n FROM allocations a WHERE a.account_id = $1::bigint AND a.person_id = $2::bigint AND COALESCE(a.repeat_end_date, a.end_date) >= $3::date
+            AND a.group_id IS NOT NULL
+            AND EXISTS (SELECT 1 FROM allocations b WHERE b.account_id = a.account_id AND b.group_id = a.group_id AND b.person_id = $4::bigint)`,
+        [ctx.accountId, id, asOf, rid],
+      )).rows[0]!.n);
+      if (clash > 0) throw new ApiFailure("PERSON_DEACTIVATION_INVALID_REPLACEMENT", { reason: "already_in_group", conflictingAllocations: clash });
       reassigned = (await tx.query(`UPDATE allocations SET person_id = $4::bigint WHERE ${FUTURE} RETURNING id`, [ctx.accountId, id, asOf, rid])).rows.length;
     } else if (summary.allocationCount > 0) {
       deleted = (await tx.query(`DELETE FROM allocations WHERE ${FUTURE} RETURNING id`, [ctx.accountId, id, asOf])).rows.length;
