@@ -30,3 +30,5 @@ export function addMonths(d: string, k: number): string {
 
 export const monthsBetween = (a: string, b: string) =>
   (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7));
+
+export const addDays = (d: string, n: number) => toIso(toMs(d) + n * DAY_MS);

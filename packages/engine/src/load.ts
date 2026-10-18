@@ -54,6 +54,15 @@ export function allocationCoversDay(a: Pick<AllocationInput, "startDate" | "endD
   return false;
 }
 
+/** Heures d'une allocation un jour donné (0 hors série, jour non ouvré ou jour non couvert). Base du % : heures ouvrées brutes. */
+export function allocationHoursOn(a: AllocationInput, workDaysHours: readonly number[], day: string): number {
+  const spanEnd = a.repeatState === "none" ? a.endDate : (a.repeatEndDate ?? a.endDate);
+  if (day < a.startDate || day > spanEnd) return 0;
+  const wd = workHours(workDaysHours, day);
+  if (wd <= 0 || !allocationCoversDay(a, day)) return 0;
+  return a.mode === "hours" ? (a.hoursPerDay ?? 0) : (wd * (a.percent ?? 0)) / 100;
+}
+
 export function dailyPlannedLoad(input: LoadInput): LoadRow[] {
   const { from, to } = input;
   assertRange(from, to);
@@ -73,9 +82,8 @@ export function dailyPlannedLoad(input: LoadInput): LoadRow[] {
 
     for (let ms = toMs(first); ms <= toMs(last); ms += DAY_MS) {
       const day = toIso(ms);
-      const wd = workHours(person.workDaysHours, day);
-      if (wd <= 0 || !allocationCoversDay(a, day)) continue;
-      const v = a.mode === "hours" ? (a.hoursPerDay ?? 0) : (wd * (a.percent ?? 0)) / 100;
+      const v = allocationHoursOn(a, person.workDaysHours, day);
+      if (v <= 0) continue;
       const key = `${a.personId}|${day}`;
       const row = acc.get(key) ?? { personId: a.personId, day, plannedHours: 0, tentativeHours: 0, billableHours: 0 };
       row.plannedHours += v;
