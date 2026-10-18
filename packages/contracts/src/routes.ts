@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { AllocationCreate, AllocationPatch, AllocationPathParams, IfMatchHeader } from "./allocations";
+import { AllocationCreate, AllocationPatch, AllocationPathParams, IfMatchHeader, ProjectAllocationList, ProjectAllocationListQuery, ProjectPathParams } from "./allocations";
 import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
 import { REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket } from "./realtime";
@@ -137,6 +137,34 @@ export const routes: RouteContract[] = [
       200: { description: "Fenetre demandee", schema: ScheduleResponse },
       400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_RANGE_INVALID, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/allocations/{id}",
+    operationId: "getAllocation",
+    summary: "Lire une allocation (avec sa version ; tout membre authentifie)",
+    params: AllocationPathParams,
+    responses: {
+      200: { description: "Allocation", schema: ScheduleAllocation },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      404: { description: "Allocation inconnue ou hors compte (NOT_FOUND)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/projects/{projectId}/allocations",
+    operationId: "listProjectAllocations",
+    summary: "Allocations d'un projet sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie)",
+    params: ProjectPathParams,
+    query: ProjectAllocationListQuery,
+    responses: {
+      200: { description: "Page d'allocations (items, page.nextCursor, page.total)", schema: ProjectAllocationList },
+      400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_RANGE_INVALID, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      404: { description: "Projet inconnu ou hors compte (NOT_FOUND, params.entity = project)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },

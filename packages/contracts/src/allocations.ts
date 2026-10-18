@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { Id, IsoDate, orNull } from "./common";
+import { ReferenceListQuery } from "./reference";
+import { SchedulePage, ScheduleAllocation } from "./schedule";
 
 // Écriture des allocations (entité pivot du Schedule). Choix de conception :
 //  * Verrou optimiste (ADR-003 §5) : PATCH et DELETE exigent `If-Match: "<version>"` (la `version` lue dans le Schedule).
@@ -13,6 +15,18 @@ import { Id, IsoDate, orNull } from "./common";
 //  * Hors périmètre de ce contrat (à venir) : création multi-personnes / groupes (BR-26, « tous / celle-ci »), déplacement
 //    par lot, suppression en cascade d'équipe (BR-10, avec récapitulatif et confirmation).
 //  * Les écritures sont réservées aux rôles owner, admin et project_manager ; un autre rôle reçoit 403 FORBIDDEN.
+//  * Lecture (tout membre authentifié, comme GET /schedule ; mêmes champs que ScheduleAllocation) :
+//      - GET /allocations/{id} : une allocation avec sa `version` (relire après un VERSION_CONFLICT). Inconnue ou hors compte :
+//        404 NOT_FOUND (params.entity = allocation). Pas de liste globale : une liste d'allocations se lit par fenêtre (GET /schedule,
+//        GET /projects/{projectId}/allocations).
+//      - GET /projects/{projectId}/allocations : les allocations d'un projet qui CHEVAUCHENT la fenêtre [from, to] (bornes incluses ;
+//        `from` et `to` obligatoires, 400 jours au plus, sinon 400 SCHEDULE_RANGE_INVALID). Même règle de chevauchement que le
+//        Schedule : une allocation répétée compte jusqu'à la fin de sa série (`repeatEndDate`) ; elle est renvoyée UNE fois (son
+//        occurrence d'origine), pas développée en une ligne par répétition. Filtres : `personId`, `status` (tentative|confirmed).
+//        Liste paginée par curseur sur `id` (tri par id, `page.total`, limit 1..500, défaut 200) : le client trie à l'affichage.
+//        Projet inconnu ou hors compte : 404 NOT_FOUND (params.entity = project) ; un projet archivé se lit. Les personnes
+//        désactivées gardent leurs allocations. Une personne ou un statut inconnu en filtre ne donne pas d'erreur de référence :
+//        liste vide (sauf identifiant non numérique ou statut hors énumération : 400 VALIDATION_FAILED).
 
 export const AllocationLoad = z
   .discriminatedUnion("mode", [
@@ -64,3 +78,14 @@ export const AllocationPathParams = z.object({ id: Id });
 export const IfMatchHeader = z.object({
   "If-Match": z.string().regex(/^"\d+"$/).describe('Version lue dans le Schedule, entre guillemets : "3"'),
 });
+
+// --- Lecture ---
+export const ProjectPathParams = z.object({ projectId: Id });
+export const ProjectAllocationListQuery = ReferenceListQuery.extend({
+  from: IsoDate.describe("Début de la fenêtre (inclus)"),
+  to: IsoDate.describe("Fin de la fenêtre (incluse). 400 jours au plus, sinon SCHEDULE_RANGE_INVALID"),
+  personId: Id.optional().describe("Seulement les allocations de cette personne"),
+  status: z.enum(["tentative", "confirmed"]).optional().describe("Seulement les allocations de ce statut"),
+});
+export type ProjectAllocationListQuery = z.infer<typeof ProjectAllocationListQuery>;
+export const ProjectAllocationList = z.object({ items: z.array(ScheduleAllocation), page: SchedulePage }).meta({ id: "ProjectAllocationList" });

@@ -853,6 +853,24 @@
           "name"
         ]
       },
+      "ProjectAllocationList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleAllocation"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/SchedulePage"
+          }
+        },
+        "required": [
+          "items",
+          "page"
+        ]
+      },
       "AllocationCreate": {
         "type": "object",
         "properties": {
@@ -2858,37 +2876,28 @@
         }
       }
     },
-    "/api/v1/allocations": {
-      "post": {
-        "operationId": "createAllocation",
-        "summary": "Creer une allocation (la sur-allocation n'est jamais refusee, BR-01)",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AllocationCreate"
-              }
-            }
+    "/api/v1/allocations/{id}": {
+      "get": {
+        "operationId": "getAllocation",
+        "summary": "Lire une allocation (avec sa version ; tout membre authentifie)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
           }
-        },
+        ],
         "responses": {
-          "201": {
-            "description": "Allocation creee",
+          "200": {
+            "description": "Allocation",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ScheduleAllocation"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Corps invalide (VALIDATION_FAILED)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2903,18 +2912,8 @@
               }
             }
           },
-          "403": {
-            "description": "Role insuffisant (FORBIDDEN)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
           "404": {
-            "description": "Personne, projet, phase ou tache inconnue (NOT_FOUND, params.entity)",
+            "description": "Allocation inconnue ou hors compte (NOT_FOUND)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2934,9 +2933,7 @@
             }
           }
         }
-      }
-    },
-    "/api/v1/allocations/{id}": {
+      },
       "patch": {
         "operationId": "updateAllocation",
         "summary": "Modifier ou deplacer une allocation (verrou optimiste If-Match)",
@@ -3136,6 +3133,223 @@
           },
           "428": {
             "description": "If-Match absent (PRECONDITION_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/allocations": {
+      "get": {
+        "operationId": "listProjectAllocations",
+        "summary": "Allocations d'un projet sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Entités par page (défaut 200)"
+            },
+            "required": false,
+            "description": "Entités par page (défaut 200)",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Curseur de page renvoyé par page.nextCursor"
+            },
+            "required": false,
+            "description": "Curseur de page renvoyé par page.nextCursor",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Début de la fenêtre (inclus)"
+            },
+            "required": true,
+            "description": "Début de la fenêtre (inclus)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Fin de la fenêtre (incluse). 400 jours au plus, sinon SCHEDULE_RANGE_INVALID"
+            },
+            "required": true,
+            "description": "Fin de la fenêtre (incluse). 400 jours au plus, sinon SCHEDULE_RANGE_INVALID",
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Seulement les allocations de cette personne"
+            },
+            "required": false,
+            "description": "Seulement les allocations de cette personne",
+            "name": "personId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tentative",
+                "confirmed"
+              ],
+              "description": "Seulement les allocations de ce statut"
+            },
+            "required": false,
+            "description": "Seulement les allocations de ce statut",
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page d'allocations (items, page.nextCursor, page.total)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectAllocationList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (VALIDATION_FAILED, SCHEDULE_RANGE_INVALID, SCHEDULE_CURSOR_INVALID)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet inconnu ou hors compte (NOT_FOUND, params.entity = project)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/allocations": {
+      "post": {
+        "operationId": "createAllocation",
+        "summary": "Creer une allocation (la sur-allocation n'est jamais refusee, BR-01)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Allocation creee",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleAllocation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Personne, projet, phase ou tache inconnue (NOT_FOUND, params.entity)",
             "content": {
               "application/json": {
                 "schema": {

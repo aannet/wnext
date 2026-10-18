@@ -168,6 +168,11 @@ export interface ScheduleRole {
   name: string;
 }
 
+export interface ProjectAllocationList {
+  items: Array<ScheduleAllocation>;
+  page: SchedulePage;
+}
+
 export interface AllocationCreate {
   personId: Id;
   projectId: Id;
@@ -584,11 +589,13 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as ScheduleResponse }
         : { ok: false, status: res.status, error: body as ApiError };
     },
-    /** Creer une allocation (la sur-allocation n'est jamais refusee, BR-01) (POST /api/v1/allocations) */
-    async createAllocation(input: {
-      body: AllocationCreate;
+    /** Lire une allocation (avec sa version ; tout membre authentifie) (GET /api/v1/allocations/{id}) */
+    async getAllocation(input: {
+      path: {
+        id: Id;
+      };
     }): Promise<ApiResult<ScheduleAllocation, ApiError>> {
-      const res = await options.fetch(options.baseUrl + "/api/v1/allocations", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const res = await options.fetch(options.baseUrl + "/api/v1/allocations/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as ScheduleAllocation }
@@ -623,6 +630,36 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Allocations d'un projet sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie) (GET /api/v1/projects/{projectId}/allocations) */
+    async listProjectAllocations(input: {
+      path: {
+        projectId: Id;
+      };
+      query: {
+        limit?: number;
+        cursor?: string;
+        from: string;
+        to: string;
+        personId?: string;
+        status?: "tentative" | "confirmed";
+      };
+    }): Promise<ApiResult<ProjectAllocationList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/projects/" + encodeURIComponent(String(input.path.projectId)) + "/allocations" + toQueryString(input.query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectAllocationList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer une allocation (la sur-allocation n'est jamais refusee, BR-01) (POST /api/v1/allocations) */
+    async createAllocation(input: {
+      body: AllocationCreate;
+    }): Promise<ApiResult<ScheduleAllocation, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/allocations", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleAllocation }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Creer un conge (jamais refuse pour cause d'allocations existantes, BR-04) (POST /api/v1/timeoffs) */
