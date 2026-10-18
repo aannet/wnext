@@ -1,6 +1,6 @@
 # Proposition — Simplifier les rôles de la dark factory
 
-Statut : **proposé** (à instruire en ADR et approuver par le CPTO ; `strategy.md` n'est pas modifié).
+Statut : **retenue dans son principe** (2026-10-18, option B : 5 rôles LLM + automatismes en code), à formaliser en ADR quand la factory sera dégelée ; `strategy.md` n'est pas modifié.
 Source : `docs/factory/strategy.md` §2, §3, §4, §6 ; contrat `factory/observability/schema/event.json`.
 
 ## 1. Constat

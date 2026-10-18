@@ -1,6 +1,6 @@
 # ADR-007 — Orchestrateur de la factory : code déterministe + sessions Claude Code headless
 
-Statut : **proposé** (à valider par le CPTO). Précise `docs/factory/strategy.md` §2 (Orchestrateur, Superviseur), §4.2, §4.3 et §4.5 ; ne les remplace pas. Complète ADR-006.
+Statut : **différé** (2026-10-18, décision CPTO : la factory est gelée, voir `docs/factory/gel-factory.md`). Proposé à l'origine. Précise `docs/factory/strategy.md` §2 (Orchestrateur, Superviseur), §4.2, §4.3 et §4.5 ; ne les remplace pas. Complète ADR-006.
 
 ## Contexte
 

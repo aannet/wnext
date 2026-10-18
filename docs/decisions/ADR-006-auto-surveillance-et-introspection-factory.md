@@ -1,6 +1,6 @@
 # ADR-006 — Auto-surveillance de la factory et introspection par cycle
 
-Statut : proposé (demande utilisateur, à valider par le CPTO). Complète `docs/factory/strategy.md` §4.4, §4.5 et §6.3 ; ne les remplace pas.
+Statut : **différé** (2026-10-18, décision CPTO : la factory est gelée, voir `docs/factory/gel-factory.md`). Proposé à l'origine (demande utilisateur). Complète `docs/factory/strategy.md` §4.4, §4.5 et §6.3 ; ne les remplace pas.
 
 ## Contexte
 

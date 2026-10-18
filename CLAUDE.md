@@ -41,10 +41,10 @@ Per dossier §3.3: React SPA with realtime (WebSocket/SSE; mutations must propag
 - Billing of the product itself (plans, seats, trial, Stripe; BR-15/16/17/34) is **excluded** (ADR-004). Do not model it. Project-level "billable" is kept for now (open).
 - Time off supports half-days (`timeoffs.start_half`/`end_half`, am|pm; a half deducts 50% of the day's hours). No time-of-day on allocations (ADR-004).
 
-## Phase P0 (current)
+## Phase P1 (current) — P0 clos, factory gelée
 
-- Entry and exit criteria are in `docs/factory/strategy.md` §1 (P0: repo, TS monorepo, full CI, guardrails, dry-run agents, code-phase `CLAUDE.md`). A phase starts only once the previous one is signed off by a human; open ADR questions block their phase.
+- P0 is closed as built: monorepo, `make check`/CI, guardrails, contract chain, kill-switch. Supervisor/introspection criteria are deferred. First P1 vertical: `packages/engine/src/capacity.ts` (TS mirror of `daily_capacity`, parity tests in `packages/engine/test/`). Phases in `docs/factory/strategy.md` §1.
 - Contract-first (ADR-003, status proposed): any change touching the API edits `packages/contracts` first, in a separate reviewed commit. `packages/contracts` depends on nothing; `packages/engine` (capacity + layout, pure TS) on `contracts`; `apps/api` and `apps/web` on `contracts` and `engine` only. `apps/web` and `apps/api` never import each other (boundary lint in CI). `packages/contracts` is under CODEOWNERS (human review).
 - Questions "before P1" decided 2026-10-18 (`docs/decisions/questions-ouvertes-avant-p1.md`): optimistic versioning, tentative in load, capacity thresholds, % base (gross); still open: the DOM vs canvas spike (dossier §3.3), a human review of the SQL tests, and checking the API v3 day convention (dossier §6 and §7, full list of open questions).
-- Factory orchestrator (ADR-007, proposed): deterministic TypeScript code (orchestrator + supervisor) driving headless `claude -p` sessions, one per role and per worktree. Budgets, loop detection and hard stop live in the orchestrator, not in Claude Code options; the kill-switch hook alone is not enough (session ends with `success`, SIGTERM of the process group needed). Spike results in `spikes/orchestrateur/RESULTATS.md`.
+- **Factory gelée (2026-10-18).** `factory/orchestrator` et `factory/observability` ne reçoivent plus de commits (ADR-006/007 différés, `docs/factory/gel-factory.md`). On développe le produit à la main, un agent à la fois, tests d'abord. L'orchestrateur ne se reconstruit qu'après avoir ressenti la douleur de lancer 2-3 sessions manuellement.
 - `schema.sql.txt` (v1.0) is archived in `docs/archive/`; do not use it.
