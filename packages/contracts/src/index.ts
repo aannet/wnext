@@ -21,3 +21,7 @@ export {
   ProjectList, ProjectListQuery, ProjectPatch, ReferenceListQuery, ReferencePathParams, RoleCreate, RoleList, RolePatch, TimeoffTypeCreate,
   TimeoffTypeList, TimeoffTypePatch,
 } from "./reference";
+export {
+  Client, ClientCreate, ClientList, ClientPatch, Phase, PhaseCreate, PhaseList, PhaseListQuery, PhasePatch, ProjectTask, ProjectTaskCreate,
+  ProjectTaskList, ProjectTaskListQuery, ProjectTaskPatch,
+} from "./project-structure";

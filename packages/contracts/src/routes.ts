@@ -11,6 +11,10 @@ import {
   ProjectList, ProjectListQuery, ProjectPatch, ReferenceListQuery, ReferencePathParams, RoleCreate, RoleList, RolePatch, TimeoffTypeCreate,
   TimeoffTypeList, TimeoffTypePatch,
 } from "./reference";
+import {
+  Client, ClientCreate, ClientList, ClientPatch, Phase, PhaseCreate, PhaseList, PhaseListQuery, PhasePatch, ProjectTask, ProjectTaskCreate,
+  ProjectTaskList, ProjectTaskListQuery, ProjectTaskPatch,
+} from "./project-structure";
 import { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
 
 // Table des routes : donnees pures (zod uniquement). La spec OpenAPI en est derivee
@@ -35,10 +39,11 @@ export interface RouteContract {
 // Entites de reference : GET (liste paginee, une entite), POST, PATCH (If-Match) et, sauf projets, DELETE (refuse tant que l'entite est referencee).
 function referenceRoutes(def: {
   path: string; name: string; label: string; create: z.ZodType; patch: z.ZodType; response: z.ZodType;
-  listQuery: z.ZodObject; list: z.ZodType; admin: boolean; remove: boolean; unique: string; refs: string;
+  listQuery: z.ZodObject; list: z.ZodType; admin: boolean; remove: boolean; unique?: string; refs: string;
 }): RouteContract[] {
   const who = def.admin ? "owner ou admin" : "owner, admin ou project_manager";
   const forbidden = { description: `Role insuffisant, ${who} requis (FORBIDDEN)`, schema: ApiError };
+  const exists: Record<number, { description: string; schema: typeof ApiError }> = def.unique ? { 409: { description: `Deja existant (ALREADY_EXISTS) : ${def.unique}`, schema: ApiError } } : {};
   const common = { 401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError }, 403: forbidden };
   const out: RouteContract[] = [
     {
@@ -66,7 +71,7 @@ function referenceRoutes(def: {
         400: { description: "Corps invalide (VALIDATION_FAILED)", schema: ApiError },
         ...common,
         404: { description: `Reference inconnue (NOT_FOUND, params.entity) : ${def.refs}`, schema: ApiError },
-        409: { description: `Deja existant (ALREADY_EXISTS) : ${def.unique}`, schema: ApiError },
+        ...exists,
         500: { description: "Erreur interne", schema: ApiError },
       },
     },
@@ -78,7 +83,7 @@ function referenceRoutes(def: {
         400: { description: "Corps ou en-tete invalide (VALIDATION_FAILED)", schema: ApiError },
         ...common,
         404: { description: "Entite ou reference inconnue (NOT_FOUND, params.entity)", schema: ApiError },
-        409: { description: `Version perimee (VERSION_CONFLICT, params.currentVersion) ou deja existant (ALREADY_EXISTS) : ${def.unique}`, schema: ApiError },
+        409: { description: `Version perimee (VERSION_CONFLICT, params.currentVersion)${def.unique ? ` ou deja existant (ALREADY_EXISTS) : ${def.unique}` : ""}`, schema: ApiError },
         428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
         500: { description: "Erreur interne", schema: ApiError },
       },
@@ -325,4 +330,7 @@ export const routes: RouteContract[] = [
   ...referenceRoutes({ path: "/api/v1/timeoff-types", name: "TimeoffType", listQuery: ReferenceListQuery, list: TimeoffTypeList, label: "type de conge", create: TimeoffTypeCreate, patch: TimeoffTypePatch, response: ScheduleTimeoffType, admin: true, remove: true, unique: "nom", refs: "aucune" }),
   ...referenceRoutes({ path: "/api/v1/holidays", name: "Holiday", listQuery: HolidayListQuery, list: HolidayList, label: "jour ferie", create: HolidayCreate, patch: HolidayPatch, response: ScheduleHoliday, admin: true, remove: true, unique: "date, pays, departement et nom identiques", refs: "department" }),
   ...referenceRoutes({ path: "/api/v1/projects", name: "Project", listQuery: ProjectListQuery, list: ProjectList, label: "projet", create: ProjectCreate, patch: ProjectPatch, response: ProjectDetail, admin: false, remove: false, unique: "code projet (params.field = projectCode)", refs: "person (chef de projet)" }),
+  ...referenceRoutes({ path: "/api/v1/clients", name: "Client", listQuery: ReferenceListQuery, list: ClientList, label: "client", create: ClientCreate, patch: ClientPatch, response: Client, admin: false, remove: true, refs: "aucune" }),
+  ...referenceRoutes({ path: "/api/v1/phases", name: "Phase", listQuery: PhaseListQuery, list: PhaseList, label: "phase", create: PhaseCreate, patch: PhasePatch, response: Phase, admin: false, remove: true, refs: "project" }),
+  ...referenceRoutes({ path: "/api/v1/project-tasks", name: "ProjectTask", listQuery: ProjectTaskListQuery, list: ProjectTaskList, label: "tache de projet", create: ProjectTaskCreate, patch: ProjectTaskPatch, response: ProjectTask, admin: false, remove: true, refs: "project, phase (du meme projet)" }),
 ];

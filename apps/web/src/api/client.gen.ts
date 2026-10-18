@@ -398,6 +398,103 @@ export interface ProjectPatch {
   notes?: string | null;
 }
 
+export interface ClientList {
+  items: Array<Client>;
+  page: SchedulePage;
+}
+
+export interface Client {
+  id: Id;
+  version: Version;
+  name: string;
+  shortName: string | null;
+  tags: Array<string>;
+}
+
+export interface ClientCreate {
+  name: string;
+  shortName?: string | null;
+  tags?: Array<string>;
+}
+
+export interface ClientPatch {
+  name?: string;
+  shortName?: string | null;
+  tags?: Array<string>;
+}
+
+export interface PhaseList {
+  items: Array<Phase>;
+  page: SchedulePage;
+}
+
+export interface Phase {
+  id: Id;
+  version: Version;
+  projectId: Id;
+  name: string;
+  startDate: IsoDate | null;
+  endDate: IsoDate | null;
+  status: "tentative" | "planned" | "in_progress" | "on_hold" | "completed" | "archived";
+  color: string | null;
+  nonBillable: boolean;
+  notes: string | null;
+  position: number;
+}
+
+export interface PhaseCreate {
+  projectId: Id;
+  name: string;
+  startDate?: IsoDate | null;
+  endDate?: IsoDate | null;
+  status?: "tentative" | "planned" | "in_progress" | "on_hold" | "completed" | "archived";
+  color?: string | null;
+  nonBillable?: boolean;
+  notes?: string | null;
+  position?: number;
+}
+
+export interface PhasePatch {
+  name?: string;
+  startDate?: IsoDate | null;
+  endDate?: IsoDate | null;
+  status?: "tentative" | "planned" | "in_progress" | "on_hold" | "completed" | "archived";
+  color?: string | null;
+  nonBillable?: boolean;
+  notes?: string | null;
+  position?: number;
+}
+
+export interface ProjectTaskList {
+  items: Array<ProjectTask>;
+  page: SchedulePage;
+}
+
+export interface ProjectTask {
+  id: Id;
+  version: Version;
+  projectId: Id;
+  phaseId: Id | null;
+  name: string;
+  billable: boolean;
+  position: number;
+}
+
+export interface ProjectTaskCreate {
+  projectId: Id;
+  name: string;
+  phaseId?: Id | null;
+  billable?: boolean;
+  position?: number;
+}
+
+export interface ProjectTaskPatch {
+  name?: string;
+  phaseId?: Id | null;
+  billable?: boolean;
+  position?: number;
+}
+
 export interface FetchResponse {
   status: number;
   json(): Promise<unknown>;
@@ -906,6 +1003,201 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as ProjectDetail }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lister : client (pagine, tri par id ; tout membre authentifie) (GET /api/v1/clients) */
+    async listClients(query: {
+      limit?: number;
+      cursor?: string;
+    } = {}): Promise<ApiResult<ClientList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/clients" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ClientList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer : client (POST /api/v1/clients) */
+    async createClient(input: {
+      body: ClientCreate;
+    }): Promise<ApiResult<Client, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/clients", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as Client }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire : client (tout membre authentifie) (GET /api/v1/clients/{id}) */
+    async getClient(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<Client, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/clients/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as Client }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier : client (verrou optimiste If-Match) (PATCH /api/v1/clients/{id}) */
+    async updateClient(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: ClientPatch;
+    }): Promise<ApiResult<Client, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/clients/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as Client }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer : client (verrou optimiste If-Match ; refuse si reference) (DELETE /api/v1/clients/{id}) */
+    async deleteClient(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/clients/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lister : phase (pagine, tri par id ; tout membre authentifie) (GET /api/v1/phases) */
+    async listPhases(query: {
+      limit?: number;
+      cursor?: string;
+      projectId?: string;
+    } = {}): Promise<ApiResult<PhaseList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/phases" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as PhaseList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer : phase (POST /api/v1/phases) */
+    async createPhase(input: {
+      body: PhaseCreate;
+    }): Promise<ApiResult<Phase, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/phases", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as Phase }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire : phase (tout membre authentifie) (GET /api/v1/phases/{id}) */
+    async getPhase(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<Phase, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/phases/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as Phase }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier : phase (verrou optimiste If-Match) (PATCH /api/v1/phases/{id}) */
+    async updatePhase(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: PhasePatch;
+    }): Promise<ApiResult<Phase, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/phases/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as Phase }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer : phase (verrou optimiste If-Match ; refuse si reference) (DELETE /api/v1/phases/{id}) */
+    async deletePhase(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/phases/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lister : tache de projet (pagine, tri par id ; tout membre authentifie) (GET /api/v1/project-tasks) */
+    async listProjectTasks(query: {
+      limit?: number;
+      cursor?: string;
+      projectId?: string;
+      phaseId?: string;
+    } = {}): Promise<ApiResult<ProjectTaskList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-tasks" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectTaskList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer : tache de projet (POST /api/v1/project-tasks) */
+    async createProjectTask(input: {
+      body: ProjectTaskCreate;
+    }): Promise<ApiResult<ProjectTask, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-tasks", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectTask }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire : tache de projet (tout membre authentifie) (GET /api/v1/project-tasks/{id}) */
+    async getProjectTask(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<ProjectTask, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-tasks/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectTask }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier : tache de projet (verrou optimiste If-Match) (PATCH /api/v1/project-tasks/{id}) */
+    async updateProjectTask(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: ProjectTaskPatch;
+    }): Promise<ApiResult<ProjectTask, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-tasks/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectTask }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer : tache de projet (verrou optimiste If-Match ; refuse si reference) (DELETE /api/v1/project-tasks/{id}) */
+    async deleteProjectTask(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/project-tasks/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
         : { ok: false, status: res.status, error: body as ApiError };
     },
   };
