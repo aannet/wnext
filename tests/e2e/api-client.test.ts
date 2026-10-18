@@ -255,4 +255,24 @@ describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
     if (missing.ok) throw new Error("404 attendu");
     expect([missing.status, missing.error.code]).toEqual([404, "NOT_FOUND"]);
   });
+
+  it("ajout en lot à l'équipe : deux listes, rejouable, tout ou rien", async () => {
+    const api = client();
+    const proj = await api.createProject({ body: { name: "Lot" } });
+    if (!proj.ok) throw new Error("projet attendu");
+    const sched = await api.getSchedule({ from: "2026-03-02", to: "2026-03-06" });
+    if (!sched.ok || !("people" in sched.data)) throw new Error("planning attendu");
+    const ids = sched.data.people.map((p) => p.id);
+    const path = { projectId: proj.data.id };
+    const first = await api.addManyToTeam({ path, body: { personIds: ids } });
+    expect(first.ok && first.data).toEqual({ added: ids, alreadyInTeam: [] });
+    const again = await api.addManyToTeam({ path, body: { personIds: ids } });
+    expect(again.ok && again.data).toEqual({ added: [], alreadyInTeam: ids });
+    const bad = await api.addManyToTeam({ path: { projectId: proj.data.id }, body: { personIds: ["99999"] } });
+    if (bad.ok) throw new Error("404 attendu");
+    expect([bad.status, bad.error.code, bad.error.params.personId]).toEqual([404, "NOT_FOUND", "99999"]);
+    const dup = await api.addManyToTeam({ path, body: { personIds: [ids[0]!, ids[0]!] } });
+    if (dup.ok) throw new Error("400 attendu");
+    expect([dup.status, dup.error.params.field]).toEqual([400, "personIds"]);
+  });
 });

@@ -1,5 +1,5 @@
 import { planTeamRemoval, summarizeTeamRemoval, type TeamAllocation, type TeamLog, type TeamRemovalSummary as EngineSummary } from "@wnext/engine";
-import type { TeamMemberList, TeamMembership, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "@wnext/contracts";
+import type { TeamBatchAdd, TeamBatchResult, TeamMemberList, TeamMembership, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor } from "./reference";
@@ -83,6 +83,35 @@ export async function addToTeam(db: Db, ctx: RequestContext, projectId: string, 
       [projectId, personId, ctx.accountId],
     );
     return { added: r.rows.length > 0 };
+  });
+}
+
+/**
+ * Ajout en lot (POST /projects/{p}/team) : n ajouts idempotents dans UNE transaction, tout ou rien. Les personnes sont verrouillées
+ * dans l'ordre croissant des identifiants (deux lots qui se chevauchent ne s'interbloquent pas ; un retrait concurrent est sérialisé,
+ * comme pour l'ajout unitaire). Une personne inconnue ou d'un autre compte annule tout : 404 avec la première fautive dans l'ordre reçu.
+ */
+export async function addManyToTeam(db: Db, ctx: RequestContext, projectId: string, request: TeamBatchAdd): Promise<TeamBatchResult> {
+  assertWriter(ctx);
+  return withContext(db, ctx, async (tx) => {
+    if (!isId(projectId) || !(await tx.query("SELECT 1 FROM projects WHERE id = $1::bigint AND account_id = $2::bigint", [projectId, ctx.accountId])).rows.length) throw notFound("project");
+    const wanted = request.personIds;
+    const known = new Set(
+      (await tx.query<Row>(
+        "SELECT id FROM people WHERE account_id = $1::bigint AND id = ANY ($2::bigint[]) ORDER BY id FOR UPDATE",
+        [ctx.accountId, wanted.filter(isId)],
+      )).rows.map((r) => String(r.id)),
+    );
+    const missing = wanted.find((id) => !known.has(id));
+    if (missing !== undefined) throw new ApiFailure("NOT_FOUND", { entity: "person", personId: missing });
+    const inserted = new Set(
+      (await tx.query<Row>(
+        `INSERT INTO project_team (project_id, person_id, account_id) SELECT $1::bigint, p, $3::bigint FROM unnest($2::bigint[]) AS p
+         ON CONFLICT DO NOTHING RETURNING person_id`,
+        [projectId, wanted, ctx.accountId],
+      )).rows.map((r) => String(r.person_id)),
+    );
+    return { added: wanted.filter((id) => inserted.has(id)), alreadyInTeam: wanted.filter((id) => !inserted.has(id)) };
   });
 }
 

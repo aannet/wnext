@@ -227,6 +227,41 @@ describe("ajout à l'équipe", () => {
   });
 });
 
+describe("ajout en lot à l'équipe", () => {
+  it("lots qui se chevauchent dans des ordres opposés : aucun interblocage, chaque personne ajoutée une seule fois, le lot perdant n'est pas écrit à moitié", async () => {
+    let deadlocks = 0;
+    const counting: HttpDeps = {
+      ...deps,
+      db: { transaction: async (fn) => { try { return await c.db.transaction(fn); } catch (e) { if ((e as { code?: string }).code === "40P01") deadlocks++; throw e; } } },
+    };
+    const batch = (project: string, ids: string[]) => dispatch(counting, { method: "POST", url: `/api/v1/projects/${project}/team`, headers: {}, body: JSON.stringify({ personIds: ids }) });
+    for (let round = 0; round < 6; round++) {
+      const project = round % 2 === 0 ? "1" : "2";
+      await c.admin.query(`DELETE FROM project_team WHERE project_id = ${project}`);
+      const ids = ["1", "2", "3", "4", "5", "6", "7", "8"];
+      const rs = await Promise.all([batch(project, ids), batch(project, [...ids].reverse()), batch(project, ["8", "1", "5", "3"]), batch(project, ["2", "9999"])]);
+      expect(rs.map((r) => r.status)).toEqual([200, 200, 200, 404]);
+      const added = rs.slice(0, 3).flatMap((r) => (r.body as { added: string[] }).added).sort();
+      expect(added).toEqual(ids); // une fois chacune, quel que soit le lot gagnant
+      expect(await n(`SELECT count(*) AS n FROM project_team WHERE project_id = ${project}`)).toBe(8); // le lot en 404 n'a rien écrit
+    }
+    expect(deadlocks).toBe(0);
+  });
+
+  it("un lot attend le retrait concurrent de la même personne (verrou de la personne), sans perdre ni dupliquer", async () => {
+    await c.admin.query("DELETE FROM project_team WHERE project_id = 2");
+    const holder = await c.hold(ctx);
+    await holder.query("SELECT 1 FROM people WHERE id = 9 FOR UPDATE"); // comme un retrait en cours
+    const p = dispatch(deps, { method: "POST", url: "/api/v1/projects/2/team", headers: {}, body: JSON.stringify({ personIds: ["9", "10"] }) });
+    await c.waitBlocked();
+    expect(await pending(p)).toBe(true);
+    expect(await n("SELECT count(*) AS n FROM project_team WHERE project_id = 2")).toBe(0); // rien d'écrit à moitié pendant l'attente
+    await holder.commit();
+    const r = await p;
+    expect(r.body).toEqual({ added: ["9", "10"], alreadyInTeam: [] });
+  });
+});
+
 describe("adaptateur pg sur un vrai pool", () => {
   it("une transaction en échec est annulée et rend sa connexion : le pool reste utilisable", async () => {
     const before = await n("SELECT count(*) AS n FROM allocations");

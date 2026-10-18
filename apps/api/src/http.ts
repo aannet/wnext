@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
+import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { createAllocation, deleteAllocation, updateAllocation } from "./allocations";
@@ -11,7 +11,7 @@ import {
   updateDepartment, updateHoliday, updateProject, updateRole, updateTimeoffType,
 } from "./reference";
 import { getSchedule } from "./schedule";
-import { addToTeam, getTeamRemovalSummary, listTeam, removeFromTeam } from "./team";
+import { addManyToTeam, addToTeam, getTeamRemovalSummary, listTeam, removeFromTeam } from "./team";
 import { createTimeoff, deleteTimeoff, updateTimeoff } from "./timeoffs";
 import { clientReader, createClient, createPhase, createProjectTask, deleteClient, deletePhase, deleteProjectTask, phaseReader, projectTaskReader, updateClient, updatePhase, updateProjectTask } from "./project-structure";
 import type { TicketService } from "./tickets";
@@ -164,6 +164,14 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       return { status: 200, body: await getSchedule(deps.db, ctx, parseQuery<ScheduleQueryT>(ScheduleQuery, url.searchParams)) };
     }
     const teamList = /^\/api\/v1\/projects\/([^/]+)\/team$/.exec(url.pathname);
+    if (teamList && req.method === "POST") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (!WRITERS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role }); // avant la validation du corps
+      let projectId: string;
+      try { projectId = decodeURIComponent(teamList[1]!); } catch { projectId = "%"; }
+      return { status: 200, body: await addManyToTeam(deps.db, ctx, projectId, parseJsonBody(TeamBatchAdd, req.body)) };
+    }
     if (teamList && req.method === "GET") {
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId);
