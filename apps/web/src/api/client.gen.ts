@@ -285,12 +285,22 @@ export interface TeamMembership {
   added: boolean;
 }
 
+export interface DepartmentList {
+  items: Array<ScheduleDepartment>;
+  page: SchedulePage;
+}
+
 export interface DepartmentCreate {
   name: string;
 }
 
 export interface DepartmentPatch {
   name?: string;
+}
+
+export interface RoleList {
+  items: Array<ScheduleRole>;
+  page: SchedulePage;
 }
 
 export interface RoleCreate {
@@ -301,6 +311,11 @@ export interface RolePatch {
   name?: string;
 }
 
+export interface TimeoffTypeList {
+  items: Array<ScheduleTimeoffType>;
+  page: SchedulePage;
+}
+
 export interface TimeoffTypeCreate {
   name: string;
   deducted?: boolean;
@@ -309,6 +324,11 @@ export interface TimeoffTypeCreate {
 export interface TimeoffTypePatch {
   name?: string;
   deducted?: boolean;
+}
+
+export interface HolidayList {
+  items: Array<ScheduleHoliday>;
+  page: SchedulePage;
 }
 
 export interface HolidayCreate {
@@ -325,6 +345,11 @@ export interface HolidayPatch {
   country?: string | null;
   departmentId?: Id | null;
   hoursOff?: number | null;
+}
+
+export interface ProjectList {
+  items: Array<ProjectDetail>;
+  page: SchedulePage;
 }
 
 export interface ProjectDetail {
@@ -562,11 +587,34 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as TeamMembership }
         : { ok: false, status: res.status, error: body as ApiError };
     },
+    /** Lister : departement (pagine, tri par id ; tout membre authentifie) (GET /api/v1/departments) */
+    async listDepartments(query: {
+      limit?: number;
+      cursor?: string;
+    } = {}): Promise<ApiResult<DepartmentList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/departments" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as DepartmentList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
     /** Creer : departement (POST /api/v1/departments) */
     async createDepartment(input: {
       body: DepartmentCreate;
     }): Promise<ApiResult<ScheduleDepartment, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/departments", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleDepartment }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire : departement (tout membre authentifie) (GET /api/v1/departments/{id}) */
+    async getDepartment(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<ScheduleDepartment, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/departments/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as ScheduleDepartment }
@@ -603,11 +651,34 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as void }
         : { ok: false, status: res.status, error: body as ApiError };
     },
+    /** Lister : role (pagine, tri par id ; tout membre authentifie) (GET /api/v1/roles) */
+    async listRoles(query: {
+      limit?: number;
+      cursor?: string;
+    } = {}): Promise<ApiResult<RoleList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/roles" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as RoleList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
     /** Creer : role (POST /api/v1/roles) */
     async createRole(input: {
       body: RoleCreate;
     }): Promise<ApiResult<ScheduleRole, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/roles", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleRole }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire : role (tout membre authentifie) (GET /api/v1/roles/{id}) */
+    async getRole(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<ScheduleRole, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/roles/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as ScheduleRole }
@@ -644,11 +715,34 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as void }
         : { ok: false, status: res.status, error: body as ApiError };
     },
+    /** Lister : type de conge (pagine, tri par id ; tout membre authentifie) (GET /api/v1/timeoff-types) */
+    async listTimeoffTypes(query: {
+      limit?: number;
+      cursor?: string;
+    } = {}): Promise<ApiResult<TimeoffTypeList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/timeoff-types" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as TimeoffTypeList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
     /** Creer : type de conge (POST /api/v1/timeoff-types) */
     async createTimeoffType(input: {
       body: TimeoffTypeCreate;
     }): Promise<ApiResult<ScheduleTimeoffType, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/timeoff-types", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleTimeoffType }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire : type de conge (tout membre authentifie) (GET /api/v1/timeoff-types/{id}) */
+    async getTimeoffType(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<ScheduleTimeoffType, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/timeoff-types/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as ScheduleTimeoffType }
@@ -685,11 +779,36 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as void }
         : { ok: false, status: res.status, error: body as ApiError };
     },
+    /** Lister : jour ferie (pagine, tri par id ; tout membre authentifie) (GET /api/v1/holidays) */
+    async listHolidays(query: {
+      limit?: number;
+      cursor?: string;
+      from?: string;
+      to?: string;
+    } = {}): Promise<ApiResult<HolidayList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/holidays" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as HolidayList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
     /** Creer : jour ferie (POST /api/v1/holidays) */
     async createHoliday(input: {
       body: HolidayCreate;
     }): Promise<ApiResult<ScheduleHoliday, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/holidays", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleHoliday }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire : jour ferie (tout membre authentifie) (GET /api/v1/holidays/{id}) */
+    async getHoliday(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<ScheduleHoliday, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/holidays/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as ScheduleHoliday }
@@ -726,11 +845,35 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as void }
         : { ok: false, status: res.status, error: body as ApiError };
     },
+    /** Lister : projet (pagine, tri par id ; tout membre authentifie) (GET /api/v1/projects) */
+    async listProjects(query: {
+      limit?: number;
+      cursor?: string;
+      status?: "tentative" | "planned" | "in_progress" | "on_hold" | "completed" | "archived";
+    } = {}): Promise<ApiResult<ProjectList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/projects" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
     /** Creer : projet (POST /api/v1/projects) */
     async createProject(input: {
       body: ProjectCreate;
     }): Promise<ApiResult<ProjectDetail, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/projects", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectDetail }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire : projet (tout membre authentifie) (GET /api/v1/projects/{id}) */
+    async getProject(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<ProjectDetail, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/projects/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as ProjectDetail }

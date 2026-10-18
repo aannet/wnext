@@ -2,7 +2,7 @@
 import "../src/zod-setup";
 import { describe, expect, it } from "vitest";
 import {
-  DepartmentCreate, DepartmentPatch, ErrorCode, HolidayCreate, HolidayPatch, ProjectCreate, ProjectDetail, ProjectPatch,
+  DepartmentCreate, DepartmentList, DepartmentPatch, ErrorCode, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectList, ProjectListQuery, ReferenceListQuery, ProjectDetail, ProjectPatch,
   ScheduleDepartment, ScheduleHoliday, ScheduleProject, ScheduleRole, ScheduleTimeoffType, TimeoffTypeCreate, TimeoffTypePatch, routes,
 } from "@wnext/contracts";
 import { buildSpec } from "../src/openapi";
@@ -83,5 +83,34 @@ describe("routes et codes", () => {
   });
   it("deux nouveaux codes d'erreur, stables", () => {
     for (const c of ["ALREADY_EXISTS", "REFERENCE_IN_USE"]) expect(ok(ErrorCode, c)).toBe(true);
+  });
+});
+
+describe("lecture", () => {
+  it("requêtes de liste : limite 1..500, curseur non vide, filtres typés, rien d'autre", () => {
+    expect(ok(ReferenceListQuery, {})).toBe(true);
+    expect(ok(ReferenceListQuery, { limit: 500, cursor: "abc" })).toBe(true);
+    for (const v of [{ limit: 0 }, { limit: 501 }, { limit: 1.5 }, { cursor: "" }]) expect(ok(ReferenceListQuery, v)).toBe(false);
+    expect(ok(HolidayListQuery, { from: "2026-01-01", to: "2026-12-31" })).toBe(true);
+    expect(ok(HolidayListQuery, { from: "2026-12-31", to: "2026-01-01" })).toBe(false);
+    expect(ok(HolidayListQuery, { from: "demain" })).toBe(false);
+    expect(ok(ProjectListQuery, { status: "archived" })).toBe(true);
+    expect(ok(ProjectListQuery, { status: "perdu" })).toBe(false);
+  });
+  it("page : items + page.nextCursor/total ; les projets sont listés en détail", () => {
+    const page = { nextCursor: null, total: 1 };
+    expect(ok(DepartmentList, { items: [{ id: "1", version: 1, name: "Design" }], page })).toBe(true);
+    expect(ok(DepartmentList, { items: [{ id: "1", name: "Design" }], page })).toBe(false); // version requise
+    expect(ok(ProjectList, { items: [{ id: "1", version: 1, name: "P", projectCode: null, color: "#3B82F6", status: "planned", nonBillable: false }], page })).toBe(false); // détail incomplet
+  });
+  it("routes : liste et lecture par id pour les cinq entités, ouvertes à tout membre (pas de 403)", () => {
+    for (const [path, plural] of [["departments", "Departments"], ["roles", "Roles"], ["timeoff-types", "TimeoffTypes"], ["holidays", "Holidays"], ["projects", "Projects"]]) {
+      const list = routes.find((r) => r.method === "get" && r.path === `/api/v1/${path}`);
+      const one = routes.find((r) => r.method === "get" && r.path === `/api/v1/${path}/{id}`);
+      expect(list?.operationId).toBe(`list${plural}`);
+      expect(one?.operationId).toMatch(/^get/);
+      expect(Object.keys(list!.responses).map(Number)).not.toContain(403);
+      expect(Object.keys(one!.responses).map(Number)).toEqual(expect.arrayContaining([200, 401, 404]));
+    }
   });
 });

@@ -6,8 +6,9 @@ import { TeamMembership, TeamPathParams, TeamRemovalRequest, TeamRemovalResult, 
 import { PersonCreate, PersonPatch, PersonPathParams } from "./people";
 import { ScheduleDepartment, ScheduleHoliday, SchedulePerson, ScheduleAllocation, ScheduleRole, ScheduleTimeoffType, ScheduleQuery, ScheduleResponse, ScheduleTimeoff } from "./schedule";
 import {
-  DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayPatch, ProjectCreate, ProjectDetail, ProjectPatch, ReferencePathParams,
-  RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch,
+  DepartmentCreate, DepartmentList, DepartmentPatch, HolidayCreate, HolidayList, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectDetail,
+  ProjectList, ProjectListQuery, ProjectPatch, ReferenceListQuery, ReferencePathParams, RoleCreate, RoleList, RolePatch, TimeoffTypeCreate,
+  TimeoffTypeList, TimeoffTypePatch,
 } from "./reference";
 import { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
 
@@ -30,15 +31,33 @@ export interface RouteContract {
   responses: Record<number, { description: string; schema?: z.ZodType }>;
 }
 
-// Entites de reference : POST, PATCH (If-Match) et, sauf projets, DELETE (refuse tant que l'entite est referencee).
+// Entites de reference : GET (liste paginee, une entite), POST, PATCH (If-Match) et, sauf projets, DELETE (refuse tant que l'entite est referencee).
 function referenceRoutes(def: {
   path: string; name: string; label: string; create: z.ZodType; patch: z.ZodType; response: z.ZodType;
-  admin: boolean; remove: boolean; unique: string; refs: string;
+  listQuery: z.ZodObject; list: z.ZodType; admin: boolean; remove: boolean; unique: string; refs: string;
 }): RouteContract[] {
   const who = def.admin ? "owner ou admin" : "owner, admin ou project_manager";
   const forbidden = { description: `Role insuffisant, ${who} requis (FORBIDDEN)`, schema: ApiError };
   const common = { 401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError }, 403: forbidden };
   const out: RouteContract[] = [
+    {
+      method: "get", path: def.path, operationId: `list${def.name}s`, summary: `Lister : ${def.label} (pagine, tri par id ; tout membre authentifie)`, query: def.listQuery,
+      responses: {
+        200: { description: `Page de ${def.label}s (items, page.nextCursor, page.total)`, schema: def.list },
+        400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
+        401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+        500: { description: "Erreur interne", schema: ApiError },
+      },
+    },
+    {
+      method: "get", path: `${def.path}/{id}`, operationId: `get${def.name}`, summary: `Lire : ${def.label} (tout membre authentifie)`, params: ReferencePathParams,
+      responses: {
+        200: { description: `${def.label} (avec sa version courante)`, schema: def.response },
+        401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+        404: { description: "Entite inconnue ou hors compte (NOT_FOUND)", schema: ApiError },
+        500: { description: "Erreur interne", schema: ApiError },
+      },
+    },
     {
       method: "post", path: def.path, operationId: `create${def.name}`, summary: `Creer : ${def.label}`, body: def.create,
       responses: {
@@ -289,9 +308,9 @@ export const routes: RouteContract[] = [
       500: { description: "Erreur interne", schema: ApiError },
     },
   },
-  ...referenceRoutes({ path: "/api/v1/departments", name: "Department", label: "departement", create: DepartmentCreate, patch: DepartmentPatch, response: ScheduleDepartment, admin: true, remove: true, unique: "nom", refs: "aucune" }),
-  ...referenceRoutes({ path: "/api/v1/roles", name: "Role", label: "role", create: RoleCreate, patch: RolePatch, response: ScheduleRole, admin: true, remove: true, unique: "nom", refs: "aucune" }),
-  ...referenceRoutes({ path: "/api/v1/timeoff-types", name: "TimeoffType", label: "type de conge", create: TimeoffTypeCreate, patch: TimeoffTypePatch, response: ScheduleTimeoffType, admin: true, remove: true, unique: "nom", refs: "aucune" }),
-  ...referenceRoutes({ path: "/api/v1/holidays", name: "Holiday", label: "jour ferie", create: HolidayCreate, patch: HolidayPatch, response: ScheduleHoliday, admin: true, remove: true, unique: "date, pays, departement et nom identiques", refs: "department" }),
-  ...referenceRoutes({ path: "/api/v1/projects", name: "Project", label: "projet", create: ProjectCreate, patch: ProjectPatch, response: ProjectDetail, admin: false, remove: false, unique: "code projet (params.field = projectCode)", refs: "person (chef de projet)" }),
+  ...referenceRoutes({ path: "/api/v1/departments", name: "Department", listQuery: ReferenceListQuery, list: DepartmentList, label: "departement", create: DepartmentCreate, patch: DepartmentPatch, response: ScheduleDepartment, admin: true, remove: true, unique: "nom", refs: "aucune" }),
+  ...referenceRoutes({ path: "/api/v1/roles", name: "Role", listQuery: ReferenceListQuery, list: RoleList, label: "role", create: RoleCreate, patch: RolePatch, response: ScheduleRole, admin: true, remove: true, unique: "nom", refs: "aucune" }),
+  ...referenceRoutes({ path: "/api/v1/timeoff-types", name: "TimeoffType", listQuery: ReferenceListQuery, list: TimeoffTypeList, label: "type de conge", create: TimeoffTypeCreate, patch: TimeoffTypePatch, response: ScheduleTimeoffType, admin: true, remove: true, unique: "nom", refs: "aucune" }),
+  ...referenceRoutes({ path: "/api/v1/holidays", name: "Holiday", listQuery: HolidayListQuery, list: HolidayList, label: "jour ferie", create: HolidayCreate, patch: HolidayPatch, response: ScheduleHoliday, admin: true, remove: true, unique: "date, pays, departement et nom identiques", refs: "department" }),
+  ...referenceRoutes({ path: "/api/v1/projects", name: "Project", listQuery: ProjectListQuery, list: ProjectList, label: "projet", create: ProjectCreate, patch: ProjectPatch, response: ProjectDetail, admin: false, remove: false, unique: "code projet (params.field = projectCode)", refs: "person (chef de projet)" }),
 ];

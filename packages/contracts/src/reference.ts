@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { Id, IsoDate, orNull } from "./common";
-import { ScheduleProject } from "./schedule";
+import { ScheduleDepartment, ScheduleHoliday, ScheduleProject, SchedulePage, ScheduleRole, ScheduleTimeoffType } from "./schedule";
 
-// Écriture des entités de référence : départements, rôles, types de congé, jours fériés, projets. Choix de conception :
+// Lecture et écriture des entités de référence : départements, rôles, types de congé, jours fériés, projets. Choix de conception :
 //  * Même mécanique que les allocations : verrou optimiste (PATCH et DELETE exigent If-Match "<version>"), 404 NOT_FOUND
 //    (params.entity) pour une référence hors compte. Les `version` sont lues dans GET /schedule (champ ajouté aux listes de référence).
 //  * Droits. Départements, rôles, types de congé et jours fériés sont de la CONFIGURATION du compte : owner et admin seulement
@@ -14,6 +14,11 @@ import { ScheduleProject } from "./schedule";
 //    encore référencé est refusé : 409 REFERENCE_IN_USE, params = nombre de lignes liées par entité (ex. people, holidays). Il faut
 //    d'abord réaffecter ou supprimer ces lignes. Un jour férié, lui, se supprime librement.
 //  * PAS de DELETE pour les projets : il emporterait allocations, temps saisis, phases et budgets. On les archive (status "archived").
+//  * Lecture : GET /x (liste paginée) et GET /x/{id} (une entité, pour relire la `version` après un VERSION_CONFLICT). Tout membre
+//    authentifié peut lire, quel que soit son rôle (comme GET /schedule). Tri par `id` croissant, stable : le client trie à
+//    l'affichage. Pagination par curseur opaque (`page.nextCursor`, null = dernière page) et `page.total` = nombre total
+//    d'entités correspondant aux filtres. Défaut 200 par page, 500 au plus. Filtres : fériés `from`/`to` (dates incluses),
+//    projets `status`. Paramètre inconnu ou répété : 400 VALIDATION_FAILED ; curseur illisible : 400 SCHEDULE_CURSOR_INVALID.
 //  * Hors périmètre ici : clients, grilles de tarifs, devise, budget, phases et tâches (autres routes, autres droits), équipe du projet
 //    (routes /team).
 
@@ -22,6 +27,25 @@ const tags = z.array(z.string().min(1).max(50).regex(/\S/)).max(50);
 const noEmpty = (p: object) => Object.keys(p).length > 0;
 
 export const ReferencePathParams = z.object({ id: Id });
+
+// --- Lecture : requêtes et pages --------------------------------------------------------------------------------------
+export const ReferenceListQuery = z.object({
+  limit: z.number().int().min(1).max(500).optional().describe("Entités par page (défaut 200)"),
+  cursor: z.string().min(1).optional().describe("Curseur de page renvoyé par page.nextCursor"),
+});
+export const HolidayListQuery = ReferenceListQuery.extend({
+  from: IsoDate.optional().describe("Fériés à partir de cette date (incluse)"),
+  to: IsoDate.optional().describe("Fériés jusqu'à cette date (incluse)"),
+}).refine((q) => !q.from || !q.to || q.to >= q.from, { path: ["to"], message: "to < from" });
+export const ProjectListQuery = ReferenceListQuery.extend({
+  status: ScheduleProject.shape.status.optional().describe("Seulement les projets de ce statut (les archivés ne sont listés que sur demande : status=archived)"),
+});
+
+const pageOf = <T extends z.ZodType>(item: T, id: string) => z.object({ items: z.array(item), page: SchedulePage }).meta({ id });
+export const DepartmentList = pageOf(ScheduleDepartment, "DepartmentList");
+export const RoleList = pageOf(ScheduleRole, "RoleList");
+export const TimeoffTypeList = pageOf(ScheduleTimeoffType, "TimeoffTypeList");
+export const HolidayList = pageOf(ScheduleHoliday, "HolidayList");
 
 // --- Départements et rôles : un nom ---------------------------------------------------------------------------------
 export const DepartmentCreate = z.object({ name }).meta({ id: "DepartmentCreate" });
@@ -78,6 +102,8 @@ export const ProjectDetail = ScheduleProject.extend({
   tags: z.array(z.string()),
   notes: z.string().nullable(),
 }).meta({ id: "ProjectDetail" });
+
+export const ProjectList = pageOf(ProjectDetail, "ProjectList");
 
 export type DepartmentCreate = z.infer<typeof DepartmentCreate>;
 export type DepartmentPatch = z.infer<typeof DepartmentPatch>;
