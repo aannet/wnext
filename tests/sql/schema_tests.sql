@@ -6,7 +6,7 @@
 -- Tout est dans une transaction annulée à la fin (aucune trace). Première
 -- assertion en échec => exception 'FAIL: <libellé>' et arrêt.
 -- Traçabilité : BR-01..03 (charge/capacité), BR-04, BR-05, BR-07, BR-10, BR-12,
--- BR-14, BR-15, BR-20/21, BR-25 (répétitions), BR-27, BR-28, BR-30, BR-32, BR-38.
+-- BR-14 (delete_log, change_log), BR-15, BR-20/21, BR-25 (répétitions), BR-27, BR-28, BR-30, BR-32, BR-38.
 -- Calendrier de référence : 2026-03-02 = lundi (vérifié en T00).
 -- ============================================================
 BEGIN;
@@ -615,6 +615,88 @@ SELECT set_config('app.role', 'member', true);
 SELECT t.raises('T16t verrou timesheet actif aussi pour app_user (member)',
   $q$ DELETE FROM logged_time WHERE person_id = t.id('hal') AND work_date = '2026-03-09' $q$, '42501');
 RESET ROLE;
+
+-- ============================================================
+-- T17 Journal de changements (outbox temps réel) : seq par compte, sans trou, cascades, RLS, purge (BR-14)
+-- ============================================================
+SELECT t.mkaccount('C');
+SELECT t.mkaccount('D');
+SELECT set_config('app.user_id', t.id('u1')::text, true);
+CREATE FUNCTION t.head(acc text) RETURNS bigint LANGUAGE sql STABLE AS $$
+  SELECT COALESCE((SELECT seq FROM account_change_seq WHERE account_id = t.id(acc)), 0) $$;
+SELECT t.eq('T17a compte neuf : journal vide', (SELECT COUNT(*) FROM change_log WHERE account_id = t.id('C')), 0);
+
+INSERT INTO departments(account_id, name) VALUES (t.id('C'), 'Ops');
+SELECT t.ok('T17b INSERT journalisé : seq 1, insert, version 1',
+  (SELECT seq = 1 AND entity = 'departments' AND op = 'insert' AND version = 1 FROM change_log WHERE account_id = t.id('C') ORDER BY seq LIMIT 1));
+UPDATE departments SET name = 'Ops 2' WHERE account_id = t.id('C');
+SELECT t.ok('T17c UPDATE journalisé : seq 2, update, version 2 (row_version après trigger)',
+  (SELECT seq = 2 AND op = 'update' AND version = 2 FROM change_log WHERE account_id = t.id('C') AND seq = 2));
+SELECT t.ok('T17d changed_by = app.user_id', (SELECT changed_by = t.id('u1') FROM change_log WHERE account_id = t.id('C') AND seq = 2));
+DELETE FROM departments WHERE account_id = t.id('C');
+SELECT t.ok('T17e DELETE journalisé : seq 3, delete, version NULL',
+  (SELECT seq = 3 AND op = 'delete' AND version IS NULL FROM change_log WHERE account_id = t.id('C') AND seq = 3));
+SELECT t.ok('T17f seq contigu : 1..3 sans trou', (SELECT array_agg(seq ORDER BY seq) = ARRAY[1,2,3]::bigint[] FROM change_log WHERE account_id = t.id('C')));
+
+SELECT t.raises('T17g écriture annulée : exception propagée',
+  $q$ DO $x$ BEGIN INSERT INTO roles(account_id, name) VALUES (t.id('C'), 'annulé'); RAISE EXCEPTION 'annule'; END $x$ $q$);
+SELECT t.eq('T17h écriture annulée : le compteur revient en arrière, aucun trou', t.head('C'), 3);
+INSERT INTO roles(account_id, name) VALUES (t.id('C'), 'Lead');
+SELECT t.eq('T17i écriture suivante : seq 4', (SELECT seq FROM change_log WHERE account_id = t.id('C') AND entity = 'roles'), 4);
+
+INSERT INTO people(account_id, name) VALUES (t.id('D'), 'Zoé');
+SELECT t.eq('T17j compteur indépendant par compte : D démarre à 1', t.head('D'), 1);
+SELECT t.eq('T17k compteur de C inchangé par D', t.head('C'), 4);
+
+-- Cascade (personne -> allocations) et ON DELETE SET NULL (département -> personnes) journalisés eux aussi.
+INSERT INTO departments(account_id, name) VALUES (t.id('D'), 'Studio');
+UPDATE people SET department_id = (SELECT id FROM departments WHERE account_id = t.id('D')) WHERE account_id = t.id('D');
+INSERT INTO projects(account_id, name) VALUES (t.id('D'), 'P');
+INSERT INTO allocations(account_id, person_id, project_id, start_date, end_date, hours_per_day)
+  SELECT t.id('D'), (SELECT id FROM people WHERE account_id = t.id('D')), (SELECT id FROM projects WHERE account_id = t.id('D')), '2026-03-02', '2026-03-03', 4;
+CREATE TEMP TABLE t17_before AS SELECT t.head('D') AS h;
+DELETE FROM departments WHERE account_id = t.id('D');
+SELECT t.ok('T17l ON DELETE SET NULL : la mise à jour de la personne est journalisée (version incrémentée)',
+  (SELECT COUNT(*) FROM change_log WHERE account_id = t.id('D') AND seq > (SELECT h FROM t17_before) AND entity = 'people' AND op = 'update') = 1);
+UPDATE t17_before SET h = t.head('D');
+DELETE FROM people WHERE account_id = t.id('D');
+SELECT t.ok('T17m cascade : la suppression de l allocation est journalisée avec celle de la personne',
+  (SELECT COUNT(*) FILTER (WHERE entity = 'allocations' AND op = 'delete') = 1 AND COUNT(*) FILTER (WHERE entity = 'people' AND op = 'delete') = 1
+     FROM change_log WHERE account_id = t.id('D') AND seq > (SELECT h FROM t17_before)));
+CREATE TEMP TABLE t17_h AS SELECT t.head('D') AS h;
+INSERT INTO phases(account_id, project_id, name) SELECT t.id('D'), id, 'ph' FROM projects WHERE account_id = t.id('D');
+SELECT t.ok('T17n entités hors Schedule non journalisées (phases)',
+  t.head('D') = (SELECT h FROM t17_h) AND NOT EXISTS (SELECT 1 FROM change_log WHERE entity = 'phases'));
+
+SELECT t.ok('T17y les 8 entités du Schedule portent le trigger de journal',
+  (SELECT array_agg(c.relname::text ORDER BY c.relname) FROM pg_trigger tg JOIN pg_class c ON c.oid = tg.tgrelid
+    WHERE tg.tgname = 'trg_92_change_log' AND NOT tg.tgisinternal)
+  = ARRAY['allocations','departments','holidays','people','projects','roles','timeoff_types','timeoffs']);
+
+-- RLS : le journal est cloisonné par compte et les triggers fonctionnent sous app_user.
+SELECT set_config('app.user_id', '', true);
+SET LOCAL ROLE app_user;
+SELECT t.ctx('C');
+SELECT t.eq('T17o app_user (contexte C) ne voit que le journal de C', (SELECT COUNT(DISTINCT account_id) FROM change_log), 1);
+SELECT t.eq('T17p contexte C : voit les 4 entrées de C', (SELECT COUNT(*) FROM change_log), 4);
+SELECT t.raises('T17q app_user ne peut pas écrire dans le journal d un autre compte',
+  $q$ INSERT INTO change_log(account_id, seq, entity, entity_id, op, version) VALUES (t.id('D'), 999, 'people', 1, 'update', 2) $q$, '42501');
+INSERT INTO departments(account_id, name) VALUES (t.id('C'), 'Sous RLS');
+SELECT t.eq('T17r trigger sous app_user : écriture journalisée, seq 5', t.head('C'), 5);
+SELECT t.ctx('D');
+SELECT t.eq('T17s contexte D : journal de C invisible', (SELECT COUNT(*) FROM change_log WHERE account_id = t.id('C')), 0);
+RESET ROLE;
+
+-- Purge : rétention minimale de 72 h (BR-14), le curseur ne recule jamais, le seq continue.
+SELECT t.raises('T17t rétention < 72 h refusée', $q$ SELECT purge_change_log(INTERVAL '71 hours') $q$, '22023');
+UPDATE change_log SET changed_at = now() - INTERVAL '8 days' WHERE account_id = t.id('C') AND seq <= 3;
+SELECT t.eq('T17u purge 7 jours : 3 lignes anciennes supprimées (C) ', (SELECT COUNT(*) FROM change_log WHERE account_id = t.id('C') AND changed_at < now() - INTERVAL '7 days'), 3);
+SELECT t.eq('T17u2 purge : 3 lignes supprimées au total', purge_change_log(INTERVAL '7 days'), 3);
+SELECT t.ok('T17v purge : lignes anciennes supprimées, récentes conservées',
+  (SELECT COUNT(*) FILTER (WHERE seq <= 3) = 0 AND COUNT(*) FILTER (WHERE seq > 3) = 2 FROM change_log WHERE account_id = t.id('C')));
+SELECT t.eq('T17w purged_through = plus grand seq purgé', (SELECT purged_through FROM account_change_seq WHERE account_id = t.id('C')), 3);
+INSERT INTO roles(account_id, name) VALUES (t.id('C'), 'Après purge');
+SELECT t.eq('T17x le seq continue après purge (6, pas de réutilisation)', t.head('C'), 6);
 
 -- ============================================================
 -- Bilan

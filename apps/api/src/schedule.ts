@@ -48,24 +48,13 @@ function assertWindow(from: string, to: string): void {
 }
 
 /**
- * Curseur de changement PROVISOIRE : schema.sql v1.1 n'a pas de journal `change_log` (le contrat le suppose).
- * On compose le dernier id de delete_log et la dernière modification connue ; opaque pour le client.
- * À remplacer par la position du vrai journal quand le contrat WebSocket sera défini.
+ * Position du journal change_log (schema.sql) pour ce compte. Lue AVANT les données : la lecture suivante est au moins aussi
+ * récente que le curseur, donc rejouer les changements > curseur ne peut pas en perdre (au pire, un changement déjà vu est rejoué,
+ * ce que la `version` des entités rend idempotent). Le seq est contigu et commite dans l'ordre : voir schema.sql.
  */
-async function changeCursor(tx: Queryable, accountId: string): Promise<string> {
-  const { rows } = await tx.query<Row>(
-    `SELECT
-       COALESCE((SELECT max(id) FROM delete_log WHERE account_id = $1), 0) AS del,
-       GREATEST(
-         (SELECT max(modified_at) FROM allocations WHERE account_id = $1),
-         (SELECT max(modified_at) FROM timeoffs    WHERE account_id = $1),
-         (SELECT max(modified_at) FROM people      WHERE account_id = $1),
-         (SELECT max(modified_at) FROM holidays    WHERE account_id = $1)) AS modified`,
-    [accountId],
-  );
-  const r = rows[0]!;
-  const modified = r.modified ? new Date(r.modified).getTime() : 0;
-  return `c1.${r.del}.${modified}`;
+export async function readChangeHead(tx: Queryable, accountId: string): Promise<string> {
+  const { rows } = await tx.query<Row>("SELECT seq FROM account_change_seq WHERE account_id = $1::bigint", [accountId]);
+  return String(rows[0]?.seq ?? 0);
 }
 
 export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery): Promise<ScheduleResponse> {
@@ -75,6 +64,7 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
 
   return withContext(db, ctx, async (tx) => {
     const a = ctx.accountId;
+    const changeCursor = await readChangeHead(tx, a);
 
     // Filtres communs au total et à la page.
     const where: string[] = ["p.account_id = $1"];
@@ -167,7 +157,7 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
 
     return {
       window: { from: q.from, to: q.to },
-      changeCursor: await changeCursor(tx, a),
+      changeCursor,
       page: { nextCursor: hasMore && last ? encodeCursor({ name: String(last.name), id: idOf(last.id) }) : null, total },
       account: {
         weekStart: num(account.week_start),

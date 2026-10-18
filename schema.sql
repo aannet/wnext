@@ -597,6 +597,32 @@ CREATE TABLE delete_log (
 CREATE INDEX idx_delete_log_cursor ON delete_log (account_id, id);              -- curseur monotone de sync
 CREATE INDEX idx_delete_log        ON delete_log (account_id, entity, deleted_at);
 
+-- Journal de changements (outbox temps réel, ADR-003 §5). Une ligne par INSERT/UPDATE/DELETE d'une entité du Schedule,
+-- alimentée par trigger (jamais par l'application). Le journal ne porte que des RÉFÉRENCES (entité, id, version) :
+-- le client recharge l'entité, ou l'API la joint à l'événement. `seq` est un compteur PAR COMPTE, sans trou ni
+-- dépassement : il est pris sous le verrou de ligne de account_change_seq, donc les écritures d'un même compte se
+-- sérialisent et commitent dans l'ordre des seq. Un lecteur qui voit seq = N a donc vu TOUS les seq <= N.
+-- Pas de FK vers accounts (comme delete_log) : la suppression d'un compte ne doit pas buter sur ses propres triggers.
+CREATE TABLE account_change_seq (
+  account_id     BIGINT PRIMARY KEY,
+  seq            BIGINT NOT NULL DEFAULT 0,
+  purged_through BIGINT NOT NULL DEFAULT 0      -- plus grand seq purgé : un curseur plus ancien est périmé
+);
+
+CREATE TABLE change_log (
+  account_id BIGINT NOT NULL,
+  seq        BIGINT NOT NULL,
+  entity     TEXT   NOT NULL,                   -- nom de table : 'allocations','timeoffs','people',...
+  entity_id  BIGINT NOT NULL,
+  op         TEXT   NOT NULL CHECK (op IN ('insert','update','delete')),
+  version    INT,                               -- row_version après l'opération ; NULL pour un delete
+  changed_by BIGINT,
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY (account_id, seq),
+  CHECK ((op = 'delete') = (version IS NULL))
+);
+CREATE INDEX idx_change_log_age ON change_log (changed_at);
+
 -- ============================================================
 -- TRIGGERS
 -- ============================================================
@@ -631,6 +657,53 @@ BEGIN
       'milestones','project_expenses','allocations','logged_time','timeoff_types','timeoffs','holidays'] LOOP
     EXECUTE format('CREATE TRIGGER trg_91_delete_log AFTER DELETE ON %I FOR EACH ROW EXECUTE FUNCTION log_delete()', t);
   END LOOP;
+END $$;
+
+-- Journal de changements : numérote sous verrou (upsert = verrou de ligne tenu jusqu'au COMMIT), puis journalise.
+CREATE FUNCTION log_change() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  v_row record := CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+  v_seq bigint;
+BEGIN
+  INSERT INTO account_change_seq (account_id, seq) VALUES (v_row.account_id, 1)
+  ON CONFLICT (account_id) DO UPDATE SET seq = account_change_seq.seq + 1
+  RETURNING seq INTO v_seq;
+  INSERT INTO change_log (account_id, seq, entity, entity_id, op, version, changed_by)
+  VALUES (v_row.account_id, v_seq, TG_TABLE_NAME, v_row.id, lower(TG_OP),
+          CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE NEW.row_version END, app_user_id());
+  RETURN NULL;
+END $$;
+
+-- Entités visibles dans le Schedule (GET /schedule). Les cascades et les ON DELETE SET NULL déclenchent aussi ces
+-- triggers : supprimer un département journalise la mise à jour des personnes concernées.
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['allocations','timeoffs','people','holidays','projects','timeoff_types','departments','roles'] LOOP
+    EXECUTE format('CREATE TRIGGER trg_92_change_log AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION log_change()', t);
+  END LOOP;
+END $$;
+
+-- Purge du journal. BR-14 : rétention >= 72 h (resynchronisation des clients hors ligne) ; conseillée : 7 jours.
+-- À exécuter par un rôle BYPASSRLS (job d'exploitation), comme la purge de delete_log : sous RLS FORCE, sans contexte, aucune ligne n'est visible.
+-- Retourne le nombre de lignes purgées. Un client dont le curseur est <= purged_through doit tout recharger.
+CREATE FUNCTION purge_change_log(p_retain INTERVAL DEFAULT INTERVAL '7 days') RETURNS BIGINT
+LANGUAGE plpgsql AS $$
+DECLARE v_n bigint;
+BEGIN
+  IF p_retain < INTERVAL '72 hours' THEN
+    RAISE EXCEPTION 'purge_change_log : rétention < 72 h interdite (BR-14)' USING ERRCODE = '22023';
+  END IF;
+  WITH gone AS (
+    DELETE FROM change_log WHERE changed_at < clock_timestamp() - p_retain RETURNING account_id, seq
+  ), upto AS (
+    UPDATE account_change_seq s SET purged_through = GREATEST(s.purged_through, g.m)
+    FROM (SELECT account_id, max(seq) AS m FROM gone GROUP BY account_id) g
+    WHERE s.account_id = g.account_id
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_n FROM gone;
+  RETURN v_n;
 END $$;
 
 -- BR-12 / BR-28 / BR-27 portés par la base.
@@ -912,5 +985,5 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO app_user;
 -- 4. Heures stockées en décimal ; arrondi d'affichage côté client.
 -- 5. Ouvert (hors baseline) : heures tentatives dans la charge (Q-01) et base du % (Q-04) sont décidées (2026-10-18) ;
 --    reste ouverte : granularité/verrou des périodes de timesheet (Q-05), 
---    change_log (outbox temps réel), api_tokens et historisation à effet daté (BR-19).
+--    api_tokens et historisation à effet daté (BR-19).
 -- ============================================================
