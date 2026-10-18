@@ -30,6 +30,14 @@ export class RealtimeAuthError extends Error {
   }
 }
 
+/** À lever par `getTicket` sur un 429 : l'API demande d'attendre `retryAfterSeconds` avant de redemander un ticket. */
+export class RealtimeRateLimitedError extends Error {
+  constructor(readonly retryAfterSeconds: number) {
+    super(`trop de tickets, réessayer dans ${retryAfterSeconds} s`);
+    this.name = "RealtimeRateLimitedError";
+  }
+}
+
 export interface RealtimeClientOptions {
   /** Base WebSocket, ex. `wss://app.example.test` (le chemin vient du contrat). */
   wsBase: string;
@@ -131,7 +139,8 @@ export function createRealtimeClient(opts: RealtimeClientOptions): RealtimeClien
         return;
       }
       report(err);
-      return schedule(gen, floorMs);
+      const asked = err instanceof RealtimeRateLimitedError ? err.retryAfterSeconds * 1000 : 0;
+      return schedule(gen, Math.max(floorMs, asked));
     }
     if (!running || gen !== generation) return;
 
@@ -227,12 +236,16 @@ export interface TicketApi {
   createRealtimeTicket(): Promise<{ ok: true; status: number; data: RealtimeTicket } | { ok: false; status: number; error: unknown }>;
 }
 
-/** Adapte le client généré en `getTicket` : 401 -> `RealtimeAuthError`, toute autre erreur est transitoire. */
+/** Adapte le client généré en `getTicket` : 401 -> `RealtimeAuthError`, 429 -> `RealtimeRateLimitedError` (attente demandée), toute autre erreur est transitoire. */
 export function ticketFrom(api: TicketApi): () => Promise<RealtimeTicket> {
   return async () => {
     const res = await api.createRealtimeTicket();
     if (res.ok) return res.data;
     if (res.status === 401) throw new RealtimeAuthError();
+    if (res.status === 429) {
+      const seconds = Number((res.error as { params?: { retryAfterSeconds?: unknown } } | null)?.params?.retryAfterSeconds);
+      if (Number.isFinite(seconds) && seconds > 0) throw new RealtimeRateLimitedError(seconds);
+    }
     throw new Error(`ticket refusé : HTTP ${res.status}`);
   };
 }

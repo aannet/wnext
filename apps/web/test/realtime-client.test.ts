@@ -1,7 +1,7 @@
 // Client temps réel : connexion, abonnement, reprise, attente croissante avec plancher du contrat, arrêt. Socket et minuteurs simulés.
 import { REALTIME_PATH, REALTIME_RETRY_AFTER_SECONDS, type Change, type RealtimeTicket } from "@wnext/contracts";
 import { describe, expect, it } from "vitest";
-import { RealtimeAuthError, createRealtimeClient, ticketFrom, type RealtimeClientOptions, type RealtimeStatus, type SocketLike } from "../src/index";
+import { RealtimeAuthError, RealtimeRateLimitedError, createRealtimeClient, ticketFrom, type RealtimeClientOptions, type RealtimeStatus, type SocketLike } from "../src/index";
 
 class FakeSocket implements SocketLike {
   onopen: SocketLike["onopen"] = null;
@@ -216,6 +216,23 @@ describe("authentification", () => {
     const err = await ticketFrom({ createRealtimeTicket: async () => ({ ok: false, status: 500, error: {} }) })().catch((e) => e);
     expect(err).toBeInstanceOf(Error);
     expect(err).not.toBeInstanceOf(RealtimeAuthError);
+  });
+});
+
+describe("limitation de débit (429)", () => {
+  it("ticketFrom : 429 avec params.retryAfterSeconds -> RealtimeRateLimitedError ; sans valeur -> erreur ordinaire", async () => {
+    const err = await ticketFrom({ createRealtimeTicket: async () => ({ ok: false, status: 429, error: { params: { retryAfterSeconds: 42 } } }) })().catch((e) => e);
+    expect(err).toBeInstanceOf(RealtimeRateLimitedError);
+    expect(err.retryAfterSeconds).toBe(42);
+    const plain = await ticketFrom({ createRealtimeTicket: async () => ({ ok: false, status: 429, error: {} }) })().catch((e) => e);
+    expect(plain).not.toBeInstanceOf(RealtimeRateLimitedError);
+  });
+  it("l'attente suit retryAfterSeconds quand il dépasse le plancher du contrat", async () => {
+    const seconds = REALTIME_RETRY_AFTER_SECONDS * 4;
+    const h = setup({ ticketError: () => new RealtimeRateLimitedError(seconds) });
+    h.client.start();
+    await flush();
+    expect(h.pending().at(-1)!.ms).toBeGreaterThanOrEqual(seconds * 1000);
   });
 });
 
