@@ -50,7 +50,10 @@
           "NOT_FOUND",
           "VERSION_CONFLICT",
           "PRECONDITION_REQUIRED",
-          "TIMEOFF_OVERLAP"
+          "TIMEOFF_OVERLAP",
+          "TEAM_REMOVAL_CONFIRMATION_REQUIRED",
+          "TEAM_REMOVAL_STALE_CONFIRMATION",
+          "TEAM_REMOVAL_LOCKED_LOGS"
         ]
       },
       "HealthResponse": {
@@ -1322,6 +1325,121 @@
             "type": "boolean"
           }
         }
+      },
+      "TeamRemovalSummary": {
+        "type": "object",
+        "properties": {
+          "inTeam": {
+            "type": "boolean",
+            "description": "Une ligne d'équipe existe pour cette personne sur ce projet"
+          },
+          "allocationCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "firstAllocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastAllocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Fin de série incluse pour les allocations répétées"
+          },
+          "logCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "logHours": {
+            "type": "number",
+            "minimum": 0
+          },
+          "lockedLogCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Temps saisis qui ne sont plus des brouillons"
+          },
+          "canRemove": {
+            "type": "boolean",
+            "description": "Faux si lockedLogCount > 0"
+          }
+        },
+        "required": [
+          "inTeam",
+          "allocationCount",
+          "firstAllocation",
+          "lastAllocation",
+          "logCount",
+          "logHours",
+          "lockedLogCount",
+          "canRemove"
+        ]
+      },
+      "TeamRemovalResult": {
+        "type": "object",
+        "properties": {
+          "removedAllocations": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "removedLogs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "removedLogHours": {
+            "type": "number",
+            "minimum": 0
+          },
+          "wasInTeam": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "removedAllocations",
+          "removedLogs",
+          "removedLogHours",
+          "wasInTeam"
+        ]
+      },
+      "TeamRemovalRequest": {
+        "type": "object",
+        "properties": {
+          "confirmation": {
+            "type": "object",
+            "properties": {
+              "allocationCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "logCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "logHours": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "allocationCount",
+              "logCount",
+              "logHours"
+            ],
+            "description": "Obligatoire s'il y a des allocations ou des temps à supprimer"
+          }
+        }
       }
     },
     "parameters": {}
@@ -2289,6 +2407,202 @@
           },
           "428": {
             "description": "If-Match absent (PRECONDITION_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/team/{personId}/removal-summary": {
+      "get": {
+        "operationId": "getTeamRemovalSummary",
+        "summary": "Recapitulatif du retrait d'une personne d'un projet (BR-10) : ce qui serait supprime, sans rien ecrire",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "personId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recapitulatif a presenter avant confirmation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamRemovalSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet ou personne inconnu (NOT_FOUND, params.entity)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/team/{personId}/removal": {
+      "post": {
+        "operationId": "removeFromTeam",
+        "summary": "Retirer une personne d'un projet : supprime ses allocations et ses temps saisis sur ce projet, apres confirmation (BR-10)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "personId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamRemovalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retrait execute ; compte de ce qui a ete supprime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamRemovalResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet ou personne inconnu (NOT_FOUND, params.entity)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Confirmation perimee (TEAM_REMOVAL_STALE_CONFIRMATION, params = nouveau recapitulatif) ou temps verrouilles (TEAM_REMOVAL_LOCKED_LOGS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Confirmation absente alors qu'il y a des suppressions (TEAM_REMOVAL_CONFIRMATION_REQUIRED, params = recapitulatif)",
             "content": {
               "application/json": {
                 "schema": {

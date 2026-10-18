@@ -9,7 +9,7 @@ export interface ApiError {
   requestId: string;
 }
 
-export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP";
+export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS";
 
 export interface HealthResponse {
   status: "ok" | "degraded";
@@ -250,6 +250,32 @@ export interface PersonPatch {
   active?: boolean;
 }
 
+export interface TeamRemovalSummary {
+  inTeam: boolean;
+  allocationCount: number;
+  firstAllocation: IsoDate | null;
+  lastAllocation: IsoDate | null;
+  logCount: number;
+  logHours: number;
+  lockedLogCount: number;
+  canRemove: boolean;
+}
+
+export interface TeamRemovalResult {
+  removedAllocations: number;
+  removedLogs: number;
+  removedLogHours: number;
+  wasInTeam: boolean;
+}
+
+export interface TeamRemovalRequest {
+  confirmation?: {
+    allocationCount: number;
+    logCount: number;
+    logHours: number;
+  };
+}
+
 export interface FetchResponse {
   status: number;
   json(): Promise<unknown>;
@@ -402,6 +428,33 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as SchedulePerson }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Recapitulatif du retrait d'une personne d'un projet (BR-10) : ce qui serait supprime, sans rien ecrire (GET /api/v1/projects/{projectId}/team/{personId}/removal-summary) */
+    async getTeamRemovalSummary(input: {
+      path: {
+        projectId: Id;
+        personId: Id;
+      };
+    }): Promise<ApiResult<TeamRemovalSummary, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/projects/" + encodeURIComponent(String(input.path.projectId)) + "/team/" + encodeURIComponent(String(input.path.personId)) + "/removal-summary", { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as TeamRemovalSummary }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Retirer une personne d'un projet : supprime ses allocations et ses temps saisis sur ce projet, apres confirmation (BR-10) (POST /api/v1/projects/{projectId}/team/{personId}/removal) */
+    async removeFromTeam(input: {
+      path: {
+        projectId: Id;
+        personId: Id;
+      };
+      body: TeamRemovalRequest;
+    }): Promise<ApiResult<TeamRemovalResult, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/projects/" + encodeURIComponent(String(input.path.projectId)) + "/team/" + encodeURIComponent(String(input.path.personId)) + "/removal", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as TeamRemovalResult }
         : { ok: false, status: res.status, error: body as ApiError };
     },
   };

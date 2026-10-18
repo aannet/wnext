@@ -15,3 +15,4 @@ export {
 } from "./realtime";
 export { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
 export { PersonCreate, PersonPatch, PersonPathParams } from "./people";
+export { TeamPathParams, TeamRemovalConfirmation, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";

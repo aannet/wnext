@@ -40,6 +40,9 @@ const STATUS: Record<ApiError["code"], number> = {
   VERSION_CONFLICT: 409,
   PRECONDITION_REQUIRED: 428,
   TIMEOFF_OVERLAP: 409,
+  TEAM_REMOVAL_CONFIRMATION_REQUIRED: 428,
+  TEAM_REMOVAL_STALE_CONFIRMATION: 409,
+  TEAM_REMOVAL_LOCKED_LOGS: 409,
 };
 
 const fail = (code: ApiError["code"], requestId: string, params: ApiError["params"] = {}): HttpReply =>
