@@ -12,6 +12,7 @@ check:
 	npm run test:parity
 	npm run test:e2e
 	npm run test:concurrency
+	npm run test:migrations
 
 typecheck:
 	npm run typecheck
