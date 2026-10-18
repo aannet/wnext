@@ -11,6 +11,7 @@ check:
 	npm run test:boundaries
 	npm run test:parity
 	npm run test:e2e
+	npm run test:concurrency
 
 typecheck:
 	npm run typecheck

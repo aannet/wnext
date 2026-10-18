@@ -20,6 +20,7 @@
     "test:boundaries": "vitest run tests/boundaries",
     "test:parity": "vitest run tests/parity",
     "test:e2e": "vitest run tests/e2e",
+    "test:concurrency": "vitest run tests/concurrency",
     "guard:test-weakening": "node scripts/guardrails/test-weakening.mjs",
     "guard:pr-size": "node scripts/guardrails/pr-size.mjs",
     "guard:br-coverage": "node scripts/guardrails/br-coverage.mjs",
@@ -34,7 +35,10 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",
+    "@types/pg": "^8.23.1",
+    "embedded-postgres": "18.4.0-beta.17",
     "oxc-parser": "0.154.0",
+    "pg": "^8.23.1",
     "typescript": "^7.0.2",
     "vitest": "^4.1.12"
   }

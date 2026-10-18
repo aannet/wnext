@@ -38,3 +38,10 @@ SIGTERM / SIGINT : fermeture des WebSocket (1001), fin des requêtes en cours, f
 - L'adaptateur `pg` n'est testé qu'avec un pool simulé (pas de Postgres dans l'environnement de développement) ; la concurrence réelle (`FOR UPDATE`) n'est pas éprouvée.
 - Le sondage ouvre une transaction par session et par période : à remplacer par `LISTEN/NOTIFY` + un sondeur partagé avant d'avoir beaucoup de connexions.
 - Pas de limite du nombre de connexions WebSocket par compte, pas de TLS (à terminer en frontal).
+
+## Tests de concurrence (vrai PostgreSQL)
+
+PGlite n'a qu'une connexion : aucun verrou de ligne n'y attend jamais. `tests/concurrency/` démarre un vrai PostgreSQL 18
+(binaires npm `embedded-postgres`, sans Docker ni root, base temporaire) et prouve avec plusieurs connexions : verrou optimiste
+(`VERSION_CONFLICT`), exclusion des congés (`TIMEOFF_OVERLAP`, y compris interblocage rejoué par `withContext`), journal de changements
+sans trou, verrou de la personne du retrait d'équipe BR-10, adaptateur `pgDb` sur un vrai pool. `npm run test:concurrency` (inclus dans `make check`).
