@@ -1,5 +1,6 @@
 // Charge planifiée par personne et par jour ouvré. Miroir TS de daily_planned_load() (schema.sql).
 // Fériés et congés ne retirent PAS la charge (elle ressort en sur-allocation, BR-01).
+import { percentToHours } from "./percent";
 import { DAY_MS, addMonths, assertRange, monthsBetween, toMs, toIso, workHours } from "./dates";
 
 export interface LoadPersonInput {
@@ -60,7 +61,7 @@ export function allocationHoursOn(a: AllocationInput, workDaysHours: readonly nu
   if (day < a.startDate || day > spanEnd) return 0;
   const wd = workHours(workDaysHours, day);
   if (wd <= 0 || !allocationCoversDay(a, day)) return 0;
-  return a.mode === "hours" ? (a.hoursPerDay ?? 0) : (wd * (a.percent ?? 0)) / 100;
+  return a.mode === "hours" ? (a.hoursPerDay ?? 0) : percentToHours(a.percent ?? 0, wd);
 }
 
 export function dailyPlannedLoad(input: LoadInput): LoadRow[] {

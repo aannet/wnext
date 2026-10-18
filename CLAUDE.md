@@ -9,8 +9,8 @@ The product is named **WNEXT** ("What's Next"). Float.com is a reference, not a 
 Design-phase project entering **P0 Fondations** (`docs/factory/strategy.md` §1): a rebuild of Float.com (resource scheduling SaaS). The repo is a git repository (branch `main`). There is no application code yet (no `apps/`, `packages/`, root build system or linter). Two things are executable: the SQL regression tests and the observability sub-project. Documents are in French.
 
 - `docs/dossier-fondamentaux-v1.1.md` — product fundamentals dossier v1.1 (CPTO / architect / UX / PM), the reference. Source of truth for intent, business rules (`BR-01`…), requirements and roadmap. **On conflict, the ADRs in `docs/decisions/` win.**
-- `schema.sql` — PostgreSQL **v1.1** schema (baseline `0001_init`, PG >= 15, 908 lines). Not yet wired into a migration tool.
-- `tests/sql/schema_tests.sql` — SQL non-regression tests for v1.1 (616 lines), run in a transaction that is rolled back (usage in the file header: load `schema.sql`, then the tests, with `psql -v ON_ERROR_STOP=1`).
+- `schema.sql` — PostgreSQL **v1.1** schema (baseline `0001_init`, PG >= 15, 915 lines). Not yet wired into a migration tool.
+- `tests/sql/schema_tests.sql` — SQL non-regression tests for v1.1 (623 lines), run in a transaction that is rolled back (usage in the file header: load `schema.sql`, then the tests, with `psql -v ON_ERROR_STOP=1`).
 - `factory/observability/` — Next.js observability dashboard for the dark factory (SQLite store, scribe, simulator, vitest tests; `reports/gate-P0.md`). Its own `README.md` has the commands.
 - `docs/archive/` — v1.0 material, kept as-is and superseded: `schema.sql.txt` and the v1.0 dossier. Do not edit or rely on it. The `*:Zone.Identifier` files are WSL download artifacts; ignore them.
 

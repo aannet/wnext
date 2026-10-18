@@ -74,6 +74,14 @@ CREATE TABLE accounts (
   default_locale     TEXT    NOT NULL DEFAULT 'fr' CHECK (default_locale ~ '^[a-z]{2}(-[A-Z]{2})?$'), -- i18n (ADR-002) : BCP 47 court
   week_start         SMALLINT NOT NULL DEFAULT 1 CHECK (week_start BETWEEN 1 AND 7), -- ISO : 1 = lundi .. 7 = dimanche ; affichage seulement
   default_work_hours NUMERIC(4,2) NOT NULL DEFAULT 8.00,
+  -- Seuils de capacité du compte (Q5, 2026-10-18). under_percent : sous-allocation si charge < ce % de la capacité nette.
+  -- Le seuil de sur-allocation est fixe à 100 % (BR-38) et n'est pas stocké ; les états restent hors des fonctions SQL.
+  capacity_thresholds JSONB NOT NULL DEFAULT '{"under_percent": 80}'
+    CONSTRAINT chk_capacity_thresholds CHECK (
+      jsonb_typeof(capacity_thresholds) = 'object'
+      AND capacity_thresholds ? 'under_percent'
+      AND jsonb_typeof(capacity_thresholds -> 'under_percent') = 'number'
+      AND (capacity_thresholds ->> 'under_percent')::numeric BETWEEN 1 AND 100),
   created_by         BIGINT REFERENCES users(id) ON DELETE SET NULL DEFAULT app_user_id(),
   modified_by        BIGINT REFERENCES users(id) ON DELETE SET NULL DEFAULT app_user_id(),
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),

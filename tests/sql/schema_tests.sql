@@ -167,6 +167,13 @@ SELECT t.mkperson('def');
 SELECT t.ok('T00g défaut work_days_hours = {8,8,8,8,8,0,0}',
   (SELECT work_days_hours = '{8,8,8,8,8,0,0}'::numeric[] FROM people WHERE id = t.id('def')));
 SELECT t.ok('T00h accounts.week_start défaut = 1 (lundi)', (SELECT week_start = 1 FROM accounts WHERE id = t.id('A')));
+SELECT t.ok('T00i accounts.capacity_thresholds défaut : sous-allocation 80 % (Q5)', (SELECT (capacity_thresholds ->> 'under_percent')::numeric = 80 FROM accounts WHERE id = t.id('A')));
+SELECT t.ok('T00j seuil de compte paramétrable (90 %)', t.rowcount($q$ UPDATE accounts SET capacity_thresholds = '{"under_percent": 90}' WHERE id = t.id('A') $q$) = 1);
+SELECT t.raises('T00k seuil 0 refusé',   $q$ UPDATE accounts SET capacity_thresholds = '{"under_percent": 0}'   WHERE id = t.id('A') $q$, '23514');
+SELECT t.raises('T00l seuil 101 refusé', $q$ UPDATE accounts SET capacity_thresholds = '{"under_percent": 101}' WHERE id = t.id('A') $q$, '23514');
+SELECT t.raises('T00m seuil non numérique refusé', $q$ UPDATE accounts SET capacity_thresholds = '{"under_percent": "80"}' WHERE id = t.id('A') $q$, '23514');
+SELECT t.raises('T00n seuil absent refusé', $q$ UPDATE accounts SET capacity_thresholds = '{}' WHERE id = t.id('A') $q$, '23514');
+UPDATE accounts SET capacity_thresholds = DEFAULT WHERE id = t.id('A');
 
 -- ============================================================
 -- T01 Allocation multi-jours (BR-01) : somme jour par jour, week-end ignoré

@@ -38,6 +38,12 @@ beforeAll(async () => {
 }, 120_000);
 afterAll(async () => { await db?.close(); });
 
+describe("suite SQL de non-régression (tests/sql/schema_tests.sql)", () => {
+  it("passe en entier sur PostgreSQL 18 (PGlite)", async () => {
+    await db.exec(readFileSync("tests/sql/schema_tests.sql", "utf8")); // lève 'FAIL: <libellé>' à la première assertion en échec
+  }, 120_000);
+});
+
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 const close = (a: number | null, b: number | null) => (a === null || b === null ? a === b : Math.abs(a - b) < EPS);
 
