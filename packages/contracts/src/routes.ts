@@ -521,7 +521,7 @@ export const routes: RouteContract[] = [
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
       403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
       404: { description: "Personne ou remplacant inconnu (NOT_FOUND, params.entity = person)", schema: ApiError },
-      409: { description: "Confirmation perimee (PERSON_DEACTIVATION_STALE_CONFIRMATION, params = nouveau recapitulatif) ou remplacant invalide (PERSON_DEACTIVATION_INVALID_REPLACEMENT, params.reason)", schema: ApiError },
+      409: { description: "Confirmation perimee (PERSON_DEACTIVATION_STALE_CONFIRMATION, params = nouveau recapitulatif) ou remplacant invalide (PERSON_DEACTIVATION_INVALID_REPLACEMENT, params.reason = same_person|inactive|already_in_group)", schema: ApiError },
       428: { description: "Confirmation ou disposition absente alors qu'il y a des allocations futures (PERSON_DEACTIVATION_CONFIRMATION_REQUIRED, params = recapitulatif)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },

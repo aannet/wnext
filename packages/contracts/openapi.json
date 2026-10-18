@@ -6465,7 +6465,7 @@
             }
           },
           "409": {
-            "description": "Confirmation perimee (PERSON_DEACTIVATION_STALE_CONFIRMATION, params = nouveau recapitulatif) ou remplacant invalide (PERSON_DEACTIVATION_INVALID_REPLACEMENT, params.reason)",
+            "description": "Confirmation perimee (PERSON_DEACTIVATION_STALE_CONFIRMATION, params = nouveau recapitulatif) ou remplacant invalide (PERSON_DEACTIVATION_INVALID_REPLACEMENT, params.reason = same_person|inactive|already_in_group)",
             "content": {
               "application/json": {
                 "schema": {

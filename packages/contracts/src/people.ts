@@ -93,7 +93,11 @@ export const PersonProjectList = z.object({ items: z.array(PersonProject), page:
 //    (logged_time) ne sont jamais supprimés ni transférés : ils restent à la personne désactivée.
 //  * Le remplaçant est OPTIONNEL et jamais deviné par le serveur : c'est au client de le proposer. Il doit être une autre personne
 //    ACTIVE du compte (inconnu : 404 NOT_FOUND, params.entity = person, params.replacementId ; la personne elle-même ou une personne
-//    désactivée : 409 PERSON_DEACTIVATION_INVALID_REPLACEMENT, params.reason = same_person|inactive). Aucun contrôle de capacité (BR-01).
+//    désactivée : 409 PERSON_DEACTIVATION_INVALID_REPLACEMENT, params.reason = same_person|inactive).
+//    Garde BR-26 : si le remplaçant a déjà une ligne dans le groupe (`group_id`) d'une allocation à réaffecter, la réaffectation
+//    créerait un doublon : 409 PERSON_DEACTIVATION_INVALID_REPLACEMENT, params.reason = already_in_group, params.conflictingAllocations
+//    = nombre d'allocations concernées ; rien n'est écrit. Les lignes d'un groupe pouvant diverger, on ne supprime jamais la ligne
+//    redondante en silence : le client choisit un autre remplaçant ou `delete`. Aucun contrôle de capacité (BR-01).
 //  * Garde de confirmation : s'il y a des allocations futures, `disposition` et `confirmation.allocationCount` (ce que l'utilisateur
 //    a vu) sont obligatoires : 428 PERSON_DEACTIVATION_CONFIRMATION_REQUIRED, `params` = récapitulatif. Si le décompte a changé :
 //    409 PERSON_DEACTIVATION_STALE_CONFIRMATION, `params` = nouveau récapitulatif. Sans allocation future, rien d'autre n'est requis.
