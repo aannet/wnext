@@ -14,3 +14,4 @@ export * from "./layout";
 export * from "./viewport";
 export * from "./undo";
 export * from "./capacity-bars";
+export * from "./gestures";
