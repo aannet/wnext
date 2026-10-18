@@ -540,6 +540,33 @@ export interface ProjectTaskPatch {
   position?: number;
 }
 
+export interface MilestoneList {
+  items: Array<Milestone>;
+  page: SchedulePage;
+}
+
+export interface Milestone {
+  id: Id;
+  version: Version;
+  projectId: Id;
+  phaseId: Id | null;
+  name: string;
+  dueDate: IsoDate;
+}
+
+export interface MilestoneCreate {
+  projectId: Id;
+  name: string;
+  phaseId?: Id | null;
+  dueDate: IsoDate;
+}
+
+export interface MilestonePatch {
+  name?: string;
+  phaseId?: Id | null;
+  dueDate?: IsoDate;
+}
+
 export interface FetchResponse {
   status: number;
   json(): Promise<unknown>;
@@ -1366,6 +1393,74 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       };
     }): Promise<ApiResult<void, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/project-tasks/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lister : jalon (pagine, tri par id ; tout membre authentifie) (GET /api/v1/milestones) */
+    async listMilestones(query: {
+      limit?: number;
+      cursor?: string;
+      projectId?: string;
+      phaseId?: string;
+      dueFrom?: string;
+      dueTo?: string;
+    } = {}): Promise<ApiResult<MilestoneList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/milestones" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as MilestoneList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer : jalon (POST /api/v1/milestones) */
+    async createMilestone(input: {
+      body: MilestoneCreate;
+    }): Promise<ApiResult<Milestone, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/milestones", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as Milestone }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire : jalon (tout membre authentifie) (GET /api/v1/milestones/{id}) */
+    async getMilestone(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<Milestone, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/milestones/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as Milestone }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier : jalon (verrou optimiste If-Match) (PATCH /api/v1/milestones/{id}) */
+    async updateMilestone(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: MilestonePatch;
+    }): Promise<ApiResult<Milestone, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/milestones/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as Milestone }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer : jalon (verrou optimiste If-Match ; refuse si reference) (DELETE /api/v1/milestones/{id}) */
+    async deleteMilestone(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/milestones/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as void }

@@ -18,7 +18,12 @@ import { SchedulePage, ScheduleProject } from "./schedule";
 //    tâche -> allocations, temps saisis, lignes de budget. Il faut d'abord les réaffecter ou les supprimer.
 //  * Pas de dates de phase contraintes par celles du projet (non imposé ici). Hors Schedule : ces entités ne sont PAS diffusées par le
 //    temps réel (le journal ne couvre que les entités de la grille) ; un client qui les affiche les relit par REST.
-//  * Hors périmètre : jalons, dépenses, lignes de budget, grilles de tarifs.
+//  * Jalons (/milestones) : une date d'échéance (`dueDate`) rattachée à un projet et, en option, à une phase DU MÊME projet (même règle
+//    que les tâches : phase d'un autre projet ou compte -> 404 params.entity = phase). `projectId` est fixé à la création. Liste filtrable
+//    par `projectId`, `phaseId` et par intervalle d'échéance `dueFrom`/`dueTo` (bornes incluses, indépendantes, pas de limite de durée ; intervalle inversé = liste vide),
+//    paginée sur `id`. Aucune unicité (deux jalons peuvent porter le même nom et la même date). Suppression libre : rien n'y renvoie.
+//    Pas de sens dans le Schedule ni dans le temps réel (les jalons ne sont pas dans le journal) ; un client les relit par REST.
+//  * Hors périmètre : dépenses, lignes de budget, grilles de tarifs.
 
 const name = z.string().min(1).max(200).regex(/\S/, "nom vide");
 const noEmpty = (p: object) => Object.keys(p).length > 0;
@@ -96,7 +101,29 @@ export const ProjectTaskListQuery = ReferenceListQuery.extend({
 });
 export const ProjectTaskList = pageOf(ProjectTask, "ProjectTaskList");
 
+// --- Jalons -----------------------------------------------------------------------------------------------------------
+export const Milestone = z
+  .object({ id: Id, version: Version, projectId: Id, phaseId: orNull(Id), name: z.string(), dueDate: IsoDate })
+  .meta({ id: "Milestone" });
+const milestoneFields = {
+  name,
+  phaseId: orNull(Id).optional().describe("Une phase du même projet ; null = jalon du projet"),
+  dueDate: IsoDate,
+};
+export const MilestoneCreate = z.object({ projectId: Id, ...milestoneFields }).meta({ id: "MilestoneCreate" });
+export const MilestonePatch = z.object(milestoneFields).partial().refine(noEmpty, { message: "corps vide" }).meta({ id: "MilestonePatch" });
+export const MilestoneListQuery = ReferenceListQuery.extend({
+  projectId: Id.optional().describe("Seulement les jalons de ce projet"),
+  phaseId: Id.optional().describe("Seulement les jalons de cette phase"),
+  dueFrom: IsoDate.optional().describe("Échéance à partir de cette date (incluse)"),
+  dueTo: IsoDate.optional().describe("Échéance jusqu'à cette date (incluse)"),
+});
+export const MilestoneList = pageOf(Milestone, "MilestoneList");
+
 export type Client = z.infer<typeof Client>;
+export type Milestone = z.infer<typeof Milestone>;
+export type MilestoneCreate = z.infer<typeof MilestoneCreate>;
+export type MilestonePatch = z.infer<typeof MilestonePatch>;
 export type ClientCreate = z.infer<typeof ClientCreate>;
 export type ClientPatch = z.infer<typeof ClientPatch>;
 export type Phase = z.infer<typeof Phase>;

@@ -2,7 +2,7 @@
 import "../src/zod-setup";
 import { describe, expect, it } from "vitest";
 import {
-  Client, ClientCreate, ClientPatch, Phase, PhaseCreate, PhaseList, PhaseListQuery, PhasePatch, ProjectTask, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, routes,
+  Client, ClientCreate, ClientPatch, Phase, PhaseCreate, PhaseList, PhaseListQuery, PhasePatch, ProjectTask, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, Milestone, MilestoneCreate, MilestoneList, MilestoneListQuery, MilestonePatch, routes,
 } from "@wnext/contracts";
 import { buildSpec } from "../src/openapi";
 
@@ -83,5 +83,36 @@ describe("routes", () => {
     const spec = buildSpec() as { paths: Record<string, unknown>; components: { schemas: Record<string, unknown> } };
     for (const p of ["/api/v1/clients", "/api/v1/clients/{id}", "/api/v1/phases", "/api/v1/phases/{id}", "/api/v1/project-tasks", "/api/v1/project-tasks/{id}"]) expect(spec.paths[p]).toBeDefined();
     for (const s of ["Client", "Phase", "ProjectTask", "PhaseCreate", "ProjectTaskPatch"]) expect(spec.components.schemas[s]).toBeDefined();
+  });
+});
+
+describe("jalons", () => {
+  const m = { projectId: "1", name: "Livraison", dueDate: "2026-06-30" };
+  it("création : projet, nom et échéance obligatoires ; phase facultative et annulable", () => {
+    expect(ok(MilestoneCreate, m)).toBe(true);
+    expect(ok(MilestoneCreate, { ...m, phaseId: "4" })).toBe(true);
+    expect(ok(MilestoneCreate, { ...m, phaseId: null })).toBe(true);
+    for (const v of [{ name: "x", dueDate: "2026-06-30" }, { projectId: "1", dueDate: "2026-06-30" }, { projectId: "1", name: "x" }, { ...m, name: " " }, { ...m, dueDate: "bientôt" }, { ...m, dueDate: "2026-02-30" }]) {
+      expect(ok(MilestoneCreate, v), JSON.stringify(v)).toBe(false);
+    }
+  });
+  it("patch : non vide, projet absent", () => {
+    expect(ok(MilestonePatch, {})).toBe(false);
+    expect(ok(MilestonePatch, { dueDate: "2026-07-01" })).toBe(true);
+    expect(ok(MilestonePatch, { phaseId: null })).toBe(true);
+    expect("projectId" in MilestonePatch.parse({ projectId: "2", name: "x" })).toBe(false);
+  });
+  it("filtres projet, phase et intervalle d'échéance ; forme lue", () => {
+    expect(ok(MilestoneListQuery, { projectId: "1", phaseId: "2", dueFrom: "2026-01-01", dueTo: "2026-12-31", limit: 10 })).toBe(true);
+    for (const v of [{ projectId: "" }, { dueFrom: "hier" }, { dueTo: "2026-13-01" }]) expect(ok(MilestoneListQuery, v), JSON.stringify(v)).toBe(false);
+    const item = { id: "1", version: 1, projectId: "1", phaseId: null, name: "x", dueDate: "2026-06-30" };
+    expect(ok(Milestone, item)).toBe(true);
+    expect(ok(MilestoneList, { items: [item], page: { nextCursor: null, total: 1 } })).toBe(true);
+  });
+  it("routes à plat, écriture sans admin, suppression sans 409 de référence", () => {
+    const ops = Object.fromEntries(routes.filter((r) => r.path.includes("/milestones")).map((r) => [r.operationId, r]));
+    expect(Object.keys(ops).sort()).toEqual(["createMilestone", "deleteMilestone", "getMilestone", "listMilestones", "updateMilestone"]);
+    expect(ops.createMilestone!.body).toBe(MilestoneCreate);
+    expect(ops.listMilestones!.query).toBe(MilestoneListQuery);
   });
 });

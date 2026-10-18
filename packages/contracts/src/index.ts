@@ -23,5 +23,5 @@ export {
 } from "./reference";
 export {
   Client, ClientCreate, ClientList, ClientPatch, Phase, PhaseCreate, PhaseList, PhaseListQuery, PhasePatch, ProjectTask, ProjectTaskCreate,
-  ProjectTaskList, ProjectTaskListQuery, ProjectTaskPatch,
+  Milestone, MilestoneCreate, MilestoneList, MilestoneListQuery, MilestonePatch, ProjectTaskList, ProjectTaskListQuery, ProjectTaskPatch,
 } from "./project-structure";

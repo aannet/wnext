@@ -12,7 +12,7 @@ import {
   TimeoffTypeList, TimeoffTypePatch,
 } from "./reference";
 import {
-  Client, ClientCreate, ClientList, ClientPatch, Phase, PhaseCreate, PhaseList, PhaseListQuery, PhasePatch, ProjectTask, ProjectTaskCreate,
+  Client, ClientCreate, ClientList, ClientPatch, Milestone, MilestoneCreate, MilestoneList, MilestoneListQuery, MilestonePatch, Phase, PhaseCreate, PhaseList, PhaseListQuery, PhasePatch, ProjectTask, ProjectTaskCreate,
   ProjectTaskList, ProjectTaskListQuery, ProjectTaskPatch,
 } from "./project-structure";
 import { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
@@ -448,4 +448,5 @@ export const routes: RouteContract[] = [
   ...referenceRoutes({ path: "/api/v1/clients", name: "Client", listQuery: ReferenceListQuery, list: ClientList, label: "client", create: ClientCreate, patch: ClientPatch, response: Client, admin: false, remove: true, refs: "aucune" }),
   ...referenceRoutes({ path: "/api/v1/phases", name: "Phase", listQuery: PhaseListQuery, list: PhaseList, label: "phase", create: PhaseCreate, patch: PhasePatch, response: Phase, admin: false, remove: true, refs: "project" }),
   ...referenceRoutes({ path: "/api/v1/project-tasks", name: "ProjectTask", listQuery: ProjectTaskListQuery, list: ProjectTaskList, label: "tache de projet", create: ProjectTaskCreate, patch: ProjectTaskPatch, response: ProjectTask, admin: false, remove: true, refs: "project, phase (du meme projet)" }),
+  ...referenceRoutes({ path: "/api/v1/milestones", name: "Milestone", listQuery: MilestoneListQuery, list: MilestoneList, label: "jalon", create: MilestoneCreate, patch: MilestonePatch, response: Milestone, admin: false, remove: true, refs: "project, phase (du meme projet)" }),
 ];
