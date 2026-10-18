@@ -9,7 +9,7 @@ export interface ApiError {
   requestId: string;
 }
 
-export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS";
+export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "ALREADY_EXISTS" | "REFERENCE_IN_USE" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS";
 
 export interface HealthResponse {
   status: "ok" | "degraded";
@@ -126,6 +126,7 @@ export interface ScheduleTimeoff {
 
 export interface ScheduleHoliday {
   id: Id;
+  version: Version;
   name: string;
   date: IsoDate;
   country: string | null;
@@ -135,6 +136,7 @@ export interface ScheduleHoliday {
 
 export interface ScheduleProject {
   id: Id;
+  version: Version;
   name: string;
   projectCode: string | null;
   color: string;
@@ -144,17 +146,20 @@ export interface ScheduleProject {
 
 export interface ScheduleTimeoffType {
   id: Id;
+  version: Version;
   name: string;
   deducted: boolean;
 }
 
 export interface ScheduleDepartment {
   id: Id;
+  version: Version;
   name: string;
 }
 
 export interface ScheduleRole {
   id: Id;
+  version: Version;
   name: string;
 }
 
@@ -278,6 +283,89 @@ export interface TeamRemovalRequest {
 
 export interface TeamMembership {
   added: boolean;
+}
+
+export interface DepartmentCreate {
+  name: string;
+}
+
+export interface DepartmentPatch {
+  name?: string;
+}
+
+export interface RoleCreate {
+  name: string;
+}
+
+export interface RolePatch {
+  name?: string;
+}
+
+export interface TimeoffTypeCreate {
+  name: string;
+  deducted?: boolean;
+}
+
+export interface TimeoffTypePatch {
+  name?: string;
+  deducted?: boolean;
+}
+
+export interface HolidayCreate {
+  name: string;
+  date: IsoDate;
+  country?: string | null;
+  departmentId?: Id | null;
+  hoursOff?: number | null;
+}
+
+export interface HolidayPatch {
+  name?: string;
+  date?: IsoDate;
+  country?: string | null;
+  departmentId?: Id | null;
+  hoursOff?: number | null;
+}
+
+export interface ProjectDetail {
+  id: Id;
+  version: Version;
+  name: string;
+  projectCode: string | null;
+  color: string;
+  status: "tentative" | "planned" | "in_progress" | "on_hold" | "completed" | "archived";
+  nonBillable: boolean;
+  startDate: IsoDate | null;
+  endDate: IsoDate | null;
+  projectManagerId: Id | null;
+  tags: Array<string>;
+  notes: string | null;
+}
+
+export interface ProjectCreate {
+  name: string;
+  projectCode?: string | null;
+  color?: string;
+  startDate?: IsoDate | null;
+  endDate?: IsoDate | null;
+  status?: "tentative" | "planned" | "in_progress" | "on_hold" | "completed" | "archived";
+  projectManagerId?: Id | null;
+  nonBillable?: boolean;
+  tags?: Array<string>;
+  notes?: string | null;
+}
+
+export interface ProjectPatch {
+  name?: string;
+  projectCode?: string | null;
+  color?: string;
+  startDate?: IsoDate | null;
+  endDate?: IsoDate | null;
+  status?: "tentative" | "planned" | "in_progress" | "on_hold" | "completed" | "archived";
+  projectManagerId?: Id | null;
+  nonBillable?: boolean;
+  tags?: Array<string>;
+  notes?: string | null;
 }
 
 export interface FetchResponse {
@@ -472,6 +560,196 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as TeamMembership }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer : departement (POST /api/v1/departments) */
+    async createDepartment(input: {
+      body: DepartmentCreate;
+    }): Promise<ApiResult<ScheduleDepartment, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/departments", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleDepartment }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier : departement (verrou optimiste If-Match) (PATCH /api/v1/departments/{id}) */
+    async updateDepartment(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: DepartmentPatch;
+    }): Promise<ApiResult<ScheduleDepartment, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/departments/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleDepartment }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer : departement (verrou optimiste If-Match ; refuse si reference) (DELETE /api/v1/departments/{id}) */
+    async deleteDepartment(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/departments/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer : role (POST /api/v1/roles) */
+    async createRole(input: {
+      body: RoleCreate;
+    }): Promise<ApiResult<ScheduleRole, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/roles", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleRole }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier : role (verrou optimiste If-Match) (PATCH /api/v1/roles/{id}) */
+    async updateRole(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: RolePatch;
+    }): Promise<ApiResult<ScheduleRole, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/roles/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleRole }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer : role (verrou optimiste If-Match ; refuse si reference) (DELETE /api/v1/roles/{id}) */
+    async deleteRole(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/roles/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer : type de conge (POST /api/v1/timeoff-types) */
+    async createTimeoffType(input: {
+      body: TimeoffTypeCreate;
+    }): Promise<ApiResult<ScheduleTimeoffType, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/timeoff-types", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleTimeoffType }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier : type de conge (verrou optimiste If-Match) (PATCH /api/v1/timeoff-types/{id}) */
+    async updateTimeoffType(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: TimeoffTypePatch;
+    }): Promise<ApiResult<ScheduleTimeoffType, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/timeoff-types/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleTimeoffType }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer : type de conge (verrou optimiste If-Match ; refuse si reference) (DELETE /api/v1/timeoff-types/{id}) */
+    async deleteTimeoffType(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/timeoff-types/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer : jour ferie (POST /api/v1/holidays) */
+    async createHoliday(input: {
+      body: HolidayCreate;
+    }): Promise<ApiResult<ScheduleHoliday, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/holidays", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleHoliday }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier : jour ferie (verrou optimiste If-Match) (PATCH /api/v1/holidays/{id}) */
+    async updateHoliday(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: HolidayPatch;
+    }): Promise<ApiResult<ScheduleHoliday, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/holidays/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ScheduleHoliday }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer : jour ferie (verrou optimiste If-Match ; refuse si reference) (DELETE /api/v1/holidays/{id}) */
+    async deleteHoliday(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/holidays/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer : projet (POST /api/v1/projects) */
+    async createProject(input: {
+      body: ProjectCreate;
+    }): Promise<ApiResult<ProjectDetail, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/projects", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectDetail }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier : projet (verrou optimiste If-Match) (PATCH /api/v1/projects/{id}) */
+    async updateProject(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: ProjectPatch;
+    }): Promise<ApiResult<ProjectDetail, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/projects/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ProjectDetail }
         : { ok: false, status: res.status, error: body as ApiError };
     },
   };

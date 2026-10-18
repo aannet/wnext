@@ -4,7 +4,11 @@ import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
 import { TeamMembership, TeamPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
 import { PersonCreate, PersonPatch, PersonPathParams } from "./people";
-import { SchedulePerson, ScheduleAllocation, ScheduleQuery, ScheduleResponse, ScheduleTimeoff } from "./schedule";
+import { ScheduleDepartment, ScheduleHoliday, SchedulePerson, ScheduleAllocation, ScheduleRole, ScheduleTimeoffType, ScheduleQuery, ScheduleResponse, ScheduleTimeoff } from "./schedule";
+import {
+  DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayPatch, ProjectCreate, ProjectDetail, ProjectPatch, ReferencePathParams,
+  RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch,
+} from "./reference";
 import { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
 
 // Table des routes : donnees pures (zod uniquement). La spec OpenAPI en est derivee
@@ -24,6 +28,56 @@ export interface RouteContract {
   body?: z.ZodType;
   /** `schema` absent = reponse sans corps (204). */
   responses: Record<number, { description: string; schema?: z.ZodType }>;
+}
+
+// Entites de reference : POST, PATCH (If-Match) et, sauf projets, DELETE (refuse tant que l'entite est referencee).
+function referenceRoutes(def: {
+  path: string; name: string; label: string; create: z.ZodType; patch: z.ZodType; response: z.ZodType;
+  admin: boolean; remove: boolean; unique: string; refs: string;
+}): RouteContract[] {
+  const who = def.admin ? "owner ou admin" : "owner, admin ou project_manager";
+  const forbidden = { description: `Role insuffisant, ${who} requis (FORBIDDEN)`, schema: ApiError };
+  const common = { 401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError }, 403: forbidden };
+  const out: RouteContract[] = [
+    {
+      method: "post", path: def.path, operationId: `create${def.name}`, summary: `Creer : ${def.label}`, body: def.create,
+      responses: {
+        201: { description: `${def.label} cree`, schema: def.response },
+        400: { description: "Corps invalide (VALIDATION_FAILED)", schema: ApiError },
+        ...common,
+        404: { description: `Reference inconnue (NOT_FOUND, params.entity) : ${def.refs}`, schema: ApiError },
+        409: { description: `Deja existant (ALREADY_EXISTS) : ${def.unique}`, schema: ApiError },
+        500: { description: "Erreur interne", schema: ApiError },
+      },
+    },
+    {
+      method: "patch", path: `${def.path}/{id}`, operationId: `update${def.name}`, summary: `Modifier : ${def.label} (verrou optimiste If-Match)`,
+      params: ReferencePathParams, headers: IfMatchHeader, body: def.patch,
+      responses: {
+        200: { description: `${def.label} modifie (nouvelle version)`, schema: def.response },
+        400: { description: "Corps ou en-tete invalide (VALIDATION_FAILED)", schema: ApiError },
+        ...common,
+        404: { description: "Entite ou reference inconnue (NOT_FOUND, params.entity)", schema: ApiError },
+        409: { description: `Version perimee (VERSION_CONFLICT, params.currentVersion) ou deja existant (ALREADY_EXISTS) : ${def.unique}`, schema: ApiError },
+        428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
+        500: { description: "Erreur interne", schema: ApiError },
+      },
+    },
+  ];
+  if (def.remove) out.push({
+    method: "delete", path: `${def.path}/{id}`, operationId: `delete${def.name}`, summary: `Supprimer : ${def.label} (verrou optimiste If-Match ; refuse si reference)`,
+    params: ReferencePathParams, headers: IfMatchHeader,
+    responses: {
+      204: { description: "Supprime (journalise dans delete_log, BR-14)" },
+      400: { description: "En-tete invalide (VALIDATION_FAILED)", schema: ApiError },
+      ...common,
+      404: { description: "Entite inconnue (NOT_FOUND)", schema: ApiError },
+      409: { description: "Version perimee (VERSION_CONFLICT, params.currentVersion) ou encore referencee (REFERENCE_IN_USE, params = nombre de lignes liees)", schema: ApiError },
+      428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  });
+  return out;
 }
 
 export const routes: RouteContract[] = [
@@ -235,4 +289,9 @@ export const routes: RouteContract[] = [
       500: { description: "Erreur interne", schema: ApiError },
     },
   },
+  ...referenceRoutes({ path: "/api/v1/departments", name: "Department", label: "departement", create: DepartmentCreate, patch: DepartmentPatch, response: ScheduleDepartment, admin: true, remove: true, unique: "nom", refs: "aucune" }),
+  ...referenceRoutes({ path: "/api/v1/roles", name: "Role", label: "role", create: RoleCreate, patch: RolePatch, response: ScheduleRole, admin: true, remove: true, unique: "nom", refs: "aucune" }),
+  ...referenceRoutes({ path: "/api/v1/timeoff-types", name: "TimeoffType", label: "type de conge", create: TimeoffTypeCreate, patch: TimeoffTypePatch, response: ScheduleTimeoffType, admin: true, remove: true, unique: "nom", refs: "aucune" }),
+  ...referenceRoutes({ path: "/api/v1/holidays", name: "Holiday", label: "jour ferie", create: HolidayCreate, patch: HolidayPatch, response: ScheduleHoliday, admin: true, remove: true, unique: "date, pays, departement et nom identiques", refs: "department" }),
+  ...referenceRoutes({ path: "/api/v1/projects", name: "Project", label: "projet", create: ProjectCreate, patch: ProjectPatch, response: ProjectDetail, admin: false, remove: false, unique: "code projet (params.field = projectCode)", refs: "person (chef de projet)" }),
 ];

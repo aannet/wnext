@@ -16,3 +16,7 @@ export {
 export { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
 export { PersonCreate, PersonPatch, PersonPathParams } from "./people";
 export { TeamMembership, TeamPathParams, TeamRemovalConfirmation, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
+export {
+  DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayPatch, ProjectCreate, ProjectDetail, ProjectPatch, ReferencePathParams,
+  RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch,
+} from "./reference";

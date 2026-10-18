@@ -89,12 +89,13 @@ export const ScheduleTimeoff = z
   .meta({ id: "ScheduleTimeoff" });
 
 export const ScheduleTimeoffType = z
-  .object({ id: Id, name: z.string(), deducted: z.boolean().describe("Déduit de la capacité") })
+  .object({ id: Id, version: Version, name: z.string(), deducted: z.boolean().describe("Déduit de la capacité") })
   .meta({ id: "ScheduleTimeoffType" });
 
 export const ScheduleHoliday = z
   .object({
     id: Id,
+    version: Version,
     name: z.string(),
     date: IsoDate,
     country: z.string().regex(/^[A-Z]{2}$/).nullable().describe("null = tous pays"),
@@ -106,6 +107,7 @@ export const ScheduleHoliday = z
 export const ScheduleProject = z
   .object({
     id: Id,
+    version: Version,
     name: z.string(),
     projectCode: z.string().nullable(),
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
@@ -114,8 +116,8 @@ export const ScheduleProject = z
   })
   .meta({ id: "ScheduleProject" });
 
-export const ScheduleDepartment = z.object({ id: Id, name: z.string() }).meta({ id: "ScheduleDepartment" });
-export const ScheduleRole = z.object({ id: Id, name: z.string() }).meta({ id: "ScheduleRole" });
+export const ScheduleDepartment = z.object({ id: Id, version: Version, name: z.string() }).meta({ id: "ScheduleDepartment" });
+export const ScheduleRole = z.object({ id: Id, version: Version, name: z.string() }).meta({ id: "ScheduleRole" });
 
 export const ScheduleAccount = z
   .object({
