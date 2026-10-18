@@ -230,6 +230,30 @@ describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
     expect((await api.deleteClient({ path: { id: cl.data.id }, headers: { "If-Match": '"1"' } })).status).toBe(204);
   });
 
+  it("jalons : création, filtre par échéance, déplacement vers une phase, suppression", async () => {
+    const api = client();
+    const proj = await api.createProject({ body: { name: "Jalons" } });
+    if (!proj.ok) throw new Error("projet attendu");
+    const ph = await api.createPhase({ body: { projectId: proj.data.id, name: "Livraison" } });
+    if (!ph.ok) throw new Error("phase attendue");
+    const m = await api.createMilestone({ body: { projectId: proj.data.id, name: "Recette", dueDate: "2026-06-30" } });
+    if (!m.ok) throw new Error("jalon attendu");
+    expect(m.data).toMatchObject({ projectId: proj.data.id, phaseId: null, dueDate: "2026-06-30", version: 1 });
+
+    const inRange = await api.listMilestones({ projectId: proj.data.id, dueFrom: "2026-06-01", dueTo: "2026-06-30" });
+    expect(inRange.ok && inRange.data.items.map((x) => x.id)).toEqual([m.data.id]);
+    const outside = await api.listMilestones({ projectId: proj.data.id, dueFrom: "2026-07-01" });
+    expect(outside.ok && outside.data.page.total).toBe(0);
+
+    const moved = await api.updateMilestone({ path: { id: m.data.id }, headers: { "If-Match": '"1"' }, body: { phaseId: ph.data.id } });
+    expect(moved.ok && moved.data).toMatchObject({ phaseId: ph.data.id, version: 2 });
+    const refused = await api.deletePhase({ path: { id: ph.data.id }, headers: { "If-Match": '"1"' } });
+    if (refused.ok) throw new Error("refus attendu");
+    expect([refused.status, refused.error.params.milestones]).toEqual([409, 1]);
+    expect((await api.deleteMilestone({ path: { id: m.data.id }, headers: { "If-Match": '"2"' } })).status).toBe(204);
+    expect((await api.deletePhase({ path: { id: ph.data.id }, headers: { "If-Match": '"1"' } })).status).toBe(204);
+  });
+
   it("équipe d'un projet : ajout, lecture paginée, retrait, 404 d'un projet inconnu", async () => {
     const api = client();
     const proj = await api.createProject({ body: { name: "Équipe" } });

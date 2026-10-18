@@ -27,7 +27,7 @@ function translate(entity: string, field?: string): (err: unknown) => never {
 }
 
 /** `writers` : la suppression est ouverte à owner, admin et project_manager (données de projet) au lieu de owner et admin (configuration). */
-export interface Removal { table: "departments" | "roles" | "timeoff_types" | "holidays" | "clients" | "phases" | "project_tasks"; entity: string; columns: string; dependents: Record<string, string>; writers?: boolean }
+export interface Removal { table: "departments" | "roles" | "timeoff_types" | "holidays" | "clients" | "phases" | "project_tasks" | "milestones"; entity: string; columns: string; dependents: Record<string, string>; writers?: boolean }
 
 /** Suppression vérifiée : version, puis refus s'il reste des lignes liées (comptes en params), sinon DELETE exact. */
 export async function remove(db: Db, ctx: RequestContext, def: Removal, id: string, expected: number): Promise<void> {
@@ -220,7 +220,7 @@ export async function updateProject(db: Db, ctx: RequestContext, id: string, exp
 export const DEFAULT_PAGE = 200;
 export const MAX_PAGE = 500;
 
-export interface ListQuery { limit?: number; cursor?: string; from?: string; to?: string; status?: string; projectId?: string; phaseId?: string; departmentId?: string; roleId?: string; tag?: string; search?: string; includeInactive?: boolean }
+export interface ListQuery { limit?: number; cursor?: string; from?: string; to?: string; status?: string; projectId?: string; phaseId?: string; dueFrom?: string; dueTo?: string; departmentId?: string; roleId?: string; tag?: string; search?: string; includeInactive?: boolean }
 export interface Reader<T> {
   list(db: Db, ctx: RequestContext, q: ListQuery): Promise<{ items: T[]; page: { nextCursor: string | null; total: number } }>;
   get(db: Db, ctx: RequestContext, id: string): Promise<T>;

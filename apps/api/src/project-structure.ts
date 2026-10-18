@@ -1,11 +1,11 @@
-import type { Client, ClientCreate, ClientPatch, Phase, PhaseCreate, PhasePatch, ProjectTask, ProjectTaskCreate, ProjectTaskPatch } from "@wnext/contracts";
+import type { Client, ClientCreate, ClientPatch, Milestone, MilestoneCreate, MilestonePatch, Phase, PhaseCreate, PhasePatch, ProjectTask, ProjectTaskCreate, ProjectTaskPatch } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { count, reader, remove } from "./reference";
 import type { Row } from "./schedule";
 import { assertWriter, day, idParam, invalid, isId, lockAndCheck, notFound } from "./write";
 
-// Clients, phases et tâches de projet (contrat : packages/contracts/src/project-structure.ts). Données de projet : owner, admin et
+// Clients, phases, tâches et jalons de projet (contrat : packages/contracts/src/project-structure.ts). Données de projet : owner, admin et
 // project_manager écrivent, tout membre lit. Même mécanique que reference.ts (verrou optimiste, suppression sans cascade silencieuse,
 // RLS + account_id). Aucune unicité en base : pas de ALREADY_EXISTS. Ces tables ne sont pas dans le journal temps réel.
 //  * Le projet d'une phase ou d'une tâche est fixé à la création. La phase d'une tâche doit être du MÊME projet : la clé étrangère
@@ -185,5 +185,55 @@ export const projectTaskReader = reader({
   filters: (q, bind) => [
     ...(q.projectId ? [`project_id = ${bind(idParam("projectId", q.projectId))}::bigint`] : []),
     ...(q.phaseId ? [`phase_id = ${bind(idParam("phaseId", q.phaseId))}::bigint`] : []),
+  ],
+});
+
+// --- Jalons -----------------------------------------------------------------------------------------------------------
+// Un jalon porte un projet (fixé à la création) et, en option, une phase DU MÊME projet. Rien ne renvoie vers un jalon : suppression libre.
+export const MILESTONE_COLUMNS = "id, row_version, project_id, phase_id, name, due_date";
+const toMilestone = (r: Row): Milestone => ({
+  id: idOf(r.id), version: Number(r.row_version), projectId: idOf(r.project_id), phaseId: orNullId(r.phase_id), name: String(r.name), dueDate: day(r.due_date),
+});
+const failMilestone = translate("phase");
+
+export async function createMilestone(db: Db, ctx: RequestContext, body: MilestoneCreate): Promise<Milestone> {
+  assertWriter(ctx);
+  return withContext(db, ctx, async (tx) => {
+    await assertProject(tx, ctx.accountId, body.projectId);
+    await assertPhaseOf(tx, ctx.accountId, body.projectId, body.phaseId);
+    const { rows } = await tx.query<Row>(
+      `INSERT INTO milestones (account_id, project_id, phase_id, name, due_date) VALUES ($1::bigint, $2::bigint, $3::bigint, $4, $5::date) RETURNING ${MILESTONE_COLUMNS}`,
+      [ctx.accountId, body.projectId, body.phaseId ?? null, body.name, body.dueDate],
+    ).catch(failMilestone);
+    return toMilestone(rows[0]!);
+  });
+}
+
+export async function updateMilestone(db: Db, ctx: RequestContext, id: string, expected: number, patch: MilestonePatch): Promise<Milestone> {
+  assertWriter(ctx);
+  return withContext(db, ctx, async (tx) => {
+    const cur = await lockAndCheck(tx, "milestones", MILESTONE_COLUMNS, "milestone", ctx.accountId, id, expected);
+    const phaseId = patch.phaseId !== undefined ? patch.phaseId : orNullId(cur.phase_id);
+    if (patch.phaseId !== undefined) await assertPhaseOf(tx, ctx.accountId, idOf(cur.project_id), phaseId);
+    const { rows } = await tx.query<Row>(
+      `UPDATE milestones SET name = $3, phase_id = $4::bigint, due_date = $5::date
+        WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $6::int RETURNING ${MILESTONE_COLUMNS}`,
+      [id, ctx.accountId, patch.name ?? cur.name, phaseId, patch.dueDate ?? day(cur.due_date), expected],
+    ).catch(failMilestone);
+    if (!rows[0]) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: Number(cur.row_version) + 1 });
+    return toMilestone(rows[0]);
+  });
+}
+
+export const deleteMilestone = (db: Db, ctx: RequestContext, id: string, expected: number) =>
+  remove(db, ctx, { table: "milestones", entity: "milestone", columns: MILESTONE_COLUMNS, writers: true, dependents: {} }, id, expected);
+
+export const milestoneReader = reader({
+  table: "milestones", columns: MILESTONE_COLUMNS, entity: "milestone", map: toMilestone,
+  filters: (q, bind) => [
+    ...(q.projectId ? [`project_id = ${bind(idParam("projectId", q.projectId))}::bigint`] : []),
+    ...(q.phaseId ? [`phase_id = ${bind(idParam("phaseId", q.phaseId))}::bigint`] : []),
+    ...(q.dueFrom ? [`due_date >= ${bind(q.dueFrom)}::date`] : []),
+    ...(q.dueTo ? [`due_date <= ${bind(q.dueTo)}::date`] : []),
   ],
 });
