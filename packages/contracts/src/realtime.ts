@@ -19,6 +19,15 @@ import { Id, Version } from "./common";
 //            le temps réel est un confort de fraîcheur, pas une condition de lecture.
 //      500 : erreur interne d'authentification ; même conduite qu'un 429, avec attente croissante.
 //    Le plafond est par compte et par processus serveur ; sa valeur est de configuration, hors contrat.
+//  * Authentification de l'upgrade : soit les en-têtes habituels (`Authorization`), soit un TICKET dans la requête
+//    (`?ticket=...`) pour les navigateurs, qui ne peuvent pas poser d'en-tête sur un WebSocket.
+//      - Le ticket s'obtient par POST REALTIME_TICKET_PATH (authentifié normalement, tout rôle). Il est lié à l'utilisateur et au
+//        compte qui l'ont demandé, valable REALTIME_TICKET_TTL_SECONDS secondes, et destiné à UNE connexion : le client en demande
+//        un nouveau à chaque tentative, reconnexions comprises (ne jamais réutiliser ni stocker un ticket).
+//      - Un ticket invalide, expiré, déjà utilisé ou altéré est refusé en 401 comme une absence d'identité : le client redemande un
+//        ticket (si c'est POST qui répond 401, il se ré-authentifie).
+//      - Le ticket est une valeur opaque ; il ne contient rien que le client doive lire. Il peut apparaître dans les journaux
+//        d'accès d'un intermédiaire : sa courte durée et son usage unique en limitent la portée.
 
 export const REALTIME_PATH = "/api/v1/realtime";
 export const REALTIME_PROTOCOL_VERSION = 1;
@@ -27,6 +36,21 @@ export const REALTIME_PROTOCOL_VERSION = 1;
 export const REALTIME_UPGRADE_STATUS = { unauthenticated: 401, tooManyConnections: 429 } as const;
 /** Valeur de l'en-tête `Retry-After` d'un 429 : attente minimale en secondes avant de se reconnecter. */
 export const REALTIME_RETRY_AFTER_SECONDS = 5;
+
+/** Chemin du POST qui délivre un ticket d'upgrade, et nom du paramètre de requête qui le porte (`/api/v1/realtime?ticket=...`). */
+export const REALTIME_TICKET_PATH = "/api/v1/realtime/ticket";
+export const REALTIME_TICKET_PARAM = "ticket";
+/** Durée de validité d'un ticket, en secondes. */
+export const REALTIME_TICKET_TTL_SECONDS = 30;
+
+/** Ticket d'upgrade : valeur opaque (base64url) à passer dans `?ticket=` dans les `expiresInSeconds` qui suivent. */
+export const RealtimeTicket = z
+  .object({
+    ticket: z.string().regex(/^[A-Za-z0-9_-]{16,1024}$/),
+    expiresInSeconds: z.number().int().positive(),
+  })
+  .meta({ id: "RealtimeTicket" });
+export type RealtimeTicket = z.infer<typeof RealtimeTicket>;
 
 /** Entités journalisées : celles du Schedule (trigger log_change de schema.sql). */
 export const ChangeEntity = z

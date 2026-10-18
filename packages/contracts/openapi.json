@@ -77,6 +77,23 @@
           "version"
         ]
       },
+      "RealtimeTicket": {
+        "type": "object",
+        "properties": {
+          "ticket": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{16,1024}$"
+          },
+          "expiresInSeconds": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "ticket",
+          "expiresInSeconds"
+        ]
+      },
       "ScheduleResponse": {
         "type": "object",
         "properties": {
@@ -2020,6 +2037,44 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/realtime/ticket": {
+      "post": {
+        "operationId": "createRealtimeTicket",
+        "summary": "Ticket d'upgrade du temps reel (usage unique, 30 s) pour les clients qui ne peuvent pas poser d'en-tete sur un WebSocket ; tout membre authentifie",
+        "responses": {
+          "200": {
+            "description": "Ticket a passer dans ?ticket= a l'upgrade",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RealtimeTicket"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }

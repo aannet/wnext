@@ -2,6 +2,7 @@ import type { z } from "zod";
 import { AllocationCreate, AllocationPatch, AllocationPathParams, IfMatchHeader } from "./allocations";
 import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
+import { REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket } from "./realtime";
 import { TeamMembership, TeamPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
 import { PersonCreate, PersonPatch, PersonPathParams } from "./people";
 import { ScheduleDepartment, ScheduleHoliday, SchedulePerson, ScheduleAllocation, ScheduleRole, ScheduleTimeoffType, ScheduleQuery, ScheduleResponse, ScheduleTimeoff } from "./schedule";
@@ -107,6 +108,17 @@ export const routes: RouteContract[] = [
     summary: "Etat du service",
     responses: {
       200: { description: "Service operationnel", schema: HealthResponse },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "post",
+    path: REALTIME_TICKET_PATH,
+    operationId: "createRealtimeTicket",
+    summary: `Ticket d'upgrade du temps reel (usage unique, ${REALTIME_TICKET_TTL_SECONDS} s) pour les clients qui ne peuvent pas poser d'en-tete sur un WebSocket ; tout membre authentifie`,
+    responses: {
+      200: { description: "Ticket a passer dans ?ticket= a l'upgrade", schema: RealtimeTicket },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },
