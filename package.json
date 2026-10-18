@@ -23,6 +23,7 @@
     "test:concurrency": "vitest run tests/concurrency",
     "test:migrations": "vitest run tests/migrations",
     "db:migrate": "node scripts/migrate.mjs",
+    "perf:realtime": "vitest run tests/perf --reporter=verbose",
     "guard:test-weakening": "node scripts/guardrails/test-weakening.mjs",
     "guard:pr-size": "node scripts/guardrails/pr-size.mjs",
     "guard:br-coverage": "node scripts/guardrails/br-coverage.mjs",
