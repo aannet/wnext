@@ -1513,6 +1513,45 @@
           "name"
         ]
       },
+      "TeamBatchResult": {
+        "type": "object",
+        "properties": {
+          "added": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "Personnes ajoutées par cet appel"
+          },
+          "alreadyInTeam": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "Personnes qui y étaient déjà"
+          }
+        },
+        "required": [
+          "added",
+          "alreadyInTeam"
+        ]
+      },
+      "TeamBatchAdd": {
+        "type": "object",
+        "properties": {
+          "personIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "minItems": 1,
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "personIds"
+        ]
+      },
       "TeamMembership": {
         "type": "object",
         "properties": {
@@ -3834,6 +3873,93 @@
           },
           "404": {
             "description": "Projet inconnu ou hors compte (NOT_FOUND, params.entity = project)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addManyToTeam",
+        "summary": "Ajouter plusieurs personnes a l'equipe d'un projet (une transaction, tout ou rien, idempotent)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamBatchAdd"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Personnes ajoutees (added) et deja presentes (alreadyInTeam), dans l'ordre du corps",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamBatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide : liste vide, plus de 500 personnes ou doublon (VALIDATION_FAILED, field = personIds)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet ou personne inconnu : rien n'est ecrit (NOT_FOUND, params.entity, et params.personId pour une personne)",
             "content": {
               "application/json": {
                 "schema": {

@@ -1,7 +1,7 @@
 // Contrat du retrait d'équipe (BR-10) : récapitulatif puis confirmation, codes dédiés, aucune écriture à la lecture.
 import "../src/zod-setup";
 import { describe, expect, it } from "vitest";
-import { ErrorCode, ReferenceListQuery, TeamMember, TeamMemberList, TeamMembership, TeamProjectPathParams, TeamRemovalRequest, TeamRemovalSummary, routes } from "@wnext/contracts";
+import { ErrorCode, ReferenceListQuery, TEAM_BATCH_MAX, TeamBatchAdd, TeamBatchResult, TeamMember, TeamMemberList, TeamMembership, TeamProjectPathParams, TeamRemovalRequest, TeamRemovalSummary, routes } from "@wnext/contracts";
 import { buildSpec } from "../src/openapi";
 
 const ok = (s: { safeParse(v: unknown): { success: boolean } }, v: unknown) => s.safeParse(v).success;
@@ -88,7 +88,34 @@ describe("lecture de l'équipe", () => {
   });
   it("la spec OpenAPI la décrit sans collision avec les routes d'écriture de l'équipe", () => {
     const spec = buildSpec() as { paths: Record<string, Record<string, unknown>> };
-    expect(Object.keys(spec.paths["/api/v1/projects/{projectId}/team"]!)).toEqual(["get"]);
+    expect(Object.keys(spec.paths["/api/v1/projects/{projectId}/team"]!)).toContain("get");
     expect(Object.keys(spec.paths["/api/v1/projects/{projectId}/team/{personId}"]!)).toEqual(["put"]);
+  });
+});
+
+describe("ajout en lot", () => {
+  it("corps : 1 à 500 identifiants distincts", () => {
+    expect(ok(TeamBatchAdd, { personIds: ["1"] })).toBe(true);
+    expect(ok(TeamBatchAdd, { personIds: Array.from({ length: TEAM_BATCH_MAX }, (_, i) => String(i + 1)) })).toBe(true);
+    for (const b of [{}, { personIds: [] }, { personIds: ["1", "1"] }, { personIds: [""] }, { personIds: [1] }, { personIds: Array.from({ length: TEAM_BATCH_MAX + 1 }, (_, i) => String(i + 1)) }]) {
+      expect(ok(TeamBatchAdd, b), JSON.stringify(b).slice(0, 40)).toBe(false);
+    }
+  });
+  it("le doublon est signalé sur le champ personIds", () => {
+    const r = TeamBatchAdd.safeParse({ personIds: ["1", "1"] });
+    expect(!r.success && r.error.issues[0]!.path).toEqual(["personIds"]);
+  });
+  it("résultat : deux listes", () => {
+    expect(ok(TeamBatchResult, { added: ["1"], alreadyInTeam: [] })).toBe(true);
+    expect(ok(TeamBatchResult, { added: ["1"] })).toBe(false);
+  });
+  it("route POST /projects/{projectId}/team : corps, 200, 400, 401, 403, 404", () => {
+    const r = routes.find((x) => x.operationId === "addManyToTeam")!;
+    expect([r.method, r.path, r.body]).toEqual(["post", "/api/v1/projects/{projectId}/team", TeamBatchAdd]);
+    expect(Object.keys(r.responses).map(Number).sort()).toEqual([200, 400, 401, 403, 404, 500]);
+  });
+  it("la spec porte GET et POST sur le même chemin", () => {
+    const spec = buildSpec() as { paths: Record<string, Record<string, unknown>> };
+    expect(Object.keys(spec.paths["/api/v1/projects/{projectId}/team"]!).sort()).toEqual(["get", "post"]);
   });
 });

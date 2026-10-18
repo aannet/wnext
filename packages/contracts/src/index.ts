@@ -15,7 +15,7 @@ export {
 } from "./realtime";
 export { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
 export { PersonCreate, PersonPatch, PersonPathParams } from "./people";
-export { TeamMember, TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalConfirmation, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
+export { TEAM_BATCH_MAX, TeamBatchAdd, TeamBatchResult, TeamMember, TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalConfirmation, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
 export {
   DepartmentCreate, DepartmentList, DepartmentPatch, HolidayCreate, HolidayList, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectDetail,
   ProjectList, ProjectListQuery, ProjectPatch, ReferenceListQuery, ReferencePathParams, RoleCreate, RoleList, RolePatch, TimeoffTypeCreate,

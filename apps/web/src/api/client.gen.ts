@@ -296,6 +296,15 @@ export interface TeamMember {
   name: string;
 }
 
+export interface TeamBatchResult {
+  added: Array<Id>;
+  alreadyInTeam: Array<Id>;
+}
+
+export interface TeamBatchAdd {
+  personIds: Array<Id>;
+}
+
 export interface TeamMembership {
   added: boolean;
 }
@@ -708,6 +717,19 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as TeamMemberList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Ajouter plusieurs personnes a l'equipe d'un projet (une transaction, tout ou rien, idempotent) (POST /api/v1/projects/{projectId}/team) */
+    async addManyToTeam(input: {
+      path: {
+        projectId: Id;
+      };
+      body: TeamBatchAdd;
+    }): Promise<ApiResult<TeamBatchResult, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/projects/" + encodeURIComponent(String(input.path.projectId)) + "/team", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as TeamBatchResult }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Ajouter une personne a l'equipe d'un projet (idempotent, sans corps) (PUT /api/v1/projects/{projectId}/team/{personId}) */

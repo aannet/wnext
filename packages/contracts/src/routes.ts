@@ -3,7 +3,7 @@ import { AllocationCreate, AllocationPatch, AllocationPathParams, IfMatchHeader 
 import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
 import { REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket } from "./realtime";
-import { TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
+import { TeamBatchAdd, TeamBatchResult, TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
 import { PersonCreate, PersonPatch, PersonPathParams } from "./people";
 import { ScheduleDepartment, ScheduleHoliday, SchedulePerson, ScheduleAllocation, ScheduleRole, ScheduleTimeoffType, ScheduleQuery, ScheduleResponse, ScheduleTimeoff } from "./schedule";
 import {
@@ -323,6 +323,22 @@ export const routes: RouteContract[] = [
       400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
       404: { description: "Projet inconnu ou hors compte (NOT_FOUND, params.entity = project)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/{projectId}/team",
+    operationId: "addManyToTeam",
+    summary: "Ajouter plusieurs personnes a l'equipe d'un projet (une transaction, tout ou rien, idempotent)",
+    params: TeamProjectPathParams,
+    body: TeamBatchAdd,
+    responses: {
+      200: { description: "Personnes ajoutees (added) et deja presentes (alreadyInTeam), dans l'ordre du corps", schema: TeamBatchResult },
+      400: { description: "Corps invalide : liste vide, plus de 500 personnes ou doublon (VALIDATION_FAILED, field = personIds)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
+      404: { description: "Projet ou personne inconnu : rien n'est ecrit (NOT_FOUND, params.entity, et params.personId pour une personne)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },

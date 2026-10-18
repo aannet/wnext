@@ -74,3 +74,26 @@ export const TeamMember = z.object({ personId: Id, name: z.string() }).meta({ id
 export type TeamMember = z.infer<typeof TeamMember>;
 export const TeamMemberList = z.object({ items: z.array(TeamMember), page: SchedulePage }).meta({ id: "TeamMemberList" });
 export type TeamMemberList = z.infer<typeof TeamMemberList>;
+
+// Ajout en lot : POST /projects/{projectId}/team, corps { personIds }. Équivalent de n PUT individuels, en UNE transaction.
+//  * Tout ou rien : si une personne est inconnue ou d'un autre compte, rien n'est écrit et la réponse est 404 NOT_FOUND
+//    (params.entity = person, params.personId = la première fautive dans l'ordre reçu). Projet inconnu : 404 (params.entity = project).
+//  * Idempotent comme le PUT : une personne déjà dans l'équipe n'est pas une erreur, elle est listée dans `alreadyInTeam`.
+//    Rejouer le même lot ne change rien (tout part en `alreadyInTeam`). 200 dans tous les cas.
+//  * `added` et `alreadyInTeam` suivent l'ordre du corps. Une même personne deux fois dans `personIds` est une erreur du client :
+//    400 VALIDATION_FAILED (field = personIds) ; de même pour une liste vide ou de plus de 500 personnes.
+//  * N'écrit que project_team : aucune allocation, aucun contrôle de capacité (BR-01) ; l'appartenance n'est pas exigée pour allouer (Q-07).
+//  * Mêmes rôles que l'ajout et le retrait : owner, admin, project_manager (403 FORBIDDEN, vérifié avant le corps).
+export const TEAM_BATCH_MAX = 500;
+export const TeamBatchAdd = z
+  .object({ personIds: z.array(Id).min(1).max(TEAM_BATCH_MAX) })
+  .refine((b) => new Set(b.personIds).size === b.personIds.length, { path: ["personIds"], message: "identifiant en double" })
+  .meta({ id: "TeamBatchAdd" });
+export type TeamBatchAdd = z.infer<typeof TeamBatchAdd>;
+export const TeamBatchResult = z
+  .object({
+    added: z.array(Id).describe("Personnes ajoutées par cet appel"),
+    alreadyInTeam: z.array(Id).describe("Personnes qui y étaient déjà"),
+  })
+  .meta({ id: "TeamBatchResult" });
+export type TeamBatchResult = z.infer<typeof TeamBatchResult>;
