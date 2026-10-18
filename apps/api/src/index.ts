@@ -22,3 +22,4 @@ export * from "./team";
 export * from "./reference";
 export * from "./budget";
 export * from "./project-structure";
+export * from "./logged-time";

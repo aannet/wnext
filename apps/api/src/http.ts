@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT } from "@wnext/contracts";
+import { REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import type { RateLimiter } from "./rate-limit";
@@ -14,6 +14,7 @@ import {
 } from "./reference";
 import { getSchedule } from "./schedule";
 import { addManyToTeam, addToTeam, getTeamRemovalSummary, listTeam, removeFromTeam } from "./team";
+import { createLoggedTime, deleteLoggedTime, listLoggedTime, prefillLoggedTime, submitLoggedTime, unlockLoggedTime, updateLoggedTime } from "./logged-time";
 import { createTimeoff, deleteTimeoff, updateTimeoff } from "./timeoffs";
 import { clientReader, createClient, createMilestone, createPhase, createProjectTask, deleteClient, deleteMilestone, deletePhase, deleteProjectTask, milestoneReader, phaseReader, projectTaskReader, updateClient, updateMilestone, updatePhase, updateProjectTask } from "./project-structure";
 import type { TicketService } from "./tickets";
@@ -62,6 +63,8 @@ const STATUS: Record<ApiError["code"], number> = {
   PERSON_DEACTIVATION_CONFIRMATION_REQUIRED: 428,
   PERSON_DEACTIVATION_STALE_CONFIRMATION: 409,
   PERSON_DEACTIVATION_INVALID_REPLACEMENT: 409,
+  LOGGED_TIME_LOCKED: 409,
+  LOGGED_TIME_DAY_LIMIT: 409,
   RATE_LIMITED: 429,
 };
 
@@ -148,6 +151,7 @@ function resource<C, P>(def: {
 const WRITE_RESOURCES: WriteResource[] = [
   resource({ pattern: /^\/api\/v1\/allocations(?:\/([^/]+))?$/, read: { get: allocationReader.get }, createSchema: AllocationCreate, patchSchema: AllocationPatch, create: createAllocation, update: updateAllocation, remove: deleteAllocation }),
   resource({ pattern: /^\/api\/v1\/people(?:\/([^/]+))?$/, read: { querySchema: PersonListQuery, list: personReader.list, get: personReader.get }, createSchema: PersonCreate, patchSchema: PersonPatch, create: createPerson, update: updatePerson }),
+  resource({ pattern: /^\/api\/v1\/logged-time(?:\/([^/]+))?$/, createSchema: LoggedTimeCreate, patchSchema: LoggedTimePatch, create: createLoggedTime, update: updateLoggedTime, remove: deleteLoggedTime }),
   resource({ pattern: /^\/api\/v1\/timeoffs(?:\/([^/]+))?$/, createSchema: TimeoffCreate, patchSchema: TimeoffPatch, create: createTimeoff, update: updateTimeoff, remove: deleteTimeoff }),
   resource({ adminOnly: true, pattern: /^\/api\/v1\/departments(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: departmentReader.list, get: departmentReader.get }, createSchema: DepartmentCreate, patchSchema: DepartmentPatch, create: createDepartment, update: updateDepartment, remove: deleteDepartment }),
   resource({ adminOnly: true, pattern: /^\/api\/v1\/roles(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: roleReader.list, get: roleReader.get }, createSchema: RoleCreate, patchSchema: RolePatch, create: createRole, update: updateRole, remove: deleteRole }),
@@ -266,6 +270,27 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       const [projectId, personId] = [team[1]!, team[2]!].map((v) => { try { return decodeURIComponent(v); } catch { return "%"; } }) as [string, string];
       if (team[3] === "removal-summary") return { status: 200, body: await getTeamRemovalSummary(deps.db, ctx, projectId, personId) };
       return { status: 200, body: await removeFromTeam(deps.db, ctx, projectId, personId, parseJsonBody(TeamRemovalRequest, req.body ?? "{}")) };
+    }
+    if (url.pathname === "/api/v1/logged-time" && req.method === "GET") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId); // l'auth passe avant la validation : pas d'oracle pour un anonyme
+      return { status: 200, body: await listLoggedTime(deps.db, ctx, parseQuery(LoggedTimeListQuery, url.searchParams)) };
+    }
+    if ((url.pathname === "/api/v1/logged-time/prefill" || url.pathname === "/api/v1/logged-time/submit") && req.method === "POST") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (!WRITERS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role }); // avant la validation du corps
+      const body = parseJsonBody(LoggedTimeWindow, req.body);
+      return { status: 200, body: await (url.pathname.endsWith("/prefill") ? prefillLoggedTime : submitLoggedTime)(deps.db, ctx, body) };
+    }
+    const unlock = /^\/api\/v1\/logged-time\/([^/]+)\/unlock$/.exec(url.pathname);
+    if (unlock && req.method === "POST") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (!ADMINS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
+      let id: string;
+      try { id = decodeURIComponent(unlock[1]!); } catch { id = "%"; }
+      return { status: 200, body: await unlockLoggedTime(deps.db, ctx, id, expectedVersion(req.headers)) };
     }
     for (const resource of WRITE_RESOURCES) {
       const m = resource.pattern.exec(url.pathname);

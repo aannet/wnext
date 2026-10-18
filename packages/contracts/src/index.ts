@@ -13,6 +13,10 @@ export {
   Change, ChangeEntity, REALTIME_PATH, REALTIME_PROTOCOL_VERSION, REALTIME_RETRY_AFTER_SECONDS, REALTIME_TICKET_PARAM, REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, REALTIME_UPGRADE_STATUS, RealtimeChanges, RealtimeClientMessage, RealtimeError,
   RealtimeReady, RealtimeResync, RealtimeServerMessage, RealtimeSubscribe, RealtimeTicket,
 } from "./realtime";
+export {
+  LoggedTime, LoggedTimeCreate, LoggedTimeList, LoggedTimeListQuery, LoggedTimePatch, LoggedTimePathParams, LoggedTimePrefillResult,
+  LoggedTimeStatus, LoggedTimeSubmitResult, LoggedTimeWindow,
+} from "./logged-time";
 export { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
 export { PersonDeactivationDisposition, PersonDeactivationQuery, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonCreate, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProject, PersonProjectList, PersonProjectListQuery } from "./people";
 export { TEAM_BATCH_MAX, TeamBatchAdd, TeamBatchResult, TeamMember, TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalConfirmation, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
