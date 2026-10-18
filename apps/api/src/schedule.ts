@@ -32,6 +32,19 @@ export function toScheduleAllocation(r: Row): ScheduleAllocation {
     : { ...base, mode: "percentage" as const, hoursPerDay: null, percent: num(r.percent) };
 }
 
+export type SchedulePerson = ScheduleResponse["people"][number];
+export const PERSON_COLUMNS = `id, row_version, name, people_type, department_id, role_id, country, work_days_hours, tags, avatar_url, active`;
+
+export function toSchedulePerson(r: Row): SchedulePerson {
+  return {
+    id: idOf(r.id), version: num(r.row_version), name: String(r.name), peopleType: r.people_type,
+    departmentId: orNullId(r.department_id), roleId: orNullId(r.role_id),
+    country: r.country === null ? null : String(r.country).trim(),
+    workDaysHours: (r.work_days_hours as unknown[]).map(num), tags: r.tags as string[],
+    avatarUrl: r.avatar_url ?? null, active: Boolean(r.active),
+  };
+}
+
 export type ScheduleTimeoff = ScheduleResponse["timeoffs"][number];
 export const TIMEOFF_COLUMNS = `id, row_version, person_id, timeoff_type_id, start_date, end_date, scope, start_half, end_half,
   hours_per_day, approval_status`;
@@ -103,8 +116,7 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
     }
     pageArgs.push(limit + 1);
     const peopleRows = (await tx.query<Row>(
-      `SELECT p.id, p.row_version, p.name, p.people_type, p.department_id, p.role_id, p.country,
-              p.work_days_hours, p.tags, p.avatar_url, p.active
+      `SELECT ${PERSON_COLUMNS}
          FROM people p WHERE ${filter}${keyset} ORDER BY p.name, p.id LIMIT $${pageArgs.length}`,
       pageArgs,
     )).rows;
@@ -113,19 +125,7 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
     const last = pageRows[pageRows.length - 1];
     const personIds = pageRows.map((r) => idOf(r.id));
 
-    const people = pageRows.map((r) => ({
-      id: idOf(r.id),
-      version: num(r.row_version),
-      name: String(r.name),
-      peopleType: r.people_type,
-      departmentId: orNullId(r.department_id),
-      roleId: orNullId(r.role_id),
-      country: r.country === null ? null : String(r.country).trim(),
-      workDaysHours: (r.work_days_hours as unknown[]).map(num),
-      tags: r.tags as string[],
-      avatarUrl: r.avatar_url ?? null,
-      active: Boolean(r.active),
-    }));
+    const people = pageRows.map(toSchedulePerson);
 
     const range = [a, q.from, q.to, personIds] as const;
     const allocRows = personIds.length ? (await tx.query<Row>(

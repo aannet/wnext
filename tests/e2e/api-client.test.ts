@@ -108,3 +108,21 @@ describe("congés : client généré <-> serveur", () => {
     expect(await api.deleteTimeoff({ path: { id: t.id }, headers: ifMatch(t.version + 1) })).toEqual({ ok: true, status: 204, data: undefined });
   });
 });
+
+describe("personnes : client généré <-> serveur", () => {
+  it("créer, modifier avec If-Match, désactiver, subir un conflit", async () => {
+    const api = client();
+    const created = await api.createPerson({ body: { name: "Chloé", country: "FR", workDaysHours: [8, 8, 4, 8, 0, 0, 0], tags: ["é &=?"] } });
+    expect(created.status).toBe(201);
+    if (!created.ok) throw new Error("création refusée");
+    const p = created.data;
+    expect(p).toMatchObject({ name: "Chloé", active: true, version: 1 });
+
+    const off = await api.updatePerson({ path: { id: p.id }, headers: { "If-Match": `"${p.version}"` }, body: { active: false } });
+    expect(off.ok && off.data).toMatchObject({ active: false, version: 2 });
+
+    const stale = await api.updatePerson({ path: { id: p.id }, headers: { "If-Match": `"${p.version}"` }, body: { name: "périmée" } });
+    if (stale.ok) throw new Error("conflit attendu");
+    expect([stale.status, stale.error.code]).toEqual([409, "VERSION_CONFLICT"]);
+  });
+});

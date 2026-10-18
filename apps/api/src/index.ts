@@ -12,3 +12,4 @@ export * from "./pg-db";
 export * from "./ws";
 export * from "./server";
 export * from "./timeoffs";
+export * from "./people";

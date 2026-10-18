@@ -1,0 +1,65 @@
+import type { PersonCreate, PersonPatch } from "@wnext/contracts";
+import { withContext, type Db, type Queryable, type RequestContext } from "./db";
+import { ApiFailure } from "./failure";
+import { PERSON_COLUMNS, toSchedulePerson, type Row, type SchedulePerson } from "./schedule";
+import { assertWriter, isId, lockAndCheck, notFound } from "./write";
+
+// Écriture des personnes planifiables. Mêmes principes que les allocations et les congés (rôles, verrou optimiste, RLS +
+// account_id). Pas de suppression (voir le contrat) : `active: false` désactive sans toucher aux allocations ni aux congés.
+// Ni e-mail ni coût : ces colonnes ne sont ni lues ni écrites ici.
+
+const DEFAULT_WORK_DAYS = [8, 8, 8, 8, 8, 0, 0];
+
+async function assertReferences(tx: Queryable, accountId: string, ref: { departmentId?: string | null; roleId?: string | null }) {
+  const exists = async (sql: string, id: string, entity: string) => {
+    if (!isId(id) || !(await tx.query(sql, [id, accountId])).rows.length) throw notFound(entity);
+  };
+  if (ref.departmentId) await exists("SELECT 1 FROM departments WHERE id = $1::bigint AND account_id = $2::bigint", ref.departmentId, "department");
+  if (ref.roleId) await exists("SELECT 1 FROM roles WHERE id = $1::bigint AND account_id = $2::bigint", ref.roleId, "role");
+}
+
+export async function createPerson(db: Db, ctx: RequestContext, body: PersonCreate): Promise<SchedulePerson> {
+  assertWriter(ctx);
+  return withContext(db, ctx, async (tx) => {
+    await assertReferences(tx, ctx.accountId, body);
+    const { rows } = await tx.query<Row>(
+      `INSERT INTO people (account_id, name, people_type, department_id, role_id, country, work_days_hours, tags, avatar_url, active)
+       VALUES ($1::bigint, $2, $3::people_type, $4::bigint, $5::bigint, $6, $7::numeric[], $8::text[], $9, $10::boolean)
+       RETURNING ${PERSON_COLUMNS}`,
+      [
+        ctx.accountId, body.name, body.peopleType ?? "employee", body.departmentId ?? null, body.roleId ?? null, body.country ?? null,
+        body.workDaysHours ?? DEFAULT_WORK_DAYS, body.tags ?? [], body.avatarUrl ?? null, body.active ?? true,
+      ],
+    );
+    return toSchedulePerson(rows[0]!);
+  });
+}
+
+export async function updatePerson(db: Db, ctx: RequestContext, id: string, expectedVersion: number, patch: PersonPatch): Promise<SchedulePerson> {
+  assertWriter(ctx);
+  return withContext(db, ctx, async (tx) => {
+    const cur = await lockAndCheck(tx, "people", PERSON_COLUMNS, "person", ctx.accountId, id, expectedVersion);
+    const has = <K extends keyof PersonPatch>(k: K) => patch[k] !== undefined;
+    const idOrNull = (v: unknown) => (v === null ? null : String(v));
+
+    const departmentId = has("departmentId") ? patch.departmentId! : idOrNull(cur.department_id);
+    const roleId = has("roleId") ? patch.roleId! : idOrNull(cur.role_id);
+    // Seules les références CHANGÉES sont revérifiées : une personne dont le département a disparu reste modifiable.
+    await assertReferences(tx, ctx.accountId, { departmentId: has("departmentId") ? departmentId : null, roleId: has("roleId") ? roleId : null });
+
+    const { rows } = await tx.query<Row>(
+      `UPDATE people SET name = $3, people_type = $4::people_type, department_id = $5::bigint, role_id = $6::bigint, country = $7,
+              work_days_hours = $8::numeric[], tags = $9::text[], avatar_url = $10, active = $11::boolean
+        WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $12::int
+        RETURNING ${PERSON_COLUMNS}`,
+      [
+        id, ctx.accountId, patch.name ?? cur.name, patch.peopleType ?? cur.people_type, departmentId, roleId,
+        has("country") ? patch.country : cur.country === null ? null : String(cur.country).trim(),
+        patch.workDaysHours ?? (cur.work_days_hours as unknown[]).map(Number), patch.tags ?? cur.tags,
+        has("avatarUrl") ? patch.avatarUrl : cur.avatar_url, patch.active ?? cur.active, expectedVersion,
+      ],
+    );
+    if (!rows[0]) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: Number(cur.row_version) + 1 });
+    return toSchedulePerson(rows[0]);
+  });
+}

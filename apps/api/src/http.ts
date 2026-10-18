@@ -1,9 +1,10 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
+import { AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { createAllocation, deleteAllocation, updateAllocation } from "./allocations";
+import { createPerson, updatePerson } from "./people";
 import { getSchedule } from "./schedule";
 import { createTimeoff, deleteTimeoff, updateTimeoff } from "./timeoffs";
 import { API_VERSION } from "./version";
@@ -93,13 +94,14 @@ interface WriteResource {
   pattern: RegExp;
   create(db: Db, ctx: RequestContext, raw: string | undefined): Promise<unknown>;
   update(db: Db, ctx: RequestContext, id: string, version: number, raw: string | undefined): Promise<unknown>;
-  remove(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
+  /** Absent = la ressource n'a pas de DELETE (ex. personnes : on désactive). */
+  remove?(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
 }
 function resource<C, P>(def: {
   pattern: RegExp; createSchema: Parser<C>; patchSchema: Parser<P>;
   create(db: Db, ctx: RequestContext, body: C): Promise<unknown>;
   update(db: Db, ctx: RequestContext, id: string, version: number, patch: P): Promise<unknown>;
-  remove(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
+  remove?(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
 }): WriteResource {
   return {
     pattern: def.pattern,
@@ -110,6 +112,7 @@ function resource<C, P>(def: {
 }
 const WRITE_RESOURCES: WriteResource[] = [
   resource({ pattern: /^\/api\/v1\/allocations(?:\/([^/]+))?$/, createSchema: AllocationCreate, patchSchema: AllocationPatch, create: createAllocation, update: updateAllocation, remove: deleteAllocation }),
+  resource({ pattern: /^\/api\/v1\/people(?:\/([^/]+))?$/, createSchema: PersonCreate, patchSchema: PersonPatch, create: createPerson, update: updatePerson }),
   resource({ pattern: /^\/api\/v1\/timeoffs(?:\/([^/]+))?$/, createSchema: TimeoffCreate, patchSchema: TimeoffPatch, create: createTimeoff, update: updateTimeoff, remove: deleteTimeoff }),
 ];
 
@@ -130,7 +133,7 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       if (m[1] !== undefined) {
         try { id = decodeURIComponent(m[1]); } catch { id = "%"; } // séquence % illisible : identifiant qui ne désigne rien (404)
       }
-      const known = id === undefined ? req.method === "POST" : req.method === "PATCH" || req.method === "DELETE";
+      const known = id === undefined ? req.method === "POST" : req.method === "PATCH" || (req.method === "DELETE" && resource.remove !== undefined);
       if (!known) break;
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId);
@@ -138,7 +141,7 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       if (id === undefined) return { status: 201, body: await resource.create(deps.db, ctx, req.body) };
       const version = expectedVersion(req.headers);
       if (req.method === "DELETE") {
-        await resource.remove(deps.db, ctx, id, version);
+        await resource.remove!(deps.db, ctx, id, version);
         return { status: 204, body: undefined };
       }
       return { status: 200, body: await resource.update(deps.db, ctx, id, version, req.body) };

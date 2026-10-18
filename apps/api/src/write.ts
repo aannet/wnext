@@ -17,7 +17,7 @@ export const isId = (v: string) => /^\d{1,18}$/.test(v);
 export const day = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v));
 
 /** Ligne verrouillée (FOR UPDATE) + contrôle de version dans la même transaction ; renvoie la ligne courante. `table` et `columns` sont des constantes du code. */
-export async function lockAndCheck(tx: Queryable, table: "allocations" | "timeoffs", columns: string, entity: string, accountId: string, id: string, expected: number): Promise<Row> {
+export async function lockAndCheck(tx: Queryable, table: "allocations" | "timeoffs" | "people", columns: string, entity: string, accountId: string, id: string, expected: number): Promise<Row> {
   if (!isId(id)) throw notFound(entity);
   const { rows } = await tx.query<Row>(`SELECT ${columns} FROM ${table} WHERE id = $1::bigint AND account_id = $2::bigint FOR UPDATE`, [id, accountId]);
   const row = rows[0];
