@@ -9,7 +9,7 @@ import { createAllocation, deleteAllocation, dispatch, updateAllocation, type Db
 
 // @BR-01 @BR-04 @BR-14 @BR-24
 let pg: PGlite;
-const db: Db = { transaction: (fn) => pg.transaction((tx) => fn(tx as never)) };
+const db: Db = { transaction: (fn) => pg.transaction(async (tx) => { await tx.query("SET LOCAL ROLE app_user"); return fn(tx as never); }) };
 const roles: Record<string, RequestContext | null> = {
   admin: { accountId: "1", userId: "1", role: "admin" },
   pm: { accountId: "1", userId: "1", role: "project_manager" },

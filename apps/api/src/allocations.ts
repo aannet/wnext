@@ -8,7 +8,7 @@ import { ALLOCATION_COLUMNS, toScheduleAllocation, type Row, type ScheduleAlloca
 //  * verrou optimiste : la ligne est verrouillée (FOR UPDATE) puis sa version comparée à If-Match dans la MÊME transaction,
 //    donc deux écritures concurrentes sur la même version ne peuvent pas réussir toutes les deux ;
 //  * BR-01 / BR-04 : aucune vérification de capacité ni de congé, jamais de refus pour sur-allocation ;
-//  * isolation : account_id dans chaque requête (pas de RLS dans schema.sql v1.1).
+//  * isolation : RLS (app_user + contexte de withContext) ET account_id dans chaque requête.
 
 const WRITERS = new Set<RequestContext["role"]>(["owner", "admin", "project_manager"]);
 const assertWriter = (ctx: RequestContext) => {

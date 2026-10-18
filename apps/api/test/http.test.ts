@@ -9,7 +9,7 @@ import { dispatch, type Db, type HttpDeps, type RequestContext } from "../src/in
 
 const ctx: RequestContext = { accountId: "1", userId: "1", role: "member" };
 let pg: PGlite;
-const db: Db = { transaction: (fn) => pg.transaction((tx) => fn(tx as never)) };
+const db: Db = { transaction: (fn) => pg.transaction(async (tx) => { await tx.query("SET LOCAL ROLE app_user"); return fn(tx as never); }) };
 const deps: HttpDeps = {
   db,
   authenticate: async (h) => (h.authorization === "Bearer ok" ? ctx : null),

@@ -7,7 +7,7 @@ import { citext } from "@electric-sql/pglite/contrib/citext";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ScheduleResponse } from "@wnext/contracts";
 import { scheduleUtilization } from "@wnext/engine";
-import { ApiFailure, getSchedule, type Db, type RequestContext } from "../src/index";
+import { ApiFailure, getSchedule, withContext, type Db, type RequestContext } from "../src/index";
 
 // @BR-01 @BR-24 @BR-38
 const FROM = "2026-03-02";
@@ -16,7 +16,7 @@ const ctxA: RequestContext = { accountId: "1", userId: "1", role: "admin" };
 const ctxB: RequestContext = { accountId: "2", userId: "1", role: "admin" };
 
 let pg: PGlite;
-const db: Db = { transaction: (fn) => pg.transaction((tx) => fn(tx as never)) };
+const db: Db = { transaction: (fn) => pg.transaction(async (tx) => { await tx.query("SET LOCAL ROLE app_user"); return fn(tx as never); }) };
 const get = (q: Partial<Parameters<typeof getSchedule>[2]> = {}, ctx = ctxA) => getSchedule(db, ctx, { from: FROM, to: TO, ...q });
 const failure = async (p: Promise<unknown>) => p.then(() => null, (e) => e as ApiFailure);
 
@@ -94,6 +94,16 @@ describe("contrat", () => {
     const a = JSON.stringify(await get());
     expect(a).not.toContain("Intrus");
     expect(a).not.toContain("Secret");
+  });
+});
+
+describe("RLS", () => {
+  it("les requêtes tournent sous app_user : sans filtre account_id, la base n'expose que le compte courant", async () => {
+    const seen = await withContext(db, ctxB, async (tx) => ({
+      user: (await tx.query<{ u: string }>("SELECT current_user AS u")).rows[0]!.u,
+      people: (await tx.query<{ name: string }>("SELECT name FROM people ORDER BY name")).rows.map((r) => r.name),
+    }));
+    expect(seen).toEqual({ user: "app_user", people: ["Intrus"] });
   });
 });
 

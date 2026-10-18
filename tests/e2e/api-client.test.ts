@@ -24,7 +24,7 @@ beforeAll(async () => {
     INSERT INTO people (account_id, name, tags) VALUES (1, 'Alice', '{é &=?}'), (1, 'Bob', '{}');
     INSERT INTO projects (account_id, name) VALUES (1, 'P1');
   `);
-  const db: Db = { transaction: (fn) => pg.transaction((tx) => fn(tx as never)) };
+  const db: Db = { transaction: (fn) => pg.transaction(async (tx) => { await tx.query("SET LOCAL ROLE app_user"); return fn(tx as never); }) };
   server = createHttpServer({ db, authenticate: async (h) => (h.authorization === "Bearer ok" ? { accountId: "1", userId: "1", role: "admin" } : null) });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

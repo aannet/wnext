@@ -3,8 +3,8 @@ import type { ScheduleQuery, ScheduleResponse } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 
-// GET /api/v1/schedule. Pas de RLS dans schema.sql v1.1 : l'isolation entre comptes repose sur `account_id = $1`
-// dans CHAQUE requête ci-dessous (testé). Ne jamais renvoyer cost_rate, email, budget (contrat : zéro fuite).
+// GET /api/v1/schedule. Isolation entre comptes en deux couches : la RLS de schema.sql (rôle app_user, contexte posé par
+// withContext) ET `account_id = $1` dans CHAQUE requête ci-dessous (testé sous app_user). Ne jamais renvoyer cost_rate, email, budget (contrat : zéro fuite).
 
 const DEFAULT_LIMIT = 200;
 const DAY_MS = 86_400_000;
