@@ -1,0 +1,85 @@
+import { z } from "zod";
+import { ErrorCode } from "./errors";
+import { Id, Version } from "./common";
+
+// Contrat temps réel (ADR-003 §5). Le canal ne fait que DIFFUSER : aucune écriture par WebSocket, les mutations passent par REST.
+//  * Source : l'outbox change_log (schema.sql). Un message ne porte que des références (entité, id, version), jamais les
+//    données : le client recharge l'entité (ou ignore le message si sa copie a déjà cette version ou plus récente).
+//  * `seq` est un curseur par compte, monotone et sans trou ; il est une chaîne opaque côté client (comme `changeCursor`
+//    de GET /schedule, qui en est le point de départ).
+//  * Rejouer un message déjà vu est inoffensif (idempotence par `version`).
+//  * Le contexte du compte vient de la session à la connexion, jamais d'un champ du message.
+//  * `v` est la version du protocole ; un changement cassant l'incrémente (jamais de réinterprétation silencieuse).
+
+export const REALTIME_PATH = "/api/v1/realtime";
+export const REALTIME_PROTOCOL_VERSION = 1;
+
+/** Entités journalisées : celles du Schedule (trigger log_change de schema.sql). */
+export const ChangeEntity = z
+  .enum(["allocations", "timeoffs", "people", "holidays", "projects", "timeoff_types", "departments", "roles"])
+  .meta({ id: "ChangeEntity" });
+export type ChangeEntity = z.infer<typeof ChangeEntity>;
+
+export const Change = z
+  .object({
+    seq: z.string().regex(/^\d{1,15}$/),
+    entity: ChangeEntity,
+    id: Id,
+    op: z.enum(["insert", "update", "delete"]),
+    /** version après l'opération ; null pour un delete (miroir de change_log : delete <=> version NULL) */
+    version: z.union([Version, z.null()]),
+  })
+  .refine((c) => (c.op === "delete") === (c.version === null), { message: "version null si et seulement si op = delete" })
+  .meta({ id: "Change" });
+export type Change = z.infer<typeof Change>;
+
+const cursor = z.string().regex(/^\d{1,15}$/);
+
+// ----- client -> serveur : un seul message, la reprise -----
+
+/** Premier message après la connexion : reprendre après `cursor` (le `changeCursor` de GET /schedule ou le dernier `head` reçu). */
+export const RealtimeSubscribe = z
+  .object({ v: z.literal(REALTIME_PROTOCOL_VERSION), type: z.literal("subscribe"), cursor })
+  .meta({ id: "RealtimeSubscribe" });
+export const RealtimeClientMessage = RealtimeSubscribe;
+export type RealtimeClientMessage = z.infer<typeof RealtimeClientMessage>;
+
+// ----- serveur -> client -----
+
+/** Lot de changements, dans l'ordre de `seq`. `head` = dernier `seq` connu du serveur à l'émission ; le client le mémorise comme nouveau curseur. */
+export const RealtimeChanges = z
+  .object({
+    v: z.literal(REALTIME_PROTOCOL_VERSION),
+    type: z.literal("changes"),
+    changes: z.array(Change).min(1).max(1000),
+    /** curseur à mémoriser après traitement du lot (= seq du dernier changement du lot) */
+    cursor,
+    /** vrai si d'autres lots suivent immédiatement (rattrapage en cours) */
+    hasMore: z.boolean(),
+  })
+  .meta({ id: "RealtimeChanges" });
+
+/** Le curseur est plus ancien que la rétention du journal (BR-14) : le client recharge la fenêtre (GET /schedule) puis se réabonne avec le nouveau `changeCursor`. */
+export const RealtimeResync = z
+  .object({ v: z.literal(REALTIME_PROTOCOL_VERSION), type: z.literal("resync"), reason: z.literal("cursor_expired"), head: cursor })
+  .meta({ id: "RealtimeResync" });
+
+/** Abonné et à jour : le flux direct commence. Évite au client de deviner la fin du rattrapage. */
+export const RealtimeReady = z
+  .object({ v: z.literal(REALTIME_PROTOCOL_VERSION), type: z.literal("ready"), cursor })
+  .meta({ id: "RealtimeReady" });
+
+/** Erreur de protocole (message illisible, curseur invalide, non authentifié). Codes stables, jamais de texte. */
+export const RealtimeError = z
+  .object({
+    v: z.literal(REALTIME_PROTOCOL_VERSION),
+    type: z.literal("error"),
+    code: ErrorCode,
+    params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+  })
+  .meta({ id: "RealtimeError" });
+
+export const RealtimeServerMessage = z
+  .discriminatedUnion("type", [RealtimeChanges, RealtimeResync, RealtimeReady, RealtimeError])
+  .meta({ id: "RealtimeServerMessage" });
+export type RealtimeServerMessage = z.infer<typeof RealtimeServerMessage>;
