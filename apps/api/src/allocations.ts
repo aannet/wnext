@@ -1,4 +1,4 @@
-import type { AllocationCreate, AllocationPatch, ProjectAllocationListQuery } from "@wnext/contracts";
+import type { AllocationCreate, AllocationPatch, PersonAllocationListQuery, ProjectAllocationListQuery } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { assertWriter, day, idParam, invalid, isId, lockAndCheck as lockRow, notFound } from "./write";
@@ -115,24 +115,27 @@ export async function deleteAllocation(db: Db, ctx: RequestContext, id: string, 
 /** Lecture d'une allocation par id (avec sa version). Pas de liste globale : une liste se lit par fenêtre. */
 export const allocationReader = reader({ table: "allocations", columns: ALLOCATION_COLUMNS, entity: "allocation", map: toScheduleAllocation });
 
+type AllocationPage = { items: ScheduleAllocation[]; page: { nextCursor: string | null; total: number } };
+type WindowQuery = { from: string; to: string; status?: string; limit?: number; cursor?: string };
+
 /**
- * Allocations d'un projet qui chevauchent [from, to] (même règle que le Schedule : une série compte jusqu'à `repeat_end_date`,
- * renvoyée une fois, non développée). Page par curseur sur `id`.
+ * Allocations d'un parent (projet ou personne) qui chevauchent [from, to] (même règle que le Schedule : une série compte jusqu'à
+ * `repeat_end_date`, renvoyée une fois, non développée). Page par curseur sur `id`. `other` = filtre sur l'autre côté.
  */
-export async function listProjectAllocations(db: Db, ctx: RequestContext, projectId: string, q: ProjectAllocationListQuery): Promise<{ items: ScheduleAllocation[]; page: { nextCursor: string | null; total: number } }> {
+async function listWindow(db: Db, ctx: RequestContext, parent: { table: "projects" | "people"; column: "project_id" | "person_id"; entity: string; id: string }, other: { column: "project_id" | "person_id"; name: string; value?: string }, q: WindowQuery): Promise<AllocationPage> {
   assertWindow(q.from, q.to);
   const after = q.cursor === undefined ? undefined : decodeCursor(q.cursor); // avant d'ouvrir une transaction
   const n = Math.min(Math.max(1, Math.trunc(q.limit ?? DEFAULT_PAGE)), MAX_PAGE);
-  if (!isId(projectId)) throw notFound("project");
-  const personId = q.personId === undefined ? undefined : idParam("personId", q.personId);
+  if (!isId(parent.id)) throw notFound(parent.entity);
+  const otherId = other.value === undefined ? undefined : idParam(other.name, other.value);
   return withContext(db, ctx, async (tx) => {
-    if (!(await tx.query("SELECT 1 FROM projects WHERE id = $1::bigint AND account_id = $2::bigint", [projectId, ctx.accountId])).rows.length) throw notFound("project");
-    const args: unknown[] = [ctx.accountId, projectId];
+    if (!(await tx.query(`SELECT 1 FROM ${parent.table} WHERE id = $1::bigint AND account_id = $2::bigint`, [parent.id, ctx.accountId])).rows.length) throw notFound(parent.entity);
+    const args: unknown[] = [ctx.accountId, parent.id];
     const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
     const where = [
-      "account_id = $1::bigint", "project_id = $2::bigint",
+      "account_id = $1::bigint", `${parent.column} = $2::bigint`,
       `start_date <= ${bind(q.to)}::date`, `COALESCE(repeat_end_date, end_date) >= ${bind(q.from)}::date`,
-      ...(personId ? [`person_id = ${bind(personId)}::bigint`] : []),
+      ...(otherId ? [`${other.column} = ${bind(otherId)}::bigint`] : []),
       ...(q.status ? [`status = ${bind(q.status)}::allocation_status`] : []),
     ];
     const total = Number((await tx.query<Row>(`SELECT count(*) AS n FROM allocations WHERE ${where.join(" AND ")}`, [...args])).rows[0]!.n);
@@ -141,4 +144,14 @@ export async function listProjectAllocations(db: Db, ctx: RequestContext, projec
     const page = rows.slice(0, n);
     return { items: page.map(toScheduleAllocation), page: { nextCursor: rows.length > n ? encodeCursor(String(page[n - 1]!.id)) : null, total } };
   });
+}
+
+/** Allocations d'un projet sur une fenêtre ; filtres `personId` et `status`. */
+export function listProjectAllocations(db: Db, ctx: RequestContext, projectId: string, q: ProjectAllocationListQuery): Promise<AllocationPage> {
+  return listWindow(db, ctx, { table: "projects", column: "project_id", entity: "project", id: projectId }, { column: "person_id", name: "personId", value: q.personId }, q);
+}
+
+/** Allocations d'une personne (désactivée comprise) sur une fenêtre ; filtres `projectId` et `status`. */
+export function listPersonAllocations(db: Db, ctx: RequestContext, personId: string, q: PersonAllocationListQuery): Promise<AllocationPage> {
+  return listWindow(db, ctx, { table: "people", column: "person_id", entity: "person", id: personId }, { column: "project_id", name: "projectId", value: q.projectId }, q);
 }

@@ -1,9 +1,9 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonListQuery, ProjectAllocationListQuery, PersonPatch, PersonProjectListQuery, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
+import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonPatch, PersonProjectListQuery, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
-import { allocationReader, createAllocation, deleteAllocation, listProjectAllocations, updateAllocation } from "./allocations";
+import { allocationReader, createAllocation, deleteAllocation, listPersonAllocations, listProjectAllocations, updateAllocation } from "./allocations";
 import { createPerson, listPersonProjects, personReader, updatePerson } from "./people";
 import {
   createDepartment, createHoliday, createProject, createRole, createTimeoffType, deleteDepartment, deleteHoliday, deleteRole, deleteTimeoffType,
@@ -170,6 +170,14 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       let projectId: string;
       try { projectId = decodeURIComponent(projectAllocations[1]!); } catch { projectId = "%"; }
       return { status: 200, body: await listProjectAllocations(deps.db, ctx, projectId, parseQuery(ProjectAllocationListQuery, url.searchParams)) };
+    }
+    const personAllocations = /^\/api\/v1\/people\/([^/]+)\/allocations$/.exec(url.pathname);
+    if (personAllocations && req.method === "GET") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId); // l'auth passe avant la validation : pas d'oracle pour un anonyme
+      let personId: string;
+      try { personId = decodeURIComponent(personAllocations[1]!); } catch { personId = "%"; }
+      return { status: 200, body: await listPersonAllocations(deps.db, ctx, personId, parseQuery(PersonAllocationListQuery, url.searchParams)) };
     }
     const personProjects = /^\/api\/v1\/people\/([^/]+)\/projects$/.exec(url.pathname);
     if (personProjects && req.method === "GET") {
