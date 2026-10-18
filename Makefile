@@ -9,6 +9,7 @@ check:
 	npm run check:contract
 	npm run test:guardrails
 	npm run test:boundaries
+	npm run test:parity
 
 typecheck:
 	npm run typecheck
