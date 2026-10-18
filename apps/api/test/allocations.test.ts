@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ApiError, ScheduleAllocation, ScheduleResponse } from "@wnext/contracts";
 import { createAllocation, deleteAllocation, dispatch, updateAllocation, type Db, type HttpDeps, type RequestContext } from "../src/index";
 
-// @BR-01 @BR-04 @BR-14 @BR-24
+// @BR-01 @BR-04 @BR-14 @BR-24 @BR-33 @BR-36
 let pg: PGlite;
 const db: Db = { transaction: (fn) => pg.transaction(async (tx) => { await tx.query("SET LOCAL ROLE app_user"); return fn(tx as never); }) };
 const roles: Record<string, RequestContext | null> = {

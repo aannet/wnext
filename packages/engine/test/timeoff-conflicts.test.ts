@@ -49,7 +49,7 @@ describe("détection des conflits", () => {
     expect(detect(off(MON), [other]).days).toEqual([]);
     expect(detect(off(MON), [], [{ personId: "tom2", day: MON, hours: 3 }]).days).toEqual([]);
   });
-  it("BR-29 : en attente, le conflit est visible mais l'assistant n'est déclenché qu'à l'approbation", () => {
+  it("@BR-29 : en attente, le conflit est visible mais l'assistant n'est déclenché qu'à l'approbation", () => {
     const a = [alloc("a1", MON, 4)];
     expect(detect(off(MON, MON, { approvalStatus: "pending" }), a)).toMatchObject({ requiresAssistant: false, days: [{ day: MON }] });
     expect(detect(off(MON, MON, { approvalStatus: "approved" }), a).requiresAssistant).toBe(true);

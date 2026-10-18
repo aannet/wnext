@@ -155,7 +155,7 @@ SELECT t.mkproj('pn', 'A', 'in_progress', true);     -- non facturable
 SELECT t.mkproj('pb', 'B');
 
 -- ============================================================
--- T00 Convention de semaine : index 0 = lundi, ISODOW (BR-18)
+-- T00 Convention de semaine : index 0 = lundi, ISODOW (@BR-18)
 -- ============================================================
 SELECT t.eq('T00a 2026-03-02 est un lundi (ISODOW 1)', EXTRACT(ISODOW FROM DATE '2026-03-02'), 1);
 SELECT t.eq('T00b {0,4,4,4,0,0,0} lundi = 0 h',   wd_hours('{0,4,4,4,0,0,0}', '2026-03-02'), 0);
@@ -566,7 +566,7 @@ SELECT t.raises('T15e project_managers : utilisateur non membre du compte refus�
   $q$ INSERT INTO project_managers(project_id, account_id, user_id) VALUES (t.id('pc'), t.id('A'), t.id('u2')) $q$, '23503');
 
 -- ============================================================
--- T16 RLS (BR-32) : rôle applicatif, fermé par défaut, isolation, FORCE sur toutes les tables
+-- T16 RLS (@BR-32) : rôle applicatif, fermé par défaut, isolation, FORCE sur toutes les tables
 -- ============================================================
 SELECT t.ok('T16a app_user sans BYPASSRLS ni SUPERUSER',
   (SELECT NOT rolbypassrls AND NOT rolsuper FROM pg_roles WHERE rolname = 'app_user'));
@@ -728,7 +728,7 @@ INSERT INTO roles(account_id, name) VALUES (t.id('C'), 'Après purge');
 SELECT t.eq('T17x le seq continue après purge (6, pas de réutilisation)', t.head('C'), 6);
 
 -- ============================================================
--- T18 RLS sur 100 % des tables (BR-32) : inventaire fermé et preuve par table
+-- T18 RLS sur 100 % des tables (@BR-32) : inventaire fermé et preuve par table
 -- ============================================================
 -- Toute table nouvelle doit être classée : à account_id (donc cloisonnée) ou globale (liste ci-dessous).
 SELECT t.ok('T18a seules users et accounts n ont pas d account_id',
@@ -840,7 +840,7 @@ SELECT set_config('app.role', '', true);
 RESET ROLE;
 
 -- ============================================================
--- T19 delete_log : inventaire des tables journalisées, cascade complète, purge >= 72 h (BR-14, BR-31)
+-- T19 delete_log : inventaire des tables journalisées, cascade complète, purge >= 72 h (@BR-14, @BR-31)
 -- ============================================================
 SELECT t.ok('T19a tables portant le trigger delete_log (liste fermée)',
   (SELECT array_agg(c.relname::text ORDER BY c.relname) FROM pg_trigger tg JOIN pg_class c ON c.oid = tg.tgrelid

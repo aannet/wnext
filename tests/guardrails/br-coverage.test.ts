@@ -20,8 +20,9 @@ const mk = (scope: string[], files: Record<string, string>) => {
 };
 
 describe("br-coverage", () => {
-  it("le br-scope.json livre est un tableau (vide pour l'instant) et passe sur le repo", () => {
-    expect(Array.isArray(JSON.parse(readFileSync(join(repoRoot, SCOPE), "utf8")))).toBe(true);
+  it("le br-scope.json livre est un tableau non vide et passe sur le repo", () => {
+    const scope = JSON.parse(readFileSync(join(repoRoot, SCOPE), "utf8"));
+    expect(Array.isArray(scope) && scope.length > 0).toBe(true);
     expect(checkBrCoverage({ root: repoRoot }).ok).toBe(true);
   });
   it("echoue : BR listee sans aucun test", () => {
@@ -35,6 +36,12 @@ describe("br-coverage", () => {
   it("passe : marqueur dans le nom du test (packages/**/*.test.ts)", () => {
     const root = mk(["BR-10"], { "packages/rules/src/deep/r.test.ts": "it('@BR-10 supprime', () => {});\n" });
     expect(checkBrCoverage({ root }).ok).toBe(true);
+  });
+  it("passe : marqueur dans un test d'application (apps/**/*.test.ts)", () => {
+    expect(checkBrCoverage({ root: mk(["BR-33"], { "apps/api/test/a.test.ts": "// @BR-33\n" }) }).ok).toBe(true);
+  });
+  it("ignore un marqueur hors fichier de test dans apps/", () => {
+    expect(checkBrCoverage({ root: mk(["BR-33"], { "apps/api/src/a.ts": "// @BR-33\n" }) }).ok).toBe(false);
   });
   it("BR-1 ne couvre pas BR-10 et inversement (frontiere de mot)", () => {
     const root = mk(["BR-1"], { "tests/a.test.ts": "// @BR-10\n" });

@@ -5,7 +5,7 @@ import pg from "pg";
 import { createChangeHub, createRealtimeSession, dispatch, pgNotifier, readChanges, type HttpDeps, type RequestContext } from "../../apps/api/src/index";
 import { startCluster, type Cluster } from "./pg-harness";
 
-// @BR-01 @BR-10 @BR-14
+// @BR-01 @BR-10 @BR-14 @BR-36
 let c: Cluster;
 const ctx: RequestContext = { accountId: "1", userId: "1", role: "admin" };
 let deps: HttpDeps;

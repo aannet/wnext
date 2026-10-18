@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Garde-fou : matrice BR (strategy.md §4.6 pt 1). Echec si une BR de br-scope.json n'a aucun
-// marqueur `@BR-xx` (commentaire ou nom de test) dans tests/ ou packages/**/*.test.ts.
+// marqueur `@BR-xx` (commentaire ou nom de test) dans tests/, packages/**/*.test.ts ou apps/**/*.test.ts.
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { isMain, parseArgs } from "./lib.mjs";
@@ -29,7 +29,7 @@ function isTestFile(rel) {
   // tests/guardrails/ contient des marqueurs factices : exclu du decompte.
   if (r.startsWith("tests/guardrails/")) return false;
   if (r.startsWith("tests/")) return TESTS_EXT.test(r);
-  return r.startsWith("packages/") && /\.test\.[cm]?tsx?$/.test(r);
+  return (r.startsWith("packages/") || r.startsWith("apps/")) && /\.test\.[cm]?tsx?$/.test(r);
 }
 
 export function readScope(root) {
@@ -44,7 +44,7 @@ export function checkBrCoverage({ root = process.cwd() } = {}) {
   const scope = readScope(root);
   const covered = new Set();
   if (scope.length) {
-    for (const base of ["tests", "packages"]) {
+    for (const base of ["tests", "packages", "apps"]) {
       for (const file of walk(join(root, base))) {
         if (!isTestFile(relative(root, file))) continue;
         for (const m of readFileSync(file, "utf8").matchAll(/@(BR-\d+)(?!\d)/g)) covered.add(m[1]);
