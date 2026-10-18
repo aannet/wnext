@@ -71,6 +71,13 @@ const STATUS: Record<ApiError["code"], number> = {
 const fail = (code: ApiError["code"], requestId: string, params: ApiError["params"] = {}): HttpReply =>
   ({ status: STATUS[code], body: { code, params, requestId } satisfies ApiError });
 
+// PostgreSQL refuse U+0000 dans un texte (erreur 22P05 / 22021, donc un 500) : toute entrée qui en contient est refusée en 400.
+const hasNul = (v: unknown): boolean =>
+  typeof v === "string" ? v.includes("\u0000")
+  : Array.isArray(v) ? v.some(hasNul)
+  : v !== null && typeof v === "object" ? Object.entries(v).some(([k, x]) => k.includes("\u0000") || hasNul(x))
+  : false;
+
 /** Chaîne de requête -> objet typé par le contrat. Clé répétée ou inconnue = VALIDATION_FAILED. */
 /** Schéma de requête du contrat (z.object) : seules les clés et safeParse servent ici. */
 interface QuerySchema { shape: object; safeParse(v: unknown): { success: true; data: unknown } | { success: false; error: { issues: Array<{ path: PropertyKey[] }> } } }
@@ -80,6 +87,7 @@ function parseQuery<T>(schema: QuerySchema, search: URLSearchParams): T {
     const values = search.getAll(key);
     if (values.length > 1 || !(key in schema.shape)) throw new ApiFailure("VALIDATION_FAILED", { field: key });
     const v = values[0]!;
+    if (hasNul(v)) throw new ApiFailure("VALIDATION_FAILED", { field: key });
     if (key === "includeInactive") {
       if (v !== "true" && v !== "false") throw new ApiFailure("VALIDATION_FAILED", { field: key });
       raw[key] = v === "true";
@@ -103,6 +111,10 @@ function parseJsonBody<T>(schema: { safeParse(v: unknown): { success: true; data
   if (raw === undefined || raw === "") throw new ApiFailure("VALIDATION_FAILED", { field: "body" });
   let json: unknown;
   try { json = JSON.parse(raw); } catch { throw new ApiFailure("VALIDATION_FAILED", { field: "body" }); }
+  if (hasNul(json)) {
+    const top = json !== null && typeof json === "object" && !Array.isArray(json) ? Object.keys(json).find((k) => hasNul({ [k]: (json as Record<string, unknown>)[k] })) : undefined;
+    throw new ApiFailure("VALIDATION_FAILED", { field: top ?? "body" });
+  }
   const parsed = schema.safeParse(json);
   if (!parsed.success) throw new ApiFailure("VALIDATION_FAILED", { field: String(parsed.error.issues[0]?.path[0] ?? "body") });
   return parsed.data;

@@ -96,3 +96,22 @@ describe("autres routes", () => {
     expect((await dispatch(deps, { method: "POST", url: "/api/v1/schedule", headers: auth })).status).toBe(404);
   });
 });
+
+describe("caractère NUL (U+0000) : PostgreSQL ne le stocke pas dans un texte", () => {
+  const admin: HttpDeps = { ...deps, authenticate: async (h) => (h.authorization === "Bearer ok" ? { ...ctx, role: "admin" } : null) };
+  const send = (method: string, url: string, body?: unknown) =>
+    dispatch(admin, { method, url, headers: { ...auth, "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+
+  it("dans un corps JSON, même imbriqué : 400 VALIDATION_FAILED sur le champ de premier niveau, rien n'est écrit", async () => {
+    const r = await send("POST", "/api/v1/departments", { name: "a\u0000b" });
+    expect(r).toMatchObject({ status: 400, body: { code: "VALIDATION_FAILED", params: { field: "name" } } });
+    const t = await send("POST", "/api/v1/people", { name: "Zoé", tags: ["ok", "x\u0000"] });
+    expect(t).toMatchObject({ status: 400, body: { code: "VALIDATION_FAILED", params: { field: "tags" } } });
+    expect((await pg.query("SELECT count(*)::int AS n FROM departments")).rows).toEqual([{ n: 0 }]);
+  });
+
+  it("dans une chaîne de requête : 400 VALIDATION_FAILED sur le paramètre", async () => {
+    const r = await call("/api/v1/schedule?from=2026-03-02&to=2026-03-06&tag=%00");
+    expect(r).toMatchObject({ status: 400, body: { code: "VALIDATION_FAILED", params: { field: "tag" } } });
+  });
+});

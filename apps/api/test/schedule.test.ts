@@ -166,6 +166,14 @@ describe("erreurs", () => {
     expect(await failure(get({ from: "2026-01-01", to: "2027-02-05" }))).toBeNull(); // 400 jours d'écart : accepté, comme SQL
   });
 
+  it("filtre d'identifiant non numérique : 400 VALIDATION_FAILED sur le champ, jamais une erreur de cast en base", async () => {
+    for (const field of ["departmentId", "roleId", "projectId"] as const) {
+      for (const v of ["abc", "é€", "1.5", "99999999999999999999"]) {
+        expect(await failure(get({ [field]: v }))).toMatchObject({ code: "VALIDATION_FAILED", params: { field } });
+      }
+    }
+  });
+
   it("rejette un curseur illisible (SCHEDULE_CURSOR_INVALID)", async () => {
     for (const cursor of ["n'importe quoi", Buffer.from('{"name":1}').toString("base64url"), Buffer.from('{"name":"A","id":"x; DROP"}').toString("base64url")]) {
       expect((await failure(get({ cursor })))?.code).toBe("SCHEDULE_CURSOR_INVALID");

@@ -2,6 +2,7 @@ import { MAX_RANGE_DAYS } from "@wnext/engine";
 import type { ScheduleQuery, ScheduleResponse } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
+import { idParam } from "./write";
 
 // GET /api/v1/schedule. Isolation entre comptes en deux couches : la RLS de schema.sql (rôle app_user, contexte posé par
 // withContext) ET `account_id = $1` dans CHAQUE requête ci-dessous (testé sous app_user). Ne jamais renvoyer cost_rate, email, budget (contrat : zéro fuite).
@@ -121,12 +122,12 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
     const args: unknown[] = [a];
     const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
     if (!q.includeInactive) where.push("p.active");
-    if (q.departmentId) where.push(`p.department_id = ${bind(q.departmentId)}::bigint`);
-    if (q.roleId) where.push(`p.role_id = ${bind(q.roleId)}::bigint`);
+    if (q.departmentId) where.push(`p.department_id = ${bind(idParam("departmentId", q.departmentId))}::bigint`);
+    if (q.roleId) where.push(`p.role_id = ${bind(idParam("roleId", q.roleId))}::bigint`);
     if (q.tag) where.push(`${bind(q.tag)} = ANY (p.tags)`);
     if (q.projectId) {
       where.push(`EXISTS (SELECT 1 FROM allocations al WHERE al.account_id = p.account_id AND al.person_id = p.id
-        AND al.project_id = ${bind(q.projectId)}::bigint
+        AND al.project_id = ${bind(idParam("projectId", q.projectId))}::bigint
         AND al.start_date <= ${bind(q.to)}::date AND COALESCE(al.repeat_end_date, al.end_date) >= ${bind(q.from)}::date)`);
     }
     const filter = where.join(" AND ");
