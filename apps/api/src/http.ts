@@ -1,12 +1,13 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayPatch, ProjectCreate, ProjectPatch, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
+import { DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { createAllocation, deleteAllocation, updateAllocation } from "./allocations";
 import { createPerson, updatePerson } from "./people";
 import {
   createDepartment, createHoliday, createProject, createRole, createTimeoffType, deleteDepartment, deleteHoliday, deleteRole, deleteTimeoffType,
+  departmentReader, holidayReader, projectReader, roleReader, timeoffTypeReader,
   updateDepartment, updateHoliday, updateProject, updateRole, updateTimeoffType,
 } from "./reference";
 import { getSchedule } from "./schedule";
@@ -56,11 +57,13 @@ const fail = (code: ApiError["code"], requestId: string, params: ApiError["param
   ({ status: STATUS[code], body: { code, params, requestId } satisfies ApiError });
 
 /** Chaîne de requête -> objet typé par le contrat. Clé répétée ou inconnue = VALIDATION_FAILED. */
-function parseScheduleQuery(search: URLSearchParams): ScheduleQueryT {
+/** Schéma de requête du contrat (z.object) : seules les clés et safeParse servent ici. */
+interface QuerySchema { shape: object; safeParse(v: unknown): { success: true; data: unknown } | { success: false; error: { issues: Array<{ path: PropertyKey[] }> } } }
+function parseQuery<T>(schema: QuerySchema, search: URLSearchParams): T {
   const raw: Record<string, unknown> = {};
   for (const key of new Set(search.keys())) {
     const values = search.getAll(key);
-    if (values.length > 1 || !(key in ScheduleQuery.shape)) throw new ApiFailure("VALIDATION_FAILED", { field: key });
+    if (values.length > 1 || !(key in schema.shape)) throw new ApiFailure("VALIDATION_FAILED", { field: key });
     const v = values[0]!;
     if (key === "includeInactive") {
       if (v !== "true" && v !== "false") throw new ApiFailure("VALIDATION_FAILED", { field: key });
@@ -69,12 +72,12 @@ function parseScheduleQuery(search: URLSearchParams): ScheduleQueryT {
       raw[key] = v.trim() === "" ? NaN : Number(v);
     } else raw[key] = v;
   }
-  const parsed = ScheduleQuery.safeParse(raw);
+  const parsed = schema.safeParse(raw);
   if (!parsed.success) {
     const field = String(parsed.error.issues[0]?.path[0] ?? "query");
     throw new ApiFailure("VALIDATION_FAILED", { field });
   }
-  return parsed.data;
+  return parsed.data as T;
 }
 
 const MAX_BODY_BYTES = 1_000_000;
@@ -107,11 +110,13 @@ interface WriteResource {
   adminOnly?: boolean;
   create(db: Db, ctx: RequestContext, raw: string | undefined): Promise<unknown>;
   update(db: Db, ctx: RequestContext, id: string, version: number, raw: string | undefined): Promise<unknown>;
+  /** Lecture ouverte à tout membre authentifié ; absente = la ressource n'a pas encore de GET. */
+  read?: { querySchema: QuerySchema; list(db: Db, ctx: RequestContext, q: never): Promise<unknown>; get(db: Db, ctx: RequestContext, id: string): Promise<unknown> };
   /** Absent = la ressource n'a pas de DELETE (ex. personnes : on désactive). */
   remove?(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
 }
 function resource<C, P>(def: {
-  pattern: RegExp; adminOnly?: boolean; createSchema: Parser<C>; patchSchema: Parser<P>;
+  pattern: RegExp; adminOnly?: boolean; read?: WriteResource["read"]; createSchema: Parser<C>; patchSchema: Parser<P>;
   create(db: Db, ctx: RequestContext, body: C): Promise<unknown>;
   update(db: Db, ctx: RequestContext, id: string, version: number, patch: P): Promise<unknown>;
   remove?(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
@@ -119,6 +124,7 @@ function resource<C, P>(def: {
   return {
     pattern: def.pattern,
     adminOnly: def.adminOnly,
+    read: def.read,
     create: (db, ctx, raw) => def.create(db, ctx, parseJsonBody(def.createSchema, raw)),
     update: (db, ctx, id, version, raw) => def.update(db, ctx, id, version, parseJsonBody(def.patchSchema, raw)),
     remove: def.remove,
@@ -128,11 +134,11 @@ const WRITE_RESOURCES: WriteResource[] = [
   resource({ pattern: /^\/api\/v1\/allocations(?:\/([^/]+))?$/, createSchema: AllocationCreate, patchSchema: AllocationPatch, create: createAllocation, update: updateAllocation, remove: deleteAllocation }),
   resource({ pattern: /^\/api\/v1\/people(?:\/([^/]+))?$/, createSchema: PersonCreate, patchSchema: PersonPatch, create: createPerson, update: updatePerson }),
   resource({ pattern: /^\/api\/v1\/timeoffs(?:\/([^/]+))?$/, createSchema: TimeoffCreate, patchSchema: TimeoffPatch, create: createTimeoff, update: updateTimeoff, remove: deleteTimeoff }),
-  resource({ adminOnly: true, pattern: /^\/api\/v1\/departments(?:\/([^/]+))?$/, createSchema: DepartmentCreate, patchSchema: DepartmentPatch, create: createDepartment, update: updateDepartment, remove: deleteDepartment }),
-  resource({ adminOnly: true, pattern: /^\/api\/v1\/roles(?:\/([^/]+))?$/, createSchema: RoleCreate, patchSchema: RolePatch, create: createRole, update: updateRole, remove: deleteRole }),
-  resource({ adminOnly: true, pattern: /^\/api\/v1\/timeoff-types(?:\/([^/]+))?$/, createSchema: TimeoffTypeCreate, patchSchema: TimeoffTypePatch, create: createTimeoffType, update: updateTimeoffType, remove: deleteTimeoffType }),
-  resource({ adminOnly: true, pattern: /^\/api\/v1\/holidays(?:\/([^/]+))?$/, createSchema: HolidayCreate, patchSchema: HolidayPatch, create: createHoliday, update: updateHoliday, remove: deleteHoliday }),
-  resource({ pattern: /^\/api\/v1\/projects(?:\/([^/]+))?$/, createSchema: ProjectCreate, patchSchema: ProjectPatch, create: createProject, update: updateProject }),
+  resource({ adminOnly: true, pattern: /^\/api\/v1\/departments(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: departmentReader.list, get: departmentReader.get }, createSchema: DepartmentCreate, patchSchema: DepartmentPatch, create: createDepartment, update: updateDepartment, remove: deleteDepartment }),
+  resource({ adminOnly: true, pattern: /^\/api\/v1\/roles(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: roleReader.list, get: roleReader.get }, createSchema: RoleCreate, patchSchema: RolePatch, create: createRole, update: updateRole, remove: deleteRole }),
+  resource({ adminOnly: true, pattern: /^\/api\/v1\/timeoff-types(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: timeoffTypeReader.list, get: timeoffTypeReader.get }, createSchema: TimeoffTypeCreate, patchSchema: TimeoffTypePatch, create: createTimeoffType, update: updateTimeoffType, remove: deleteTimeoffType }),
+  resource({ adminOnly: true, pattern: /^\/api\/v1\/holidays(?:\/([^/]+))?$/, read: { querySchema: HolidayListQuery, list: holidayReader.list, get: holidayReader.get }, createSchema: HolidayCreate, patchSchema: HolidayPatch, create: createHoliday, update: updateHoliday, remove: deleteHoliday }),
+  resource({ pattern: /^\/api\/v1\/projects(?:\/([^/]+))?$/, read: { querySchema: ProjectListQuery, list: projectReader.list, get: projectReader.get }, createSchema: ProjectCreate, patchSchema: ProjectPatch, create: createProject, update: updateProject }),
 ];
 
 export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpReply> {
@@ -143,7 +149,7 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
     if (req.method === "GET" && url.pathname === "/api/v1/schedule") {
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId); // l'auth passe avant la validation : pas d'oracle pour un anonyme
-      return { status: 200, body: await getSchedule(deps.db, ctx, parseScheduleQuery(url.searchParams)) };
+      return { status: 200, body: await getSchedule(deps.db, ctx, parseQuery<ScheduleQueryT>(ScheduleQuery, url.searchParams)) };
     }
     const member = /^\/api\/v1\/projects\/([^/]+)\/team\/([^/]+)$/.exec(url.pathname);
     if (member && req.method === "PUT") {
@@ -169,10 +175,16 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       if (m[1] !== undefined) {
         try { id = decodeURIComponent(m[1]); } catch { id = "%"; } // séquence % illisible : identifiant qui ne désigne rien (404)
       }
-      const known = id === undefined ? req.method === "POST" : req.method === "PATCH" || (req.method === "DELETE" && resource.remove !== undefined);
+      const reading = req.method === "GET" && resource.read !== undefined;
+      const known = reading || (id === undefined ? req.method === "POST" : req.method === "PATCH" || (req.method === "DELETE" && resource.remove !== undefined));
       if (!known) break;
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (reading) {
+        const read = resource.read!;
+        if (id !== undefined) return { status: 200, body: await read.get(deps.db, ctx, id) };
+        return { status: 200, body: await read.list(deps.db, ctx, parseQuery(read.querySchema, url.searchParams) as never) };
+      }
       if (!(resource.adminOnly ? ADMINS : WRITERS).has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
       if (id === undefined) return { status: 201, body: await resource.create(deps.db, ctx, req.body) };
       const version = expectedVersion(req.headers);

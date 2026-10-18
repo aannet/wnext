@@ -172,4 +172,33 @@ describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
     const archived = await api.updateProject({ path: { id: proj.data.id }, headers: { "If-Match": '"1"' }, body: { status: "archived" } });
     expect(archived.ok && archived.data).toMatchObject({ status: "archived", version: 2, projectCode: "R-1" });
   });
+
+  it("entités de référence : lister, paginer, relire par id, archivés à part (client généré)", async () => {
+    const api = client();
+    for (const name of ["Lire 1", "Lire 2", "Lire 3"]) await api.createRole({ body: { name } });
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const p = await api.listRoles({ limit: 2, ...(cursor ? { cursor } : {}) });
+      if (!p.ok) throw new Error("liste attendue");
+      seen.push(...p.data.items.map((i) => i.name));
+      cursor = p.data.page.nextCursor ?? undefined;
+    } while (cursor);
+    expect(seen).toEqual(expect.arrayContaining(["Lire 1", "Lire 2", "Lire 3"]));
+    const one = await api.listRoles({ limit: 1 });
+    if (!one.ok) throw new Error("liste attendue");
+    const got = await api.getRole({ path: { id: one.data.items[0]!.id } });
+    expect(got.ok && got.data).toEqual(one.data.items[0]);
+
+    const proj = await api.createProject({ body: { name: "Rangé", projectCode: "RG-1" } });
+    if (!proj.ok) throw new Error("création attendue");
+    await api.updateProject({ path: { id: proj.data.id }, headers: { "If-Match": '"1"' }, body: { status: "archived" } });
+    const live = await api.listProjects({});
+    const old = await api.listProjects({ status: "archived" });
+    expect(live.ok && live.data.items.some((p) => p.id === proj.data.id)).toBe(false);
+    expect(old.ok && old.data.items.some((p) => p.id === proj.data.id)).toBe(true);
+    const bad = await api.listRoles({ cursor: "!!!" });
+    if (bad.ok) throw new Error("curseur invalide attendu");
+    expect([bad.status, bad.error.code]).toEqual([400, "SCHEDULE_CURSOR_INVALID"]);
+  });
 });

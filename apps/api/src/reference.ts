@@ -7,13 +7,14 @@ import {
 } from "./schedule";
 import { assertAdmin, assertWriter, day, invalid, isId, lockAndCheck, notFound } from "./write";
 
-// Écriture des entités de référence : départements, rôles, types de congé, fériés (configuration : owner et admin), projets
+// Lecture et écriture des entités de référence : départements, rôles, types de congé, fériés (configuration : owner et admin), projets
 // (owner, admin, project_manager). Même mécanique que les allocations : rôle contrôlé avant tout accès aux données, verrou
 // optimiste (FOR UPDATE puis comparaison à If-Match dans la même transaction, plus `AND row_version = n` à l'écriture), RLS + account_id.
 //  * Unicité : 23505 -> ALREADY_EXISTS (entity, et field pour le code projet).
 //  * Suppression SANS cascade silencieuse : la ligne est verrouillée, les lignes liées sont comptées dans la même transaction
 //    (une insertion concurrente d'une référence attend ce verrou, FK = KEY SHARE) ; s'il y en a, REFERENCE_IN_USE avec les comptes.
 //  * Pas de DELETE pour les projets (archivage par le statut).
+//  * Lecture : liste paginée (curseur sur `id`, tri par id, total) et lecture par id, ouvertes à tout membre ; la RLS et `account_id` isolent les comptes.
 
 /** 23505 (unicité) -> ALREADY_EXISTS ; 23514 (CHECK) -> VALIDATION_FAILED (filet : l'état est déjà validé plus haut). */
 function translate(entity: string, field?: string): (err: unknown) => never {
@@ -213,3 +214,62 @@ export async function updateProject(db: Db, ctx: RequestContext, id: string, exp
     return toDetail(rows[0]);
   });
 }
+
+// --- Lecture ----------------------------------------------------------------------------------------------------------
+const DEFAULT_PAGE = 200;
+const MAX_PAGE = 500;
+
+interface ListQuery { limit?: number; cursor?: string; from?: string; to?: string; status?: string }
+interface Reader<T> {
+  list(db: Db, ctx: RequestContext, q: ListQuery): Promise<{ items: T[]; page: { nextCursor: string | null; total: number } }>;
+  get(db: Db, ctx: RequestContext, id: string): Promise<T>;
+}
+
+const encodeCursor = (id: string) => Buffer.from(JSON.stringify({ id })).toString("base64url");
+function decodeCursor(raw: string): string {
+  try {
+    const c = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
+    if (typeof c?.id === "string" && isId(c.id)) return c.id;
+  } catch { /* tombe sur l'erreur ci-dessous */ }
+  throw new ApiFailure("SCHEDULE_CURSOR_INVALID");
+}
+
+/** Lecteur d'une table. `filters` traduit les filtres de la requête en conditions SQL paramétrées (table et colonnes sont des constantes du code). */
+function reader<T>(def: { table: string; columns: string; entity: string; map: (r: Row) => T; filters?: (q: ListQuery, bind: (v: unknown) => string) => string[] }): Reader<T> {
+  return {
+    async list(db, ctx, q) {
+      const after = q.cursor === undefined ? undefined : decodeCursor(q.cursor); // avant d'ouvrir une transaction
+      const n = Math.min(Math.max(1, Math.trunc(q.limit ?? DEFAULT_PAGE)), MAX_PAGE);
+      return withContext(db, ctx, async (tx) => {
+        const args: unknown[] = [ctx.accountId];
+        const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
+        const where = ["account_id = $1::bigint", ...(def.filters?.(q, bind) ?? [])];
+        const total = Number((await tx.query<Row>(`SELECT count(*) AS n FROM ${def.table} WHERE ${where.join(" AND ")}`, [...args])).rows[0]!.n);
+        if (after !== undefined) where.push(`id > ${bind(after)}::bigint`);
+        const { rows } = await tx.query<Row>(`SELECT ${def.columns} FROM ${def.table} WHERE ${where.join(" AND ")} ORDER BY id LIMIT ${bind(n + 1)}::int`, args);
+        const page = rows.slice(0, n);
+        return { items: page.map(def.map), page: { nextCursor: rows.length > n ? encodeCursor(String(page[n - 1]!.id)) : null, total } };
+      });
+    },
+    async get(db, ctx, id) {
+      if (!isId(id)) throw notFound(def.entity);
+      return withContext(db, ctx, async (tx) => {
+        const r = (await tx.query<Row>(`SELECT ${def.columns} FROM ${def.table} WHERE id = $1::bigint AND account_id = $2::bigint`, [id, ctx.accountId])).rows[0];
+        if (!r) throw notFound(def.entity);
+        return def.map(r);
+      });
+    },
+  };
+}
+
+export const departmentReader = reader({ table: "departments", columns: NAMED_COLUMNS, entity: "department", map: toScheduleDepartment });
+export const roleReader = reader({ table: "roles", columns: NAMED_COLUMNS, entity: "role", map: toScheduleRole });
+export const timeoffTypeReader = reader({ table: "timeoff_types", columns: TIMEOFF_TYPE_COLUMNS, entity: "timeoff_type", map: toScheduleTimeoffType });
+export const holidayReader = reader({
+  table: "holidays", columns: HOLIDAY_COLUMNS, entity: "holiday", map: toScheduleHoliday,
+  filters: (q, bind) => [...(q.from ? [`hdate >= ${bind(q.from)}::date`] : []), ...(q.to ? [`hdate <= ${bind(q.to)}::date`] : [])],
+});
+export const projectReader = reader({
+  table: "projects", columns: DETAIL_COLUMNS, entity: "project", map: toDetail,
+  filters: (q, bind) => [q.status ? `status = ${bind(q.status)}::project_status` : "status <> 'archived'"], // archivés : sur demande (status=archived)
+});

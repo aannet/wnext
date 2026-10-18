@@ -38,6 +38,7 @@ SIGTERM / SIGINT : fermeture des WebSocket (1001), fin des requêtes en cours, f
 
 - L'adaptateur `pg` n'est testé qu'avec un pool simulé (pas de Postgres dans l'environnement de développement) ; la concurrence réelle (`FOR UPDATE`) n'est pas éprouvée.
 - Le sondage est partagé (`ChangeHub`) : une lecture d'une ligne (`account_change_seq`) par compte et par période, et les sessions ne relisent `change_log` que si la tête a bougé.
+- Lecture des entités de référence : `GET /api/v1/{departments,roles,timeoff-types,holidays,projects}` (liste paginée par curseur sur `id`, `page.total`, filtres fériés `from`/`to` et projets `status`, archivés exclus par défaut) et `GET …/{id}` ; ouverte à tout membre authentifié.
 - `LISTEN/NOTIFY` : le trigger `log_change` émet `pg_notify('wnext_changes', <account_id>)` (livré au COMMIT, doublons d'une transaction fusionnés). `main.ts` écoute sur une connexion dédiée (`pgNotifier`, reconnexion avec attente croissante) et le hub relit le compte aussitôt ; à chaque reconnexion tout le monde relit, car les notifications émises pendant la coupure sont perdues. Écoute établie, le minuteur ne sert plus que de filet (30 s) ; coupée, il reprend `POLL_INTERVAL_MS`. Une notification n'est qu'un signal : le journal reste la source de vérité. Plafond par compte : voir `WS_MAX_PER_ACCOUNT` (réservation faite avant tout `await`, rendue à la fermeture de la socket).
 - Pas de limite du nombre de connexions WebSocket par compte, pas de TLS (à terminer en frontal).
 
