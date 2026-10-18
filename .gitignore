@@ -8,3 +8,5 @@ tsconfig.tsbuildinfo
 .env*
 spikes/orchestrateur/tmp-repo/
 spikes/orchestrateur/tmp-wt/
+dist/
+coverage/

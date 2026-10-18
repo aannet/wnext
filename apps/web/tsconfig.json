@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "paths": { "@wnext/contracts": ["../../packages/contracts/src/index.ts"], "@wnext/engine": ["../../packages/engine/src/index.ts"] }
+  },
+  "include": ["src/**/*.ts"]
+}
