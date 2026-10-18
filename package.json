@@ -23,6 +23,9 @@
     "guard:br-coverage": "node scripts/guardrails/br-coverage.mjs",
     "test:guardrails": "vitest run tests/guardrails",
     "prove:guardrails": "node tests/guardrails/prove-guardrails.mjs",
+    "factory:stop": "node factory/bin/factory.mjs stop --all",
+    "factory:status": "node factory/bin/factory.mjs status",
+    "factory:dry-run": "npm --prefix factory/observability run dry-run",
     "generate:contract": "npm run generate -w @wnext/contracts-tools",
     "check:contract": "npm run check:contract -w @wnext/contracts-tools",
     "check:breaking": "npm run check:breaking -w @wnext/contracts-tools"

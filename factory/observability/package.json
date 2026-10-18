@@ -11,6 +11,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "simulate": "tsx scripts/simulate.ts",
+    "dry-run": "tsx scripts/dry-run.ts",
     "scribe": "tsx scribe/index.ts"
   },
   "dependencies": {
