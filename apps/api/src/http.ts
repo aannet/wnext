@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { REALTIME_TICKET_PATH, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
+import { REALTIME_TICKET_PATH, ClientCreate, ClientPatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonPatch, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { createAllocation, deleteAllocation, updateAllocation } from "./allocations";
@@ -13,6 +13,7 @@ import {
 import { getSchedule } from "./schedule";
 import { addToTeam, getTeamRemovalSummary, removeFromTeam } from "./team";
 import { createTimeoff, deleteTimeoff, updateTimeoff } from "./timeoffs";
+import { clientReader, createClient, createPhase, createProjectTask, deleteClient, deletePhase, deleteProjectTask, phaseReader, projectTaskReader, updateClient, updatePhase, updateProjectTask } from "./project-structure";
 import type { TicketService } from "./tickets";
 import { API_VERSION } from "./version";
 
@@ -142,6 +143,9 @@ const WRITE_RESOURCES: WriteResource[] = [
   resource({ adminOnly: true, pattern: /^\/api\/v1\/timeoff-types(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: timeoffTypeReader.list, get: timeoffTypeReader.get }, createSchema: TimeoffTypeCreate, patchSchema: TimeoffTypePatch, create: createTimeoffType, update: updateTimeoffType, remove: deleteTimeoffType }),
   resource({ adminOnly: true, pattern: /^\/api\/v1\/holidays(?:\/([^/]+))?$/, read: { querySchema: HolidayListQuery, list: holidayReader.list, get: holidayReader.get }, createSchema: HolidayCreate, patchSchema: HolidayPatch, create: createHoliday, update: updateHoliday, remove: deleteHoliday }),
   resource({ pattern: /^\/api\/v1\/projects(?:\/([^/]+))?$/, read: { querySchema: ProjectListQuery, list: projectReader.list, get: projectReader.get }, createSchema: ProjectCreate, patchSchema: ProjectPatch, create: createProject, update: updateProject }),
+  resource({ pattern: /^\/api\/v1\/clients(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: clientReader.list, get: clientReader.get }, createSchema: ClientCreate, patchSchema: ClientPatch, create: createClient, update: updateClient, remove: deleteClient }),
+  resource({ pattern: /^\/api\/v1\/phases(?:\/([^/]+))?$/, read: { querySchema: PhaseListQuery, list: phaseReader.list, get: phaseReader.get }, createSchema: PhaseCreate, patchSchema: PhasePatch, create: createPhase, update: updatePhase, remove: deletePhase }),
+  resource({ pattern: /^\/api\/v1\/project-tasks(?:\/([^/]+))?$/, read: { querySchema: ProjectTaskListQuery, list: projectTaskReader.list, get: projectTaskReader.get }, createSchema: ProjectTaskCreate, patchSchema: ProjectTaskPatch, create: createProjectTask, update: updateProjectTask, remove: deleteProjectTask }),
 ];
 
 export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpReply> {

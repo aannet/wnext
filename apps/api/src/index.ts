@@ -19,3 +19,4 @@ export * from "./timeoffs";
 export * from "./people";
 export * from "./team";
 export * from "./reference";
+export * from "./project-structure";

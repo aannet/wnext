@@ -26,11 +26,12 @@ function translate(entity: string, field?: string): (err: unknown) => never {
   };
 }
 
-interface Removal { table: "departments" | "roles" | "timeoff_types" | "holidays"; entity: string; columns: string; dependents: Record<string, string> }
+/** `writers` : la suppression est ouverte à owner, admin et project_manager (données de projet) au lieu de owner et admin (configuration). */
+export interface Removal { table: "departments" | "roles" | "timeoff_types" | "holidays" | "clients" | "phases" | "project_tasks"; entity: string; columns: string; dependents: Record<string, string>; writers?: boolean }
 
 /** Suppression vérifiée : version, puis refus s'il reste des lignes liées (comptes en params), sinon DELETE exact. */
-async function remove(db: Db, ctx: RequestContext, def: Removal, id: string, expected: number): Promise<void> {
-  assertAdmin(ctx);
+export async function remove(db: Db, ctx: RequestContext, def: Removal, id: string, expected: number): Promise<void> {
+  if (def.writers) assertWriter(ctx); else assertAdmin(ctx);
   await withContext(db, ctx, async (tx) => {
     await lockAndCheck(tx, def.table, def.columns, def.entity, ctx.accountId, id, expected);
     const counts: Record<string, number> = {};
@@ -41,7 +42,7 @@ async function remove(db: Db, ctx: RequestContext, def: Removal, id: string, exp
   });
 }
 
-const count = (table: string, column: string) => `SELECT count(*) AS n FROM ${table} WHERE account_id = $1::bigint AND ${column} = $2::bigint`;
+export const count = (table: string, column: string) => `SELECT count(*) AS n FROM ${table} WHERE account_id = $1::bigint AND ${column} = $2::bigint`;
 
 // --- Départements et rôles --------------------------------------------------------------------------------------------
 function named<T>(table: "departments" | "roles", entity: string, map: (r: Row) => T, dependents: Record<string, string>) {
@@ -219,8 +220,8 @@ export async function updateProject(db: Db, ctx: RequestContext, id: string, exp
 const DEFAULT_PAGE = 200;
 const MAX_PAGE = 500;
 
-interface ListQuery { limit?: number; cursor?: string; from?: string; to?: string; status?: string }
-interface Reader<T> {
+export interface ListQuery { limit?: number; cursor?: string; from?: string; to?: string; status?: string; projectId?: string; phaseId?: string }
+export interface Reader<T> {
   list(db: Db, ctx: RequestContext, q: ListQuery): Promise<{ items: T[]; page: { nextCursor: string | null; total: number } }>;
   get(db: Db, ctx: RequestContext, id: string): Promise<T>;
 }
@@ -235,7 +236,7 @@ function decodeCursor(raw: string): string {
 }
 
 /** Lecteur d'une table. `filters` traduit les filtres de la requête en conditions SQL paramétrées (table et colonnes sont des constantes du code). */
-function reader<T>(def: { table: string; columns: string; entity: string; map: (r: Row) => T; filters?: (q: ListQuery, bind: (v: unknown) => string) => string[] }): Reader<T> {
+export function reader<T>(def: { table: string; columns: string; entity: string; map: (r: Row) => T; filters?: (q: ListQuery, bind: (v: unknown) => string) => string[] }): Reader<T> {
   return {
     async list(db, ctx, q) {
       const after = q.cursor === undefined ? undefined : decodeCursor(q.cursor); // avant d'ouvrir une transaction

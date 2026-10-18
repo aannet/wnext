@@ -201,4 +201,32 @@ describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
     if (bad.ok) throw new Error("curseur invalide attendu");
     expect([bad.status, bad.error.code]).toEqual([400, "SCHEDULE_CURSOR_INVALID"]);
   });
+
+  it("clients, phases et tâches : création, filtre par projet, déplacement, suppression refusée tant que référencée", async () => {
+    const api = client();
+    const proj = await api.createProject({ body: { name: "Structure" } });
+    if (!proj.ok) throw new Error("projet attendu");
+    const cl = await api.createClient({ body: { name: "ACME", tags: ["vip"] } });
+    if (!cl.ok) throw new Error("client attendu");
+    const ph = await api.createPhase({ body: { projectId: proj.data.id, name: "Cadrage" } });
+    if (!ph.ok) throw new Error("phase attendue");
+    const task = await api.createProjectTask({ body: { projectId: proj.data.id, name: "Design", phaseId: ph.data.id } });
+    if (!task.ok) throw new Error("tâche attendue");
+    expect(task.data).toMatchObject({ projectId: proj.data.id, phaseId: ph.data.id, billable: true, version: 1 });
+
+    const tasks = await api.listProjectTasks({ projectId: proj.data.id, phaseId: ph.data.id });
+    expect(tasks.ok && tasks.data.items.map((t) => t.id)).toEqual([task.data.id]);
+    const phases = await api.listPhases({ projectId: proj.data.id });
+    expect(phases.ok && phases.data.page.total).toBe(1);
+
+    const refused = await api.deletePhase({ path: { id: ph.data.id }, headers: { "If-Match": '"1"' } });
+    if (refused.ok) throw new Error("refus attendu");
+    expect([refused.status, refused.error.code, refused.error.params.tasks]).toEqual([409, "REFERENCE_IN_USE", 1]);
+
+    const moved = await api.updateProjectTask({ path: { id: task.data.id }, headers: { "If-Match": '"1"' }, body: { phaseId: null } });
+    expect(moved.ok && moved.data.phaseId).toBeNull();
+    expect((await api.deletePhase({ path: { id: ph.data.id }, headers: { "If-Match": '"1"' } })).status).toBe(204);
+    expect((await api.deleteProjectTask({ path: { id: task.data.id }, headers: { "If-Match": '"2"' } })).status).toBe(204);
+    expect((await api.deleteClient({ path: { id: cl.data.id }, headers: { "If-Match": '"1"' } })).status).toBe(204);
+  });
 });
