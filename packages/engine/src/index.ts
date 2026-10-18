@@ -15,3 +15,4 @@ export * from "./viewport";
 export * from "./undo";
 export * from "./capacity-bars";
 export * from "./gestures";
+export * from "./date-bounds";
