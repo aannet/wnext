@@ -57,9 +57,19 @@ export const RealtimeTicket = z
   .meta({ id: "RealtimeTicket" });
 export type RealtimeTicket = z.infer<typeof RealtimeTicket>;
 
-/** Entités journalisées : celles du Schedule (trigger log_change de schema.sql). */
+/**
+ * Entités journalisées (trigger log_change de schema.sql) : celles du Schedule, puis la structure des projets
+ * (clients, phases, tâches, jalons, équipe). Les dépenses et lignes de budget (données financières) n'y sont JAMAIS :
+ * un message, même sans donnée, révélerait leur existence à des rôles qui n'ont pas le droit de les lire.
+ *  * `project_team` n'a pas d'identifiant propre : `id` est celui du PROJET et le message signifie « l'équipe de ce projet a
+ *    changé, recharge-la » (toujours `op = update` tant que le projet existe ; sa suppression est portée par `projects`).
+ *    Sa `version` est le `seq` du message (monotone par compte), non la version du projet.
+ */
 export const ChangeEntity = z
-  .enum(["allocations", "timeoffs", "people", "holidays", "projects", "timeoff_types", "departments", "roles"])
+  .enum([
+    "allocations", "timeoffs", "people", "holidays", "projects", "timeoff_types", "departments", "roles",
+    "clients", "phases", "project_tasks", "milestones", "project_team",
+  ])
   .meta({ id: "ChangeEntity" });
 export type ChangeEntity = z.infer<typeof ChangeEntity>;
 
