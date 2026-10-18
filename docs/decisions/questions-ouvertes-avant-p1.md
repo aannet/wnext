@@ -19,7 +19,6 @@ Float v3 est **dimanche-first** : `work_days_hours` indexe 0 = dimanche, 1 = lun
 - Numérotation des questions : le dossier v1.1 numérote Q-01 = tentatif, Q-04 = base du %, Q-02 = conflit temps réel ; `schema.sql` (l.823, l.905) appelle le tentatif « Q-02 » et cite « Q-06 » pour les timesheets (Q-05 dans le dossier).
 - `schema.sql` l.412 et l.731 fixent déjà la base brute ; l'ADR-004 laisse entendre que le % « suit la capacité ».
 - Seuils UX : « orange = 90–100 % » (`docs/review/ux-ui.md`) n'est formalisé nulle part ; à retirer ou à formaliser (troisième seuil).
-- BR-38 : capacité nulle et charge > 0 doit donner une sur-allocation maximale, jamais NULL ; `utilization()` renvoie `is_overbooked = TRUE` mais `utilization` reste NULL.
 - À mettre à jour : dossier v1.1 (Q-01, Q-03, Q-04), BR-24, ADR-004, commentaires de `schema.sql`.
 
 ## Hors registre, à traiter en P0
