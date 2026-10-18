@@ -17,6 +17,7 @@ export const ErrorCode = z.enum([
   "TEAM_REMOVAL_CONFIRMATION_REQUIRED",
   "TEAM_REMOVAL_STALE_CONFIRMATION",
   "TEAM_REMOVAL_LOCKED_LOGS",
+  "RATE_LIMITED",
 ]).meta({ id: "ErrorCode" });
 
 export const ApiError = z

@@ -1,7 +1,7 @@
 // Contrat temps réel : forme des messages, cohérence delete/version, absence de données métier.
 import "../src/zod-setup";
 import { describe, expect, it } from "vitest";
-import { Change, REALTIME_PATH, REALTIME_RETRY_AFTER_SECONDS, REALTIME_TICKET_PARAM, REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket, routes, REALTIME_UPGRADE_STATUS, RealtimeClientMessage, RealtimeServerMessage } from "@wnext/contracts";
+import { ApiError, Change, ErrorCode, REALTIME_PATH, REALTIME_RETRY_AFTER_SECONDS, REALTIME_TICKET_PARAM, REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket, routes, REALTIME_UPGRADE_STATUS, RealtimeClientMessage, RealtimeServerMessage } from "@wnext/contracts";
 
 const ok = (s: { safeParse(v: unknown): { success: boolean } }, v: unknown) => s.safeParse(v).success;
 const upd = { seq: "5", entity: "allocations", id: "9", op: "update", version: 3 };
@@ -65,11 +65,18 @@ describe("ticket d'upgrade", () => {
     expect(ok(RealtimeTicket, { ticket: "a b".repeat(10), expiresInSeconds: 30 })).toBe(false);
     expect(ok(RealtimeTicket, { ticket: "A".repeat(43), expiresInSeconds: 0 })).toBe(false);
   });
-  it("route : POST sans corps, 200 avec le ticket, 401 et 500", () => {
+  it("route : POST sans corps, 200 avec le ticket, 401, 429 (limite de débit) et 500", () => {
     const r = routes.find((x) => x.operationId === "createRealtimeTicket")!;
     expect(r.method).toBe("post");
     expect(r.path).toBe(REALTIME_TICKET_PATH);
     expect(r.body).toBeUndefined();
-    expect(Object.keys(r.responses).map(Number).sort()).toEqual([200, 401, 500]);
+    expect(Object.keys(r.responses).map(Number).sort()).toEqual([200, 401, 429, 500]);
+  });
+});
+
+describe("limite de débit", () => {
+  it("RATE_LIMITED est un code d'erreur stable, utilisable dans ApiError", () => {
+    expect(ErrorCode.options).toContain("RATE_LIMITED");
+    expect(ApiError.safeParse({ code: "RATE_LIMITED", params: { retryAfterSeconds: 12 }, requestId: "r" }).success).toBe(true);
   });
 });

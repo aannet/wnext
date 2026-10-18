@@ -13,17 +13,22 @@ import { Id, Version } from "./common";
 //  * Refus à l'upgrade (avant toute trame, donc en HTTP, sans corps) :
 //      401 : non authentifié. Le client se ré-authentifie ; il ne réessaie pas tel quel.
 //      404 : mauvais chemin (REALTIME_PATH).
-//      429 : le compte a atteint son plafond de connexions simultanées. L'en-tête `Retry-After` (secondes) donne l'attente
+//      429 : le compte a atteint son plafond de connexions simultanées, OU trop de tentatives de connexion en peu de temps (limite de
+//            débit par compte, fenêtre glissante). Dans les deux cas l'en-tête `Retry-After` (secondes) donne l'attente
 //            minimale (REALTIME_RETRY_AFTER_SECONDS) ; le client réessaie après au moins ce délai, avec un aléa et une
 //            attente croissante, sans boucle serrée. Il continue d'afficher ses données (GET /schedule) en attendant :
 //            le temps réel est un confort de fraîcheur, pas une condition de lecture.
 //      500 : erreur interne d'authentification ; même conduite qu'un 429, avec attente croissante.
-//    Le plafond est par compte et par processus serveur ; sa valeur est de configuration, hors contrat.
+//    Le plafond et la limite de débit sont par compte et par processus serveur ; leurs valeurs sont de configuration, hors contrat.
 //  * Authentification de l'upgrade : soit les en-têtes habituels (`Authorization`), soit un TICKET dans la requête
 //    (`?ticket=...`) pour les navigateurs, qui ne peuvent pas poser d'en-tête sur un WebSocket.
 //      - Le ticket s'obtient par POST REALTIME_TICKET_PATH (authentifié normalement, tout rôle). Il est lié à l'utilisateur et au
 //        compte qui l'ont demandé, valable REALTIME_TICKET_TTL_SECONDS secondes, et destiné à UNE connexion : le client en demande
 //        un nouveau à chaque tentative, reconnexions comprises (ne jamais réutiliser ni stocker un ticket).
+//      - L'émission est limitée en débit (fenêtre glissante, par utilisateur et par compte) : au-delà, 429 RATE_LIMITED avec l'en-tête
+//        `Retry-After` (secondes) et params.retryAfterSeconds (même valeur). Le client attend au moins ce délai avant de redemander
+//        un ticket, avec son attente croissante habituelle ; il continue d'afficher ses données en attendant. Un ticket présenté à
+//        l'upgrade compte comme une tentative de connexion (voir 429 ci-dessus).
 //      - Un ticket invalide, expiré, déjà utilisé ou altéré est refusé en 401 comme une absence d'identité : le client redemande un
 //        ticket (si c'est POST qui répond 401, il se ré-authentifie).
 //      - Le ticket est une valeur opaque ; il ne contient rien que le client doive lire. Il peut apparaître dans les journaux

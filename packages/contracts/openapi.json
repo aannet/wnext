@@ -55,7 +55,8 @@
           "REFERENCE_IN_USE",
           "TEAM_REMOVAL_CONFIRMATION_REQUIRED",
           "TEAM_REMOVAL_STALE_CONFIRMATION",
-          "TEAM_REMOVAL_LOCKED_LOGS"
+          "TEAM_REMOVAL_LOCKED_LOGS",
+          "RATE_LIMITED"
         ]
       },
       "HealthResponse": {
@@ -3101,6 +3102,16 @@
           },
           "401": {
             "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de tickets demandes (RATE_LIMITED, params.retryAfterSeconds, en-tete Retry-After)",
             "content": {
               "application/json": {
                 "schema": {

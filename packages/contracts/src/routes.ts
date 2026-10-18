@@ -131,6 +131,7 @@ export const routes: RouteContract[] = [
     responses: {
       200: { description: "Ticket a passer dans ?ticket= a l'upgrade", schema: RealtimeTicket },
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      429: { description: "Trop de tickets demandes (RATE_LIMITED, params.retryAfterSeconds, en-tete Retry-After)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },
