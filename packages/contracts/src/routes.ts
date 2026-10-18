@@ -3,7 +3,7 @@ import { AllocationCreate, AllocationPatch, AllocationPathParams, IfMatchHeader 
 import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
 import { REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket } from "./realtime";
-import { TeamMembership, TeamPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
+import { TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
 import { PersonCreate, PersonPatch, PersonPathParams } from "./people";
 import { ScheduleDepartment, ScheduleHoliday, SchedulePerson, ScheduleAllocation, ScheduleRole, ScheduleTimeoffType, ScheduleQuery, ScheduleResponse, ScheduleTimeoff } from "./schedule";
 import {
@@ -308,6 +308,21 @@ export const routes: RouteContract[] = [
       404: { description: "Projet ou personne inconnu (NOT_FOUND, params.entity)", schema: ApiError },
       409: { description: "Confirmation perimee (TEAM_REMOVAL_STALE_CONFIRMATION, params = nouveau recapitulatif) ou temps verrouilles (TEAM_REMOVAL_LOCKED_LOGS)", schema: ApiError },
       428: { description: "Confirmation absente alors qu'il y a des suppressions (TEAM_REMOVAL_CONFIRMATION_REQUIRED, params = recapitulatif)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/projects/{projectId}/team",
+    operationId: "listProjectTeam",
+    summary: "Equipe d'un projet (pagine, tri par personId ; tout membre authentifie)",
+    params: TeamProjectPathParams,
+    query: ReferenceListQuery,
+    responses: {
+      200: { description: "Page de membres (items, page.nextCursor, page.total) ; equipe vide = liste vide", schema: TeamMemberList },
+      400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      404: { description: "Projet inconnu ou hors compte (NOT_FOUND, params.entity = project)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },

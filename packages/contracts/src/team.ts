@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Id, IsoDate, orNull } from "./common";
+import { SchedulePage } from "./schedule";
 
 // Retrait d'une personne d'un projet (BR-10, US-2.2). Le retrait SUPPRIME les allocations et les temps saisis de la personne
 // sur ce projet : jamais de suppression silencieuse, donc deux temps.
@@ -16,6 +17,7 @@ import { Id, IsoDate, orNull } from "./common";
 //  * Les `params` des erreurs sont des scalaires : les dates absentes sont omises, pas nulles.
 
 export const TeamPathParams = z.object({ projectId: Id, personId: Id });
+export const TeamProjectPathParams = z.object({ projectId: Id });
 
 export const TeamRemovalSummary = z
   .object({
@@ -59,3 +61,16 @@ export const TeamMembership = z
   .object({ added: z.boolean().describe("Faux si la personne était déjà dans l'équipe") })
   .meta({ id: "TeamMembership" });
 export type TeamMembership = z.infer<typeof TeamMembership>;
+
+// Lecture de l'équipe d'un projet : GET /projects/{projectId}/team, liste paginée par curseur (limit 1..500, défaut 200, ReferenceListQuery).
+//  * Ouverte à tout membre authentifié, comme les autres lectures. Projet inconnu ou hors compte : 404 NOT_FOUND (params.entity = project) ;
+//    un projet archivé se lit normalement.
+//  * Tri par `personId` croissant (stable) ; le client trie à l'affichage. `page.total` = taille de l'équipe.
+//  * Une équipe vide est une liste vide (200), pas une erreur. L'appartenance n'est pas exigée pour allouer (Q-07) : l'équipe n'est donc
+//    PAS la liste des personnes allouées au projet.
+//  * Ne porte que l'identité de la personne (`personId`, `name`) : le reste (rôle, département, capacité) est dans GET /schedule ou GET /people.
+//    Paramètre inconnu ou répété : 400 VALIDATION_FAILED ; curseur illisible : 400 SCHEDULE_CURSOR_INVALID.
+export const TeamMember = z.object({ personId: Id, name: z.string() }).meta({ id: "TeamMember" });
+export type TeamMember = z.infer<typeof TeamMember>;
+export const TeamMemberList = z.object({ items: z.array(TeamMember), page: SchedulePage }).meta({ id: "TeamMemberList" });
+export type TeamMemberList = z.infer<typeof TeamMemberList>;

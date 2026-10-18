@@ -1,7 +1,7 @@
 // Contrat du retrait d'équipe (BR-10) : récapitulatif puis confirmation, codes dédiés, aucune écriture à la lecture.
 import "../src/zod-setup";
 import { describe, expect, it } from "vitest";
-import { ErrorCode, TeamMembership, TeamRemovalRequest, TeamRemovalSummary, routes } from "@wnext/contracts";
+import { ErrorCode, ReferenceListQuery, TeamMember, TeamMemberList, TeamMembership, TeamProjectPathParams, TeamRemovalRequest, TeamRemovalSummary, routes } from "@wnext/contracts";
 import { buildSpec } from "../src/openapi";
 
 const ok = (s: { safeParse(v: unknown): { success: boolean } }, v: unknown) => s.safeParse(v).success;
@@ -66,5 +66,29 @@ describe("addToTeam (PUT)", () => {
     const op = (buildSpec() as any).paths["/api/v1/projects/{projectId}/team/{personId}"].put;
     expect(op.operationId).toBe("addToTeam");
     expect(op.parameters.map((p: any) => p.name).sort()).toEqual(["personId", "projectId"]);
+  });
+});
+
+describe("lecture de l'équipe", () => {
+  const member = { personId: "4", name: "Alice" };
+  it("un membre = identité de la personne ; page au format commun", () => {
+    expect(ok(TeamMember, member)).toBe(true);
+    expect(ok(TeamMember, { personId: "4" })).toBe(false);
+    expect(ok(TeamMemberList, { items: [member], page: { nextCursor: null, total: 1 } })).toBe(true);
+    expect(ok(TeamMemberList, { items: [], page: { nextCursor: null, total: 0 } })).toBe(true); // équipe vide = liste vide
+    expect(ok(TeamMemberList, { items: [member] })).toBe(false);
+  });
+  it("route GET /projects/{projectId}/team : projet en chemin, pagination en requête, 404 projet", () => {
+    const r = routes.find((x) => x.operationId === "listProjectTeam")!;
+    expect([r.method, r.path]).toEqual(["get", "/api/v1/projects/{projectId}/team"]);
+    expect(r.params).toBe(TeamProjectPathParams);
+    expect(r.query).toBe(ReferenceListQuery);
+    expect(Object.keys(r.responses).map(Number).sort()).toEqual([200, 400, 401, 404, 500]);
+    expect(r.responses[403]).toBeUndefined(); // lecture ouverte à tout membre
+  });
+  it("la spec OpenAPI la décrit sans collision avec les routes d'écriture de l'équipe", () => {
+    const spec = buildSpec() as { paths: Record<string, Record<string, unknown>> };
+    expect(Object.keys(spec.paths["/api/v1/projects/{projectId}/team"]!)).toEqual(["get"]);
+    expect(Object.keys(spec.paths["/api/v1/projects/{projectId}/team/{personId}"]!)).toEqual(["put"]);
   });
 });

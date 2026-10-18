@@ -286,6 +286,16 @@ export interface TeamRemovalRequest {
   };
 }
 
+export interface TeamMemberList {
+  items: Array<TeamMember>;
+  page: SchedulePage;
+}
+
+export interface TeamMember {
+  personId: Id;
+  name: string;
+}
+
 export interface TeamMembership {
   added: boolean;
 }
@@ -682,6 +692,22 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as TeamRemovalResult }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Equipe d'un projet (pagine, tri par personId ; tout membre authentifie) (GET /api/v1/projects/{projectId}/team) */
+    async listProjectTeam(input: {
+      path: {
+        projectId: Id;
+      };
+      query?: {
+        limit?: number;
+        cursor?: string;
+      };
+    }): Promise<ApiResult<TeamMemberList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/projects/" + encodeURIComponent(String(input.path.projectId)) + "/team" + toQueryString(input.query ?? {}), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as TeamMemberList }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Ajouter une personne a l'equipe d'un projet (idempotent, sans corps) (PUT /api/v1/projects/{projectId}/team/{personId}) */
