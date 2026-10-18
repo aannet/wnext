@@ -1,7 +1,7 @@
 // Contrat temps réel : forme des messages, cohérence delete/version, absence de données métier.
 import "../src/zod-setup";
 import { describe, expect, it } from "vitest";
-import { Change, RealtimeClientMessage, RealtimeServerMessage } from "@wnext/contracts";
+import { Change, REALTIME_RETRY_AFTER_SECONDS, REALTIME_UPGRADE_STATUS, RealtimeClientMessage, RealtimeServerMessage } from "@wnext/contracts";
 
 const ok = (s: { safeParse(v: unknown): { success: boolean } }, v: unknown) => s.safeParse(v).success;
 const upd = { seq: "5", entity: "allocations", id: "9", op: "update", version: 3 };
@@ -43,5 +43,12 @@ describe("messages", () => {
   it("ne transporte aucune donnée métier : champs inconnus retirés au parse", () => {
     const r = RealtimeServerMessage.parse({ v: 1, type: "changes", changes: [{ ...upd, hoursPerDay: 8, email: "a@b.c" }], cursor: "5", hasMore: false });
     expect(JSON.stringify(r)).not.toMatch(/hoursPerDay|email/);
+  });
+});
+
+describe("refus à l'upgrade", () => {
+  it("statuts et attente minimale figés par le contrat (le client s'y adosse)", () => {
+    expect(REALTIME_UPGRADE_STATUS).toEqual({ unauthenticated: 401, tooManyConnections: 429 });
+    expect(Number.isInteger(REALTIME_RETRY_AFTER_SECONDS) && REALTIME_RETRY_AFTER_SECONDS > 0).toBe(true);
   });
 });

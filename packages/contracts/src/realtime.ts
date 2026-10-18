@@ -10,9 +10,23 @@ import { Id, Version } from "./common";
 //  * Rejouer un message déjà vu est inoffensif (idempotence par `version`).
 //  * Le contexte du compte vient de la session à la connexion, jamais d'un champ du message.
 //  * `v` est la version du protocole ; un changement cassant l'incrémente (jamais de réinterprétation silencieuse).
+//  * Refus à l'upgrade (avant toute trame, donc en HTTP, sans corps) :
+//      401 : non authentifié. Le client se ré-authentifie ; il ne réessaie pas tel quel.
+//      404 : mauvais chemin (REALTIME_PATH).
+//      429 : le compte a atteint son plafond de connexions simultanées. L'en-tête `Retry-After` (secondes) donne l'attente
+//            minimale (REALTIME_RETRY_AFTER_SECONDS) ; le client réessaie après au moins ce délai, avec un aléa et une
+//            attente croissante, sans boucle serrée. Il continue d'afficher ses données (GET /schedule) en attendant :
+//            le temps réel est un confort de fraîcheur, pas une condition de lecture.
+//      500 : erreur interne d'authentification ; même conduite qu'un 429, avec attente croissante.
+//    Le plafond est par compte et par processus serveur ; sa valeur est de configuration, hors contrat.
 
 export const REALTIME_PATH = "/api/v1/realtime";
 export const REALTIME_PROTOCOL_VERSION = 1;
+
+/** Statuts HTTP de refus à l'upgrade qui portent une conduite précise pour le client (voir l'en-tête de ce fichier). */
+export const REALTIME_UPGRADE_STATUS = { unauthenticated: 401, tooManyConnections: 429 } as const;
+/** Valeur de l'en-tête `Retry-After` d'un 429 : attente minimale en secondes avant de se reconnecter. */
+export const REALTIME_RETRY_AFTER_SECONDS = 5;
 
 /** Entités journalisées : celles du Schedule (trigger log_change de schema.sql). */
 export const ChangeEntity = z

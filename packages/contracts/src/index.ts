@@ -10,7 +10,7 @@ export {
   SchedulePerson, ScheduleProject, ScheduleQuery, ScheduleResponse, ScheduleRole, ScheduleTimeoff, ScheduleTimeoffType,
 } from "./schedule";
 export {
-  Change, ChangeEntity, REALTIME_PATH, REALTIME_PROTOCOL_VERSION, RealtimeChanges, RealtimeClientMessage, RealtimeError,
+  Change, ChangeEntity, REALTIME_PATH, REALTIME_PROTOCOL_VERSION, REALTIME_RETRY_AFTER_SECONDS, REALTIME_UPGRADE_STATUS, RealtimeChanges, RealtimeClientMessage, RealtimeError,
   RealtimeReady, RealtimeResync, RealtimeServerMessage, RealtimeSubscribe,
 } from "./realtime";
 export { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
