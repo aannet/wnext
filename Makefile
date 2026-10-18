@@ -10,6 +10,7 @@ check:
 	npm run test:guardrails
 	npm run test:boundaries
 	npm run test:parity
+	npm run test:e2e
 
 typecheck:
 	npm run typecheck

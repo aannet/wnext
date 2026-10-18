@@ -19,6 +19,7 @@
     "lint:boundaries": "node scripts/lint-boundaries.mjs",
     "test:boundaries": "vitest run tests/boundaries",
     "test:parity": "vitest run tests/parity",
+    "test:e2e": "vitest run tests/e2e",
     "guard:test-weakening": "node scripts/guardrails/test-weakening.mjs",
     "guard:pr-size": "node scripts/guardrails/pr-size.mjs",
     "guard:br-coverage": "node scripts/guardrails/br-coverage.mjs",
