@@ -9,7 +9,7 @@ export interface ApiError {
   requestId: string;
 }
 
-export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "ALREADY_EXISTS" | "REFERENCE_IN_USE" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS" | "PERSON_DEACTIVATION_CONFIRMATION_REQUIRED" | "PERSON_DEACTIVATION_STALE_CONFIRMATION" | "PERSON_DEACTIVATION_INVALID_REPLACEMENT" | "RATE_LIMITED";
+export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "ALREADY_EXISTS" | "REFERENCE_IN_USE" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS" | "PERSON_DEACTIVATION_CONFIRMATION_REQUIRED" | "PERSON_DEACTIVATION_STALE_CONFIRMATION" | "PERSON_DEACTIVATION_INVALID_REPLACEMENT" | "LOGGED_TIME_LOCKED" | "LOGGED_TIME_DAY_LIMIT" | "RATE_LIMITED";
 
 export interface HealthResponse {
   status: "ok" | "degraded";
@@ -291,6 +291,62 @@ export interface TimeoffPatch {
   hoursPerDay?: number | null;
   approvalStatus?: "pending" | "approved" | "declined";
   notes?: string | null;
+}
+
+export interface LoggedTimeList {
+  items: Array<LoggedTime>;
+}
+
+export interface LoggedTime {
+  id: Id;
+  version: Version;
+  personId: Id;
+  projectId: Id;
+  phaseId: Id | null;
+  taskId: Id | null;
+  allocationId: Id | null;
+  workDate: IsoDate;
+  hours: number;
+  billable: boolean;
+  notes: string | null;
+  status: LoggedTimeStatus;
+}
+
+export type LoggedTimeStatus = "draft" | "submitted" | "approved" | "locked";
+
+export interface LoggedTimeCreate {
+  personId: Id;
+  projectId: Id;
+  workDate: IsoDate;
+  phaseId?: Id | null;
+  taskId?: Id | null;
+  hours: number;
+  billable?: boolean;
+  notes?: string | null;
+}
+
+export interface LoggedTimePatch {
+  phaseId?: Id | null;
+  taskId?: Id | null;
+  hours?: number;
+  billable?: boolean;
+  notes?: string | null;
+}
+
+export interface LoggedTimePrefillResult {
+  items: Array<LoggedTime>;
+  createdCount: number;
+}
+
+export interface LoggedTimeWindow {
+  personId: Id;
+  from: IsoDate;
+  to: IsoDate;
+}
+
+export interface LoggedTimeSubmitResult {
+  items: Array<LoggedTime>;
+  submittedCount: number;
 }
 
 export interface PersonList {
@@ -920,6 +976,95 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lister les temps saisis d'une personne sur une fenetre (tout membre authentifie) (GET /api/v1/logged-time) */
+    async listLoggedTime(query: {
+      personId: Id;
+      from: string;
+      to: string;
+      status?: "draft" | "submitted" | "approved" | "locked";
+    }): Promise<ApiResult<LoggedTimeList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/logged-time" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as LoggedTimeList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Saisir un temps (brouillon) ; total par jour <= 24 h (BR-28) (POST /api/v1/logged-time) */
+    async createLoggedTime(input: {
+      body: LoggedTimeCreate;
+    }): Promise<ApiResult<LoggedTime, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/logged-time", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as LoggedTime }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier un brouillon (verrou optimiste If-Match) (PATCH /api/v1/logged-time/{id}) */
+    async updateLoggedTime(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: LoggedTimePatch;
+    }): Promise<ApiResult<LoggedTime, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/logged-time/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as LoggedTime }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer un brouillon (verrou optimiste If-Match) (DELETE /api/v1/logged-time/{id}) */
+    async deleteLoggedTime(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/logged-time/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Pre-remplir la fenetre depuis les allocations confirmees (BR-11) ; idempotent (POST /api/v1/logged-time/prefill) */
+    async prefillLoggedTime(input: {
+      body: LoggedTimeWindow;
+    }): Promise<ApiResult<LoggedTimePrefillResult, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/logged-time/prefill", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as LoggedTimePrefillResult }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Soumettre (et verrouiller, BR-12) tous les brouillons d'une personne sur une fenetre, atomiquement (POST /api/v1/logged-time/submit) */
+    async submitLoggedTime(input: {
+      body: LoggedTimeWindow;
+    }): Promise<ApiResult<LoggedTimeSubmitResult, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/logged-time/submit", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as LoggedTimeSubmitResult }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Deverrouiller une ligne soumise (owner ou admin, trace en base, BR-12) (POST /api/v1/logged-time/{id}/unlock) */
+    async unlockLoggedTime(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<LoggedTime, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/logged-time/" + encodeURIComponent(String(input.path.id)) + "/unlock", { method: "POST", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as LoggedTime }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Lister les personnes (pagine, tri par id ; actives par defaut ; tout membre authentifie) (GET /api/v1/people) */

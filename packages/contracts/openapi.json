@@ -59,6 +59,8 @@
           "PERSON_DEACTIVATION_CONFIRMATION_REQUIRED",
           "PERSON_DEACTIVATION_STALE_CONFIRMATION",
           "PERSON_DEACTIVATION_INVALID_REPLACEMENT",
+          "LOGGED_TIME_LOCKED",
+          "LOGGED_TIME_DAY_LIMIT",
           "RATE_LIMITED"
         ]
       },
@@ -1538,6 +1540,267 @@
             "maxLength": 5000
           }
         }
+      },
+      "LoggedTimeList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LoggedTime"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "LoggedTime": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "personId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "phaseId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taskId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "allocationId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Allocation d'origine du pré-remplissage ; null pour une saisie libre ou si l'allocation a été supprimée"
+          },
+          "workDate": {
+            "$ref": "#/components/schemas/IsoDate"
+          },
+          "hours": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 24
+          },
+          "billable": {
+            "type": "boolean"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/LoggedTimeStatus"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "personId",
+          "projectId",
+          "phaseId",
+          "taskId",
+          "allocationId",
+          "workDate",
+          "hours",
+          "billable",
+          "notes",
+          "status"
+        ]
+      },
+      "LoggedTimeStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "submitted",
+          "approved",
+          "locked"
+        ]
+      },
+      "LoggedTimeCreate": {
+        "type": "object",
+        "properties": {
+          "personId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "workDate": {
+            "$ref": "#/components/schemas/IsoDate"
+          },
+          "phaseId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taskId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hours": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 24
+          },
+          "billable": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 5000
+          }
+        },
+        "required": [
+          "personId",
+          "projectId",
+          "workDate",
+          "hours"
+        ]
+      },
+      "LoggedTimePatch": {
+        "type": "object",
+        "properties": {
+          "phaseId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taskId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hours": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 24
+          },
+          "billable": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 5000
+          }
+        }
+      },
+      "LoggedTimePrefillResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LoggedTime"
+            }
+          },
+          "createdCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "items",
+          "createdCount"
+        ]
+      },
+      "LoggedTimeWindow": {
+        "type": "object",
+        "properties": {
+          "personId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "from": {
+            "$ref": "#/components/schemas/IsoDate"
+          },
+          "to": {
+            "$ref": "#/components/schemas/IsoDate"
+          }
+        },
+        "required": [
+          "personId",
+          "from",
+          "to"
+        ]
+      },
+      "LoggedTimeSubmitResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LoggedTime"
+            }
+          },
+          "submittedCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "items",
+          "submittedCount"
+        ]
       },
       "PersonList": {
         "type": "object",
@@ -4832,6 +5095,676 @@
           },
           "404": {
             "description": "Conge inconnu (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version perimee (VERSION_CONFLICT, params.currentVersion)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match absent (PRECONDITION_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/logged-time": {
+      "get": {
+        "operationId": "listLoggedTime",
+        "summary": "Lister les temps saisis d'une personne sur une fenetre (tout membre authentifie)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "personId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Début de la fenêtre (inclus)"
+            },
+            "required": true,
+            "description": "Début de la fenêtre (inclus)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Fin de la fenêtre (incluse). 400 jours au plus, sinon SCHEDULE_RANGE_INVALID"
+            },
+            "required": true,
+            "description": "Fin de la fenêtre (incluse). 400 jours au plus, sinon SCHEDULE_RANGE_INVALID",
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "submitted",
+                "approved",
+                "locked"
+              ],
+              "description": "Seulement les lignes de ce statut"
+            },
+            "required": false,
+            "description": "Seulement les lignes de ce statut",
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Temps saisis de la fenetre",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoggedTimeList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (VALIDATION_FAILED, SCHEDULE_RANGE_INVALID)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createLoggedTime",
+        "summary": "Saisir un temps (brouillon) ; total par jour <= 24 h (BR-28)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoggedTimeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Temps cree (brouillon)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoggedTime"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide ou placeholder (VALIDATION_FAILED, BR-27)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Personne, projet, phase ou tache inconnu (NOT_FOUND, params.entity)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Plus de 24 h ce jour-la (LOGGED_TIME_DAY_LIMIT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/logged-time/{id}": {
+      "patch": {
+        "operationId": "updateLoggedTime",
+        "summary": "Modifier un brouillon (verrou optimiste If-Match)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\"\\d+\"$",
+              "description": "Version lue dans le Schedule, entre guillemets : \"3\""
+            },
+            "required": true,
+            "description": "Version lue dans le Schedule, entre guillemets : \"3\"",
+            "name": "If-Match",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoggedTimePatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Temps modifie (nouvelle version)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoggedTime"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps ou en-tete invalide (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Temps, phase ou tache inconnu (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version perimee (VERSION_CONFLICT, params.currentVersion), ligne verrouillee (LOGGED_TIME_LOCKED, params.status) ou plus de 24 h (LOGGED_TIME_DAY_LIMIT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match absent (PRECONDITION_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteLoggedTime",
+        "summary": "Supprimer un brouillon (verrou optimiste If-Match)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\"\\d+\"$",
+              "description": "Version lue dans le Schedule, entre guillemets : \"3\""
+            },
+            "required": true,
+            "description": "Version lue dans le Schedule, entre guillemets : \"3\"",
+            "name": "If-Match",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Supprime (journalise dans delete_log, BR-14)"
+          },
+          "400": {
+            "description": "En-tete invalide (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Temps inconnu (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version perimee (VERSION_CONFLICT) ou ligne verrouillee (LOGGED_TIME_LOCKED, params.status)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match absent (PRECONDITION_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/logged-time/prefill": {
+      "post": {
+        "operationId": "prefillLoggedTime",
+        "summary": "Pre-remplir la fenetre depuis les allocations confirmees (BR-11) ; idempotent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoggedTimeWindow"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes de la fenetre apres l'operation et nombre de lignes creees",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoggedTimePrefillResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide, fenetre trop longue ou placeholder (VALIDATION_FAILED, SCHEDULE_RANGE_INVALID)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Personne inconnue (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/logged-time/submit": {
+      "post": {
+        "operationId": "submitLoggedTime",
+        "summary": "Soumettre (et verrouiller, BR-12) tous les brouillons d'une personne sur une fenetre, atomiquement",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoggedTimeWindow"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes de la fenetre apres l'operation et nombre de lignes soumises",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoggedTimeSubmitResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide ou fenetre trop longue (VALIDATION_FAILED, SCHEDULE_RANGE_INVALID)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Personne inconnue (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/logged-time/{id}/unlock": {
+      "post": {
+        "operationId": "unlockLoggedTime",
+        "summary": "Deverrouiller une ligne soumise (owner ou admin, trace en base, BR-12)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\"\\d+\"$",
+              "description": "Version lue dans le Schedule, entre guillemets : \"3\""
+            },
+            "required": true,
+            "description": "Version lue dans le Schedule, entre guillemets : \"3\"",
+            "name": "If-Match",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ligne redevenue brouillon (nouvelle version)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoggedTime"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "En-tete invalide (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant, owner ou admin requis (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Temps inconnu (NOT_FOUND)",
             "content": {
               "application/json": {
                 "schema": {
