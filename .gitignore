@@ -10,3 +10,7 @@ spikes/orchestrateur/tmp-repo/
 spikes/orchestrateur/tmp-wt/
 dist/
 coverage/
+
+# Stryker (mutation, npm run mutation -w @wnext/engine)
+.stryker-tmp/
+reports/mutation/

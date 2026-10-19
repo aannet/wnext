@@ -11,9 +11,14 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "coverage": "vitest run --coverage --coverage.include=src/** --coverage.exclude=src/index.ts --coverage.reporter=text-summary --coverage.thresholds.branches=95 --coverage.thresholds.lines=98"
+    "coverage": "vitest run --coverage --coverage.include=src/** --coverage.exclude=src/index.ts --coverage.reporter=text-summary --coverage.thresholds.branches=95 --coverage.thresholds.lines=98",
+    "mutation": "stryker run"
   },
   "dependencies": {
     "@wnext/contracts": "*"
+  },
+  "devDependencies": {
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0"
   }
 }
