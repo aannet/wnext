@@ -176,9 +176,9 @@ export function oidcAuthenticate(opts: OidcAuthOptions): (headers: IncomingHttpH
       if (wanted === undefined || !/^\d{1,18}$/.test(wanted)) return null;
     }
 
-    // Avant de connaître le compte : l'utilisateur (table globale), puis ses seules appartenances (politique own_memberships).
+    // Avant de connaître le compte : l'utilisateur (fonction user_id_for_subject, RLS sur users), puis ses seules appartenances (politique own_memberships).
     const found = await opts.db.transaction(async (tx) => {
-      const u = await tx.query<{ id: string }>("SELECT id::text AS id FROM users WHERE idp_subject = $1", [claims.sub]);
+      const u = await tx.query<{ id: string | null }>("SELECT user_id_for_subject($1)::text AS id", [claims.sub]);
       const userId = u.rows[0]?.id;
       if (!userId) return null;
       await tx.query("SELECT set_config('app.user_id', $1, true)", [userId]);

@@ -54,7 +54,8 @@ AS $$ SELECT p_wdh[EXTRACT(ISODOW FROM p_day)::int] $$;
 
 -- ---------- IDENTITÉ (hors tenant) ----------
 -- Une PERSONNE planifiée != un UTILISATEUR (compte de connexion).
--- users est global (pas d'account_id) : accès réservé au service d'authentification.
+-- users est global (pas d'account_id) : RLS « soi-même + membres du compte courant » (fin de fichier) ;
+-- la connexion passe par user_id_for_subject().
 CREATE TABLE users (
   id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   email        CITEXT NOT NULL UNIQUE,
@@ -1003,6 +1004,21 @@ CREATE POLICY tenant_isolation ON accounts USING (id = app_account_id()) WITH CH
 -- Résolution des comptes d'un utilisateur à la connexion (avant de connaître app.account_id).
 CREATE POLICY own_memberships ON account_members FOR SELECT USING (user_id = app_user_id());
 
+-- users (global) : app_user ne lit que soi-même et les membres du compte courant, et n'écrit rien.
+-- ENABLE sans FORCE, comme accounts : le rôle propriétaire provisionne les utilisateurs et exécute user_id_for_subject().
+-- Les clés étrangères vers users ne sont pas soumises à la RLS.
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY visible_users ON users FOR SELECT USING (
+  id = app_user_id()
+  OR id IN (SELECT m.user_id FROM account_members m WHERE m.account_id = app_account_id()));
+
+-- Connexion : sujet OIDC -> id, avant tout contexte. Seule fonction SECURITY DEFINER du schéma (T18e) :
+-- elle ne renvoie que l'id, jamais l'e-mail ni le nom.
+CREATE FUNCTION user_id_for_subject(p_subject TEXT) RETURNS BIGINT
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+AS $$ SELECT id FROM users WHERE idp_subject = p_subject $$;
+REVOKE ALL ON FUNCTION user_id_for_subject(TEXT) FROM PUBLIC;
+
 -- ============================================================
 -- RÔLE APPLICATIF (sans LOGIN ici : le déploiement ajoute LOGIN + mot de passe)
 -- ============================================================
@@ -1015,6 +1031,7 @@ END $$;
 GRANT USAGE ON SCHEMA public TO app_user;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_user;
+GRANT EXECUTE ON FUNCTION user_id_for_subject(TEXT) TO app_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO app_user;
 

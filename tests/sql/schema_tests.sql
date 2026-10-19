@@ -747,9 +747,10 @@ SELECT t.eq('T18c chaque table à account_id a la politique tenant_isolation (US
                         AND p.qual = '(account_id = app_account_id())' AND p.with_check = '(account_id = app_account_id())')), 0);
 SELECT t.ok('T18d seule politique supplémentaire : own_memberships (lecture seule de ses appartenances)',
   (SELECT array_agg(tablename || '.' || policyname || ':' || cmd) FROM pg_policies
-    WHERE schemaname = 'public' AND policyname <> 'tenant_isolation') = ARRAY['account_members.own_memberships:SELECT']);
-SELECT t.eq('T18e aucune fonction SECURITY DEFINER (elle contournerait la RLS)',
-  (SELECT COUNT(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.prosecdef), 0);
+    WHERE schemaname = 'public' AND policyname <> 'tenant_isolation') = ARRAY['account_members.own_memberships:SELECT', 'users.visible_users:SELECT']);
+SELECT t.ok('T18e une seule fonction SECURITY DEFINER, la résolution de connexion (elle contournerait la RLS)',
+  (SELECT array_agg(p.proname::text) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.prosecdef)
+    = ARRAY['user_id_for_subject']);
 
 -- Compte Z : au moins une ligne dans CHAQUE table cloisonnée, pour que la preuve ci-dessous porte sur toutes.
 SELECT t.mkaccount('Z'); SELECT t.mkuser('uz');
@@ -885,6 +886,41 @@ CREATE TEMP TABLE t19 AS SELECT (SELECT COUNT(*) FROM delete_log WHERE deleted_a
 SELECT t.eq('T19g purge 7 jours : seules les lignes anciennes supprimées', purge_delete_log(), (SELECT old_rows FROM t19));
 SELECT t.eq('T19h purge : le reste est conservé', (SELECT COUNT(*) FROM delete_log), (SELECT total - old_rows FROM t19));
 SELECT t.eq('T19i purge à 72 h pile acceptée (rien de plus à purger)', purge_delete_log(INTERVAL '72 hours'), 0);
+
+-- ============================================================
+-- T20 users : RLS (soi-même + membres du compte courant), résolution de connexion étroite
+-- ============================================================
+SELECT t.mkaccount('UA'); SELECT t.mkaccount('UB');
+SELECT t.mkuser('ua1'); SELECT t.mkuser('ua2'); SELECT t.mkuser('ub1'); SELECT t.mkuser('unone');
+UPDATE users SET idp_subject = 'sub-ua1' WHERE id = t.id('ua1');
+SELECT t.ctx('UA');
+INSERT INTO account_members(account_id, user_id, role) VALUES (t.id('UA'), t.id('ua1'), 'admin'), (t.id('UA'), t.id('ua2'), 'member');
+SELECT t.ctx('UB');
+INSERT INTO account_members(account_id, user_id, role) VALUES (t.id('UB'), t.id('ub1'), 'admin');
+
+SELECT t.ok('T20a users : RLS active, sans FORCE (le propriétaire provisionne et résout la connexion)',
+  (SELECT relrowsecurity AND NOT relforcerowsecurity FROM pg_class WHERE oid = 'public.users'::regclass));
+
+SET LOCAL ROLE app_user;
+-- Connexion : ni compte ni utilisateur connus.
+SELECT set_config('app.account_id', '', true);
+SELECT set_config('app.user_id', '', true);
+SELECT t.eq('T20b sans contexte : aucun utilisateur visible', (SELECT COUNT(*) FROM users), 0);
+SELECT t.eq('T20c user_id_for_subject : id du sujet connu', user_id_for_subject('sub-ua1'), t.id('ua1'));
+SELECT t.ok('T20d user_id_for_subject : sujet inconnu, NULL', user_id_for_subject('sub-inconnu') IS NULL);
+-- Connecté, compte encore inconnu : soi-même seulement.
+SELECT set_config('app.user_id', t.id('ua1')::text, true);
+SELECT t.ok('T20e utilisateur seul : se voit lui-même et personne d autre',
+  (SELECT array_agg(id) FROM users) = ARRAY[t.id('ua1')]);
+-- Dans le compte UA : soi-même et les membres de UA, jamais ceux de UB ni les sans-compte.
+SELECT t.ctx('UA');
+SELECT t.ok('T20f compte UA : ua1 et ua2 seulement',
+  (SELECT array_agg(id ORDER BY id) FROM users) = ARRAY[t.id('ua1'), t.id('ua2')]);
+SELECT t.eq('T20g e-mail d un membre d un autre compte illisible', (SELECT COUNT(*) FROM users WHERE email = 'ub1@example.com'), 0);
+SELECT t.eq('T20h modification d un autre utilisateur impossible',
+  t.rowcount($q$ UPDATE users SET name = 'x' WHERE id = $q$ || t.id('ub1')), 0);
+SELECT t.raises('T20i app_user ne crée pas d utilisateur', $q$ INSERT INTO users(email) VALUES ('pirate@example.com') $q$, '42501');
+RESET ROLE;
 
 -- ============================================================
 -- Bilan
