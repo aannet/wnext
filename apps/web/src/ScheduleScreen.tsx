@@ -6,7 +6,7 @@
 //    sont des données.
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
-import { dayNumber, goToday, headerCells, page, setZoom, viewAt, visibleRange, type HeaderCell, type Zoom } from "@wnext/engine";
+import { dayNumber, goToday, headerCells, page, setZoom, viewAt, visibleRange, type HeaderCell, type Viewport, type Zoom } from "@wnext/engine";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { MessageKey } from "./i18n";
 import { createGridRenderer, type GridRenderer } from "./schedule/grid-dom";
@@ -19,6 +19,8 @@ export interface ScheduleScreenProps {
   today: string;
   widthPx: number;
   heightPx: number;
+  /** Vue courante (montage, zoom, navigation) : la source de données y charge les blocs manquants. */
+  onViewChange?(view: Viewport): void;
 }
 
 const ZOOMS: readonly Zoom[] = ["day", "week", "month"];
@@ -30,7 +32,7 @@ function headerLabel(c: HeaderCell, locale: string): string {
   return new Intl.DateTimeFormat(locale, { ...opts, timeZone: "UTC" }).format(d);
 }
 
-export function ScheduleScreen({ i18n, data, today, widthPx, heightPx }: ScheduleScreenProps) {
+export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewChange }: ScheduleScreenProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [view, setView] = useState(() => viewAt(today, "day", widthPx));
   const range = visibleRange(view);
@@ -44,6 +46,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx }: Schedul
     return () => { renderer.current?.destroy(); renderer.current = null; };
   }, []);
   useEffect(() => { renderer.current?.render(model, gridRef.current!.scrollTop, heightPx); }, [model, heightPx]);
+  useEffect(() => { onViewChange?.(view); }, [view, onViewChange]);
 
   const onKeyDown = (e: KeyboardEvent) => { if (e.key === "t" || e.key === "T") setView((v) => goToday(v, today)); };
   const x0 = dayNumber(range.from);

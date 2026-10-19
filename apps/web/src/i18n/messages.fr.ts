@@ -13,6 +13,13 @@ export const fr = {
   "schedule.zoom.month": "Mois",
   "schedule.people.count": "{count, plural, one {# personne} other {# personnes}}",
   "schedule.loading": "Chargement…",
+  "schedule.error.UNAUTHENTICATED": "Session expirée ou absente : reconnectez-vous.",
+  "schedule.error.FORBIDDEN": "Vous n’avez pas accès à ce planning.",
+  "schedule.error.RATE_LIMITED": "Trop de requêtes : nouvel essai dans un instant.",
+  "schedule.error.INTERNAL_ERROR": "Le planning n’a pas pu être chargé. Réessayez plus tard.",
+  "schedule.realtime.live": "Temps réel : connecté",
+  "schedule.realtime.reconnecting": "Temps réel : reconnexion…",
+  "schedule.realtime.offline": "Temps réel : hors ligne",
 } as const;
 
 export type MessageKey = keyof typeof fr;

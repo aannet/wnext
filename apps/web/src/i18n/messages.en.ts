@@ -14,4 +14,11 @@ export const en: Record<MessageKey, string> = {
   "schedule.zoom.month": "Month",
   "schedule.people.count": "{count, plural, one {# person} other {# people}}",
   "schedule.loading": "Loading…",
+  "schedule.error.UNAUTHENTICATED": "Your session has expired or is missing: please sign in again.",
+  "schedule.error.FORBIDDEN": "You do not have access to this schedule.",
+  "schedule.error.RATE_LIMITED": "Too many requests: retrying shortly.",
+  "schedule.error.INTERNAL_ERROR": "The schedule could not be loaded. Please try again later.",
+  "schedule.realtime.live": "Live updates: connected",
+  "schedule.realtime.reconnecting": "Live updates: reconnecting…",
+  "schedule.realtime.offline": "Live updates: offline",
 };
