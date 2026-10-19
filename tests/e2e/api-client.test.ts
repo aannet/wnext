@@ -303,6 +303,24 @@ describe("retrait d'équipe (BR-10) : client généré <-> serveur", () => {
     expect(gone.ok).toBe(false);
   });
 
+  it("série répétée : modifier une occurrence découpe la série (avant / occurrence / après), version périmée en 409", async () => {
+    const api = client();
+    const created = await api.createAllocation({ body: { personId: "1", projectId: "1", startDate: "2026-04-06", endDate: "2026-04-07", load: { mode: "hours", hoursPerDay: 4 }, repeatState: "weekly", repeatEndDate: "2026-04-28" } });
+    if (!created.ok) throw new Error("série attendue");
+    const s = created.data;
+    const r = await api.splitAllocation({ path: { id: s.id }, headers: { "If-Match": `"${s.version}"` }, body: { occurrenceDate: "2026-04-13", patch: { load: { mode: "hours", hoursPerDay: 2 } } } });
+    if (!r.ok) throw new Error(`découpe refusée : ${JSON.stringify(r.error)}`);
+    expect([r.data.before?.id, r.data.before?.repeatEndDate, r.data.before?.version]).toEqual([s.id, "2026-04-12", s.version + 1]);
+    expect(r.data.occurrence).toMatchObject({ startDate: "2026-04-13", endDate: "2026-04-14", repeatState: "none", hoursPerDay: 2, version: 1 });
+    expect(r.data.after).toMatchObject({ startDate: "2026-04-20", repeatState: "weekly", repeatEndDate: "2026-04-28", hoursPerDay: 4 });
+
+    const stale = await api.splitAllocation({ path: { id: s.id }, headers: { "If-Match": `"${s.version}"` }, body: { occurrenceDate: "2026-04-06", delete: true } });
+    if (stale.ok) throw new Error("conflit attendu");
+    expect([stale.status, stale.error.code]).toEqual([409, "VERSION_CONFLICT"]);
+    const single = await api.splitAllocation({ path: { id: r.data.occurrence!.id }, headers: { "If-Match": '"1"' }, body: { occurrenceDate: "2026-04-13" } });
+    expect(single.ok ? null : [single.status, single.error.code]).toEqual([409, "NOT_A_SERIES"]);
+  });
+
   it("équipe d'un projet : ajout, lecture paginée, retrait, 404 d'un projet inconnu", async () => {
     const api = client();
     const proj = await api.createProject({ body: { name: "Équipe" } });

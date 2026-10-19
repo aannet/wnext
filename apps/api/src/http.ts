@@ -1,10 +1,10 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT } from "@wnext/contracts";
+import { REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import type { RateLimiter } from "./rate-limit";
-import { allocationReader, createAllocation, createAllocationGroup, deleteAllocation, deleteAllocationGroup, updateAllocationGroup, listPersonAllocations, listProjectAllocations, updateAllocation } from "./allocations";
+import { allocationReader, createAllocation, createAllocationGroup, deleteAllocation, deleteAllocationGroup, updateAllocationGroup, listPersonAllocations, listProjectAllocations, splitAllocation, updateAllocation } from "./allocations";
 import { budgetLineReader, createBudgetLine, createExpense, deleteBudgetLine, deleteExpense, expenseReader, updateBudgetLine, updateExpense } from "./budget";
 import { createPerson, deactivatePerson, getPersonDeactivationSummary, listPersonProjects, personReader, updatePerson } from "./people";
 import {
@@ -66,6 +66,9 @@ const STATUS: Record<ApiError["code"], number> = {
   LOGGED_TIME_LOCKED: 409,
   LOGGED_TIME_DAY_LIMIT: 409,
   RATE_LIMITED: 429,
+  NOT_A_SERIES: 409,
+  OCCURRENCE_NOT_FOUND: 404,
+  SERIES_SPLIT_UNSUPPORTED: 409,
 };
 
 const fail = (code: ApiError["code"], requestId: string, params: ApiError["params"] = {}): HttpReply =>
@@ -249,6 +252,16 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
         return { status: 204, body: undefined };
       }
       return { status: 200, body: await updateAllocationGroup(deps.db, ctx, id, version, parseJsonBody(AllocationGroupPatch, req.body)) };
+    }
+    const allocationSplit = /^\/api\/v1\/allocations\/([^/]+)\/split$/.exec(url.pathname);
+    if (allocationSplit && req.method === "POST") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (!WRITERS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role }); // avant la validation du corps
+      let id: string;
+      try { id = decodeURIComponent(allocationSplit[1]!); } catch { id = "%"; }
+      const version = expectedVersion(req.headers);
+      return { status: 200, body: await splitAllocation(deps.db, ctx, id, version, parseJsonBody(AllocationSplit, req.body)) };
     }
     const teamList = /^\/api\/v1\/projects\/([^/]+)\/team$/.exec(url.pathname);
     if (teamList && req.method === "POST") {

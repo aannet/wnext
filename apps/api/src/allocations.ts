@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { AllocationCreate, AllocationGroup, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, PersonAllocationListQuery, ProjectAllocationListQuery } from "@wnext/contracts";
+import type { AllocationCreate, AllocationGroup, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, AllocationSplitResult, OccurrencePatch, PersonAllocationListQuery, ProjectAllocationListQuery } from "@wnext/contracts";
+import { expandOccurrences, seriesEnd, splitSeries, type RepeatInput, type SeriesSplit } from "@wnext/engine";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { assertWriter, day, idParam, invalid, isId, lockAndCheck as lockRow, notFound } from "./write";
@@ -65,9 +66,42 @@ function assertPatchIds(patch: AllocationPatch) {
 
 /** Applique `patch` à la ligne verrouillée `cur` (valeurs absentes = valeurs actuelles de CETTE ligne) et réécrit la ligne. */
 async function applyPatch(tx: Queryable, ctx: RequestContext, cur: Row, patch: AllocationPatch): Promise<ScheduleAllocation> {
-  const id = String(cur.id);
-  const expectedVersion = Number(cur.row_version);
+  const values = await resolvePatch(tx, ctx, cur, patch);
+  const { rows } = await tx.query<Row>(
+    `UPDATE allocations SET person_id = $3::bigint, project_id = $4::bigint, phase_id = $5::bigint, project_task_id = $6::bigint,
+            name = $7, notes = $8, start_date = $9::date, end_date = $10::date, mode = $11::allocation_mode,
+            hours_per_day = $12::numeric, percent = $13::numeric, status = $14::allocation_status, billable = $15::boolean,
+            priority = $16::smallint, repeat_state = $17::repeat_state_t, repeat_end_date = $18::date
+      WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $19::int
+      RETURNING ${ALLOCATION_COLUMNS}`,
+    [String(cur.id), ctx.accountId, ...values, Number(cur.row_version)],
+  );
+  // Ceinture et bretelles : le verrou de ligne suffit, mais la condition de version garde l'écriture correcte même sans lui.
+  if (!rows[0]) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: Number(cur.row_version) + 1 });
+  return toScheduleAllocation(rows[0]!);
+}
+
+/** Insère une ligne nouvelle (version 1) avec les valeurs de `cur` modifiées par `patch` ; garde le `group_id` de `cur`. */
+async function insertPatched(tx: Queryable, ctx: RequestContext, cur: Row, patch: AllocationPatch | OccurrencePatch): Promise<ScheduleAllocation> {
+  const values = await resolvePatch(tx, ctx, cur, patch);
+  const { rows } = await tx.query<Row>(
+    `INSERT INTO allocations (account_id, group_id, person_id, project_id, phase_id, project_task_id, name, notes, start_date, end_date,
+                              mode, hours_per_day, percent, status, billable, priority, repeat_state, repeat_end_date)
+     VALUES ($1::bigint, $2::uuid, $3::bigint, $4::bigint, $5::bigint, $6::bigint, $7, $8, $9::date, $10::date,
+             $11::allocation_mode, $12::numeric, $13::numeric, $14::allocation_status, $15::boolean, $16::smallint, $17::repeat_state_t, $18::date)
+     RETURNING ${ALLOCATION_COLUMNS}`,
+    [ctx.accountId, cur.group_id ?? null, ...values],
+  );
+  return toScheduleAllocation(rows[0]!);
+}
+
+/**
+ * Valeurs finales d'une ligne (`cur` + `patch`), contrôlées (dates, répétition, références du compte), dans l'ordre des colonnes :
+ * person, project, phase, task, name, notes, start, end, mode, hours, percent, status, billable, priority, repeat_state, repeat_end.
+ */
+async function resolvePatch(tx: Queryable, ctx: RequestContext, cur: Row, input: AllocationPatch | OccurrencePatch): Promise<unknown[]> {
   {
+    const patch: AllocationPatch = input; // OccurrencePatch : mêmes champs, sans la répétition
     const has = <K extends keyof AllocationPatch>(k: K) => k in patch && patch[k] !== undefined;
 
     const projectId = has("projectId") ? patch.projectId! : String(cur.project_id);
@@ -94,23 +128,12 @@ async function applyPatch(tx: Queryable, ctx: RequestContext, cur: Row, patch: A
     const hours = patch.load ? (patch.load.mode === "hours" ? patch.load.hoursPerDay : null) : cur.hours_per_day === null ? null : Number(cur.hours_per_day);
     const percent = patch.load ? (patch.load.mode === "percentage" ? patch.load.percent : null) : cur.percent === null ? null : Number(cur.percent);
 
-    const { rows } = await tx.query<Row>(
-      `UPDATE allocations SET person_id = $3::bigint, project_id = $4::bigint, phase_id = $5::bigint, project_task_id = $6::bigint,
-              name = $7, notes = $8, start_date = $9::date, end_date = $10::date, mode = $11::allocation_mode,
-              hours_per_day = $12::numeric, percent = $13::numeric, status = $14::allocation_status, billable = $15::boolean,
-              priority = $16::smallint, repeat_state = $17::repeat_state_t, repeat_end_date = $18::date
-        WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $19::int
-        RETURNING ${ALLOCATION_COLUMNS}`,
-      [
-        id, ctx.accountId, personId, projectId, phaseId, taskId,
-        has("name") ? patch.name ?? null : cur.name, has("notes") ? patch.notes ?? null : cur.notes,
-        startDate, endDate, mode, hours, percent,
-        patch.status ?? cur.status, patch.billable ?? cur.billable, patch.priority ?? cur.priority, repeatState, repeatEnd, expectedVersion,
-      ],
-    );
-    // Ceinture et bretelles : le verrou de ligne suffit, mais la condition de version garde l'écriture correcte même sans lui.
-    if (!rows[0]) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: Number(cur.row_version) + 1 });
-    return toScheduleAllocation(rows[0]!);
+    return [
+      personId, projectId, phaseId, taskId,
+      has("name") ? patch.name ?? null : cur.name, has("notes") ? patch.notes ?? null : cur.notes,
+      startDate, endDate, mode, hours, percent,
+      patch.status ?? cur.status, patch.billable ?? cur.billable, patch.priority ?? cur.priority, repeatState, repeatEnd,
+    ];
   }
 }
 
@@ -120,6 +143,60 @@ export async function deleteAllocation(db: Db, ctx: RequestContext, id: string, 
     await lockRow(tx, "allocations", ALLOCATION_COLUMNS, "allocation", ctx.accountId, id, expectedVersion);
     const { rows } = await tx.query("DELETE FROM allocations WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $3::int RETURNING id", [id, ctx.accountId, expectedVersion]);
     if (!rows.length) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: expectedVersion + 1 });
+  });
+}
+
+// --- « Cette occurrence » (BR-25, décision 10 du registre) -------------------------------------------------------------
+// Pas de table d'exceptions : la série est découpée par splitSeries de @wnext/engine (aucune règle de découpe dupliquée ici).
+// « Avant » réécrit la ligne d'origine (ou la supprime pour l'occurrence 0) ; l'occurrence et « après » sont insérées.
+
+/** Les refus du moteur portent leur code en préfixe du message ; on les traduit en codes stables du contrat. */
+function splitFailure(e: unknown, occurrenceDate: string): unknown {
+  const code = e instanceof Error ? e.message.split(":")[0] : "";
+  if (code === "NOT_A_SERIES") return new ApiFailure("NOT_A_SERIES");
+  if (code === "OCCURRENCE_NOT_FOUND") return new ApiFailure("OCCURRENCE_NOT_FOUND", { occurrenceDate });
+  if (code === "SERIES_OVERLAPPING") return new ApiFailure("SERIES_SPLIT_UNSUPPORTED", { reason: "overlapping" });
+  if (code === "SERIES_MONTHLY_CLAMPED") return new ApiFailure("SERIES_SPLIT_UNSUPPORTED", { reason: "monthly_clamped" });
+  return e;
+}
+
+export async function splitAllocation(db: Db, ctx: RequestContext, id: string, expectedVersion: number, body: AllocationSplit): Promise<AllocationSplitResult> {
+  assertWriter(ctx);
+  if (body.patch) assertPatchIds(body.patch);
+  return withContext(db, ctx, async (tx) => {
+    const cur = await lockRow(tx, "allocations", ALLOCATION_COLUMNS, "allocation", ctx.accountId, id, expectedVersion);
+    const series: RepeatInput = {
+      startDate: day(cur.start_date), endDate: day(cur.end_date), repeatState: cur.repeat_state,
+      repeatEndDate: cur.repeat_end_date === null ? null : day(cur.repeat_end_date),
+    };
+    const d = body.occurrenceDate;
+    let parts: SeriesSplit<RepeatInput>;
+    try {
+      if (series.repeatState === "none") throw new Error("NOT_A_SERIES");
+      // Date -> rang : l'occurrence qui COMMENCE ce jour-là (fenêtre d'un jour, hors série = aucune).
+      const hit = d >= series.startDate && d <= seriesEnd(series) ? expandOccurrences(series, d, d).find((o) => o.startDate === d) : undefined;
+      if (!hit) throw new Error("OCCURRENCE_NOT_FOUND");
+      parts = splitSeries(series, hit.index);
+    } catch (e) {
+      throw splitFailure(e, d);
+    }
+
+    const out: AllocationSplitResult = {};
+    if (parts.before) {
+      const { rows } = await tx.query<Row>(
+        `UPDATE allocations SET repeat_end_date = $3::date WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $4::int RETURNING ${ALLOCATION_COLUMNS}`,
+        [id, ctx.accountId, parts.before.repeatEndDate, expectedVersion],
+      );
+      if (!rows[0]) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: expectedVersion + 1 }); // filet : la ligne est verrouillée
+      out.before = toScheduleAllocation(rows[0]);
+    } else {
+      const { rows } = await tx.query("DELETE FROM allocations WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $3::int RETURNING id", [id, ctx.accountId, expectedVersion]);
+      if (!rows.length) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: expectedVersion + 1 });
+    }
+    const piece = (p: RepeatInput): Row => ({ ...cur, start_date: p.startDate, end_date: p.endDate, repeat_state: p.repeatState, repeat_end_date: p.repeatEndDate });
+    if (!body.delete) out.occurrence = await insertPatched(tx, ctx, piece(parts.occurrence), body.patch ?? {});
+    if (parts.after) out.after = await insertPatched(tx, ctx, piece(parts.after), {});
+    return out;
   });
 }
 
