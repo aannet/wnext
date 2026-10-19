@@ -93,7 +93,12 @@ export function attachRealtime(server: Server, opts: RealtimeAttachOptions): { c
       session.receive(raw).catch((err) => { opts.onError?.(err); ws.terminate(); });
     });
     ws.on("close", () => session.close());
-    ws.on("error", (err) => { opts.onError?.(err); session.close(); });
+    // Erreurs de protocole du client (WS_ERR_*, ex. message > maxPayload) : `ws` ferme déjà la connexion (1002, 1009) ;
+    // ce n'est pas une erreur interne, et la journaliser laisserait un client inonder les journaux.
+    ws.on("error", (err) => {
+      if (!String((err as { code?: unknown }).code ?? "").startsWith("WS_ERR_")) opts.onError?.(err);
+      session.close();
+    });
   });
 
   const beat = opts.heartbeatMs ?? 30_000;
