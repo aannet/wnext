@@ -50,6 +50,16 @@ describe("session temps réel", () => {
     expect(out).toHaveLength(2); // pas de doublon
   });
 
+  it("temps saisi : diffusé comme les allocations (entité logged_time)", async () => {
+    const c = await head();
+    const r = await dispatch(deps, { method: "POST", url: "/api/v1/logged-time", headers: { authorization: "A" },
+      body: JSON.stringify({ personId: "1", projectId: "1", workDate: "2026-03-02", hours: 3 }) });
+    expect(r.status).toBe(201);
+    const { out, session } = open();
+    await session.receive(sub(c));
+    expect(out[0]).toMatchObject({ type: "changes", changes: [{ entity: "logged_time", id: (r.body as { id: string }).id, op: "insert", version: 1 }] });
+  });
+
   it("rattrapage par lots avant ready, ordre conservé", async () => {
     const c = await head();
     for (let i = 0; i < 5; i++) await write("A");

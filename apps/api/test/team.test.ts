@@ -159,10 +159,12 @@ describe("POST .../removal", () => {
     // BR-14 : une entrée de delete_log par suppression
     expect((await logged("allocations")) - delAlloc).toBe(2);
     expect((await logged("logged_time")) - delLogs).toBe(3);
-    // temps réel : les allocations supprimées sont dans le journal
+    // temps réel : les allocations et les temps saisis supprimés sont dans le journal
     const ch = await readChanges(db, roles.admin!, head);
     if (ch.status !== "ok") throw new Error("expiré");
-    expect(ch.changes.map((c) => [c.entity, c.id, c.op])).toEqual([["allocations", expect.any(String), "delete"], ["allocations", expect.any(String), "delete"], ["project_team", "1", "update"]]);
+    const del = (entity: string) => [entity, expect.any(String), "delete"];
+    expect(ch.changes.map((c) => [c.entity, c.id, c.op]).sort((x, y) => String(x[0]).localeCompare(String(y[0]))))
+      .toEqual([del("allocations"), del("allocations"), del("logged_time"), del("logged_time"), del("logged_time"), ["project_team", "1", "update"]]);
   });
 
   it("rejouer le retrait : rien à supprimer, pas de confirmation requise, 200 à zéro", async () => {

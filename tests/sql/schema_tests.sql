@@ -700,7 +700,7 @@ SELECT t.ok('T17n6 suppression du projet : aucune entrée project_team ajoutée 
 SELECT t.ok('T17y les entités journalisées portent le trigger de journal',
   (SELECT array_agg(c.relname::text ORDER BY c.relname) FROM pg_trigger tg JOIN pg_class c ON c.oid = tg.tgrelid
     WHERE tg.tgname = 'trg_92_change_log' AND NOT tg.tgisinternal)
-  = ARRAY['allocations','clients','departments','holidays','milestones','people','phases','project_tasks','project_team','projects','roles','timeoff_types','timeoffs']);
+  = ARRAY['allocations','clients','departments','holidays','logged_time','milestones','people','phases','project_tasks','project_team','projects','roles','timeoff_types','timeoffs']);
 
 -- RLS : le journal est cloisonné par compte et les triggers fonctionnent sous app_user.
 SELECT set_config('app.user_id', '', true);

@@ -159,12 +159,12 @@ export const deleteHoliday = (db: Db, ctx: RequestContext, id: string, expected:
   remove(db, ctx, { table: "holidays", entity: "holiday", columns: HOLIDAY_COLUMNS, dependents: {} }, id, expected);
 
 // --- Projets ----------------------------------------------------------------------------------------------------------
-const DETAIL_COLUMNS = `${PROJECT_COLUMNS}, start_date, end_date, project_manager_id, tags, notes`;
+const DETAIL_COLUMNS = `${PROJECT_COLUMNS}, project_manager_id, tags, notes`;
 const failProject = translate("project", "projectCode");
 
 function toDetail(r: Row): ProjectDetail {
   return {
-    ...toScheduleProject(r), startDate: r.start_date === null ? null : day(r.start_date), endDate: r.end_date === null ? null : day(r.end_date),
+    ...toScheduleProject(r),
     projectManagerId: r.project_manager_id === null ? null : String(r.project_manager_id), tags: r.tags as string[], notes: r.notes ?? null,
   };
 }

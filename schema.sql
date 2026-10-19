@@ -700,14 +700,14 @@ END $$;
 CREATE TRIGGER trg_92_change_log AFTER INSERT OR UPDATE OR DELETE ON project_team
   FOR EACH ROW EXECUTE FUNCTION log_team_change();
 
--- Entités journalisées : celles du Schedule (GET /schedule) et la structure des projets. Dépenses et lignes de budget en
+-- Entités journalisées : celles du Schedule (GET /schedule), la structure des projets et le temps saisi. Dépenses et lignes de budget en
 -- restent exclues (données financières : même l'existence d'un message serait une fuite pour les rôles sans droit de lecture). Les cascades et les ON DELETE SET NULL déclenchent aussi ces
 -- triggers : supprimer un département journalise la mise à jour des personnes concernées.
 DO $$
 DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY['allocations','timeoffs','people','holidays','projects','timeoff_types','departments','roles',
-      'clients','phases','project_tasks','milestones'] LOOP
+      'clients','phases','project_tasks','milestones','logged_time'] LOOP
     EXECUTE format('CREATE TRIGGER trg_92_change_log AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION log_change()', t);
   END LOOP;
 END $$;

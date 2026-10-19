@@ -1,6 +1,6 @@
 // Magasin client du Schedule : fusion des fenêtres, flux temps réel (références seules), mutations optimistes.
 import type { Change, ScheduleResponse } from "@wnext/contracts";
-import { scheduleUtilization } from "@wnext/engine";
+import { allocationDateWarnings, scheduleUtilization } from "@wnext/engine";
 import { describe, expect, it } from "vitest";
 import {
   applyChanges, applyOptimistic, confirmOptimistic, emptyStore, hasWindow, ingestSchedule, rollbackOptimistic, snapshot, upsert,
@@ -16,7 +16,7 @@ const alloc = (id: string, version = 1, over: Partial<Alloc> = {}): Alloc => ({
   startDate: "2026-03-02", endDate: "2026-03-04", status: "confirmed", billable: true, priority: 0,
   repeatState: "none", repeatEndDate: null, mode: "hours", hoursPerDay: 4, percent: null, ...over,
 } as Alloc);
-const project = { id: "10", version: 1, name: "Pr", projectCode: null, color: "#3B82F6", status: "planned" as const, nonBillable: false };
+const project = { id: "10", version: 1, name: "Pr", projectCode: null, color: "#3B82F6", status: "planned" as const, nonBillable: false, startDate: "2026-03-01", endDate: "2026-03-31" };
 
 const page = (from: string, to: string, over: Partial<ScheduleResponse> = {}): ScheduleResponse => ({
   window: { from, to }, changeCursor: "5", page: { nextCursor: null, total: 1 },
@@ -133,6 +133,12 @@ describe("snapshot -> moteur", () => {
     expect(snap.allocations.map((a) => a.id)).toEqual(["100"]); // 101 hors fenêtre
     const monday = scheduleUtilization(snap).find((r) => r.day === "2026-03-02")!;
     expect(monday).toMatchObject({ capacityHours: 8, plannedHours: 10, isOverbooked: true }); // l'optimiste compte déjà
+  });
+
+  it("BR-37 côté client : bornes du projet du magasin, avertissement sans blocage", () => {
+    const s = ingestSchedule(emptyStore(), page("2026-03-02", "2026-03-29", { allocations: [alloc("100", 1, { endDate: "2026-04-02" })] }));
+    const a = s.tables.allocations.get("100")!;
+    expect(allocationDateWarnings(a, s.tables.projects.get(a.projectId)!)).toEqual(["ALLOCATION_ENDS_AFTER_PROJECT"]);
   });
 
   it("magasin vide : refus explicite", () => {

@@ -2,7 +2,7 @@ import { MAX_RANGE_DAYS } from "@wnext/engine";
 import type { ScheduleQuery, ScheduleResponse } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
-import { idParam } from "./write";
+import { day, idParam } from "./write";
 
 // GET /api/v1/schedule. Isolation entre comptes en deux couches : la RLS de schema.sql (rôle app_user, contexte posé par
 // withContext) ET `account_id = $1` dans CHAQUE requête ci-dessous (testé sous app_user). Ne jamais renvoyer cost_rate, email, budget (contrat : zéro fuite).
@@ -77,10 +77,11 @@ export const toScheduleHoliday = (r: Row): ScheduleHoliday => ({
   departmentId: orNullId(r.department_id), hoursOff: r.hours_off === null ? null : num(r.hours_off),
 });
 
-export const PROJECT_COLUMNS = `id, row_version, name, project_code, color, status, non_billable`;
+export const PROJECT_COLUMNS = `id, row_version, name, project_code, color, status, non_billable, start_date, end_date`;
 export const toScheduleProject = (r: Row): ScheduleProject => ({
   id: idOf(r.id), version: num(r.row_version), name: String(r.name), projectCode: r.project_code ?? null, color: String(r.color),
   status: r.status, nonBillable: Boolean(r.non_billable),
+  startDate: r.start_date === null ? null : day(r.start_date), endDate: r.end_date === null ? null : day(r.end_date),
 });
 
 interface PageCursor { name: string; id: string }
