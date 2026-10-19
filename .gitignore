@@ -14,3 +14,7 @@ coverage/
 # Stryker (mutation, npm run mutation -w @wnext/engine)
 .stryker-tmp/
 reports/mutation/
+
+# Pile de développement (npm run dev:stack)
+.dev-pg/
+!apps/web/.env.development
