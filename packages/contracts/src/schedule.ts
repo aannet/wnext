@@ -123,6 +123,7 @@ export const ScheduleAccount = z
   .object({
     weekStart: z.number().int().min(1).max(7).describe("Premier jour affiché, ISO : 1 = lundi ... 7 = dimanche (affichage seulement)"),
     capacityThresholds: z.object({ underPercent: z.number().min(1).max(100) }).describe("Seuil de sous-allocation du compte ; la sur-allocation est fixe à 100 %"),
+    timezone: z.string().min(1).describe("Fuseau IANA du compte (accounts.timezone) : « Aujourd'hui » et dates métier sont celles de ce fuseau, jamais celui du navigateur (BR-18)"),
   })
   .meta({ id: "ScheduleAccount" });
 

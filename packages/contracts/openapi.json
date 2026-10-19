@@ -243,11 +243,17 @@
               "underPercent"
             ],
             "description": "Seuil de sous-allocation du compte ; la sur-allocation est fixe à 100 %"
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Fuseau IANA du compte (accounts.timezone) : « Aujourd'hui » et dates métier sont celles de ce fuseau, jamais celui du navigateur (BR-18)"
           }
         },
         "required": [
           "weekStart",
-          "capacityThresholds"
+          "capacityThresholds",
+          "timezone"
         ]
       },
       "SchedulePerson": {

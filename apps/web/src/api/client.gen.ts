@@ -51,6 +51,7 @@ export interface ScheduleAccount {
   capacityThresholds: {
     underPercent: number;
   };
+  timezone: string;
 }
 
 export interface SchedulePerson {
