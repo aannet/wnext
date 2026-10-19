@@ -57,7 +57,22 @@ export function setZoom(v: Viewport, zoom: Zoom, scale = DEFAULT_PX_PER_DAY, bou
 
 export const goToDate = (v: Viewport, date: string, bounds?: Bounds) => clamp({ ...v, center: dayNumber(date) + 0.5 }, bounds);
 
-/** « Aujourd'hui » (raccourci T) : `today` est la date du jour dans le fuseau du compte, fournie par l'appelant. */
+/**
+ * Date du jour dans le fuseau du compte (accounts.timezone, IANA), jamais celui du navigateur : les dates métier sont
+ * celles du compte (BR-18). `now` est fourni par l'appelant (testable). Fuseau inconnu : INVALID_TIMEZONE.
+ */
+export function todayIn(timeZone: string, now: Date): string {
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  } catch {
+    throw new RangeError(`INVALID_TIMEZONE: ${timeZone}`);
+  }
+  const get = (t: string) => parts.find((p) => p.type === t)!.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/** « Aujourd'hui » (raccourci T) : `today` est la date du jour dans le fuseau du compte (todayIn). */
 export const goToday = goToDate;
 
 /** Défilement de dx pixels (positif = vers le futur). */

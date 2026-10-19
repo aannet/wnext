@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { addDays } from "../src/dates";
 import {
   CHUNK_DAYS, dateAtX, dayNumber, goToday, headerCells, loadChunks, mergeChunks, page, scrollBy, setZoom,
-  viewAt, visibleRange, weekStartOf, xOfDate,
+  todayIn, viewAt, visibleRange, weekStartOf, xOfDate,
 } from "../src/viewport";
 
 const SCALE = { day: 100, week: 20, month: 5 };
@@ -135,5 +135,26 @@ describe("bornes et cas limites", () => {
   it("regroupement : entrée dans le désordre triée d'abord", () => {
     const c = (from: string) => ({ from, to: addDays(from, 27) });
     expect(mergeChunks([c("2026-02-02"), c("2026-01-05")])).toEqual([{ from: "2026-01-05", to: "2026-03-01" }]);
+  });
+});
+
+// @BR-18
+describe("todayIn", () => {
+  it("date du jour dans le fuseau du compte, pas en UTC", () => {
+    const t = new Date("2026-10-18T23:30:00Z");
+    expect(todayIn("UTC", t)).toBe("2026-10-18");
+    expect(todayIn("Europe/Paris", t)).toBe("2026-10-19");
+    expect(todayIn("America/Los_Angeles", t)).toBe("2026-10-18");
+    expect(todayIn("Pacific/Kiritimati", new Date("2026-10-18T10:30:00Z"))).toBe("2026-10-19"); // UTC+14
+  });
+
+  it("changement d'heure : minuit local juste après le passage à l'heure d'hiver", () => {
+    expect(todayIn("Europe/Paris", new Date("2026-10-24T22:30:00Z"))).toBe("2026-10-25");
+    expect(todayIn("Europe/Paris", new Date("2026-10-25T22:59:00Z"))).toBe("2026-10-25");
+    expect(todayIn("Europe/Paris", new Date("2026-10-25T23:00:00Z"))).toBe("2026-10-26");
+  });
+
+  it("fuseau inconnu : INVALID_TIMEZONE", () => {
+    expect(() => todayIn("Mars/Olympus", new Date())).toThrow(/INVALID_TIMEZONE/);
   });
 });
