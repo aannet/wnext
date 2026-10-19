@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import pg, { type Pool } from "pg";
 import type { Db } from "./db";
 
 // Adaptateur `Db` sur un pool `pg`. Une transaction = une connexion dédiée, BEGIN/COMMIT, ROLLBACK sur erreur.
@@ -34,3 +34,17 @@ export function pgDb(pool: Pick<Pool, "connect">, options: PgDbOptions = {}): Db
     },
   };
 }
+
+const DATE_OID = 1082;
+
+/**
+ * Lecteurs de types de l'API (option `types` de `pg.Pool` / `pg.Client`). Une DATE est un jour calendaire sans fuseau : on la
+ * garde en texte `YYYY-MM-DD`. Par défaut `pg` la convertit en Date à minuit LOCAL, et la relire en UTC (`toISOString`)
+ * recule d'un jour à l'est de UTC. Les `timestamptz` restent des Date (des instants).
+ * Choisi plutôt que des `::text` dans chaque SELECT/RETURNING : un seul point, aucune requête future ne peut l'oublier, et
+ * pas de `pg.types.setTypeParser` global qui contaminerait tout le processus.
+ */
+export const pgTypes = {
+  getTypeParser: ((oid: number, format?: "text" | "binary") =>
+    oid === DATE_OID ? (v: string) => v : pg.types.getTypeParser(oid, format as "text")) as typeof pg.types.getTypeParser,
+};

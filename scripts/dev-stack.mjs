@@ -82,11 +82,10 @@ try {
 }
 
 if (!stopping) {
-  // TZ=UTC : schedule.ts / write.ts lisent les DATE pg en Date locale puis toISOString() ; hors UTC (ex. Europe/Paris) les dates reculent d un jour.
   api = spawn(process.execPath, ["--import", "tsx", "src/main.ts"], {
     cwd: join(root, "apps", "api"),
     stdio: "inherit",
-    env: { ...process.env, DATABASE_URL: url, DB_ROLE: "app_user", HOST: "127.0.0.1", PORT: String(apiPort), AUTH_MODE: "dev", TZ: "UTC", WS_TICKET_SECRET: process.env.WS_TICKET_SECRET ?? "dev-only-secret-dev-only-secret-0123456789" },
+    env: { ...process.env, DATABASE_URL: url, DB_ROLE: "app_user", HOST: "127.0.0.1", PORT: String(apiPort), AUTH_MODE: "dev", WS_TICKET_SECRET: process.env.WS_TICKET_SECRET ?? "dev-only-secret-dev-only-secret-0123456789" },
   });
   api.on("exit", (code) => { if (!stopping) { console.error(`l'API s'est arrêtée (code ${code})`); void stop(1); } });
   console.log(`

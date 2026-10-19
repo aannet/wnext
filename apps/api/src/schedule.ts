@@ -9,7 +9,6 @@ import { day, idParam } from "./write";
 
 const DEFAULT_LIMIT = 200;
 const DAY_MS = 86_400_000;
-const iso = (d: unknown) => (d instanceof Date ? d.toISOString().slice(0, 10) : String(d));
 const num = (v: unknown) => Number(v);
 const idOf = (v: unknown) => String(v);
 const orNullId = (v: unknown) => (v === null || v === undefined ? null : String(v));
@@ -24,9 +23,9 @@ export function toScheduleAllocation(r: Row): ScheduleAllocation {
   const base = {
     id: idOf(r.id), version: num(r.row_version), personId: idOf(r.person_id), projectId: idOf(r.project_id),
     phaseId: orNullId(r.phase_id), taskId: orNullId(r.project_task_id), groupId: orNullId(r.group_id),
-    name: r.name ?? null, notes: r.notes ?? null, startDate: iso(r.start_date), endDate: iso(r.end_date),
+    name: r.name ?? null, notes: r.notes ?? null, startDate: day(r.start_date), endDate: day(r.end_date),
     status: r.status, billable: Boolean(r.billable), priority: num(r.priority), repeatState: r.repeat_state,
-    repeatEndDate: r.repeat_end_date === null ? null : iso(r.repeat_end_date),
+    repeatEndDate: r.repeat_end_date === null ? null : day(r.repeat_end_date),
   };
   return r.mode === "hours"
     ? { ...base, mode: "hours" as const, hoursPerDay: num(r.hours_per_day), percent: null }
@@ -53,7 +52,7 @@ export const TIMEOFF_COLUMNS = `id, row_version, person_id, timeoff_type_id, sta
 export function toScheduleTimeoff(r: Row): ScheduleTimeoff {
   return {
     id: idOf(r.id), version: num(r.row_version), personId: idOf(r.person_id), typeId: idOf(r.timeoff_type_id),
-    startDate: iso(r.start_date), endDate: iso(r.end_date), scope: r.scope, startHalf: r.start_half, endHalf: r.end_half,
+    startDate: day(r.start_date), endDate: day(r.end_date), scope: r.scope, startHalf: r.start_half, endHalf: r.end_half,
     hoursPerDay: r.hours_per_day === null ? null : num(r.hours_per_day), approvalStatus: r.approval_status,
   };
 }
@@ -73,7 +72,7 @@ export const toScheduleTimeoffType = (r: Row): ScheduleTimeoffType => ({ id: idO
 
 export const HOLIDAY_COLUMNS = `id, row_version, name, hdate, country, department_id, hours_off`;
 export const toScheduleHoliday = (r: Row): ScheduleHoliday => ({
-  id: idOf(r.id), version: num(r.row_version), name: String(r.name), date: iso(r.hdate), country: r.country === null ? null : String(r.country).trim(),
+  id: idOf(r.id), version: num(r.row_version), name: String(r.name), date: day(r.hdate), country: r.country === null ? null : String(r.country).trim(),
   departmentId: orNullId(r.department_id), hoursOff: r.hours_off === null ? null : num(r.hours_off),
 });
 

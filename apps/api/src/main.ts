@@ -3,13 +3,13 @@ import pg from "pg";
 import { devAuthenticate } from "./auth-dev";
 import { createJwtVerifier, oidcAuthenticate, remoteJwks } from "./auth-oidc";
 import { loadConfig } from "./config";
-import { pgDb } from "./pg-db";
+import { pgDb, pgTypes } from "./pg-db";
 import { pgNotifier } from "./pg-listen";
 import { startServer } from "./server";
 
 async function main() {
   const config = loadConfig(process.env);
-  const pool = new pg.Pool({ connectionString: config.databaseUrl });
+  const pool = new pg.Pool({ connectionString: config.databaseUrl, types: pgTypes });
   pool.on("error", (err) => console.error(JSON.stringify({ level: "error", source: "pool", error: err.message }))); // connexion inactive perdue : ne pas planter
   const db = pgDb(pool, { role: config.dbRole });
   const authenticate = config.oidc
@@ -25,7 +25,7 @@ async function main() {
     ticketSecret: config.wsTicketSecret,
     rateLimits: config.rateLimits,
     notifier: pgNotifier({
-      createClient: () => new pg.Client({ connectionString: config.databaseUrl }),
+      createClient: () => new pg.Client({ connectionString: config.databaseUrl, types: pgTypes }),
       onError: (err) => console.error(JSON.stringify({ level: "error", source: "listen", error: err instanceof Error ? err.message : String(err) })),
     }),
   });

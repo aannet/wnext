@@ -22,6 +22,10 @@ export const isId = (v: string) => /^\d{1,18}$/.test(v);
 /** Filtre par identifiant : une valeur non numérique est une requête invalide (400), pas une erreur de cast en base. */
 export const idParam = (field: string, v: string) => { if (!isId(v)) throw invalid(field); return v; };
 
+/**
+ * Jour calendaire YYYY-MM-DD d'une colonne DATE. Via `pg` (pgTypes, pg-db.ts) c'est déjà une chaîne. La branche Date ne sert
+ * qu'à PGlite, qui parse les DATE à minuit UTC : surtout pas pour un Date de `pg` par défaut (minuit local).
+ */
 export const day = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v));
 
 /** Ligne verrouillée (FOR UPDATE) + contrôle de version dans la même transaction ; renvoie la ligne courante. `table` et `columns` sont des constantes du code. */

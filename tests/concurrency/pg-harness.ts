@@ -6,7 +6,7 @@ import { join } from "node:path";
 import pg from "pg";
 import EmbeddedPostgres from "embedded-postgres";
 import type { RequestContext } from "../../apps/api/src/index";
-import { pgDb } from "../../apps/api/src/pg-db";
+import { pgDb, pgTypes } from "../../apps/api/src/pg-db";
 
 export interface Cluster {
   /** Connexion superutilisateur, pour amorcer et observer (pg_stat_activity). */
@@ -24,7 +24,8 @@ export interface Cluster {
 }
 export interface Held { query: pg.Client["query"]; commit(): Promise<void>; rollback(): Promise<void> }
 
-export async function startCluster(): Promise<Cluster> {
+/** `typed` : le pool applicatif utilise les lecteurs de types de production (DATE en texte), comme apps/api/src/main.ts. */
+export async function startCluster(opts: { typed?: boolean } = {}): Promise<Cluster> {
   const dir = mkdtempSync(join(tmpdir(), "wnext-pg-"));
   const port = 20000 + Math.floor(Math.random() * 20000);
   const server = new EmbeddedPostgres({ databaseDir: join(dir, "data"), user: "postgres", password: "postgres", port, persistent: false, onLog: () => {}, onError: () => {} });
@@ -36,7 +37,7 @@ export async function startCluster(): Promise<Cluster> {
   await admin.connect();
   await admin.query("CREATE EXTENSION IF NOT EXISTS btree_gist; CREATE EXTENSION IF NOT EXISTS citext;");
   await admin.query(readFileSync(new URL("../../schema.sql", import.meta.url), "utf8"));
-  const pool = new pg.Pool({ connectionString: url, max: 12 });
+  const pool = new pg.Pool({ connectionString: url, max: 12, ...(opts.typed ? { types: pgTypes } : {}) });
   const open: pg.Client[] = [];
   return {
     admin, pool, url, db: pgDb(pool, { role: "app_user" }),
