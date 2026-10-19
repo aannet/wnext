@@ -17,7 +17,7 @@ const payload = {
   window: { from: "2026-03-01", to: "2026-03-31" },
   changeCursor: "000000000042",
   page: { nextCursor: null, total: 1 },
-  account: { weekStart: 1, capacityThresholds: { underPercent: 80 } },
+  account: { weekStart: 1, capacityThresholds: { underPercent: 80 }, timezone: "Europe/Paris" },
   people: [person],
   allocations: [hoursAlloc],
   timeoffs: [{ id: "7", version: 1, personId: "1", typeId: "2", startDate: "2026-03-10", endDate: "2026-03-11", scope: "full_day",
