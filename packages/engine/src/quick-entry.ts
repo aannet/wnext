@@ -121,6 +121,9 @@ export function parseQuickEntry(text: string, ctx: QuickContext): QuickDraft {
     const days = low.split("-");
     if (days.length <= 2 && days.every((d) => dayIndex(d, ctx.locale) !== null)) {
       const s = nextDow(ctx.today, dayIndex(days[0]!, ctx.locale)!);
+      // « lun au mer » / « mon to wed » : même plage que « lun-mer »
+      const linked = days.length === 1 && toks[i + 2] && (W.to as readonly string[]).includes(fold(toks[i + 1] ?? "")) ? dayIndex(toks[i + 2]!, ctx.locale) : null;
+      if (linked !== null) { setRange(s, nextDow(s, linked)); i += 2; continue; }
       setRange(s, days.length === 2 ? nextDow(s, dayIndex(days[1]!, ctx.locale)!) : s);
       continue;
     }

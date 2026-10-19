@@ -70,6 +70,11 @@ describe("dates", () => {
     expect(parseQuickEntry("Pitch 4h until friday", en)).toMatchObject({ projectId: "2", endDate: "2026-10-23" });
   });
 
+  it("« lun au mer » / « mon to wed » : plage de jours, le mot de liaison n'entre pas dans le nom du projet", () => {
+    expect(parseQuickEntry("Refonte 6h lun au mer", fr)).toMatchObject({ projectId: "1", projectQuery: "Refonte", startDate: "2026-10-19", endDate: "2026-10-21" });
+    expect(parseQuickEntry("Pitch 6h mon to wed", en)).toMatchObject({ projectId: "2", projectQuery: "Pitch", startDate: "2026-10-19", endDate: "2026-10-21" });
+  });
+
   it("année explicite sur 2 ou 4 chiffres ; « du … au … » avec une date invalide signalé", () => {
     expect(parseQuickEntry("Refonte 4h 28/10/27", fr).startDate).toBe("2027-10-28");
     expect(parseQuickEntry("Refonte 4h 28/10/2027", fr).startDate).toBe("2027-10-28");
