@@ -4,6 +4,7 @@
   "mutate": ["src/**/*.ts", "!src/index.ts"],
   "reporters": ["clear-text", "progress"],
   "coverageAnalysis": "perTest",
+  "concurrency": 2,
   "thresholds": { "high": 85, "low": 70, "break": null },
   "tempDirName": "../../.stryker-tmp",
   "tsconfigFile": "tsconfig.stryker-absent.json"
