@@ -16,9 +16,10 @@ export interface CapacityBar {
   capacityLine: number;
 }
 
-export interface CapacityCell extends UtilizationAggregate {
+export interface CapacityCell {
   from: string;
   to: string;
+  aggregate: UtilizationAggregate;
   bar: CapacityBar;
 }
 
@@ -41,8 +42,35 @@ export function capacityCells(
   weekStart: number,
   thresholds: CapacityThresholds,
 ): CapacityCell[] {
-  return headerCells(range, zoom, weekStart).map((c) => {
-    const agg = aggregateUtilization(rows.filter((r) => r.day >= c.from && r.day <= c.to), thresholds);
-    return { from: c.from, to: c.to, ...agg, bar: capacityBar(agg) };
+  return cellsOf(rows, headerCells(range, zoom, weekStart), thresholds);
+}
+
+/** Toutes les personnes d'un coup (en-têtes calculés une fois) : lignes de utilization(), toutes personnes mêlées. */
+export function capacityCellsByPerson(
+  rows: readonly UtilizationRow[],
+  range: { from: string; to: string },
+  zoom: Zoom,
+  weekStart: number,
+  thresholds: CapacityThresholds,
+): Map<string, CapacityCell[]> {
+  const cells = headerCells(range, zoom, weekStart);
+  const byPerson = new Map<string, UtilizationRow[]>();
+  for (const r of rows) (byPerson.get(r.personId) ?? byPerson.set(r.personId, []).get(r.personId)!).push(r);
+  return new Map([...byPerson].map(([id, rs]) => [id, cellsOf(rs, cells, thresholds)]));
+}
+
+function cellsOf(rows: readonly UtilizationRow[], cells: readonly { from: string; to: string }[], thresholds: CapacityThresholds): CapacityCell[] {
+  // Un seul passage : chaque ligne va dans la cellule qui contient son jour (cellules contiguës et triées).
+  const buckets: UtilizationRow[][] = cells.map(() => []);
+  const sorted = [...rows].sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
+  let k = 0;
+  for (const r of sorted) {
+    while (k < cells.length && r.day > cells[k]!.to) k++;
+    if (k === cells.length) break;
+    if (r.day >= cells[k]!.from) buckets[k]!.push(r);
+  }
+  return cells.map((c, i) => {
+    const aggregate = aggregateUtilization(buckets[i]!, thresholds);
+    return { from: c.from, to: c.to, aggregate, bar: capacityBar(aggregate) };
   });
 }

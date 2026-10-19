@@ -1,7 +1,8 @@
 // Miroir TS de utilization() : capacité nette (personnes actives) jointe à la charge planifiée.
 // Sur-allocation rapportée, jamais bloquée (BR-01). Les états sous/OK/sur restent hors de la fonction (seuils par compte).
 import { dailyCapacity, type CapacityInput } from "./capacity";
-import { dailyPlannedLoad, type AllocationInput } from "./load";
+import { assertRange, windowDays } from "./dates";
+import { plannedLoadByPerson, type AllocationInput } from "./load";
 
 export interface UtilizationInput extends CapacityInput {
   allocations: readonly AllocationInput[];
@@ -23,16 +24,12 @@ export interface UtilizationRow {
 }
 
 export function utilization(input: UtilizationInput): UtilizationRow[] {
-  const load = new Map(
-    dailyPlannedLoad({
-      people: input.people,
-      allocations: input.allocations,
-      from: input.from,
-      to: input.to,
-    }).map((l) => [`${l.personId}|${l.day}`, l]),
-  );
+  assertRange(input.from, input.to);
+  const cal = windowDays(input.from, input.to);
+  const load = plannedLoadByPerson(input, cal);
+  const index = new Map(cal.iso.map((d, i) => [d, i]));
   return dailyCapacity(input).map((c) => {
-    const l = load.get(`${c.personId}|${c.day}`);
+    const l = load.get(c.personId)?.[index.get(c.day)!];
     const planned = l?.plannedHours ?? 0;
     return {
       personId: c.personId,

@@ -7,8 +7,11 @@ export const toIso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 /** Heures ouvrées d'un jour : ISODOW 1..7 = lundi..dimanche -> index 0..6 (ADR-001). */
 export function workHours(workDaysHours: readonly number[], day: string): number {
-  return workDaysHours[(new Date(toMs(day)).getUTCDay() + 6) % 7] ?? 0;
+  return hoursAt(workDaysHours, (new Date(toMs(day)).getUTCDay() + 6) % 7);
 }
+
+/** Heures ouvrées à l'index ISO `dow` (0 = lundi) ; 0 hors du tableau. */
+export const hoursAt = (workDaysHours: readonly number[], dow: number): number => workDaysHours[dow] ?? 0;
 
 /** Même contrôle que les fonctions SQL : plage ordonnée et <= 400 jours. */
 export function assertRange(from: string, to: string): void {
@@ -32,3 +35,17 @@ export const monthsBetween = (a: string, b: string) =>
   (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7));
 
 export const addDays = (d: string, n: number) => toIso(toMs(d) + n * DAY_MS);
+
+/** Calendrier d'une fenêtre, calculé une fois : jours ISO et index de jour ISO (0 = lundi), pour les boucles chaudes. */
+export interface WindowDays { first: number; iso: string[]; dow: number[] }
+export function windowDays(from: string, to: string): WindowDays {
+  const first = Math.round(toMs(from) / DAY_MS);
+  const n = Math.round((toMs(to) - toMs(from)) / DAY_MS) + 1;
+  const iso: string[] = new Array(n);
+  const dow: number[] = new Array(n);
+  for (let i = 0; i < n; i++) {
+    iso[i] = toIso((first + i) * DAY_MS);
+    dow[i] = (first + i + 3) % 7; // 1970-01-01 est un jeudi (index 3)
+  }
+  return { first, iso, dow };
+}

@@ -115,6 +115,10 @@ describe("T04 tentatif et facturable", () => {
 });
 
 describe("entrées hors périmètre", () => {
+  it("allocation à 0 h : aucune ligne (rien à planifier)", () => {
+    expect(dailyPlannedLoad({ people: [person("alice")], allocations: [alloc("alice", "2026-03-02", "2026-03-06", 0)], from: "2026-03-02", to: "2026-03-08" })).toEqual([]);
+  });
+
   it("allocation d'une personne absente de la liste : ignorée", () => {
     expect(dailyPlannedLoad({ people: [person("alice")], allocations: [alloc("fantome", "2026-03-02", "2026-03-06", 6)], from: "2026-03-02", to: "2026-03-08" })).toEqual([]);
   });

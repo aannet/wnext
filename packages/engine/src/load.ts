@@ -1,7 +1,8 @@
 // Charge planifiée par personne et par jour ouvré. Miroir TS de daily_planned_load() (schema.sql).
 // Fériés et congés ne retirent PAS la charge (elle ressort en sur-allocation, BR-01).
 import { percentToHours } from "./percent";
-import { DAY_MS, addMonths, assertRange, monthsBetween, toMs, toIso, workHours } from "./dates";
+import { DAY_MS, addMonths, assertRange, hoursAt, monthsBetween, toMs, windowDays, workHours, type WindowDays } from "./dates";
+import { seriesEnd } from "./repeat";
 
 export interface LoadPersonInput {
   id: string;
@@ -57,41 +58,58 @@ export function allocationCoversDay(a: Pick<AllocationInput, "startDate" | "endD
 
 /** Heures d'une allocation un jour donné (0 hors série, jour non ouvré ou jour non couvert). Base du % : heures ouvrées brutes. */
 export function allocationHoursOn(a: AllocationInput, workDaysHours: readonly number[], day: string): number {
-  const spanEnd = a.repeatState === "none" ? a.endDate : (a.repeatEndDate ?? a.endDate);
-  if (day < a.startDate || day > spanEnd) return 0;
+  if (day < a.startDate || day > seriesEnd(a)) return 0;
   const wd = workHours(workDaysHours, day);
   if (wd <= 0 || !allocationCoversDay(a, day)) return 0;
-  return a.mode === "hours" ? (a.hoursPerDay ?? 0) : percentToHours(a.percent ?? 0, wd);
+  return amountOn(a, wd);
 }
 
+/** Heures d'un jour couvert dont l'horaire brut est `wd` (> 0). Base du % : heures ouvrées brutes (BR-24). */
+const amountOn = (a: AllocationInput, wd: number) => (a.mode === "hours" ? (a.hoursPerDay ?? 0) : percentToHours(a.percent ?? 0, wd));
+
 export function dailyPlannedLoad(input: LoadInput): LoadRow[] {
-  const { from, to } = input;
-  assertRange(from, to);
+  assertRange(input.from, input.to);
+  const acc = plannedLoadByPerson(input, windowDays(input.from, input.to));
+  const ids = [...acc.keys()].sort(); // ordre des unités UTF-16, comme les comparaisons < des autres tris
+  return ids.flatMap((id) => acc.get(id)!.filter((r): r is LoadRow => r !== undefined));
+}
+
+/** Charge par personne, indexée par jour de la fenêtre `cal` (case vide = aucune charge). Interne au moteur (utilization). */
+export function plannedLoadByPerson(input: LoadInput, cal: WindowDays): Map<string, (LoadRow | undefined)[]> {
   const people = new Map(input.people.map((p) => [p.id, p]));
-  const acc = new Map<string, LoadRow>();
+  const dayNum = (d: string) => Math.round(toMs(d) / DAY_MS);
+  // Lignes par personne, indexées par jour de la fenêtre (boucle chaude sans Date ni clé en chaîne).
+  const acc = new Map<string, (LoadRow | undefined)[]>();
 
   for (const a of input.allocations) {
     const person = people.get(a.personId);
     if (!person) continue;
-    const spanEnd = a.repeatState === "none" ? a.endDate : (a.repeatEndDate ?? a.endDate);
-    const first = a.startDate > from ? a.startDate : from;
-    const last = spanEnd < to ? spanEnd : to;
+    const lo = Math.max(0, dayNum(a.startDate) - cal.first);
+    const hi = Math.min(cal.iso.length - 1, dayNum(seriesEnd(a)) - cal.first);
+    if (lo > hi) continue;
     const tentative = a.status === "tentative" || a.projectTentative;
     const billable =
       a.billable && !a.projectNonBillable && !a.phaseNonBillable && (a.taskBillable ?? true) &&
       a.status === "confirmed" && !a.projectTentative;
+    const start = dayNum(a.startDate);
+    const length = dayNum(a.endDate) - start;
+    const rows = acc.get(a.personId) ?? acc.set(a.personId, new Array(cal.iso.length)).get(a.personId)!;
 
-    for (let ms = toMs(first); ms <= toMs(last); ms += DAY_MS) {
-      const day = toIso(ms);
-      const v = allocationHoursOn(a, person.workDaysHours, day);
+    for (let i = lo; i <= hi; i++) {
+      const wd = hoursAt(person.workDaysHours, cal.dow[i]!);
+      if (wd <= 0) continue;
+      const offset = cal.first + i - start;
+      const covered = a.repeatState === "none" || a.repeatState === "daily" ? true
+        : a.repeatState === "weekly" ? offset % 7 <= length
+        : allocationCoversDay(a, cal.iso[i]!);
+      if (!covered) continue;
+      const v = amountOn(a, wd);
       if (v <= 0) continue;
-      const key = `${a.personId}|${day}`;
-      const row = acc.get(key) ?? { personId: a.personId, day, plannedHours: 0, tentativeHours: 0, billableHours: 0 };
+      const row = rows[i] ?? (rows[i] = { personId: a.personId, day: cal.iso[i]!, plannedHours: 0, tentativeHours: 0, billableHours: 0 });
       row.plannedHours += v;
       if (tentative) row.tentativeHours += v;
       if (billable) row.billableHours += v;
-      acc.set(key, row);
     }
   }
-  return [...acc.values()].sort((x, y) => (x.personId < y.personId ? -1 : x.personId > y.personId ? 1 : x.day < y.day ? -1 : 1));
+  return acc;
 }

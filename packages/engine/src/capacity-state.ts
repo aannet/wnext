@@ -65,20 +65,24 @@ export interface UtilizationAggregate extends CapacityStatus {
   overbookedDays: number;
 }
 
-/** Jauge récapitulative d'une personne sur une période (lignes d'une même personne). */
+/** Jauge récapitulative d'une personne sur une période (lignes d'une même personne). Un seul passage (boucle chaude des barres). */
 export function aggregateUtilization(rows: readonly UtilizationRow[], t: CapacityThresholds): UtilizationAggregate {
-  const sum = (f: (r: UtilizationRow) => number) => rows.reduce((s, r) => s + f(r), 0);
-  const figures = {
-    capacityHours: sum((r) => r.capacityHours),
-    plannedHours: sum((r) => r.plannedHours),
-    tentativeHours: sum((r) => r.tentativeHours),
-  };
+  let capacityHours = 0, plannedHours = 0, tentativeHours = 0, billableHours = 0, overtimeHours = 0, overbookedDays = 0;
+  for (const r of rows) {
+    capacityHours += r.capacityHours;
+    plannedHours += r.plannedHours;
+    tentativeHours += r.tentativeHours;
+    billableHours += r.billableHours;
+    overtimeHours += r.overtimeHours;
+    if (r.isOverbooked) overbookedDays++;
+  }
+  const st = classifyCapacity({ capacityHours, plannedHours, tentativeHours }, t);
   return {
-    ...figures,
-    ...classifyCapacity(figures, t),
-    billableHours: sum((r) => r.billableHours),
-    overtimeHours: sum((r) => r.overtimeHours),
-    utilization: figures.capacityHours === 0 ? null : figures.plannedHours / figures.capacityHours,
-    overbookedDays: rows.filter((r) => r.isOverbooked).length,
+    capacityHours, plannedHours, tentativeHours,
+    state: st.state, freeHours: st.freeHours, overHours: st.overHours, overbookedConfirmed: st.overbookedConfirmed, potentialOnly: st.potentialOnly,
+    billableHours,
+    overtimeHours,
+    utilization: capacityHours === 0 ? null : plannedHours / capacityHours,
+    overbookedDays,
   };
 }

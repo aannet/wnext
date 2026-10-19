@@ -2,7 +2,7 @@
 // vérifiée par test/capacity.test.ts (mêmes cas que tests/sql/schema_tests.sql T05..T07).
 // Dates : chaînes ISO "YYYY-MM-DD" (pas de fuseau). work_days_hours : index 0 = lundi (ADR-001).
 
-import { DAY_MS, assertRange, toIso, toMs, workHours } from "./dates";
+import { assertRange, hoursAt, windowDays } from "./dates";
 
 export type Half = "am" | "pm";
 
@@ -56,20 +56,26 @@ export function dailyCapacity(input: CapacityInput): CapacityRow[] {
   const { from, to } = input;
   assertRange(from, to);
 
+  const cal = windowDays(from, to);
+  const holidaysByDay = new Map<string, HolidayInput[]>();
+  for (const h of input.holidays) (holidaysByDay.get(h.hdate) ?? holidaysByDay.set(h.hdate, []).get(h.hdate)!).push(h);
+  const timeoffsByPerson = new Map<string, TimeoffInput[]>();
+  for (const t of input.timeoffs) {
+    if (!t.deducted || t.approvalStatus === "declined" || t.endDate < from || t.startDate > to) continue;
+    (timeoffsByPerson.get(t.personId) ?? timeoffsByPerson.set(t.personId, []).get(t.personId)!).push(t);
+  }
+
   const rows: CapacityRow[] = [];
   for (const p of input.people) {
     if (!p.active) continue;
-    const timeoffs = input.timeoffs.filter(
-      (t) => t.personId === p.id && t.deducted && t.approvalStatus !== "declined",
-    );
-    for (let ms = toMs(from); ms <= toMs(to); ms += DAY_MS) {
-      const day = toIso(ms);
-      const base = workHours(p.workDaysHours, day);
+    const timeoffs = timeoffsByPerson.get(p.id) ?? [];
+    for (let i = 0; i < cal.iso.length; i++) {
+      const day = cal.iso[i]!;
+      const base = hoursAt(p.workDaysHours, cal.dow[i]!);
 
       // Férié : portée compte / pays / département ; le plus grand l'emporte, plafonné à l'horaire du jour.
       let holiday = 0;
-      for (const h of input.holidays) {
-        if (h.hdate !== day) continue;
+      for (const h of holidaysByDay.get(day) ?? []) {
         if (h.country !== null && h.country !== p.country) continue;
         if (h.departmentId !== null && h.departmentId !== p.departmentId) continue;
         holiday = Math.max(holiday, h.hoursOff ?? base);
