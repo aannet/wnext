@@ -17,6 +17,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint:boundaries": "node scripts/lint-boundaries.mjs",
+    "lint:ui-strings": "node scripts/lint-ui-strings.mjs",
     "test:boundaries": "vitest run tests/boundaries",
     "test:parity": "vitest run tests/parity",
     "test:e2e": "vitest run tests/e2e",

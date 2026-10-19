@@ -20,6 +20,7 @@ typecheck:
 
 lint:
 	npm run lint:boundaries
+	npm run lint:ui-strings
 
 test:
 	npm test
