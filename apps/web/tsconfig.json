@@ -1,7 +1,23 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "paths": { "@wnext/contracts": ["../../packages/contracts/src/index.ts"], "@wnext/engine": ["../../packages/engine/src/index.ts"] }
+    "paths": {
+      "@wnext/contracts": [
+        "../../packages/contracts/src/index.ts"
+      ],
+      "@wnext/engine": [
+        "../../packages/engine/src/index.ts"
+      ]
+    },
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "jsx": "react-jsx"
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ]
 }
