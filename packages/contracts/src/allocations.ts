@@ -9,6 +9,9 @@ import { SchedulePage, ScheduleAllocation } from "./schedule";
 //    La création n'a pas de précondition ; la réponse porte la `version` à utiliser ensuite.
 //  * BR-01 : la sur-allocation n'est JAMAIS une erreur ici. La réponse ne contient pas d'avertissement : le client la
 //    déduit avec @wnext/engine à partir des mêmes données, comme pour la lecture.
+//  * BR-37 : une allocation hors des dates de son projet ou de sa phase est ACCEPTÉE, sans avertissement dans la réponse
+//    non plus (décision 9 du registre : l'API transporte les faits). Le client appelle allocationDateWarnings de
+//    @wnext/engine avec les bornes du projet (ScheduleProject.startDate / endDate) et, si besoin, de la phase (GET des phases).
 //  * BR-04 : écrire une allocation sur un jour de congé n'est pas refusé non plus ; l'avertissement vient du moteur.
 //  * Le mode impose son champ via `load` (heures par jour OU pourcentage des heures brutes, plafond 500 %, BR-24).
 //  * Défauts appliqués par le serveur quand le champ est omis : status "confirmed", billable true, priority 0, repeatState "none".

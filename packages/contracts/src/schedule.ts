@@ -113,6 +113,9 @@ export const ScheduleProject = z
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
     status: z.enum(["tentative", "planned", "in_progress", "on_hold", "completed", "archived"]),
     nonBillable: z.boolean(),
+    /** Bornes du projet (BR-37 : le client avertit d'une allocation hors bornes avec @wnext/engine) ; null = non bornée. */
+    startDate: orNull(IsoDate),
+    endDate: orNull(IsoDate),
   })
   .meta({ id: "ScheduleProject" });
 

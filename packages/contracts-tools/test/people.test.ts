@@ -57,7 +57,7 @@ describe("routes et spec", () => {
 
 describe("lecture des personnes", () => {
   const person = { id: "1", version: 1, name: "Alice", peopleType: "employee", departmentId: null, roleId: null, country: null, workDaysHours: [8, 8, 8, 8, 8, 0, 0], tags: [], avatarUrl: null, active: true };
-  const project = { id: "2", version: 1, name: "P", projectCode: null, color: "#3B82F6", status: "planned", nonBillable: false };
+  const project = { id: "2", version: 1, name: "P", projectCode: null, color: "#3B82F6", status: "planned", nonBillable: false, startDate: null, endDate: "2026-12-31" };
 
   it("la liste renvoie des SchedulePerson : ni coût, ni taux, ni e-mail", () => {
     expect(ok(PersonList, { items: [person], page: { nextCursor: null, total: 1 } })).toBe(true);

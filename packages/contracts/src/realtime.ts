@@ -64,11 +64,12 @@ export type RealtimeTicket = z.infer<typeof RealtimeTicket>;
  *  * `project_team` n'a pas d'identifiant propre : `id` est celui du PROJET et le message signifie « l'équipe de ce projet a
  *    changé, recharge-la » (toujours `op = update` tant que le projet existe ; sa suppression est portée par `projects`).
  *    Sa `version` est le `seq` du message (monotone par compte), non la version du projet.
+ *  * `logged_time` : temps saisi, lisible par tout membre comme le Schedule (réalisé face au planifié).
  */
 export const ChangeEntity = z
   .enum([
     "allocations", "timeoffs", "people", "holidays", "projects", "timeoff_types", "departments", "roles",
-    "clients", "phases", "project_tasks", "milestones", "project_team",
+    "clients", "phases", "project_tasks", "milestones", "project_team", "logged_time",
   ])
   .meta({ id: "ChangeEntity" });
 export type ChangeEntity = z.infer<typeof ChangeEntity>;

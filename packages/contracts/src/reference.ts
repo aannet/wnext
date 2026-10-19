@@ -96,8 +96,6 @@ export const ProjectPatch = z
 
 /** Projet complet : la forme du Schedule plus ce qui ne s'affiche pas dans la grille. */
 export const ProjectDetail = ScheduleProject.extend({
-  startDate: orNull(IsoDate),
-  endDate: orNull(IsoDate),
   projectManagerId: orNull(Id),
   tags: z.array(z.string()),
   notes: z.string().nullable(),

@@ -23,7 +23,7 @@ const payload = {
   timeoffs: [{ id: "7", version: 1, personId: "1", typeId: "2", startDate: "2026-03-10", endDate: "2026-03-11", scope: "full_day",
     startHalf: "am", endHalf: "pm", hoursPerDay: null, approvalStatus: "pending" }],
   holidays: [{ id: "9", version: 1, name: "Férié", date: "2026-03-17", country: "FR", departmentId: null, hoursOff: null }],
-  projects: [{ id: "50", version: 1, name: "Site web", projectCode: null, color: "#3B82F6", status: "in_progress", nonBillable: false }],
+  projects: [{ id: "50", version: 1, name: "Site web", projectCode: null, color: "#3B82F6", status: "in_progress", nonBillable: false, startDate: "2026-01-01", endDate: null }],
   timeoffTypes: [{ id: "2", version: 1, name: "Vacances", deducted: true }],
   departments: [{ id: "10", version: 1, name: "Design" }],
   roles: [],

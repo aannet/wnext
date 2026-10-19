@@ -148,6 +148,8 @@ export interface ScheduleProject {
   color: string;
   status: "tentative" | "planned" | "in_progress" | "on_hold" | "completed" | "archived";
   nonBillable: boolean;
+  startDate: IsoDate | null;
+  endDate: IsoDate | null;
 }
 
 export interface ScheduleTimeoffType {

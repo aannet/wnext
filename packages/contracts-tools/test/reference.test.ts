@@ -45,10 +45,11 @@ describe("projets", () => {
     expect(ok(ProjectPatch, { startDate: "2026-02-01", endDate: "2026-01-01" })).toBe(false);
   });
   it("ProjectDetail étend ScheduleProject (même version, mêmes champs de grille)", () => {
-    const p = { id: "1", version: 1, name: "P", projectCode: null, color: "#3B82F6", status: "planned", nonBillable: false };
+    const p = { id: "1", version: 1, name: "P", projectCode: null, color: "#3B82F6", status: "planned", nonBillable: false, startDate: null, endDate: null };
     expect(ok(ScheduleProject, p)).toBe(true);
+    expect(ok(ScheduleProject, { ...p, startDate: undefined })).toBe(false); // bornes toujours présentes (BR-37 côté client)
     expect(ok(ProjectDetail, p)).toBe(false);
-    expect(ok(ProjectDetail, { ...p, startDate: null, endDate: null, projectManagerId: null, tags: [], notes: null })).toBe(true);
+    expect(ok(ProjectDetail, { ...p, projectManagerId: null, tags: [], notes: null })).toBe(true);
   });
 });
 

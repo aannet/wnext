@@ -21,7 +21,7 @@ import { Id, IsoDate, orNull, Version } from "./common";
 //  * Fenêtres : `from` et `to` obligatoires, 400 jours au plus (SCHEDULE_RANGE_INVALID). Liste non paginée : une seule personne,
 //    donc au plus quelques lignes par jour.
 //  * Hors périmètre (à venir) : période de timesheet configurable et échéance de verrouillage automatique (Q-05/Q-06), ajout dans une
-//    période verrouillée, approbation, rapports, diffusion temps réel (logged_time n'est pas dans ChangeEntity).
+//    période verrouillée, approbation, rapports. Diffusion temps réel : `logged_time` est dans ChangeEntity (realtime.ts).
 //  * Les temps saisis ne sont jamais touchés par une désactivation de personne ; un retrait d'équipe les supprime s'ils sont tous
 //    brouillons (team.ts).
 

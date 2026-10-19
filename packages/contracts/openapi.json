@@ -791,6 +791,26 @@
           },
           "nonBillable": {
             "type": "boolean"
+          },
+          "startDate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "endDate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -800,7 +820,9 @@
           "projectCode",
           "color",
           "status",
-          "nonBillable"
+          "nonBillable",
+          "startDate",
+          "endDate"
         ]
       },
       "ScheduleTimeoffType": {
