@@ -61,7 +61,10 @@
           "PERSON_DEACTIVATION_INVALID_REPLACEMENT",
           "LOGGED_TIME_LOCKED",
           "LOGGED_TIME_DAY_LIMIT",
-          "RATE_LIMITED"
+          "RATE_LIMITED",
+          "NOT_A_SERIES",
+          "OCCURRENCE_NOT_FOUND",
+          "SERIES_SPLIT_UNSUPPORTED"
         ]
       },
       "HealthResponse": {
@@ -1430,6 +1433,108 @@
             "$ref": "#/components/schemas/AllocationLoad"
           }
         }
+      },
+      "AllocationSplitResult": {
+        "type": "object",
+        "properties": {
+          "before": {
+            "$ref": "#/components/schemas/ScheduleAllocation"
+          },
+          "occurrence": {
+            "$ref": "#/components/schemas/ScheduleAllocation"
+          },
+          "after": {
+            "$ref": "#/components/schemas/ScheduleAllocation"
+          }
+        }
+      },
+      "AllocationSplit": {
+        "type": "object",
+        "properties": {
+          "occurrenceDate": {
+            "$ref": "#/components/schemas/IsoDate"
+          },
+          "patch": {
+            "type": "object",
+            "properties": {
+              "personId": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "phaseId": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "taskId": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 5000
+              },
+              "startDate": {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              "endDate": {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "tentative",
+                  "confirmed"
+                ]
+              },
+              "billable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": -32768,
+                "maximum": 32767
+              },
+              "load": {
+                "$ref": "#/components/schemas/AllocationLoad"
+              }
+            },
+            "additionalProperties": false
+          },
+          "delete": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "occurrenceDate"
+        ],
+        "additionalProperties": false
       },
       "TimeoffCreate": {
         "type": "object",
@@ -4834,6 +4939,126 @@
           },
           "404": {
             "description": "Personne, projet, phase ou tache inconnue (NOT_FOUND, params.entity)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/allocations/{id}/split": {
+      "post": {
+        "operationId": "splitAllocation",
+        "summary": "Modifier ou supprimer UNE occurrence d'une serie repetee : decoupe en avant / occurrence / apres (verrou optimiste sur la serie)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\"\\d+\"$",
+              "description": "Version lue dans le Schedule, entre guillemets : \"3\""
+            },
+            "required": true,
+            "description": "Version lue dans le Schedule, entre guillemets : \"3\"",
+            "name": "If-Match",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocationSplit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Morceaux apres decoupe (before = ligne d'origine, absent pour l'occurrence 0 ; occurrence absente si delete ; after absent pour la derniere)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationSplitResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps ou en-tete invalide (VALIDATION_FAILED ; patch et delete exclusifs, pas de repetition dans patch)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Allocation ou reference inconnue (NOT_FOUND, params.entity) ; aucune occurrence ne commence a cette date (OCCURRENCE_NOT_FOUND, params.occurrenceDate)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version perimee de la serie (VERSION_CONFLICT, params.currentVersion) ; allocation non repetee (NOT_A_SERIES) ; serie non decoupable (SERIES_SPLIT_UNSUPPORTED, params.reason)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match absent (PRECONDITION_REQUIRED)",
             "content": {
               "application/json": {
                 "schema": {

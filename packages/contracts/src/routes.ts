@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { AllocationCreate, AllocationGroup, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationPathParams, IfMatchHeader, PersonAllocationList, PersonAllocationListQuery, ProjectAllocationList, ProjectAllocationListQuery, ProjectPathParams } from "./allocations";
+import { AllocationCreate, AllocationGroup, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationPathParams, AllocationSplit, AllocationSplitResult, IfMatchHeader, PersonAllocationList, PersonAllocationListQuery, ProjectAllocationList, ProjectAllocationListQuery, ProjectPathParams } from "./allocations";
 import {
   ProjectBudgetLine, ProjectBudgetLineCreate, ProjectBudgetLineList, ProjectBudgetLineListQuery, ProjectBudgetLinePatch,
   ProjectExpense, ProjectExpenseCreate, ProjectExpenseList, ProjectExpenseListQuery, ProjectExpensePatch,
@@ -280,6 +280,25 @@ export const routes: RouteContract[] = [
       403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
       404: { description: "Allocation inconnue (NOT_FOUND)", schema: ApiError },
       409: { description: "Version perimee (VERSION_CONFLICT, params.currentVersion)", schema: ApiError },
+      428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/v1/allocations/{id}/split",
+    operationId: "splitAllocation",
+    summary: "Modifier ou supprimer UNE occurrence d'une serie repetee : decoupe en avant / occurrence / apres (verrou optimiste sur la serie)",
+    params: AllocationPathParams,
+    headers: IfMatchHeader,
+    body: AllocationSplit,
+    responses: {
+      200: { description: "Morceaux apres decoupe (before = ligne d'origine, absent pour l'occurrence 0 ; occurrence absente si delete ; after absent pour la derniere)", schema: AllocationSplitResult },
+      400: { description: "Corps ou en-tete invalide (VALIDATION_FAILED ; patch et delete exclusifs, pas de repetition dans patch)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
+      404: { description: "Allocation ou reference inconnue (NOT_FOUND, params.entity) ; aucune occurrence ne commence a cette date (OCCURRENCE_NOT_FOUND, params.occurrenceDate)", schema: ApiError },
+      409: { description: "Version perimee de la serie (VERSION_CONFLICT, params.currentVersion) ; allocation non repetee (NOT_A_SERIES) ; serie non decoupable (SERIES_SPLIT_UNSUPPORTED, params.reason)", schema: ApiError },
       428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },

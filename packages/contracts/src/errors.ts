@@ -23,6 +23,9 @@ export const ErrorCode = z.enum([
   "LOGGED_TIME_LOCKED",
   "LOGGED_TIME_DAY_LIMIT",
   "RATE_LIMITED",
+  "NOT_A_SERIES",
+  "OCCURRENCE_NOT_FOUND",
+  "SERIES_SPLIT_UNSUPPORTED",
 ]).meta({ id: "ErrorCode" });
 
 export const ApiError = z

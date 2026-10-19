@@ -9,7 +9,7 @@ export interface ApiError {
   requestId: string;
 }
 
-export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "ALREADY_EXISTS" | "REFERENCE_IN_USE" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS" | "PERSON_DEACTIVATION_CONFIRMATION_REQUIRED" | "PERSON_DEACTIVATION_STALE_CONFIRMATION" | "PERSON_DEACTIVATION_INVALID_REPLACEMENT" | "LOGGED_TIME_LOCKED" | "LOGGED_TIME_DAY_LIMIT" | "RATE_LIMITED";
+export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "ALREADY_EXISTS" | "REFERENCE_IN_USE" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS" | "PERSON_DEACTIVATION_CONFIRMATION_REQUIRED" | "PERSON_DEACTIVATION_STALE_CONFIRMATION" | "PERSON_DEACTIVATION_INVALID_REPLACEMENT" | "LOGGED_TIME_LOCKED" | "LOGGED_TIME_DAY_LIMIT" | "RATE_LIMITED" | "NOT_A_SERIES" | "OCCURRENCE_NOT_FOUND" | "SERIES_SPLIT_UNSUPPORTED";
 
 export interface HealthResponse {
   status: "ok" | "degraded";
@@ -268,6 +268,31 @@ export interface AllocationPatch {
   repeatState?: "none" | "daily" | "weekly" | "monthly";
   repeatEndDate?: IsoDate | null;
   load?: AllocationLoad;
+}
+
+export interface AllocationSplitResult {
+  before?: ScheduleAllocation;
+  occurrence?: ScheduleAllocation;
+  after?: ScheduleAllocation;
+}
+
+export interface AllocationSplit {
+  occurrenceDate: IsoDate;
+  patch?: {
+    personId?: Id;
+    projectId?: Id;
+    phaseId?: Id | null;
+    taskId?: Id | null;
+    name?: string | null;
+    notes?: string | null;
+    startDate?: IsoDate;
+    endDate?: IsoDate;
+    status?: "tentative" | "confirmed";
+    billable?: boolean;
+    priority?: number;
+    load?: AllocationLoad;
+  };
+  delete?: true;
 }
 
 export interface TimeoffCreate {
@@ -938,6 +963,22 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as ScheduleAllocation }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier ou supprimer UNE occurrence d'une serie repetee : decoupe en avant / occurrence / apres (verrou optimiste sur la serie) (POST /api/v1/allocations/{id}/split) */
+    async splitAllocation(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: AllocationSplit;
+    }): Promise<ApiResult<AllocationSplitResult, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/allocations/" + encodeURIComponent(String(input.path.id)) + "/split", { method: "POST", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as AllocationSplitResult }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Creer un conge (jamais refuse pour cause d'allocations existantes, BR-04) (POST /api/v1/timeoffs) */

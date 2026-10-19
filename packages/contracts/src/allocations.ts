@@ -154,3 +154,54 @@ export const AllocationGroup = z
   .object({ groupId: Id, items: z.array(ScheduleAllocation) })
   .meta({ id: "AllocationGroup" });
 export type AllocationGroup = z.infer<typeof AllocationGroup>;
+
+// --- « Cette occurrence » d'une série répétée (BR-25, US-3.3 ; décision 10 du registre) --------------------------------
+// POST /allocations/{id}/split : pas de table d'exceptions, la série est DÉCOUPÉE en au plus trois allocations (splitSeries de
+// @wnext/engine) : `before` (occurrences précédentes, série bornée à la veille), `occurrence` (l'occurrence seule, sans répétition)
+// et `after` (occurrences suivantes, nouvelle origine, même fin de série). Choix de conception :
+//  * Un corps plat : `occurrenceDate` désigne l'occurrence par sa date de DÉBUT (celle qu'affiche le client, calculée par
+//    expandOccurrences du moteur) ; `patch` optionnel s'applique à l'occurrence isolée ; `delete: true` la supprime au lieu de la
+//    garder. Ni l'un ni l'autre : découpe seule (l'occurrence est détachée telle quelle). Les deux : 400 VALIDATION_FAILED.
+//    Un drapeau plutôt qu'une union discriminée : une seule forme à valider, à générer et à lire.
+//  * `patch` reprend les champs du PATCH d'une allocation SAUF la répétition (repeatState, repeatEndDate) : l'occurrence isolée
+//    n'est jamais une série (corps strict : une clé inconnue est une erreur). Mêmes contrôles de références que le PATCH.
+//  * `If-Match` porte la version de la SÉRIE (ligne `{id}`) et est obligatoire : périmée -> 409 VERSION_CONFLICT
+//    (params.currentVersion) ; absente -> 428 PRECONDITION_REQUIRED. Une seule transaction, la série est verrouillée.
+//  * Lignes : `before` est la ligne d'origine (même id, nouvelle version). Occurrence 0 : la ligne d'origine est SUPPRIMÉE
+//    (delete_log, BR-14) et `before` est absent. `occurrence` et `after` sont des lignes NOUVELLES (version 1) qui gardent le
+//    `groupId` de la série. La réponse porte les morceaux qui existent après l'opération (`occurrence` absent si `delete`, `after`
+//    absent pour la dernière occurrence).
+//  * Erreurs propres : allocation non répétée -> 409 NOT_A_SERIES ; aucune occurrence ne commence à `occurrenceDate` -> 404
+//    OCCURRENCE_NOT_FOUND (params.occurrenceDate) ; série que la découpe ne sait pas représenter -> 409 SERIES_SPLIT_UNSUPPORTED
+//    (params.reason = overlapping : bloc plus long que le pas ; monthly_clamped : série mensuelle dont l'origine suivante serait
+//    ramenée en fin de mois).
+//  * BR-01 / BR-04 / BR-37 : comme le PATCH, rien n'est refusé pour sur-allocation, congé ou dates hors projet.
+export const OccurrencePatch = z
+  .object({ personId: Id, ...fields })
+  .omit({ repeatState: true, repeatEndDate: true })
+  .partial()
+  .extend({ load: AllocationLoad.optional() })
+  .strict()
+  .refine((a) => Object.keys(a).length > 0, { message: "patch vide" })
+  .refine((a) => !a.startDate || !a.endDate || a.endDate >= a.startDate, { path: ["endDate"], message: "endDate < startDate" });
+export type OccurrencePatch = z.infer<typeof OccurrencePatch>;
+
+export const AllocationSplit = z
+  .object({
+    occurrenceDate: IsoDate,
+    patch: OccurrencePatch.optional(),
+    delete: z.literal(true).optional(),
+  })
+  .strict()
+  .refine((a) => !(a.delete && a.patch), { path: ["delete"], message: "patch et delete exclusifs" })
+  .meta({ id: "AllocationSplit" });
+export type AllocationSplit = z.infer<typeof AllocationSplit>;
+
+export const AllocationSplitResult = z
+  .object({
+    before: ScheduleAllocation.optional(),
+    occurrence: ScheduleAllocation.optional(),
+    after: ScheduleAllocation.optional(),
+  })
+  .meta({ id: "AllocationSplitResult" });
+export type AllocationSplitResult = z.infer<typeof AllocationSplitResult>;
