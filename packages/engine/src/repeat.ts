@@ -48,3 +48,38 @@ export function expandOccurrences(a: RepeatInput, from: string, to: string): Occ
   }
   return out;
 }
+
+export interface SeriesSplit<T extends RepeatInput> {
+  /** Occurrences 0..index-1, série bornée à la veille de l'occurrence ; null si index = 0. */
+  before: T | null;
+  /** L'occurrence seule, sans répétition (tronquée à la fin de série comme à l'affichage). */
+  occurrence: T;
+  /** Occurrences index+1.., nouvelle origine, même fin de série ; null s'il n'y en a pas. */
+  after: T | null;
+}
+
+/**
+ * Modifier « cette occurrence » (BR-25, US-3.3) : découpe la série en au plus trois allocations, sans table d'exceptions
+ * (décision 10 du registre). « Toute la série » ne découpe rien. Les jours couverts sont conservés, morceaux disjoints.
+ * Refus explicites : blocs qui se chevauchent (une occurrence plus longue que le pas) et série mensuelle dont la nouvelle
+ * origine serait ramenée en fin de mois (le 31 deviendrait le 28 pour toute la suite).
+ */
+export function splitSeries<T extends RepeatInput>(a: T, index: number): SeriesSplit<T> {
+  if (a.repeatState === "none") throw new Error("NOT_A_SERIES: allocation non répétée");
+  const lengthDays = (toMs(a.endDate) - toMs(a.startDate)) / DAY_MS + 1;
+  const step = a.repeatState === "daily" ? 1 : a.repeatState === "weekly" ? 7 : 28;
+  if (lengthDays > step) throw new Error(`SERIES_OVERLAPPING: bloc de ${lengthDays} j pour un pas ${a.repeatState}`);
+  const last = seriesEnd(a);
+  const occ = occurrence(a, index);
+  if (!Number.isInteger(index) || index < 0 || occ.startDate > last) throw new Error(`OCCURRENCE_NOT_FOUND: ${index}`);
+  const next = occurrence(a, index + 1);
+  if (next.startDate <= last && a.repeatState === "monthly"
+      && (next.startDate.slice(8) !== a.startDate.slice(8) || next.endDate.slice(8) !== a.endDate.slice(8))) {
+    throw new Error(`SERIES_MONTHLY_CLAMPED: l'occurrence ${index + 1} (${next.startDate}) ne peut pas servir d'origine`);
+  }
+  return {
+    before: index === 0 ? null : { ...a, repeatEndDate: addDays(occ.startDate, -1) },
+    occurrence: { ...a, startDate: occ.startDate, endDate: occ.endDate > last ? last : occ.endDate, repeatState: "none", repeatEndDate: null },
+    after: next.startDate > last ? null : { ...a, startDate: next.startDate, endDate: next.endDate },
+  };
+}

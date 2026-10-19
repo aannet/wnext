@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { addDays, toIso, toMs, DAY_MS } from "../src/dates";
 import { allocationCoversDay } from "../src/load";
-import { expandOccurrences, seriesEnd, type RepeatInput } from "../src/repeat";
+import { expandOccurrences, seriesEnd, splitSeries, type RepeatInput } from "../src/repeat";
 
 const a = (startDate: string, endDate: string, repeatState: RepeatInput["repeatState"], repeatEndDate: string | null = null): RepeatInput =>
   ({ startDate, endDate, repeatState, repeatEndDate });
@@ -84,5 +84,56 @@ describe("allocationCoversDay : bords de série", () => {
     for (const repeatState of ["daily", "weekly", "monthly"] as const) {
       expect(allocationCoversDay({ startDate: "2026-03-02", endDate: "2026-03-03", repeatState }, "2026-03-01")).toBe(false);
     }
+  });
+});
+
+// Modifier « cette occurrence » (US-3.3, décision 10 du registre) : la série est découpée, sans table d'exceptions.
+describe("splitSeries", () => {
+  it("occurrence du milieu : série d'avant bornée à la veille, occurrence seule, série d'après", () => {
+    const s = { ...a("2026-03-02", "2026-03-04", "weekly", "2026-03-31"), id: "100" };
+    expect(splitSeries(s, 2)).toEqual({
+      before: { ...s, repeatEndDate: "2026-03-15" },
+      occurrence: { ...s, startDate: "2026-03-16", endDate: "2026-03-18", repeatState: "none", repeatEndDate: null },
+      after: { ...s, startDate: "2026-03-23", endDate: "2026-03-25" },
+    });
+  });
+
+  it("première ou dernière occurrence : pas de série d'avant / d'après ; dernière tronquée comme à l'affichage", () => {
+    const s = a("2026-03-02", "2026-03-04", "weekly", "2026-03-17");
+    expect(splitSeries(s, 0).before).toBeNull();
+    expect(splitSeries(s, 0).after).toEqual({ ...s, startDate: "2026-03-09", endDate: "2026-03-11" });
+    expect(splitSeries(s, 2)).toMatchObject({ after: null, occurrence: { startDate: "2026-03-16", endDate: "2026-03-17" } });
+  });
+
+  it("refus : occurrence hors série, série non répétée, blocs qui se chevauchent, origine mensuelle ramenée", () => {
+    expect(() => splitSeries(a("2026-03-02", "2026-03-04", "weekly", "2026-03-17"), 3)).toThrow(/OCCURRENCE_NOT_FOUND/);
+    expect(() => splitSeries(a("2026-03-02", "2026-03-04", "none"), 0)).toThrow(/NOT_A_SERIES/);
+    expect(() => splitSeries(a("2026-03-02", "2026-03-04", "daily", "2026-03-31"), 1)).toThrow(/SERIES_OVERLAPPING/);
+    // 31 janvier mensuel : l'occurrence suivant février (28) ne peut pas servir d'origine sans perdre le 31.
+    expect(() => splitSeries(a("2026-01-31", "2026-01-31", "monthly", "2026-06-30"), 0)).toThrow(/SERIES_MONTHLY_CLAMPED/);
+  });
+
+  it("propriété : jours couverts avant = avant + occurrence + après, morceaux disjoints (graine fixe)", () => {
+    const cov = (x: RepeatInput | null, d: string) => !!x && d >= x.startDate && d <= seriesEnd(x) && allocationCoversDay(x, d);
+    let s = 7;
+    const r = () => ((s = (s * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+    const int = (lo: number, hi: number) => lo + Math.floor(r() * (hi - lo + 1));
+    let checked = 0;
+    for (let i = 0; i < 400; i++) {
+      const start = addDays("2026-01-01", int(0, 60));
+      const kind = (["daily", "weekly", "monthly"] as const)[int(0, 2)]!;
+      const end = addDays(start, kind === "daily" ? 0 : int(0, 6));
+      const al = a(start, end, kind, addDays(end, int(0, 300)));
+      const occ = expandOccurrences(al, al.startDate, seriesEnd(al));
+      let parts;
+      try { parts = splitSeries(al, int(0, occ.length - 1)); } catch (e) { expect(String(e)).toMatch(/SERIES_MONTHLY_CLAMPED/); continue; }
+      checked++;
+      for (let ms = toMs(al.startDate); ms <= toMs(seriesEnd(al)); ms += DAY_MS) {
+        const d = toIso(ms);
+        const hits = [parts.before, parts.occurrence, parts.after].filter((x) => cov(x, d)).length;
+        expect(hits, JSON.stringify({ al, d, parts })).toBe(cov(al, d) ? 1 : 0);
+      }
+    }
+    expect(checked).toBeGreaterThan(300);
   });
 });
