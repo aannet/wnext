@@ -4,8 +4,9 @@
 //  * Jours de semaine : première occurrence à partir d'aujourd'hui, fin à partir du début. « jusqu'au N » : prochain jour N
 //    du mois (aujourd'hui compris) ; « jusqu'au vendredi » : prochain vendredi à partir du début. Dates numériques J/M en FR, M/D en EN ; dates ISO acceptées partout.
 //  * Ce qui reste est le nom du projet, rapproché sans accents ni casse (préfixe de mot, puis sous-chaîne).
-//  * Rien n'est deviné : quantité, dates ou projet manquants ou ambigus sont listés dans `missing` / `candidates`, le
-//    client applique ses défauts (ou demande). Codes stables, pas de texte UI (ADR-003).
+//  * Sans quantité : 8 h par jour (DEFAULT_HOURS_PER_DAY, décision du 2026-10-19), signalé par `amountDefaulted`. Une
+//    quantité invalide n'a pas de défaut. Dates ou projet manquants ou ambigus restent listés dans `missing` / `candidates`,
+//    le client demande. Codes stables, pas de texte UI (ADR-003).
 import { addDays, addMonths, toMs, DAY_MS } from "./dates";
 
 export type QuickLocale = "fr" | "en";
@@ -19,6 +20,9 @@ export interface QuickContext {
   projects: readonly QuickProject[];
 }
 
+/** Quantité appliquée quand la saisie n'en donne aucune. */
+export const DEFAULT_HOURS_PER_DAY = 8;
+
 export interface QuickDraft {
   projectId: string | null;
   /** Texte libre restant, rapproché des projets. */
@@ -31,6 +35,8 @@ export interface QuickDraft {
   startDate: string | null;
   endDate: string | null;
   tentative: boolean;
+  /** Vrai si hoursPerDay vient du défaut (aucune quantité saisie). */
+  amountDefaulted: boolean;
   missing: ("project" | "amount" | "dates")[];
   /** Morceaux non compris (le client peut les surligner). */
   invalid: ("AMOUNT_OUT_OF_RANGE" | "DATE_INVALID" | "DATE_RANGE_INVERTED")[];
@@ -90,7 +96,7 @@ export function parseQuickEntry(text: string, ctx: QuickContext): QuickDraft {
   const W = WORDS[ctx.locale];
   const draft: QuickDraft = {
     projectId: null, projectQuery: "", candidates: [], mode: null, hoursPerDay: null, percent: null,
-    startDate: null, endDate: null, tentative: false, missing: [], invalid: [],
+    startDate: null, endDate: null, tentative: false, amountDefaulted: false, missing: [], invalid: [],
   };
   // Normalisation : « 6 h » -> « 6h », « 50 % » -> « 50% », « lun - mer » -> « lun-mer », apostrophes typographiques.
   const norm = text.replace(/[’`]/g, "'").replace(/(\d)\s+(h|heures?|hours?|hrs?)\b/gi, "$1$2").replace(/(\d)\s+%/g, "$1%").replace(/\s*-\s*/g, "-");
@@ -176,6 +182,9 @@ export function parseQuickEntry(text: string, ctx: QuickContext): QuickDraft {
     else draft.candidates = found.slice(0, 10);
   }
   if (!draft.projectId) draft.missing.push("project");
+  if (!draft.mode && !draft.invalid.includes("AMOUNT_OUT_OF_RANGE")) {
+    draft.mode = "hours"; draft.hoursPerDay = DEFAULT_HOURS_PER_DAY; draft.amountDefaulted = true;
+  }
   if (!draft.mode) draft.missing.push("amount");
   if (!draft.startDate) draft.missing.push("dates");
   return draft;

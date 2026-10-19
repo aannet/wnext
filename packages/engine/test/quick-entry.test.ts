@@ -30,6 +30,12 @@ describe("quantités", () => {
     expect(parseQuickEntry("Refonte 30h", fr)).toMatchObject({ mode: null, invalid: ["AMOUNT_OUT_OF_RANGE"], missing: ["amount", "dates"] });
     expect(parseQuickEntry("Refonte 600%", fr).invalid).toEqual(["AMOUNT_OUT_OF_RANGE"]);
   });
+
+  it("sans quantité : 8 h par jour par défaut, signalé ; quantité invalide : pas de défaut", () => {
+    expect(parseQuickEntry("Refonte lun-mer", fr)).toMatchObject({ mode: "hours", hoursPerDay: 8, amountDefaulted: true, missing: [] });
+    expect(parseQuickEntry("Refonte 6h lun-mer", fr).amountDefaulted).toBe(false);
+    expect(parseQuickEntry("Refonte 30h", fr)).toMatchObject({ hoursPerDay: null, amountDefaulted: false });
+  });
 });
 
 describe("dates", () => {
@@ -115,7 +121,7 @@ describe("projet et tentatif", () => {
 
   it("ordre libre et texte vide", () => {
     expect(parseQuickEntry("lun-mer 6h Refonte", fr)).toMatchObject({ projectId: "1", hoursPerDay: 6, startDate: "2026-10-19" });
-    expect(parseQuickEntry("   ", fr).missing).toEqual(["project", "amount", "dates"]);
+    expect(parseQuickEntry("   ", fr).missing).toEqual(["project", "dates"]);
   });
 
   it("draftDays pour l'aperçu", () => {
