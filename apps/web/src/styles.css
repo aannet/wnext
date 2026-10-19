@@ -1,0 +1,12 @@
+/* Styles provisoires de la démo ; contain:strict sur lignes et blocs, comme le spike A2. */
+body { margin: 16px; font: 13px system-ui, sans-serif; color: #1f2937; background: #fff; }
+.wn-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.wn-toolbar button[aria-pressed="true"] { font-weight: 600; }
+.wn-header { border-bottom: 1px solid #e5e7eb; overflow: hidden; }
+.wn-colheader { padding: 4px; white-space: nowrap; color: #6b7280; }
+.wn-grid { position: relative; border: 1px solid #e5e7eb; }
+.wn-row { contain: strict; border-bottom: 1px solid #f3f4f6; }
+.wn-row.wn-overflow { background: #fef2f2; }
+.wn-rowheader { position: sticky; left: 0; width: 140px; padding: 4px; background: #fff; z-index: 1; }
+.wn-block { contain: strict; box-sizing: border-box; border-radius: 3px; padding: 2px 4px; color: #fff; overflow: hidden; white-space: nowrap; }
+.wn-block.wn-tentative { opacity: 0.55; background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgba(255,255,255,.35) 4px 8px); }
