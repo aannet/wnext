@@ -126,3 +126,9 @@ describe("proposition de report assisté", () => {
     expect(plan(off(MON), [])).toEqual([]);
   });
 });
+
+describe("fenêtre de détection", () => {
+  it("fenêtre qui ne recoupe pas le congé : aucun conflit", () => {
+    expect(detect(off(MON, TUE), [alloc("a", MON, 8)], [], { from: WED, to: WED })).toEqual({ days: [], requiresAssistant: false });
+  });
+});

@@ -10,7 +10,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "coverage": "vitest run --coverage --coverage.include=src/** --coverage.exclude=src/index.ts --coverage.reporter=text-summary --coverage.thresholds.branches=95 --coverage.thresholds.lines=98"
   },
   "dependencies": {
     "@wnext/contracts": "*"

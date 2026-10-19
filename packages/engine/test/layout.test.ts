@@ -56,6 +56,15 @@ describe("empilement", () => {
     expect(r.height).toBe(1);
   });
 
+  it("le bloc le plus long d'abord : les blocs courts de jours distincts se posent chacun au-dessus de lui", () => {
+    const r = layoutRow([
+      b("lun", "2026-03-02", "2026-03-02", 0.5),
+      b("mer", "2026-03-04", "2026-03-04", 0.25),
+      b("tout", "2026-03-02", "2026-03-04", 0.25),
+    ], FROM, TO);
+    expect(Object.fromEntries(r.placed.map((p) => [p.id, p.y]))).toEqual({ tout: 0, lun: 0.25, mer: 0.25 });
+  });
+
   it("ordre déterministe : début, plus long d'abord, puis id ; indépendant de l'ordre d'entrée", () => {
     const blocks = [b("z", "2026-03-02", "2026-03-03", 0.25), b("y", "2026-03-02", "2026-03-06", 0.25), b("x", "2026-03-02", "2026-03-03", 0.25)];
     const r1 = layoutRow(blocks, FROM, TO);

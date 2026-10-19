@@ -78,3 +78,11 @@ describe("expandOccurrences", () => {
     }
   });
 });
+
+describe("allocationCoversDay : bords de série", () => {
+  it("série répétée : aucun jour avant son début", () => {
+    for (const repeatState of ["daily", "weekly", "monthly"] as const) {
+      expect(allocationCoversDay({ startDate: "2026-03-02", endDate: "2026-03-03", repeatState }, "2026-03-01")).toBe(false);
+    }
+  });
+});

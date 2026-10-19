@@ -78,3 +78,18 @@ describe("clavier (chaque geste a son équivalent)", () => {
     expect([...kinds].sort()).toEqual(["height", "move", "resizeEnd", "resizeStart"]);
   });
 });
+
+describe("combinaisons sans effet et cas limites", () => {
+  it("Ctrl + ← / →, Maj ou Alt + ↑ / ↓ : aucun geste ; personne hors de rowOrder : aucun changement de ligne", () => {
+    const b = blk();
+    expect(keyGesture({ key: "ArrowLeft", ctrlKey: true }, b)).toBeNull();
+    expect(keyGesture({ key: "ArrowUp", shiftKey: true }, b)).toBeNull();
+    expect(keyGesture({ key: "ArrowDown", altKey: true }, b)).toBeNull();
+    expect(keyGesture({ key: "ArrowDown", ctrlKey: true }, blk({ personId: "inconnu" }), ["p0", "p1"])).toBeNull();
+  });
+
+  it("hauteur déjà au plafond : aucun patch", () => {
+    expect(applyGesture(blk({ hoursPerDay: 24 }), { kind: "height", delta: 1 })).toBeNull();
+    expect(applyGesture(blk({ mode: "percentage", hoursPerDay: null, percent: 500 }), { kind: "height", delta: 5 })).toBeNull();
+  });
+});

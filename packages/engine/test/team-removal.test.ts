@@ -70,3 +70,10 @@ describe("garde de confirmation", () => {
     expect(r).toMatchObject({ ok: true, deleteAllocationIds: ["a1"] });
   });
 });
+
+describe("bornes du récapitulatif", () => {
+  it("dernière date : la plus tardive, quel que soit l'ordre", () => {
+    const s = summarizeTeamRemoval({ ...ctx, allocations: [al("a1", "2026-05-01", "2026-05-02"), al("a2", "2026-03-01", "2026-03-02")], logged: [] });
+    expect(s).toMatchObject({ firstAllocation: "2026-03-01", lastAllocation: "2026-05-02" });
+  });
+});

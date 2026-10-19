@@ -125,3 +125,11 @@ describe("cascades différées de 10 s (ADR-001 §10)", () => {
     expect(takeDueCascades(q, 20_000).due.map((d) => d.payload)).toEqual(["b", "a2"]);
   });
 });
+
+describe("remapId ciblé", () => {
+  it("ne touche que l'entité et l'id visés", () => {
+    let s = recordAction(emptyUndo(), { label: "x", at: 0, ops: [...move("7", "a", "b").ops, { kind: "update", entity: "people", id: "7", before: { name: "a" }, after: { name: "b" } }] });
+    s = remapId(s, "allocations", "7", "70");
+    expect(s.undo[0]!.ops.map((o) => `${o.entity}:${o.id}`)).toEqual(["allocations:70", "people:7"]);
+  });
+});

@@ -113,3 +113,18 @@ describe("T04 tentatif et facturable", () => {
     expect(r.plannedHours - r.billableHours).toBe(7);
   });
 });
+
+describe("entrées hors périmètre", () => {
+  it("allocation d'une personne absente de la liste : ignorée", () => {
+    expect(dailyPlannedLoad({ people: [person("alice")], allocations: [alloc("fantome", "2026-03-02", "2026-03-06", 6)], from: "2026-03-02", to: "2026-03-08" })).toEqual([]);
+  });
+
+  it("lignes triées par personne puis par jour, quel que soit l'ordre des allocations", () => {
+    const rows = dailyPlannedLoad({
+      people: [person("b"), person("a")],
+      allocations: [alloc("b", "2026-03-03", "2026-03-03", 1), alloc("a", "2026-03-03", "2026-03-03", 1), alloc("a", "2026-03-02", "2026-03-02", 1)],
+      from: "2026-03-02", to: "2026-03-08",
+    });
+    expect(rows.map((r) => `${r.personId}|${r.day}`)).toEqual(["a|2026-03-02", "a|2026-03-03", "b|2026-03-03"]);
+  });
+});

@@ -107,3 +107,33 @@ describe("chargement par blocs", () => {
     expect(mergeChunks([chunks[0]!, chunks[2]!])).toHaveLength(2); // trou : deux requêtes
   });
 });
+
+describe("bornes et cas limites", () => {
+  it("chargement : les blocs ne débordent pas de la plage planifiable de plus d'un bloc", () => {
+    const bounds = { first: "2026-03-01", last: "2026-03-31" };
+    const v = viewAt("2026-03-15", "month", 2000, SCALE); // vue plus large que la plage
+    const chunks = loadChunks(v, 1, 28, bounds);
+    expect(chunks[0]!.from <= bounds.first && chunks[0]!.to >= bounds.first).toBe(true);
+    expect(chunks.at(-1)!.from <= bounds.last && chunks.at(-1)!.to >= bounds.last).toBe(true);
+    expect(chunks.length).toBeLessThanOrEqual(3);
+    // bornes plus larges que la vue élargie : aucune coupe
+    expect(loadChunks(v, 1, 28, { first: "2020-01-01", last: "2030-12-31" })).toEqual(loadChunks(v, 1, 28));
+  });
+
+  it("vue plus large que la plage planifiable : centrée sur la plage", () => {
+    const bounds = { first: "2026-03-01", last: "2026-03-10" }; // 10 jours, vue de 35
+    const v = goToday(viewAt("2026-01-01", "week", 700, SCALE), "2026-06-01", bounds);
+    expect(v.center).toBe((dayNumber("2026-03-01") + dayNumber("2026-03-10") + 1) / 2);
+  });
+
+  it("déplacement à l'intérieur des bornes : vue inchangée (même objet)", () => {
+    const bounds = { first: "2026-01-01", last: "2026-12-31" };
+    const v = viewAt("2026-06-01", "day", 700, SCALE);
+    expect(scrollBy(v, 0, bounds)).toEqual(v);
+  });
+
+  it("regroupement : entrée dans le désordre triée d'abord", () => {
+    const c = (from: string) => ({ from, to: addDays(from, 27) });
+    expect(mergeChunks([c("2026-02-02"), c("2026-01-05")])).toEqual([{ from: "2026-01-05", to: "2026-03-01" }]);
+  });
+});

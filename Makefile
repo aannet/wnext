@@ -13,6 +13,7 @@ check:
 	npm run test:e2e
 	npm run test:concurrency
 	npm run test:migrations
+	npm run coverage -w @wnext/engine
 
 typecheck:
 	npm run typecheck
