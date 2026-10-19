@@ -25,3 +25,15 @@ Float v3 est **dimanche-first** : `work_days_hours` indexe 0 = dimanche, 1 = lun
 
 - ADR-003 : « dépendances autorisées : aucune » pour `contracts` est en tension avec Zod ; préciser « Zod uniquement », générateur dans un paquet d'outillage.
 - Les schémas d'événements WebSocket vivent dans `contracts`, mais OpenAPI ne les décrit pas : outil de spec séparé à choisir (AsyncAPI ou export maison), non vérifié.
+
+## Décisions du 2026-10-19 (Alec, sur recommandation)
+
+| # | Question | Décision |
+|---|---|---|
+| 6 | Rendu de la grille (ADR-005) | **DOM virtualisé (A2)** ; canvas en repli si le banc P3 le justifie. |
+| 7 | Bibliothèque i18n | **Lingui** (ADR-005, réserves (a) à (d) vérifiées à la mise en place). |
+| 8 | Serveur HTTP | **On garde `node:http` + `pg`** (88 opérations, fuzz sans 5xx, tests sous RLS). Pas de Fastify ni de Kysely ; à rouvrir seulement sur une gêne mesurée. Remplace la mention de Fastify de la ligne 2 (la chaîne Zod → OpenAPI reste hors serveur). |
+| 9 | `utilization` = `Infinity` en JSON (BR-38) | **L'API ne transporte jamais le ratio** : seulement les faits (`capacityHours`, `plannedHours`, `tentativeHours`, état). Le ratio est un affichage calculé par `packages/engine` côté client. Ni `Infinity` ni `null` ambigu dans le JSON. |
+| 10 | Édition d'une série répétée (BR-25, US-3.3) | MVP : **« cette occurrence »** et **« toute la série »** ; « à partir d'ici » en T2. Pas de table d'exceptions : modifier une occurrence découpe la série en au plus trois allocations (série d'avant bornée à la veille, occurrence détachée, série d'après), via `splitSeries` du moteur. |
+| 11 | Lecture de `users` par `app_user` | **RLS sur `users`** : on ne voit que soi et les membres de ses comptes. La connexion (avant de connaître le compte) passe par `user_id_for_subject(sub)`, seule fonction `SECURITY DEFINER`, qui ne renvoie que l'id. |
+| 12 | Saisie rapide sans quantité | **8 h par jour** par défaut. Sans dates ou projet ambigu : toujours signalé (`missing`, `candidates`). |

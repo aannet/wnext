@@ -1,6 +1,6 @@
 # ADR-005 — Spike grille Schedule : DOM virtualisé (A) vs canvas (B), et choix i18n
 
-Statut : **résultats de spike, indicatifs** ; recommandation à valider par l'humain. Aucune décision n'est figée par ce document.
+Statut : **accepté** (décision d'Alec, 2026-10-19) : **DOM virtualisé optimisé (A2)** pour le Schedule, canvas en repli seulement si le banc P3 sur un poste réel rate le budget ; **Lingui** pour l'i18n (§ i18n, réserves (a) à (d) à vérifier à la mise en place). Les résultats de spike ci-dessous restent indicatifs.
 Complète : ADR-002 (§6 blocs, « Spike à lancer avant P1 »), `docs/factory/strategy.md` (critères P3 : 300 x 12 mois, scroll p95 >= 50 fps, interaction < 100 ms).
 Code et données brutes : `spikes/grille/` (jetable, hors production). Rien n'a été publié en ligne.
 
