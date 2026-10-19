@@ -20,7 +20,7 @@ const project = { id: "10", version: 1, name: "Pr", projectCode: null, color: "#
 
 const page = (from: string, to: string, over: Partial<ScheduleResponse> = {}): ScheduleResponse => ({
   window: { from, to }, changeCursor: "5", page: { nextCursor: null, total: 1 },
-  account: { weekStart: 1, capacityThresholds: { underPercent: 80 } },
+  account: { weekStart: 1, capacityThresholds: { underPercent: 80 }, timezone: "UTC" },
   people: [person("1")], allocations: [], timeoffs: [], holidays: [], projects: [project], timeoffTypes: [], departments: [], roles: [],
   ...over,
 });

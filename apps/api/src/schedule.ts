@@ -186,7 +186,7 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
       tx.query<Row>(`SELECT ${TIMEOFF_TYPE_COLUMNS} FROM timeoff_types WHERE account_id = $1 ORDER BY id`, [a]),
       tx.query<Row>(`SELECT ${NAMED_COLUMNS} FROM departments WHERE account_id = $1 ORDER BY name, id`, [a]),
       tx.query<Row>(`SELECT ${NAMED_COLUMNS} FROM roles WHERE account_id = $1 ORDER BY name, id`, [a]),
-      tx.query<Row>(`SELECT week_start, capacity_thresholds FROM accounts WHERE id = $1`, [a]),
+      tx.query<Row>(`SELECT week_start, capacity_thresholds, timezone FROM accounts WHERE id = $1`, [a]),
     ]);
     const account = accountRows.rows[0]!;
 
@@ -199,6 +199,7 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
       account: {
         weekStart: num(account.week_start),
         capacityThresholds: { underPercent: num((account.capacity_thresholds as { under_percent: unknown }).under_percent) },
+        timezone: String(account.timezone),
       },
       people,
       allocations,

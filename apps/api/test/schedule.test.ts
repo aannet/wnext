@@ -25,7 +25,7 @@ beforeAll(async () => {
   await pg.exec(readFileSync(new URL("../../../schema.sql", import.meta.url), "utf8"));
   await pg.exec(`
     INSERT INTO users (email, name) VALUES ('admin@x.test', 'Admin');
-    INSERT INTO accounts (name, week_start, capacity_thresholds) VALUES ('A', 1, '{"under_percent": 90}'), ('B', 7, DEFAULT);
+    INSERT INTO accounts (name, week_start, capacity_thresholds, timezone) VALUES ('A', 1, '{"under_percent": 90}', 'Europe/Paris'), ('B', 7, DEFAULT, DEFAULT);
     INSERT INTO departments (account_id, name) VALUES (1, 'Design'), (1, 'Dev'), (2, 'Autre');
     INSERT INTO roles (account_id, name) VALUES (1, 'Senior'), (2, 'Autre');
     -- compte A : 7 personnes (dont 1 inactive), noms triés avec un doublon de nom pour exercer le départage par id
@@ -66,7 +66,7 @@ describe("contrat", () => {
     expect(ScheduleResponse.safeParse(r).success).toBe(true);
     expect(r.people.map((p) => p.name)).toEqual(["Alice", "Bob", "Chloé", "Dan", "Dan", "Eve"]); // Zed inactive exclue
     expect(r.page).toEqual({ nextCursor: null, total: 6 });
-    expect(r.account).toEqual({ weekStart: 1, capacityThresholds: { underPercent: 90 } });
+    expect(r.account).toEqual({ weekStart: 1, capacityThresholds: { underPercent: 90 }, timezone: "Europe/Paris" });
     expect(r.allocations.map((a) => a.id)).toEqual(["1", "2", "3", "4", "7"]); // l'allocation de février et celle de B sont absentes ; la série weekly recoupe
     expect(r.timeoffs.map((t) => t.id)).toEqual(["1", "2"]);
     expect(r.holidays.map((h) => h.name)).toEqual(["Jour férié FR"]);
@@ -90,6 +90,7 @@ describe("contrat", () => {
     expect(b.projects.map((p) => p.name)).toEqual(["Secret"]);
     expect(b.holidays.map((h) => h.name)).toEqual(["Autre compte"]);
     expect(b.account.weekStart).toBe(7);
+    expect(b.account.timezone).toBe("UTC"); // défaut de schema.sql
     expect(b.account.capacityThresholds.underPercent).toBe(80);
     const a = JSON.stringify(await get());
     expect(a).not.toContain("Intrus");

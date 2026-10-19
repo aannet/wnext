@@ -15,7 +15,7 @@ const response: ScheduleResponse = {
   window: { from: "2026-03-02", to: "2026-03-20" },
   changeCursor: "42",
   page: { nextCursor: null, total: 2 },
-  account: { weekStart: 1, capacityThresholds: { underPercent: 90 } },
+  account: { weekStart: 1, capacityThresholds: { underPercent: 90 }, timezone: "UTC" },
   people: [
     { id: "1", version: 1, name: "Alice", peopleType: "employee", departmentId: null, roleId: null, country: "FR",
       workDaysHours: [8, 8, 8, 8, 8, 0, 0], tags: [], avatarUrl: null, active: true },
