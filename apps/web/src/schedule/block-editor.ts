@@ -5,6 +5,11 @@
 //    gauche / droite = étirer le début / la fin ; poignée basse = hauteur (heures ou %). Un seul jeu de trois poignées,
 //    posé dans le bloc survolé (pointerover) : le nombre de nœuds de la grille ne change pas. Seuil de 3 px avant de démarrer
 //    (un simple clic ne modifie rien). Échap annule. Près des bords, la grille défile seule (vitesse croissante).
+//  * Toucher (WCAG 2.5.7) : un tap sélectionne le bloc (classe wn-selected, aria-selected) et lui pose les poignées (zones de 44 px,
+//    voir styles.css) ; un tap ailleurs désélectionne. Sur un bloc non sélectionné, le doigt pan (touch-action: pan-x pan-y) : un
+//    mouvement de plus de 8 px abandonne le geste et laisse défiler la grille ; sans bouger pendant 400 ms (appui long), le bloc est
+//    sélectionné et le glisser armé (wn-armed, vibration, touchmove annulé). Bloc sélectionné ou poignée : glisser tout de suite.
+//    pointercancel (le navigateur reprend le défilement) abandonne proprement l'aperçu.
 //  * Clavier, sur le bloc focalisé : équivalents du moteur (keyGesture), cumulés dans un brouillon ; Entrée valide, Échap
 //    annule ; chaque pas est rendu à l'appelant pour l'annonce aria-live.
 //  * Séries : le geste est appliqué à la série (applyGesture : toute la série suit) et à l'occurrence seule ; l'appelant
@@ -53,7 +58,7 @@ export interface EditRequest {
 export interface BlockEditorOptions {
   root: HTMLElement;
   host: EditHost;
-  clock?: Partial<Pick<Clock, "raf" | "caf">>;
+  clock?: Partial<Pick<Clock, "raf" | "caf" | "setTimer" | "clearTimer">>;
   /** Faux : lecture seule (aucun geste). */
   enabled?(): boolean;
   /** Une promesse garde le fantôme figé (choix de portée d'une série) jusqu'à son règlement. */
@@ -62,6 +67,8 @@ export interface BlockEditorOptions {
   onPreview?(p: { allocation: Allocation; draft: GestureBlock } | null): void;
   edgePx?: number;
   maxSpeedPx?: number;
+  /** Durée de l'appui long au toucher (ms, 400 par défaut). */
+  longPressMs?: number;
 }
 
 export interface BlockEditor {
@@ -78,6 +85,10 @@ interface Drag extends Session { kind: Gesture["kind"]; pointerId: number; x0: n
 
 const KINDS: Record<string, Gesture["kind"]> = { start: "resizeStart", end: "resizeEnd", height: "height" };
 const THRESHOLD_PX = 3;
+/** Mouvement toléré pendant l'appui long : au-delà, c'est un défilement. */
+const SLOP_PX = 8;
+type Hit = NonNullable<ReturnType<EditHost["blockAt"]>>;
+interface Pending { pointerId: number; x0: number; y0: number; cx: number; cy: number; hit: Hit | null; timer: unknown }
 const step = (b: GestureBlock, g: Gesture): GestureBlock => ({ ...b, ...(applyGesture(b, g)?.patch ?? {}) });
 
 export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
@@ -92,6 +103,11 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   let frozen = false;
   let frame = 0;
   let ghost: HTMLDivElement | null = null;
+  let pending: Pending | null = null;
+  let selectedKey: string | null = null;
+  let observer: MutationObserver | null = null;
+  const setTimer = o.clock?.setTimer ?? ((cb: () => void, ms: number) => setTimeout(cb, ms));
+  const clearTimer = o.clock?.clearTimer ?? ((id: unknown) => clearTimeout(id as number));
 
   function session(hit: NonNullable<ReturnType<EditHost["blockAt"]>>): Session | null {
     const alloc = host.data().allocations.find((a) => a.id === hit.block.allocationId);
@@ -208,16 +224,88 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     const d = drag;
     drag = null;
     if (frame) { caf(frame); frame = 0; }
+    unlisten();
+    root.classList.remove("wn-dragging");
+    for (const el of root.querySelectorAll(".wn-armed")) el.classList.remove("wn-armed");
+    return d;
+  }
+
+  function listen() {
+    doc.addEventListener("pointermove", onMove, true);
+    doc.addEventListener("pointerup", onUp, true);
+    doc.addEventListener("pointercancel", onCancel, true);
+    doc.addEventListener("keydown", onDocKey, true);
+    doc.addEventListener("touchmove", onTouchMove, { capture: true, passive: false });
+  }
+  function unlisten() {
     doc.removeEventListener("pointermove", onMove, true);
     doc.removeEventListener("pointerup", onUp, true);
     doc.removeEventListener("pointercancel", onCancel, true);
     doc.removeEventListener("keydown", onDocKey, true);
-    root.classList.remove("wn-dragging");
-    return d;
+    doc.removeEventListener("touchmove", onTouchMove, true);
+  }
+  /** Glisser armé : le navigateur ne doit plus défiler (touch-action n'est pas relu en cours de geste). */
+  function onTouchMove(e: TouchEvent) { if (drag && e.cancelable) e.preventDefault(); }
+
+  // ---------- toucher : sélection, appui long ----------
+
+  function applySelection() {
+    for (const el of root.querySelectorAll<HTMLElement>(".wn-selected")) {
+      if (el.dataset.key !== selectedKey || el.style.display === "none") { el.classList.remove("wn-selected"); el.removeAttribute("aria-selected"); }
+    }
+    const el = selectedKey === null ? undefined
+      : [...root.querySelectorAll<HTMLElement>(`.wn-block[data-key="${selectedKey}"]`)].find((x) => x.style.display !== "none");
+    if (!el) { for (const h of handles) h.remove(); return; }
+    el.classList.add("wn-selected");
+    el.setAttribute("aria-selected", "true");
+    if (handles[0]!.parentNode !== el) el.append(...handles);
+  }
+  function select(key: string | null) {
+    selectedKey = key;
+    applySelection();
+    observer?.disconnect();
+    if (key === null) return;
+    // Les nœuds sont recyclés au défilement : la sélection suit la clé, pas le nœud.
+    const MO = doc.defaultView?.MutationObserver;
+    if (MO) { observer ??= new MO(applySelection); observer.observe(root, { subtree: true, attributes: true, attributeFilter: ["data-key"] }); }
+  }
+
+  function cancelPending() {
+    if (!pending) return;
+    clearTimer(pending.timer);
+    pending = null;
+    unlisten();
+  }
+
+  function arm(p: Pending) {
+    pending = null;
+    const s = p.hit && session(p.hit);
+    if (!p.hit || !s) { unlisten(); return; }
+    select(p.hit.block.key);
+    p.hit.el.classList.add("wn-armed");
+    try { navigator.vibrate?.(15); } catch { /* indisponible */ }
+    drag = { ...s, kind: "move", pointerId: p.pointerId, x0: p.cx, y0: p.cy, cx: p.cx, cy: p.cy, sd0: host.scrollDay(), st0: root.scrollTop, started: false };
+    try { p.hit.el.setPointerCapture?.(p.pointerId); } catch { /* pointeur déjà relâché */ }
+  }
+
+  function onDownTouch(e: PointerEvent) {
+    const hit = host.blockAt(e.target);
+    if (kb) cancelKeyboard();
+    const onHandle = !!(e.target as Element).closest?.("[data-handle]");
+    if (hit && (onHandle || hit.block.key === selectedKey)) {
+      const s = session(hit);
+      if (s) beginDrag(e, hit, s);
+      return;
+    }
+    const p: Pending = { pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY, hit, timer: undefined };
+    pending = p;
+    if (hit) p.timer = setTimer(() => { if (pending === p) arm(p); }, o.longPressMs ?? 400);
+    listen();
   }
 
   function onDown(e: PointerEvent) {
-    if (e.button !== 0 || drag || frozen || (o.enabled && !o.enabled())) return;
+    if (e.button !== 0 || drag || pending || frozen || (o.enabled && !o.enabled())) return;
+    if (e.pointerType === "touch") { onDownTouch(e); return; }
     const hit = host.blockAt(e.target);
     if (!hit) return;
     const s = session(hit);
@@ -225,24 +313,38 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     if (kb) cancelKeyboard();
     e.preventDefault();
     hit.el.focus({ preventScroll: true });
+    beginDrag(e, hit, s);
+  }
+  function beginDrag(e: PointerEvent, hit: Hit, s: Session) {
     const handle = (e.target as Element).closest?.("[data-handle]")?.getAttribute("data-handle");
     drag = {
       ...s, kind: (handle && KINDS[handle]) || "move", pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY,
       sd0: host.scrollDay(), st0: root.scrollTop, started: false,
     };
     try { hit.el.setPointerCapture?.(e.pointerId); } catch { /* pointeur déjà relâché */ }
-    doc.addEventListener("pointermove", onMove, true);
-    doc.addEventListener("pointerup", onUp, true);
-    doc.addEventListener("pointercancel", onCancel, true);
-    doc.addEventListener("keydown", onDocKey, true);
+    listen();
   }
   function onMove(e: PointerEvent) {
+    if (pending && e.pointerId === pending.pointerId) {
+      pending.cx = e.clientX;
+      pending.cy = e.clientY;
+      if (Math.hypot(pending.cx - pending.x0, pending.cy - pending.y0) > SLOP_PX) cancelPending();
+      return;
+    }
     if (!drag || e.pointerId !== drag.pointerId) return;
     drag.cx = e.clientX;
     drag.cy = e.clientY;
     schedule();
   }
   function onUp(e: PointerEvent) {
+    if (pending && e.pointerId === pending.pointerId) {
+      // Tap : sélectionne le bloc touché, ou désélectionne s'il n'y en a pas.
+      const hit = pending.hit;
+      cancelPending();
+      select(hit ? hit.block.key : null);
+      hit?.el.focus({ preventScroll: true });
+      return;
+    }
     if (!drag || e.pointerId !== drag.pointerId) return;
     drag.cx = e.clientX;
     drag.cy = e.clientY;
@@ -250,7 +352,10 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     const d = endDrag()!;
     if (d.started) commit(d, "pointer");
   }
-  function onCancel() { if (drag) { endDrag(); hideGhost(); } }
+  function onCancel() {
+    if (pending) cancelPending();
+    if (drag) { endDrag(); hideGhost(); }
+  }
   function onDocKey(e: KeyboardEvent) {
     if (e.key !== "Escape" || !drag) return;
     e.preventDefault();
@@ -317,20 +422,26 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     return el;
   });
   function onOver(e: PointerEvent) {
-    if (drag || (o.enabled && !o.enabled())) return;
+    if (drag || e.pointerType === "touch" || (o.enabled && !o.enabled())) return;
     const hit = host.blockAt(e.target);
     if (hit && handles[0]!.parentNode !== hit.el) hit.el.append(...handles);
   }
 
+  /** Pas de menu contextuel du navigateur pendant un appui long ou un glisser au toucher. */
+  function onContextMenu(e: Event) { if (pending || drag) e.preventDefault(); }
+  root.addEventListener("contextmenu", onContextMenu);
   root.addEventListener("pointerover", onOver);
   root.addEventListener("pointerdown", onDown);
   root.addEventListener("keydown", onKey);
   root.addEventListener("focusout", onFocusOut);
 
   return {
-    busy: () => drag !== null || kb !== null || frozen,
+    busy: () => drag !== null || pending !== null || kb !== null || frozen,
     destroy() {
+      cancelPending();
       endDrag();
+      observer?.disconnect();
+      root.removeEventListener("contextmenu", onContextMenu);
       for (const h of handles) h.remove();
       root.removeEventListener("pointerover", onOver);
       root.removeEventListener("pointerdown", onDown);

@@ -74,3 +74,16 @@ body { margin: 16px; font: 13px system-ui, sans-serif; color: #1f2937; backgroun
 .wn-quick-list li[aria-selected="true"] { background: #1d4ed8; color: #fff; }
 .wn-quick-preview { flex-basis: 100%; min-height: 1.2em; color: #374151; font-size: 13px; }
 .wn-quick-error { flex-basis: 100%; color: #b91c1c; }
+
+/* Toucher (WCAG 2.5.7) : bloc non sélectionné = le doigt défile la grille ; sélectionné ou glisser armé (appui long) = le geste
+   est au bloc. Poignées d'un bloc sélectionné : zones de saisie de 44 px (dans le bloc, contain: strict le rogne), repère visible. */
+.wn-block { touch-action: pan-x pan-y; -webkit-touch-callout: none; }
+.wn-block.wn-selected, .wn-block.wn-armed { touch-action: none; }
+.wn-block.wn-selected { outline: 2px solid #111827; outline-offset: 1px; }
+.wn-block.wn-armed { outline: 3px solid #1d4ed8; box-shadow: 0 4px 10px rgba(0,0,0,.35); }
+.wn-block.wn-selected .wn-handle-start, .wn-block.wn-selected .wn-handle-end { top: 0; bottom: 0; width: min(44px, 40%); min-width: 22px; }
+.wn-block.wn-selected .wn-handle-height { left: min(44px, 40%); right: min(44px, 40%); bottom: 0; height: min(44px, 50%); min-height: 16px; }
+.wn-block.wn-selected .wn-handle::after { content: ""; position: absolute; background: #111827; box-shadow: 0 0 0 1px #fff; border-radius: 2px; }
+.wn-block.wn-selected .wn-handle-start::after, .wn-block.wn-selected .wn-handle-end::after { top: 25%; bottom: 25%; width: 4px; left: 3px; }
+.wn-block.wn-selected .wn-handle-end::after { left: auto; right: 3px; }
+.wn-block.wn-selected .wn-handle-height::after { left: 25%; right: 25%; height: 4px; bottom: 3px; }
