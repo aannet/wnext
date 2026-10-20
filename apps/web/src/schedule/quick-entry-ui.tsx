@@ -10,7 +10,7 @@
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import { parseQuickEntry, type QuickDraft, type QuickLocale } from "@wnext/engine";
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { AllocationCreate } from "../api/client.gen";
 import type { EditError } from "../data/allocation-edits";
 import type { CreateOutcome } from "../data/record-edits";
@@ -24,6 +24,10 @@ export interface QuickEntryProps {
   data: ScheduleResponse;
   today: string;
   createAllocation(body: AllocationCreate): Promise<CreateOutcome>;
+  /** Tous les projets du compte (candidats de la saisie) ; absent ou en échec : ceux de la fenêtre affichée. */
+  listProjects?(): Promise<{ id: string; name: string }[]>;
+  /** Liste des projets changée (temps réel) : on la relit. */
+  onProjectsChange?(listener: () => void): () => void;
   record?: History["record"];
   announce(text: string): void;
   /** Sortie de la barre (Échap, création réussie) : rend le focus à la grille. */
@@ -42,7 +46,7 @@ export function allocationBodyOf(d: QuickDraft, personId: string): AllocationCre
 const SHOWN = new Set<EditError>(["NETWORK", "FORBIDDEN"]);
 
 export const QuickEntry = forwardRef<QuickEntryHandle, QuickEntryProps>(function QuickEntry(
-  { i18n, data, today, createAllocation, record, announce, onExit }, ref,
+  { i18n, data, today, createAllocation, listProjects, onProjectsChange, record, announce, onExit }, ref,
 ) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const [text, setText] = useState("");
@@ -61,9 +65,23 @@ export const QuickEntry = forwardRef<QuickEntryHandle, QuickEntryProps>(function
     focus(id) { if (id) setPersonId(id); inputRef.current?.focus(); inputRef.current?.select(); },
   }), []);
 
+  const [allProjects, setAllProjects] = useState<{ id: string; name: string }[] | null>(null);
+  useEffect(() => {
+    if (!listProjects) return;
+    let alive = true;
+    const load = () => { listProjects().then((l) => { if (alive) setAllProjects(l); }, () => {}); };
+    load();
+    const off = onProjectsChange?.(load);
+    return () => { alive = false; off?.(); };
+  }, [listProjects, onProjectsChange]);
+  const projects = useMemo(() => {
+    const byId = new Map((allProjects ?? []).map((p) => [p.id, p]));
+    for (const p of data.projects) if (!byId.has(p.id)) byId.set(p.id, { id: p.id, name: p.name });
+    return [...byId.values()];
+  }, [allProjects, data.projects]);
   const raw = useMemo(
-    () => parseQuickEntry(text, { today, locale, projects: data.projects.map((p) => ({ id: p.id, name: p.name })) }),
-    [text, today, locale, data.projects],
+    () => parseQuickEntry(text, { today, locale, projects }),
+    [text, today, locale, projects],
   );
   const draft: QuickDraft = chosen && !raw.projectId ? { ...raw, projectId: chosen, candidates: [], missing: raw.missing.filter((m) => m !== "project") } : raw;
   const missing: MessageKey[] = [
@@ -73,7 +91,7 @@ export const QuickEntry = forwardRef<QuickEntryHandle, QuickEntryProps>(function
   const body = allocationBodyOf(draft, personId);
   const showList = draft.projectId === null && draft.candidates.length > 1 && listOpen;
   const optionId = (i: number) => `wn-quick-opt-${i}`;
-  const projectName = data.projects.find((p) => p.id === draft.projectId)?.name ?? "";
+  const projectName = projects.find((p) => p.id === draft.projectId)?.name ?? "";
   const personName = data.people.find((p) => p.id === personId)?.name ?? "";
 
   const change = (v: string) => { setText(v); setChosen(null); setActive(0); setListOpen(true); setError(""); };

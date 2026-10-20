@@ -49,7 +49,7 @@ export interface ScheduleScreenProps {
   history?: History;
   /** Écritures brutes de la source (congés, report assisté) ; absent : congés en lecture seule. */
   records?: Pick<ScheduleSource, "getState" | "updateAllocation" | "splitOccurrence" | "createTimeoff" | "updateTimeoff" | "deleteTimeoff"
-    | "createAllocation" | "deleteAllocation" | "loggedTime">;
+    | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "onProjectsChange">>;
 }
 
 const ZOOMS: readonly Zoom[] = ["day", "week", "month"];
@@ -254,7 +254,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
         <span>{t("schedule.people.count", { count: data.people.length })}</span>
       </div>
       {records && (
-        <QuickEntry ref={quickRef} i18n={i18n} data={data} today={today} createAllocation={records.createAllocation} record={history?.record}
+        <QuickEntry ref={quickRef} i18n={i18n} data={data} today={today} createAllocation={records.createAllocation} listProjects={records.listProjects} onProjectsChange={records.onProjectsChange} record={history?.record}
           announce={(text) => editsRef.current.announce(text)} onExit={() => gridRef.current?.focus({ preventScroll: true })} />
       )}
       <div ref={gridRef} role="grid" aria-label={t("schedule.grid.label")} tabIndex={0} onKeyDown={onKeyDown}

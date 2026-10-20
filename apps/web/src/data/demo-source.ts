@@ -22,6 +22,8 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
   };
 
   return {
+    listProjects: async () => initial.projects.map((p) => ({ id: p.id, name: p.name })),
+    onProjectsChange: () => () => {}, // projets fixes en démo
     getState: () => state,
     subscribe(l) {
       listeners.add(l);

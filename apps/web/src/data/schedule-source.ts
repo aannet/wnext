@@ -33,7 +33,7 @@ import { allocationFromCreate, patchedTimeoff, timeoffFromCreate, type CreateOut
 type Client = ReturnType<typeof createClient>;
 /** Lecture obligatoire ; écritures optionnelles (absentes : les gestes rendent UNSUPPORTED). */
 export type ScheduleApi = Pick<Client, "getSchedule" | "createRealtimeTicket"> & Partial<Pick<Client, "getAllocation" | "updateAllocation" | "splitAllocation">>
-  & Partial<Pick<Client, "createTimeoff" | "updateTimeoff" | "deleteTimeoff" | "createAllocation" | "deleteAllocation" | "listLoggedTime">>;
+  & Partial<Pick<Client, "createTimeoff" | "updateTimeoff" | "deleteTimeoff" | "createAllocation" | "deleteAllocation" | "listLoggedTime" | "listProjects">>;
 export type SourceErrorCode = ApiError["code"];
 
 export interface ScheduleSourceState {
@@ -57,7 +57,14 @@ export interface ScheduleSourceOptions {
   realtime?: Pick<RealtimeClientOptions, "wsBase" | "openSocket" | "setTimer" | "clearTimer" | "random" | "now" | "onError">;
 }
 
+/** Projet proposé à la saisie rapide (liste complète du compte, pas seulement ceux de la fenêtre). */
+export interface ProjectRef { id: string; name: string }
+
 export interface ScheduleSource extends ScheduleEditor, RecordEditor {
+  /** Tous les projets du compte (GET /projects, paginé), gardés pour la session ; rafraîchis sur l'événement temps réel « projects ». */
+  listProjects(): Promise<ProjectRef[]>;
+  /** Avertit quand la liste des projets a changé (le cache est alors vidé : relire avec listProjects). */
+  onProjectsChange(listener: () => void): () => void;
   getState(): ScheduleSourceState;
   subscribe(listener: () => void): () => void;
   /** Nouvelle vue (défilement, zoom, navigation) : charge les blocs manquants si la source est démarrée. */
@@ -233,6 +240,32 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     });
   }
 
+  // Projets du compte : lus page par page une fois par session (échec : pas de cache, nouvel essai à la demande).
+  let projectsCache: Promise<ProjectRef[]> | null = null;
+  const projectListeners = new Set<() => void>();
+  async function fetchProjects(): Promise<ProjectRef[]> {
+    const out: ProjectRef[] = [];
+    let cursor: string | undefined;
+    for (let guard = 0; guard < 1000; guard++) {
+      const res = await opts.api.listProjects!({ limit: pageLimit, ...(cursor ? { cursor } : {}) });
+      if (!res.ok) throw new SourceError(errorCodeOf(res.status, res.error));
+      out.push(...res.data.items.map((p) => ({ id: p.id, name: p.name })));
+      cursor = res.data.page.nextCursor ?? undefined;
+      if (!cursor) break;
+    }
+    return out;
+  }
+  function listProjects(): Promise<ProjectRef[]> {
+    if (!opts.api.listProjects) return Promise.resolve([]);
+    const p = (projectsCache ??= fetchProjects());
+    p.catch(() => { if (projectsCache === p) projectsCache = null; });
+    return p;
+  }
+  function projectsChanged() {
+    projectsCache = null;
+    for (const l of projectListeners) l();
+  }
+
   const foreignListeners = new Set<(kind: Kind, ids: string[]) => void>();
   function foreign(entries: Iterable<{ kind: Kind; id: string }>) {
     const by = new Map<Kind, string[]>();
@@ -241,6 +274,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
   }
 
   function onChanges(changes: Parameters<RealtimeClientOptions["onChanges"]>[0]) {
+    if (changes.some((c) => c.entity === "projects")) projectsChanged();
     // Suppression d'une entité sans pierre tombale : pas la nôtre (une suppression confirmée en laisse une).
     foreign(changes.filter((c) => c.op === "delete" && isKind(c.entity) && !store.tombstones.has(`${c.entity}:${c.id}`))
       .map((c) => ({ kind: c.entity as Kind, id: c.id })));
@@ -410,6 +444,11 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
 
   return {
     ...records,
+    listProjects,
+    onProjectsChange(l) {
+      projectListeners.add(l);
+      return () => projectListeners.delete(l);
+    },
     updateAllocation,
     splitOccurrence,
     onForeignChange(l) {

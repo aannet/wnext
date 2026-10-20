@@ -279,3 +279,54 @@ describe("temps réel", () => {
     expect(h.sockets).toHaveLength(0);
   });
 });
+
+describe("liste complète des projets (saisie rapide)", () => {
+  const project = (id: string, name: string) => ({
+    id, version: 1, name, projectCode: null, color: "#3B82F6", status: "in_progress", nonBillable: false, startDate: null, endDate: null,
+    projectManagerId: null, tags: [], notes: null,
+  });
+  const projectsApi = (names: () => string[][]) => live((q, path) => {
+    if (path !== "/api/v1/projects") return { status: 200, body: pageOf(q) };
+    const pages = names();
+    const i = Number(q.get("cursor") ?? 0);
+    return { status: 200, body: { items: pages[i]!.map((n) => project(n, `Projet ${n}`)), page: { nextCursor: i + 1 < pages.length ? String(i + 1) : null, total: 3 } } };
+  });
+  const listCalls = (h: ReturnType<typeof live>) => h.f.calls.filter((c) => c.url.startsWith("/api/v1/projects"));
+
+  it("lit toutes les pages, garde le résultat pour la session (une seule série de requêtes)", async () => {
+    const h = projectsApi(() => [["a", "b"], ["c"]]);
+    expect(await h.s.listProjects()).toEqual([{ id: "a", name: "Projet a" }, { id: "b", name: "Projet b" }, { id: "c", name: "Projet c" }]);
+    expect(listCalls(h)).toHaveLength(2);
+    expect(listCalls(h)[1]!.query.get("cursor")).toBe("1");
+    await h.s.listProjects();
+    expect(listCalls(h)).toHaveLength(2);
+  });
+
+  it("événement temps réel « projects » : cache vidé, abonnés prévenus, relecture", async () => {
+    let names = [["a"]];
+    const h = projectsApi(() => names);
+    h.s.start();
+    await flush();
+    await h.goLive();
+    let told = 0;
+    h.s.onProjectsChange(() => told++);
+    expect((await h.s.listProjects()).map((p) => p.id)).toEqual(["a"]);
+    names = [["a", "d"]];
+    h.sockets[0]!.say(changes({ seq: "6", entity: "projects", id: "d", op: "insert", version: 1 }));
+    await flush();
+    expect(told).toBe(1);
+    expect((await h.s.listProjects()).map((p) => p.id)).toEqual(["a", "d"]);
+  });
+
+  it("échec : erreur au code stable, pas de cache (nouvel essai possible)", async () => {
+    let ok = false;
+    const f = fakeApi((_q, path) => path === "/api/v1/projects"
+      ? (ok ? { status: 200, body: { items: [project("a", "A")], page: { nextCursor: null, total: 1 } } } : { status: 403, body: { code: "FORBIDDEN" } })
+      : { status: 200, body: pageOf(new URLSearchParams()) });
+    const s = createScheduleSource({ api: f.api });
+    await expect(s.listProjects()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    ok = true;
+    expect(await s.listProjects()).toEqual([{ id: "a", name: "A" }]);
+  });
+});
+

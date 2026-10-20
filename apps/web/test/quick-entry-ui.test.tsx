@@ -39,10 +39,9 @@ const clock: Partial<Clock> = { raf: (cb) => (frames.push(cb), frames.length), c
 const flush = async () => { for (let i = 0; i < 5; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); }); };
 afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; frames.length = 0; });
 
-function mount(opts: { allocations?: Alloc[]; records?: boolean; locale?: "fr" | "en"; wrap?: (s: Source) => Source } = {}) {
-  // Le magasin ne garde dans la vue que les projets référencés par une allocation : une allocation « seed » lointaine par projet.
-  const seeds = ["1", "2", "3"].map((p) => alloc(`seed${p}`, { projectId: p, personId: "2", startDate: "2027-06-01", endDate: "2027-06-01" }));
-  const src = (opts.wrap ?? ((x: Source) => x))(createDemoSource(data([...seeds, ...(opts.allocations ?? [])])));
+async function mount(opts: { allocations?: Alloc[]; records?: boolean; locale?: "fr" | "en"; wrap?: (s: Source) => Source } = {}) {
+  // Aucune allocation ne référence « Audit » ni « Refonte Mobile » : les candidats viennent de la liste complète des projets.
+  const src = (opts.wrap ?? ((x: Source) => x))(createDemoSource(data(opts.allocations ?? [])));
   const { history } = historyForSource(src);
   host = document.createElement("div");
   document.body.appendChild(host);
@@ -52,10 +51,11 @@ function mount(opts: { allocations?: Alloc[]; records?: boolean; locale?: "fr" |
       editor={history.editor} history={history} records={opts.records === false ? undefined : src} />));
   render();
   src.subscribe(() => { queueMicrotask(render); });
+  await flush(); // liste complète des projets (asynchrone)
   return { src, history };
 }
 
-const mine = (src: Source) => src.getState().data!.allocations.filter((a) => !a.id.startsWith("seed"));
+const mine = (src: Source) => src.getState().data!.allocations;
 const input = () => host.querySelector<HTMLInputElement>('input[role="combobox"]')!;
 const preview = () => host.querySelector("#wn-quick-preview")!.textContent!;
 const options = () => [...host.querySelectorAll('[role="option"]')].map((o) => o.textContent);
@@ -79,8 +79,8 @@ function pickPerson(id: string) {
 }
 
 describe("saisie rapide", () => {
-  it("analyse en direct : aperçu lisible, 8 h par défaut signalé, rien à créer tant que la personne manque", () => {
-    mount();
+  it("analyse en direct : aperçu lisible, 8 h par défaut signalé, rien à créer tant que la personne manque", async () => {
+    await mount();
     type("Audit mer");
     expect(preview()).toContain("Personne à choisir.");
     expect(submitButton().disabled).toBe(true);
@@ -91,8 +91,8 @@ describe("saisie rapide", () => {
     expect(preview()).toBe("Audit, Bruno, du lun. 26 oct. au mer. 28 oct., 50 %, tentatif");
   });
 
-  it("messages traduits pour missing et invalid", () => {
-    mount();
+  it("messages traduits pour missing et invalid", async () => {
+    await mount();
     pickPerson("1");
     type("zzz 30h 31/02");
     expect(preview()).toContain("Projet à préciser.");
@@ -101,8 +101,8 @@ describe("saisie rapide", () => {
     expect(preview()).toContain("Date invalide.");
   });
 
-  it("locale de l'analyse = locale de l'interface (anglais : jours anglais, dates M/D)", () => {
-    mount({ locale: "en" });
+  it("locale de l'analyse = locale de l'interface (anglais : jours anglais, dates M/D)", async () => {
+    await mount({ locale: "en" });
     pickPerson("1");
     type("Audit mon-wed 4h");
     expect(preview()).toBe("Audit, Alice, from Mon, Oct 26 to Wed, Oct 28, 4 h per day");
@@ -110,8 +110,8 @@ describe("saisie rapide", () => {
     expect(preview()).toContain("Audit, Alice, from Thu, Dec 31");
   });
 
-  it("projet ambigu : combobox ARIA, flèches puis Entrée choisissent, Échap ferme la liste", () => {
-    mount();
+  it("projet ambigu : combobox ARIA, flèches puis Entrée choisissent, Échap ferme la liste", async () => {
+    await mount();
     pickPerson("1");
     type("refo lun");
     expect(options()).toEqual(["Refonte", "Refonte Mobile"]);
@@ -130,7 +130,7 @@ describe("saisie rapide", () => {
   });
 
   it("Entrée valide : allocation créée tout de suite, annoncée, focus rendu à la grille", async () => {
-    const { src } = mount();
+    const { src } = await mount();
     pickPerson("2");
     type("Audit 4h lun-mer");
     press(input(), { key: "Enter" });
@@ -144,7 +144,7 @@ describe("saisie rapide", () => {
   });
 
   it("tentatif et pourcentage passent dans le corps de création", async () => {
-    const { src } = mount();
+    const { src } = await mount();
     pickPerson("1");
     type("? Audit 50% 2026-10-27");
     press(input(), { key: "Enter" });
@@ -153,7 +153,7 @@ describe("saisie rapide", () => {
   });
 
   it("créer puis Ctrl+Z supprime l'allocation, Ctrl+Maj+Z la recrée", async () => {
-    const { src } = mount();
+    const { src } = await mount();
     pickPerson("1");
     type("Audit mar");
     press(input(), { key: "Enter" });
@@ -169,7 +169,7 @@ describe("saisie rapide", () => {
   });
 
   it("refus : message traduit dans la barre, annoncé, texte gardé, rien dans l'historique", async () => {
-    const { src, history } = mount({ wrap: (s) => ({ ...s, createAllocation: async () => ({ ok: false as const, error: "NETWORK" as const }) }) });
+    const { src, history } = await mount({ wrap: (s) => ({ ...s, createAllocation: async () => ({ ok: false as const, error: "NETWORK" as const }) }) });
     pickPerson("1");
     type("Audit mar");
     press(input(), { key: "Enter" });
@@ -181,8 +181,8 @@ describe("saisie rapide", () => {
     expect(mine(src)).toHaveLength(0);
   });
 
-  it("raccourcis : N sur un bloc focalise la barre avec la personne du bloc ; Échap rend la grille ; « / » depuis la grille", () => {
-    mount({ allocations: [alloc("a", { personId: "2" })] });
+  it("raccourcis : N sur un bloc focalise la barre avec la personne du bloc ; Échap rend la grille ; « / » depuis la grille", async () => {
+    await mount({ allocations: [alloc("a", { personId: "2" })] });
     const b = host.querySelector<HTMLElement>('.wn-block[data-key="a:0"]')!;
     b.focus();
     press(b, { key: "n" });
@@ -195,8 +195,30 @@ describe("saisie rapide", () => {
     expect(document.activeElement).toBe(input());
   });
 
-  it("lecture seule sans source d'écritures : pas de barre", () => {
-    mount({ records: false });
+  it("candidats = liste complète des projets (aucune allocation n'en référence), relue sur l'événement projets, liste précédente gardée en cas d'échec", async () => {
+    let list = [{ id: "3", name: "Audit" }];
+    let fire = () => {};
+    let fail = false;
+    await mount({ wrap: (s) => ({ ...s,
+      listProjects: async () => { if (fail) throw new Error("x"); return list; },
+      onProjectsChange: (l) => { fire = l; return () => { fire = () => {}; }; } }) });
+    pickPerson("1");
+    type("nouv");
+    expect(preview()).toContain("Projet à préciser.");
+    list = [...list, { id: "9", name: "Nouveau site" }];
+    await act(async () => { fire(); await Promise.resolve(); });
+    await flush();
+    type("nouv lun");
+    expect(preview()).toContain("Nouveau site, Alice");
+    fail = true;
+    await act(async () => { fire(); await Promise.resolve(); });
+    await flush();
+    type("audit lun");
+    expect(preview()).toContain("Audit, Alice");
+  });
+
+  it("lecture seule sans source d'écritures : pas de barre", async () => {
+    await mount({ records: false });
     expect(host.querySelector(".wn-quick")).toBeNull();
   });
 });
