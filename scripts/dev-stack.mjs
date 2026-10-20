@@ -1,8 +1,10 @@
 #!/usr/bin/env node
-// Pile de développement locale : `npm run dev:stack [-- --reset]`.
+// Pile de développement locale : `npm run dev:stack [-- --reset] [-- --oidc]`.
+//  * --oidc : démarre aussi le fournisseur OIDC local (scripts/dev-idp.mjs, port WNEXT_DEV_IDP_PORT, défaut 3010) et lance
+//    l'API en AUTH_MODE=oidc (OIDC_ISSUER / OIDC_AUDIENCE / OIDC_JWKS_URL pointant vers lui). Sans l'option : AUTH_MODE=dev.
 //  * Postgres embarqué PERSISTANT dans .dev-pg/ (ignoré par git), port fixe (WNEXT_DEV_PG_PORT, défaut 54329).
 //  * Migrations (scripts/migrate.mjs) puis jeu d'essai idempotent (scripts/dev-seed.mjs).
-//  * API en AUTH_MODE=dev (port WNEXT_DEV_API_PORT, défaut 3000), connectée en superutilisateur avec DB_ROLE=app_user :
+//  * API en AUTH_MODE=dev par défaut (port WNEXT_DEV_API_PORT, défaut 3000), connectée en superutilisateur avec DB_ROLE=app_user :
 //    la RLS s'applique comme en production (SET LOCAL ROLE par transaction).
 //  * Affiche les valeurs VITE_DEV_* ; Ctrl-C / SIGTERM arrête l'API puis Postgres. --reset repart d'une base vide.
 // Écran : `npm run dev -w @wnext/web` (proxy /api vers l'API ; apps/web/.env.development porte les ids du jeu d'essai).
@@ -13,7 +15,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import EmbeddedPostgres from "embedded-postgres";
 import pg from "pg";
-import { DEV_IDS, seedDev } from "./dev-seed.mjs";
+import { startDevIdp } from "./dev-idp.mjs";
+import { DEV_IDS, DEV_USERS, seedDev } from "./dev-seed.mjs";
 import { migrate } from "./migrate.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,6 +25,11 @@ const dataDir = join(pgDir, "data");
 const pgPort = Number(process.env.WNEXT_DEV_PG_PORT ?? 54329);
 const apiPort = Number(process.env.WNEXT_DEV_API_PORT ?? 3000);
 const reset = process.argv.includes("--reset");
+const oidc = process.argv.includes("--oidc");
+const idpPort = Number(process.env.WNEXT_DEV_IDP_PORT ?? 3010);
+// Durée des jetons d'accès (s) : 300 par défaut ; plus court pour observer le renouvellement.
+const idpTtl = process.env.WNEXT_DEV_IDP_TOKEN_TTL ? Number(process.env.WNEXT_DEV_IDP_TOKEN_TTL) : undefined;
+let idp = null;
 const url = `postgres://postgres:postgres@127.0.0.1:${pgPort}/wnext`;
 
 // Une seconde pile sur les mêmes ports (et surtout un --reset sous un Postgres vivant) corromprait la première.
@@ -30,7 +38,7 @@ const busy = (port) => new Promise((res) => {
   s.once("connect", () => { s.destroy(); res(true); });
   s.once("error", () => res(false));
 });
-for (const [name, port] of [["Postgres", pgPort], ["API", apiPort]]) {
+for (const [name, port] of [["Postgres", pgPort], ["API", apiPort], ...(oidc ? [["fournisseur OIDC", idpPort]] : [])]) {
   if (await busy(port)) {
     console.error(`le port ${port} (${name}) est déjà utilisé : une pile tourne peut-être déjà (WNEXT_DEV_PG_PORT / WNEXT_DEV_API_PORT pour changer)`);
     process.exit(1);
@@ -54,6 +62,7 @@ async function stop(code = 0) {
       api.once("exit", () => { clearTimeout(t); res(); });
     });
   }
+  await idp?.close().catch(() => {});
   await server.stop().catch(() => {});
   process.exit(code);
 }
@@ -81,18 +90,34 @@ try {
   await stop(1);
 }
 
+if (!stopping && oidc) {
+  try {
+    idp = await startDevIdp({ port: idpPort, tokenTtlSec: idpTtl });
+  } catch (err) {
+    console.error(`fournisseur OIDC impossible à démarrer : ${err instanceof Error ? err.message : err}`);
+    await stop(1);
+  }
+}
+
 if (!stopping) {
+  const auth = oidc
+    ? { AUTH_MODE: "oidc", OIDC_ISSUER: idp.issuer, OIDC_AUDIENCE: idp.audience, OIDC_JWKS_URL: `${idp.issuer}/jwks` }
+    : { AUTH_MODE: "dev" };
   api = spawn(process.execPath, ["--import", "tsx", "src/main.ts"], {
     cwd: join(root, "apps", "api"),
     stdio: "inherit",
-    env: { ...process.env, DATABASE_URL: url, DB_ROLE: "app_user", HOST: "127.0.0.1", PORT: String(apiPort), AUTH_MODE: "dev", WS_TICKET_SECRET: process.env.WS_TICKET_SECRET ?? "dev-only-secret-dev-only-secret-0123456789" },
+    env: { ...process.env, DATABASE_URL: url, DB_ROLE: "app_user", HOST: "127.0.0.1", PORT: String(apiPort), ...auth, WS_TICKET_SECRET: process.env.WS_TICKET_SECRET ?? "dev-only-secret-dev-only-secret-0123456789" },
   });
   api.on("exit", (code) => { if (!stopping) { console.error(`l'API s'est arrêtée (code ${code})`); void stop(1); } });
-  console.log(`
-Pile prête : Postgres :${pgPort} (.dev-pg/), API http://127.0.0.1:${apiPort} (AUTH_MODE=dev).
-Valeurs VITE_DEV_* (déjà dans apps/web/.env.development) :
+  const identity = oidc
+    ? `Fournisseur OIDC : ${idp.issuer} (client ${idp.clientId}, audience ${idp.audience}, utilisateurs : ${DEV_USERS.map((u) => u.subject).join(", ")}).
+Écran en OIDC : VITE_AUTH_MODE=oidc VITE_OIDC_ISSUER=${idp.issuer} npm run dev -w @wnext/web`
+    : `Valeurs VITE_DEV_* (déjà dans apps/web/.env.development) :
   VITE_DEV_ACCOUNT_ID=${DEV_IDS.accountId}
   VITE_DEV_USER_ID=${DEV_IDS.userId}
   VITE_DEV_ROLE=${DEV_IDS.role}
-Écran : npm run dev -w @wnext/web   |   Ctrl-C pour tout arrêter.`);
+Écran : npm run dev -w @wnext/web`;
+  console.log(`
+Pile prête : Postgres :${pgPort} (.dev-pg/), API http://127.0.0.1:${apiPort} (AUTH_MODE=${auth.AUTH_MODE}).
+${identity}   |   Ctrl-C pour tout arrêter.`);
 }
