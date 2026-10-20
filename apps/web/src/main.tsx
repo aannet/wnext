@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import { createClient } from "./api/client.gen";
 import { createAuthFetch, devAuthProvider, oidcAuthProvider, type AuthProvider } from "./data/auth-fetch";
 import { createDemoSource } from "./data/demo-source";
+import { createApiViewsSource, createDemoViewsSource, demoSeedViews } from "./data/views-source";
 import { browserOidcDeps, createOidcSession, oidcConfigFromEnv } from "./data/oidc";
 import { createScheduleSource } from "./data/schedule-source";
 import { createI18n, type UiLocale } from "./i18n";
@@ -20,18 +21,20 @@ const i18n = createI18n(locale);
 document.documentElement.lang = locale === "en" ? "en" : "fr";
 const widthPx = window.innerWidth - 32;
 const heightPx = window.innerHeight - 120;
+// Hauteur de la barre des vues (une ligne, filtres repliés) retirée à la grille pour que la page ne défile pas.
+const VIEWS_BAR_PX = 50;
 const root = createRoot(document.getElementById("root")!);
 
 function renderApi(auth: AuthProvider, onLogout?: () => void) {
   const api = createClient({ baseUrl: "", fetch: createAuthFetch(auth) });
   const wsBase = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
   const source = createScheduleSource({ api, realtime: { wsBase, onError: (err) => console.warn(err) } });
-  root.render(<ScheduleContainer i18n={i18n} source={source} widthPx={widthPx} heightPx={heightPx - 24} {...(onLogout ? { onLogout } : {})} />);
+  root.render(<ScheduleContainer i18n={i18n} source={source} views={createApiViewsSource(api)} widthPx={widthPx} heightPx={heightPx - 24 - VIEWS_BAR_PX} {...(onLogout ? { onLogout } : {})} />);
 }
 
 if (params.get("demo") === "1") {
   const source = createDemoSource(demoSchedule(todayIn("Europe/Paris", new Date())));
-  root.render(<ScheduleContainer i18n={i18n} source={source} widthPx={widthPx} heightPx={heightPx - 24} />);
+  root.render(<ScheduleContainer i18n={i18n} source={source} views={createDemoViewsSource(demoSeedViews())} widthPx={widthPx} heightPx={heightPx - 24 - VIEWS_BAR_PX} />);
 } else if (import.meta.env.VITE_AUTH_MODE === "oidc") {
   const session = createOidcSession(oidcConfigFromEnv(import.meta.env, location.origin), browserOidcDeps());
   session.start().then(

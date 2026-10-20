@@ -15,12 +15,16 @@
 //    modification), clic ou Entrée sur un congé pour le modifier, double clic sur une case vide pour en créer un.
 //  * Saisie rapide (schedule/quick-entry-ui) si une source d'écritures est fournie : barre au-dessus de la grille, touche
 //    « / » ou N sur la grille (sur un bloc : sa personne), création annulable par Ctrl+Z.
+//  * Vues sauvegardées (schedule/views-ui) si une source de vues est fournie : filtres (département, rôle, projet, personne, tri)
+//    appliqués côté client aux lignes (schedule/view-filters) ; seule la grille reçoit les données filtrées, les éditeurs gardent
+//    les données complètes.
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import { dayNumber, fromDayNumber, type HeaderCell, type Viewport, type Zoom } from "@wnext/engine";
-import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import type { ScheduleEditor } from "./data/allocation-edits";
 import type { ScheduleSource } from "./data/schedule-source";
+import type { ViewsSource } from "./data/views-source";
 import type { MessageKey } from "./i18n";
 import { createBlockEditor } from "./schedule/block-editor";
 import { blockLabeler } from "./schedule/block-label";
@@ -31,6 +35,8 @@ import type { History, HistoryDirection, HistoryResult, HistoryState } from "./s
 import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
 import { useTimeoffEdits } from "./schedule/timeoff-ui";
 import { QuickEntry, type QuickEntryHandle } from "./schedule/quick-entry-ui";
+import { applyViewFilters, type ViewFilters } from "./schedule/view-filters";
+import { ViewsBar } from "./schedule/views-ui";
 
 export interface ScheduleScreenProps {
   i18n: I18n;
@@ -47,6 +53,8 @@ export interface ScheduleScreenProps {
   editor?: ScheduleEditor;
   /** Historique d'annulation (dont `editor` est en principe l'éditeur enregistreur) ; absent : ni boutons ni raccourcis. */
   history?: History;
+  /** Vues sauvegardées (filtres nommés) ; absent : ni barre de vues ni filtres. */
+  views?: ViewsSource;
   /** Écritures brutes de la source (congés, report assisté) ; absent : congés en lecture seule. */
   records?: Pick<ScheduleSource, "getState" | "updateAllocation" | "splitOccurrence" | "createTimeoff" | "updateTimeoff" | "deleteTimeoff"
     | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "onProjectsChange">>;
@@ -81,9 +89,12 @@ function headerFormatter(locale: string) {
   return (c: HeaderCell) => fmt[c.kind].format(new Date(`${c.from}T00:00:00Z`));
 }
 
-export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewChange, clock, editor, history, records }: ScheduleScreenProps) {
+export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewChange, clock, editor, history, records, views }: ScheduleScreenProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [zoom, setZoom] = useState<Zoom>("day");
+  const [filters, setFilters] = useState<ViewFilters>({});
+  // Lignes affichées : personnes filtrées (et triées) ; `data` reste la référence des éditeurs et des listes de choix.
+  const shown = useMemo(() => applyViewFilters(data, filters), [data, filters]);
   const gridRef = useRef<HTMLDivElement>(null);
   const scroller = useRef<Scroller | null>(null);
   const viewChange = useRef(onViewChange);
@@ -178,7 +189,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
   const labelled = useRef(i18n);
   useEffect(() => {
     const s = createScroller({
-      root: gridRef.current!, data, today, widthPx, heightPx, clock, zoom: zoomRef.current, ...labelsFor(i18n),
+      root: gridRef.current!, data: shown, today, widthPx, heightPx, clock, zoom: zoomRef.current, ...labelsFor(i18n),
       onViewChange: (v) => viewChange.current?.(v),
     });
     labelled.current = i18n;
@@ -196,11 +207,11 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
     scroller.current?.setLabels(labelsFor(i18n));
   }, [i18n.locale]);
   useEffect(() => {
-    scroller.current?.setData(data);
+    scroller.current?.setData(shown);
     const p = pendingFocus.current;
     pendingFocus.current = null;
     if (p) focusAt(p.key, p.at);
-  }, [data]);
+  }, [shown]);
   useEffect(() => { scroller.current?.resize(widthPx, heightPx); }, [widthPx, heightPx]);
 
   const zoomTo = (z: Zoom) => { scroller.current?.setZoom(z); setZoom(z); };
@@ -251,8 +262,9 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
         {records && (
           <button type="button" aria-keyshortcuts="C" onClick={() => openTimeoffAt(document.activeElement)}>{t("schedule.timeoff.new")}</button>
         )}
-        <span>{t("schedule.people.count", { count: data.people.length })}</span>
+        <span>{t("schedule.people.count", { count: shown.people.length })}</span>
       </div>
+      {views && <ViewsBar i18n={i18n} data={data} shownCount={shown.people.length} source={views} filters={filters} zoom={zoom} onFilters={setFilters} onZoom={zoomTo} />}
       {records && (
         <QuickEntry ref={quickRef} i18n={i18n} data={data} today={today} createAllocation={records.createAllocation} listProjects={records.listProjects} onProjectsChange={records.onProjectsChange} record={history?.record}
           announce={(text) => editsRef.current.announce(text)} onExit={() => gridRef.current?.focus({ preventScroll: true })} />

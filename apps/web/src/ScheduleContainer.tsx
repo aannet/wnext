@@ -8,6 +8,7 @@ import type { I18n } from "@lingui/core";
 import { todayIn, viewAt } from "@wnext/engine";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ScheduleSource, ScheduleSourceState, SourceErrorCode } from "./data/schedule-source";
+import type { ViewsSource } from "./data/views-source";
 import type { MessageKey } from "./i18n";
 import { ScheduleScreen } from "./ScheduleScreen";
 import { historyForSource } from "./schedule/history";
@@ -16,6 +17,8 @@ import { GUTTER_PX } from "./schedule/scroller";
 export interface ScheduleContainerProps {
   i18n: I18n;
   source: ScheduleSource;
+  /** Vues sauvegardées ; absent : pas de barre de vues. */
+  views?: ViewsSource;
   /** Horloge (tests) ; la date du jour est calculée dans le fuseau du compte dès qu'il est connu, et revérifiée chaque minute. */
   now?: () => Date;
   widthPx: number;
@@ -33,7 +36,7 @@ const realtimeKey = (s: ScheduleSourceState["realtime"]): MessageKey =>
 const TODAY_CHECK_MS = 60_000;
 const systemNow = () => new Date();
 
-export function ScheduleContainer({ i18n, source, now = systemNow, widthPx, heightPx, onLogout }: ScheduleContainerProps) {
+export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onLogout }: ScheduleContainerProps) {
   const t = (k: MessageKey) => i18n._(k);
   const state = useSyncExternalStore(source.subscribe, source.getState);
   const timezone = state.data?.account.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -85,7 +88,7 @@ export function ScheduleContainer({ i18n, source, now = systemNow, widthPx, heig
       </div>
       {error}
       <ScheduleScreen i18n={i18n} data={state.data} today={today} widthPx={widthPx} heightPx={heightPx} onViewChange={source.setViewport}
-        editor={undo.history.editor} history={undo.history} records={source} />
+        editor={undo.history.editor} history={undo.history} records={source} {...(views ? { views } : {})} />
     </main>
   );
 }
