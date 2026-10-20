@@ -16,6 +16,7 @@ import {
   CHUNK_DAYS, DEFAULT_PX_PER_DAY, chunkCover, dayNumber, extendTrack, fromDayNumber, headerCells, neighborDays, scrollLeftOf,
   stepPeriod, trackAround, trackWidthPx, viewAtScroll, visibleRange, type Bounds, type HeaderCell, type Viewport, type Zoom,
 } from "@wnext/engine";
+import type { EditHost } from "./block-editor";
 import { createGridRenderer } from "./grid-dom";
 import { createHeaderRenderer, type HeaderItem } from "./grid-header";
 import { buildGrid, type GridCap, type GridModel } from "./grid-model";
@@ -70,6 +71,8 @@ export interface Scroller {
   setZoom(z: Zoom): void;
   /** Flèches gauche / droite. */
   nudge(dir: -1 | 1): void;
+  /** Repère de l'édition par gestes (block-editor) : données, modèle courant, géométrie. */
+  readonly host: EditHost;
   stats(): { builds: number; rowsCreated: number; blocksCreated: number; capsCreated: number; cellsCreated: number; nodes: number };
   destroy(): void;
 }
@@ -295,6 +298,15 @@ export function createScroller(o: ScrollerOptions): Scroller {
       anim = null;
       root.scrollLeft = Math.max(0, root.scrollLeft + dir * KEY_DAYS[zoom] * pxPerDay);
       schedule();
+    },
+    host: {
+      surface: grid.surface,
+      data: () => data,
+      model: () => model,
+      pxPerDay: () => pxPerDay,
+      xOfDate: (d) => GUTTER_PX + (dayNumber(d) - dayNumber(track.first)) * pxPerDay,
+      scrollDay: () => dayNumber(track.first) + root.scrollLeft / pxPerDay,
+      blockAt: grid.blockAt,
     },
     stats: () => ({ builds, ...grid.stats(), ...header.stats(), nodes: root.getElementsByTagName("*").length }),
     destroy() {

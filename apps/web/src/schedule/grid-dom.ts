@@ -8,9 +8,11 @@
 //    revisitée que si son modèle, sa fenêtre horizontale ou son origine changent (l'appelant quantifie la fenêtre).
 //  * Bande de capacité : une cellule (un nœud, motif en dégradés CSS) par période du zoom, recyclée comme les blocs ; son
 //    libellé (aria-label et infobulle) vient de l'appelant, recalculé seulement si les heures changent.
-import { CAP_PX, visibleRows, type GridBlock, type GridCap, type GridModel } from "./grid-model";
+//  * Édition (block-editor) : un bloc est focalisable (tabindex -1, la grille garde un seul arrêt de tabulation) ; blockAt
+//    retrouve le bloc et la ligne d'un nœud (ou d'une poignée posée dedans par l'éditeur).
+import { CAP_PX, visibleRows, type GridBlock, type GridCap, type GridModel, type GridRow } from "./grid-model";
 
-interface BlockEl { el: HTMLDivElement; text: Text; v: Partial<GridBlock> }
+interface BlockEl { el: HTMLDivElement; text: Text; v: Partial<GridBlock>; g: GridBlock | null; row: RowEl | null }
 interface CapEl { el: HTMLDivElement; v: Partial<GridCap>; y: number }
 interface RowEl { el: HTMLDivElement; header: HTMLDivElement; index: number; model: GridModel | null; span: string; blocks: Map<string, BlockEl>; caps: Map<string, CapEl>; top: number; h: number; overflow: boolean }
 
@@ -19,6 +21,10 @@ export interface Horizontal { surfaceWidth: number; originX: number; left: numbe
 
 export interface GridRenderer {
   render(model: GridModel, scrollTop: number, viewHeight: number, h?: Horizontal): void;
+  /** Bloc affiché qui contient `target` (ou l'une de ses poignées), avec sa ligne ; null hors bloc. */
+  blockAt(target: EventTarget | null): { block: GridBlock; row: GridRow; el: HTMLElement } | null;
+  /** Surface des lignes (repère des positions du modèle décalées de originX). */
+  readonly surface: HTMLElement;
   stats(): { rowsCreated: number; blocksCreated: number; capsCreated: number };
   destroy(): void;
 }
@@ -87,15 +93,19 @@ export function createGridRenderer(root: HTMLElement, opts: GridRendererOptions 
     r.el.style.display = "none";
     freeRows.push(r);
   };
+  const byEl = new WeakMap<Element, BlockEl>();
   const takeBlock = (parent: HTMLElement): BlockEl => {
     const b = freeBlocks.pop() ?? (() => {
       blocksCreated++;
       const el = div("wn-block");
       el.setAttribute("role", "gridcell");
+      el.tabIndex = -1;
       el.style.position = "absolute";
       const text = document.createTextNode("");
       el.appendChild(text);
-      return { el, text, v: {} };
+      const made: BlockEl = { el, text, v: {}, g: null, row: null };
+      byEl.set(el, made);
+      return made;
     })();
     b.el.style.display = "";
     parent.appendChild(b.el);
@@ -105,6 +115,8 @@ export function createGridRenderer(root: HTMLElement, opts: GridRendererOptions 
     b.el.style.display = "none";
     b.el.removeAttribute("data-key");
     b.v = {};
+    b.g = null;
+    b.row = null;
     freeBlocks.push(b);
   };
 
@@ -180,6 +192,8 @@ export function createGridRenderer(root: HTMLElement, opts: GridRendererOptions 
       let b = r.blocks.get(g.key);
       if (!b) { b = takeBlock(r.el); r.blocks.set(g.key, b); }
       setBlock(b, g, h.originX);
+      b.g = g;
+      b.row = r;
     }
     const capsShown = row.cells.filter((c) => c.x + h.originX + c.w >= h.left && c.x + h.originX <= h.right);
     const capKeep = new Set(capsShown.map((c) => c.from));
@@ -204,6 +218,13 @@ export function createGridRenderer(root: HTMLElement, opts: GridRendererOptions 
         bindRow(r, model, i, h);
       }
     },
+    blockAt(target) {
+      const el = target instanceof Element ? target.closest(".wn-block") : null;
+      const b = el ? byEl.get(el) : undefined;
+      const row = b?.row?.model?.rows[b.row.index];
+      return b && b.g && row ? { block: b.g, row, el: b.el } : null;
+    },
+    surface,
     stats: () => ({ rowsCreated, blocksCreated, capsCreated }),
     destroy() {
       root.removeChild(surface);

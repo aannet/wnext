@@ -29,3 +29,18 @@ body { margin: 16px; font: 13px system-ui, sans-serif; color: #1f2937; backgroun
 .wn-cap { contain: strict; box-sizing: border-box; border-left: 1px solid #fff; background-color: #e5e7eb; }
 .wn-cap.wn-cap-none { background-color: #f9fafb; }
 .wn-cap.wn-cap-over { box-shadow: inset 0 0 0 1px #b91c1c; }
+
+/* Édition par gestes : poignées de 6 px (début, fin, hauteur), fantôme du geste, choix de portée d'une série, annonces. */
+.wn-block { cursor: grab; }
+.wn-block:focus-visible { outline: 2px solid #111827; outline-offset: 1px; }
+.wn-dragging, .wn-dragging .wn-block { cursor: grabbing; user-select: none; }
+.wn-handle { position: absolute; touch-action: none; }
+.wn-handle-start, .wn-handle-end { top: 0; bottom: 6px; width: 6px; cursor: ew-resize; }
+.wn-handle-start { left: 0; }
+.wn-handle-end { right: 0; }
+.wn-handle-height { left: 6px; right: 6px; bottom: 0; height: 6px; cursor: ns-resize; }
+.wn-ghost { z-index: 3; box-sizing: border-box; border-radius: 3px; opacity: 0.6; outline: 2px dashed #111827; }
+.wn-dialog { margin: 8px 0; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+.wn-dialog p { margin: 0 0 8px; }
+.wn-dialog-actions { display: flex; gap: 8px; }
+.wn-notice { min-height: 18px; margin-top: 6px; color: #374151; font-size: 12px; }
