@@ -10,6 +10,7 @@
 //    libellé (aria-label et infobulle) vient de l'appelant, recalculé seulement si les heures changent.
 //  * Édition (block-editor) : un bloc est focalisable (tabindex -1, la grille garde un seul arrêt de tabulation) ; blockAt
 //    retrouve le bloc et la ligne d'un nœud (ou d'une poignée posée dedans par l'éditeur).
+import { blockColors } from "./block-colors";
 import { CAP_PX, visibleRows, type GridBlock, type GridCap, type GridModel, type GridRow } from "./grid-model";
 
 interface BlockEl { el: HTMLDivElement; text: Text; v: Partial<GridBlock>; g: GridBlock | null; row: RowEl | null }
@@ -168,7 +169,13 @@ export function createGridRenderer(root: HTMLElement, opts: GridRendererOptions 
     if (v.x !== x || v.y !== g.y) s.transform = `translate(${x}px, ${g.y}px)`;
     if (v.w !== g.w) s.width = `${g.w}px`;
     if (v.h !== g.h) s.height = `${g.h}px`;
-    if (v.color !== g.color) s.backgroundColor = g.color ?? "";
+    if (v.color !== g.color || v.tentative !== g.tentative) {
+      // Couleurs calculées une fois par couleur (cache) : texte noir ou blanc selon la luminance du fond (WCAG 1.4.3).
+      const c = blockColors(g.color, g.tentative);
+      s.backgroundColor = c.background;
+      s.color = c.text;
+      s.borderColor = c.border;
+    }
     if (v.label !== g.label) b.text.data = g.label;
     if (v.tentative !== g.tentative) b.el.classList.toggle("wn-tentative", g.tentative);
     b.v = { ...g, x };

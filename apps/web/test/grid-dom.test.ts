@@ -46,7 +46,11 @@ describe("createGridRenderer", () => {
     expect([el.style.transform, el.style.width, el.style.height, el.getAttribute("role"), el.textContent])
       .toEqual(["translate(10px, 0px)", "20px", "24px", "gridcell", "Refonte"]);
     expect(el.style.backgroundColor).not.toBe("");
-    expect(root.querySelector('[data-key="101:0"]')!.classList.contains("wn-tentative")).toBe(true);
+    expect([el.style.backgroundColor, el.style.color]).toEqual(["rgb(59, 130, 246)", "rgb(0, 0, 0)"]); // noir : 5,7:1, blanc : 3,7:1
+    const tentative = root.querySelector('[data-key="101:0"]') as HTMLElement;
+    expect(tentative.classList.contains("wn-tentative")).toBe(true);
+    expect([tentative.style.borderColor, tentative.style.color]).toEqual(["rgb(59, 130, 246)", "rgb(0, 0, 0)"]);
+    expect(tentative.style.backgroundColor).not.toBe(el.style.backgroundColor);
     r.render(model(3, [blk("100:0", 50)]), 0, 3 * U);
     expect(root.querySelector('[data-key="100:0"]')).toBe(el);
     expect(el.style.transform).toBe("translate(50px, 0px)");
