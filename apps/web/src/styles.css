@@ -66,3 +66,11 @@ body { margin: 16px; font: 13px system-ui, sans-serif; color: #1f2937; backgroun
 .wn-timeoff-choice label { margin-right: 12px; }
 .wn-dialog-error { color: #991b1b; }
 .wn-timeoff-declined { background-color: #f9fafb; border-left-style: dotted; color: #6b7280; text-decoration: line-through; }
+.wn-quick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.wn-quick-field { position: relative; flex: 1 1 280px; }
+.wn-quick-field input { width: 100%; box-sizing: border-box; }
+.wn-quick-list { position: absolute; z-index: 5; left: 0; right: 0; margin: 2px 0 0; padding: 0; list-style: none; background: #fff; border: 1px solid #d1d5db; }
+.wn-quick-list li { padding: 4px 8px; cursor: pointer; }
+.wn-quick-list li[aria-selected="true"] { background: #1d4ed8; color: #fff; }
+.wn-quick-preview { flex-basis: 100%; min-height: 1.2em; color: #374151; font-size: 13px; }
+.wn-quick-error { flex-basis: 100%; color: #b91c1c; }

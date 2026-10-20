@@ -13,6 +13,8 @@
 //  * Congés (BR-04, schedule/timeoff-ui) si une source d'écritures est fournie (`records`) : bouton « Nouveau congé » et
 //    touche C sur la grille (sur un bloc : sa personne et son premier jour ; sur un congé, ou un jour couvert par un congé :
 //    modification), clic ou Entrée sur un congé pour le modifier, double clic sur une case vide pour en créer un.
+//  * Saisie rapide (schedule/quick-entry-ui) si une source d'écritures est fournie : barre au-dessus de la grille, touche
+//    « / » ou N sur la grille (sur un bloc : sa personne), création annulable par Ctrl+Z.
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import { dayNumber, fromDayNumber, type HeaderCell, type Viewport, type Zoom } from "@wnext/engine";
@@ -28,6 +30,7 @@ import { useScheduleEdits, type FocusTarget } from "./schedule/edits-ui";
 import type { History, HistoryDirection, HistoryResult, HistoryState } from "./schedule/history";
 import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
 import { useTimeoffEdits } from "./schedule/timeoff-ui";
+import { QuickEntry, type QuickEntryHandle } from "./schedule/quick-entry-ui";
 
 export interface ScheduleScreenProps {
   i18n: I18n;
@@ -52,7 +55,7 @@ export interface ScheduleScreenProps {
 const ZOOMS: readonly Zoom[] = ["day", "week", "month"];
 const NO_HISTORY: HistoryState = { canUndo: false, canRedo: false, undoLabel: null, redoLabel: null };
 const noSubscribe = () => () => {};
-const LABELS: Record<string, string> = { "allocation.move": "move", "allocation.resize": "resize", "allocation.load": "load" };
+const LABELS: Record<string, string> = { "allocation.move": "move", "allocation.resize": "resize", "allocation.load": "load", "allocation.create": "create" };
 
 /** Cible où Ctrl+Z appartient au navigateur (champ de saisie) ou à une boîte de dialogue ouverte. */
 function ownsUndo(t: EventTarget | null): boolean {
@@ -165,6 +168,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
     if (!row || x < origin) return;
     timeoffs.openAt(row.personId, fromDayNumber(dayNumber(m.from) + Math.floor((x - origin) / m.pxPerDay)));
   };
+  const quickRef = useRef<QuickEntryHandle>(null);
   const editorRef = useRef(editor);
   editorRef.current = editor;
 
@@ -205,6 +209,11 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
     if (!s) return;
     const onBlock = e.target !== e.currentTarget;
     if (onBlock && e.key === "Escape") { e.preventDefault(); gridRef.current?.focus({ preventScroll: true }); return; }
+    if (records && (e.key === "/" || e.key === "n" || e.key === "N") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      quickRef.current?.focus(s.host.blockAt(e.target)?.row.personId);
+      return;
+    }
     if (records && (e.key === "c" || e.key === "C") && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); openTimeoffAt(e.target); return; }
     if (records && e.key === "Enter" && s.host.timeoffAt?.(e.target)) { e.preventDefault(); openTimeoffAt(e.target); return; }
     if (!onBlock && e.key === "Enter") {
@@ -244,6 +253,10 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
         )}
         <span>{t("schedule.people.count", { count: data.people.length })}</span>
       </div>
+      {records && (
+        <QuickEntry ref={quickRef} i18n={i18n} data={data} today={today} createAllocation={records.createAllocation} record={history?.record}
+          announce={(text) => editsRef.current.announce(text)} onExit={() => gridRef.current?.focus({ preventScroll: true })} />
+      )}
       <div ref={gridRef} role="grid" aria-label={t("schedule.grid.label")} tabIndex={0} onKeyDown={onKeyDown}
         onClick={(e) => { const off = records && scroller.current?.host.timeoffAt?.(e.target); if (off) timeoffs.openEdit(off.timeoff.timeoffId); }}
         onDoubleClick={records ? onDoubleClick : undefined}
