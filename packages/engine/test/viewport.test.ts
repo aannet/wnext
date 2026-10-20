@@ -2,8 +2,9 @@
 import { describe, expect, it } from "vitest";
 import { addDays } from "../src/dates";
 import {
-  CHUNK_DAYS, dateAtX, dayNumber, goToday, headerCells, loadChunks, mergeChunks, page, scrollBy, setZoom,
-  todayIn, viewAt, visibleRange, weekStartOf, xOfDate,
+  CHUNK_DAYS, chunkCover, coversRange, dateAtX, dayNumber, extendTrack, goToday, headerCells, loadChunks, mergeChunks,
+  neighborDays, page, scrollBy, scrollLeftOf, setZoom, stepPeriod, todayIn, trackAround, trackDays, trackWidthPx, viewAt,
+  viewAtScroll, visibleRange, weekStartOf, xOfDate,
 } from "../src/viewport";
 
 const SCALE = { day: 100, week: 20, month: 5 };
@@ -156,5 +157,86 @@ describe("todayIn", () => {
 
   it("fuseau inconnu : INVALID_TIMEZONE", () => {
     expect(() => todayIn("Mars/Olympus", new Date())).toThrow(/INVALID_TIMEZONE/);
+  });
+});
+
+describe("piste du défilement continu", () => {
+  const T = { first: "2026-01-01", last: "2026-12-31" }; // 365 jours
+
+  it("piste ±12 mois autour d'aujourd'hui, coupée aux bornes", () => {
+    expect(trackAround("2026-10-20")).toEqual({ first: "2025-10-20", last: "2027-10-20" });
+    expect(trackAround("2026-10-20", 30, { first: "2026-10-01", last: "2026-12-31" })).toEqual({ first: "2026-10-01", last: "2026-11-19" });
+    expect(trackAround("2026-12-20", 30, { first: "2026-10-01", last: "2026-12-31" }).last).toBe("2026-12-31");
+    expect(trackDays(T)).toBe(365);
+    expect(trackWidthPx(T, SCALE.week)).toBe(365 * 20);
+  });
+
+  it("pixel <-> date : scrollLeft 0 = début de piste, aller-retour exact", () => {
+    const v = viewAtScroll(T, 0, "day", 700, SCALE.day);
+    expect(visibleRange(v)).toEqual({ from: "2026-01-01", to: "2026-01-07" });
+    expect(dateAtX(v, 0)).toBe("2026-01-01");
+    for (const s of [0, 1234.5, 20_000]) expect(scrollLeftOf(T, viewAtScroll(T, s, "day", 700, SCALE.day))).toBeCloseTo(s, 6);
+    const w = viewAtScroll(T, 100 * SCALE.day + 50, "day", 700, SCALE.day); // 100,5 jours plus loin
+    expect(dateAtX(w, 0)).toBe("2026-04-11");
+  });
+
+  it("scrollLeft borné à la piste ; vue plus large que la piste : 0", () => {
+    expect(scrollLeftOf(T, viewAt("2025-06-01", "day", 700, SCALE))).toBe(0);
+    expect(scrollLeftOf(T, viewAt("2027-06-01", "day", 700, SCALE))).toBe(365 * 100 - 700);
+    expect(scrollLeftOf({ first: "2026-01-01", last: "2026-01-03" }, viewAt("2026-01-02", "day", 700, SCALE))).toBe(0);
+  });
+
+  it("bord atteint : la piste s'allonge, le décalage à gauche garde la vue immobile", () => {
+    const v = viewAt("2026-01-10", "day", 700, SCALE);
+    const left = extendTrack(T, v, { marginDays: 28, stepDays: 90 });
+    expect(left.track).toEqual({ first: "2025-10-03", last: "2026-12-31" });
+    expect(left.shiftPx).toBe(90 * 100);
+    expect(scrollLeftOf(left.track, v)).toBeCloseTo(scrollLeftOf(T, v) + left.shiftPx, 6);
+    const right = extendTrack(T, viewAt("2026-12-20", "day", 700, SCALE), { marginDays: 28, stepDays: 90 });
+    expect([right.track.last, right.shiftPx]).toEqual(["2027-03-31", 0]);
+    const mid = viewAt("2026-06-01", "day", 700, SCALE);
+    expect(extendTrack(T, mid, { marginDays: 28, stepDays: 90 }).track).toBe(T);
+  });
+
+  it("saut loin hors piste : l'extension couvre la cible ; bornes planifiables respectées", () => {
+    const far = viewAt("2028-06-01", "day", 700, SCALE);
+    const e = extendTrack(T, far, { marginDays: 28, stepDays: 90 });
+    expect(e.track.last).toBe(addDays(visibleRange(far).to, 28));
+    const b = { first: "2025-12-01", last: "2027-01-15" };
+    const capped = extendTrack(T, viewAt("2026-01-05", "day", 700, SCALE), { marginDays: 28, stepDays: 90, bounds: b });
+    expect(capped.track.first).toBe("2025-12-01");
+    expect(extendTrack(T, far, { marginDays: 28, stepDays: 90, bounds: b }).track.last).toBe("2027-01-15");
+    const before = viewAt("2024-01-01", "day", 700, SCALE);
+    expect(extendTrack(T, before, { marginDays: 28, stepDays: 90 }).track.first).toBe(addDays(visibleRange(before).from, -28));
+  });
+
+  it("précédent / suivant d'une période : jour, semaine, mois calendaire", () => {
+    const at = (d: string, z: "day" | "week" | "month") => setZoom(viewAt(d, "day", 700, SCALE), z, SCALE);
+    const mid = (v: ReturnType<typeof viewAt>) => dateAtX(v, v.widthPx / 2);
+    expect(mid(stepPeriod(at("2026-03-11", "day"), 1))).toBe("2026-03-12");
+    expect(mid(stepPeriod(at("2026-03-11", "week"), -1))).toBe("2026-03-04");
+    expect(mid(stepPeriod(at("2026-01-31", "month"), 1))).toBe("2026-02-28");
+    expect(mid(stepPeriod(at("2026-03-31", "month"), -1))).toBe("2026-02-28");
+    const s = scrollBy(at("2026-03-11", "day"), 30); // centre fractionnaire conservé
+    expect(stepPeriod(s, 1).center - s.center).toBeCloseTo(1, 9);
+    expect(visibleRange(stepPeriod(viewAt("2026-12-30", "day", 700, SCALE), 1, T)).to).toBe("2026-12-31");
+  });
+
+  it("voisinage et couverture par blocs : stable tant qu'on reste dans la tranche", () => {
+    expect(neighborDays(viewAt("2026-03-11", "day", 700, SCALE))).toBe(CHUNK_DAYS);
+    expect(neighborDays(viewAt("2026-03-11", "week", 2000, SCALE))).toBe(100); // une largeur de vue
+    expect(neighborDays(viewAt("2026-03-11", "month", 1000, SCALE))).toBe(72); // 200 j visibles : plafonné
+    expect(neighborDays(viewAt("2026-03-11", "month", 2000, SCALE))).toBe(0); // 400 j visibles
+    for (const w of [500, 1000, 1500, 1800]) {
+      const m = viewAt("2026-03-11", "month", w, SCALE);
+      const c = chunkCover(m, 1, neighborDays(m));
+      expect(dayNumber(c.to) - dayNumber(c.from)).toBeLessThanOrEqual(400);
+    }
+    const v = viewAt("2026-03-11", "day", 700, SCALE);
+    const c = chunkCover(v, 1, 28);
+    expect(coversRange(c, { from: addDays(visibleRange(v).from, -28), to: addDays(visibleRange(v).to, 28) })).toBe(true);
+    expect(weekStartOf(c.from, 1)).toBe(c.from);
+    expect(chunkCover(scrollBy(v, 1), 1, 28)).toEqual(c);
+    expect(coversRange(c, { from: addDays(c.from, -1), to: c.to })).toBe(false);
   });
 });

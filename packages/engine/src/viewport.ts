@@ -1,11 +1,13 @@
 // Vue horizontale du Schedule (ADR-002 §2-3) : zoom jour / semaine / mois, défilement continu, « Aujourd'hui »,
 // fenêtres de chargement. Pur et sans rendu : la vue est un centre (jour fractionnaire) + une échelle + une largeur.
 //  * Changer de zoom conserve le point central ; « Aujourd'hui » recentre sans changer le zoom.
-//  * Précédent / suivant avance d'une largeur de vue.
+//  * Précédent / suivant avance d'une largeur de vue (page) ou d'une période du zoom (stepPeriod : jour, semaine, mois).
+//  * Défilement continu : une piste (plage de jours bornée, extensible) dont l'abscisse 0 est le début de son premier
+//    jour ; la vue s'en déduit par le scrollLeft (viewAtScroll / scrollLeftOf).
 //  * Chargement par blocs fixes de 4 semaines alignés sur week_start : un défilement ne recharge que les blocs nouveaux,
 //    et la clé d'un bloc est stable (cache par compte). Une requête GET /schedule ne dépasse jamais 400 jours.
 //  * Bornes de la plage planifiable : paramètre (ADR-002 §3 « à définir », proposition -2 ans / +3 ans).
-import { DAY_MS, MAX_RANGE_DAYS, addDays, toIso, toMs } from "./dates";
+import { DAY_MS, MAX_RANGE_DAYS, addDays, addMonths, toIso, toMs } from "./dates";
 
 export type Zoom = "day" | "week" | "month";
 
@@ -133,3 +135,78 @@ export function headerCells(range: { from: string; to: string }, zoom: Zoom, wee
   }
   return out;
 }
+
+// ---------- piste du défilement continu ----------
+
+/** Piste centrée sur `date`, `days` jours de chaque côté (par défaut ±12 mois), coupée aux bornes planifiables. */
+export function trackAround(date: string, days = 365, bounds?: Bounds): Bounds {
+  let first = addDays(date, -days);
+  let last = addDays(date, days);
+  if (bounds && first < bounds.first) first = bounds.first;
+  if (bounds && last > bounds.last) last = bounds.last;
+  return { first, last };
+}
+
+export const trackDays = (t: Bounds) => dayNumber(t.last) - dayNumber(t.first) + 1;
+export const trackWidthPx = (t: Bounds, pxPerDay: number) => trackDays(t) * pxPerDay;
+
+/** Vue dont le bord gauche est à `scrollLeft` pixels du début de la piste. */
+export function viewAtScroll(t: Bounds, scrollLeft: number, zoom: Zoom, widthPx: number, pxPerDay: number): Viewport {
+  return { zoom, widthPx, pxPerDay, center: dayNumber(t.first) + (scrollLeft + widthPx / 2) / pxPerDay };
+}
+
+/** Inverse de viewAtScroll, borné à la piste (0 .. largeur de piste - largeur de vue). */
+export function scrollLeftOf(t: Bounds, v: Viewport): number {
+  const max = Math.max(0, trackWidthPx(t, v.pxPerDay) - v.widthPx);
+  return Math.min(max, Math.max(0, (v.center - dayNumber(t.first)) * v.pxPerDay - v.widthPx / 2));
+}
+
+/**
+ * Bord atteint : si la vue est à moins de `marginDays` d'une extrémité, la piste s'allonge de `stepDays` au moins (assez
+ * pour couvrir la vue et la marge), sans dépasser `bounds`. `shiftPx` = pixels ajoutés à gauche, à reporter sur le
+ * scrollLeft pour que la vue ne bouge pas.
+ */
+export function extendTrack(t: Bounds, v: Viewport, opts: { marginDays: number; stepDays: number; bounds?: Bounds }): { track: Bounds; shiftPx: number } {
+  const r = visibleRange(v);
+  let first = t.first;
+  let last = t.last;
+  const lo = addDays(r.from, -opts.marginDays);
+  const hi = addDays(r.to, opts.marginDays);
+  if (lo < first) {
+    first = addDays(first, -opts.stepDays);
+    if (lo < first) first = lo;
+    if (opts.bounds && first < opts.bounds.first) first = opts.bounds.first;
+  }
+  if (hi > last) {
+    last = addDays(last, opts.stepDays);
+    if (hi > last) last = hi;
+    if (opts.bounds && last > opts.bounds.last) last = opts.bounds.last;
+  }
+  if (first === t.first && last === t.last) return { track: t, shiftPx: 0 };
+  return { track: { first, last }, shiftPx: (dayNumber(t.first) - dayNumber(first)) * v.pxPerDay };
+}
+
+/** Précédent (-1) / suivant (+1) d'une période du zoom : un jour, une semaine, un mois calendaire (fin de mois ramenée). */
+export function stepPeriod(v: Viewport, dir: -1 | 1, bounds?: Bounds): Viewport {
+  const day = Math.floor(v.center);
+  const target = v.zoom === "day" ? day + dir : v.zoom === "week" ? day + 7 * dir : dayNumber(addMonths(fromDayNumber(day), dir));
+  return clamp({ ...v, center: target + (v.center - day) }, bounds);
+}
+
+/**
+ * Voisinage d'une vue : une largeur de vue de chaque côté, au moins un bloc (préchargement, fenêtre du modèle), réduit
+ * pour que la vue élargie, arrondie aux blocs, tienne dans 400 jours (layout et capacité refusent au-delà).
+ */
+export function neighborDays(v: Viewport): number {
+  const w = Math.ceil(v.widthPx / v.pxPerDay);
+  return Math.min(Math.max(CHUNK_DAYS, w), Math.max(0, Math.floor((MAX_RANGE_DAYS - w) / 2) - CHUNK_DAYS));
+}
+
+/** Plage couverte par les blocs de chargement de la vue élargie de `padDays` (bornes de blocs : stable au défilement). */
+export function chunkCover(v: Viewport, weekStart: number, padDays: number): { from: string; to: string } {
+  const c = loadChunks(v, weekStart, padDays);
+  return { from: c[0]!.from, to: c.at(-1)!.to };
+}
+
+export const coversRange = (outer: { from: string; to: string }, inner: { from: string; to: string }) =>
+  outer.from <= inner.from && outer.to >= inner.to;
