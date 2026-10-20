@@ -1,5 +1,5 @@
-// Notifications in-app (FR-10, US-7.3, BR-36) : migration 0004_notifications sur un vrai PostgreSQL (embedded-postgres), depuis zéro.
-// Ce qu'une seule transaction ne peut pas montrer : le regroupement
+// Notifications in-app (FR-10, US-7.3, BR-36) : migration 0004_notifications sur un vrai PostgreSQL (embedded-postgres), depuis zéro,
+// puis la suite tests/sql/notifications_tests.sql. Ici en plus, ce qu'une seule transaction ne peut pas montrer : le regroupement
 // par VRAIE transaction, la visibilité après COMMIT et le réveil LISTEN/NOTIFY ciblé (canal wnext_notifications).
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -56,8 +56,9 @@ async function asUser(account: number, user: number, fn: (q: (sql: string, p?: u
 }
 
 describe("0004_notifications", () => {
-  it("depuis zéro : les suites v1.1 et BR-19 passent sur la base migrée", async () => {
-    await c.query(readFileSync("tests/sql/schema_tests.sql", "utf8")); // lève 'FAIL: <libellé>' au premier échec
+  it("depuis zéro : la suite SQL des notifications passe, puis les suites v1.1 et BR-19 aussi", async () => {
+    await c.query(readFileSync("tests/sql/notifications_tests.sql", "utf8")); // lève 'FAIL: <libellé>' au premier échec
+    await c.query(readFileSync("tests/sql/schema_tests.sql", "utf8"));
     await c.query(readFileSync("tests/sql/people_history_tests.sql", "utf8"));
   }, 120_000);
 
