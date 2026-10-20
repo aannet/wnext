@@ -50,19 +50,30 @@ function createSource(backend: Backend): NotificationsSource {
     try { v = await p; } catch { v = null; }
     set(v === null ? { error: true } : { ...apply(v), error: false });
   };
+  // Époque de l'état : avancée au départ de chaque liste et à chaque marquage ou compteur poussé. Une liste revenue alors que l'époque
+  // a bougé est périmée (partie avant un marquage, doublée par une liste plus récente) : ignorée, sinon elle ressusciterait des non lues.
+  let epoch = 0;
+  const bump = <T>(p: Promise<T>) => p.finally(() => { epoch++; });
   const source: NotificationsSource = {
     getState: () => state,
     subscribe(l) { listeners.add(l); return () => listeners.delete(l); },
-    refresh: () => guard(backend.list(), (r) => ({ items: r.items, unreadCount: r.unreadCount, loaded: true })),
-    markRead: (id) => guard(backend.read(id), (n) => {
+    async refresh() {
+      const mine = ++epoch;
+      let r: Awaited<ReturnType<Backend["list"]>>;
+      try { r = await backend.list(); } catch { r = null; }
+      if (mine !== epoch) return;
+      set(r === null ? { error: true } : { items: r.items, unreadCount: r.unreadCount, loaded: true, error: false });
+    },
+    markRead: (id) => guard(bump(backend.read(id)), (n) => {
       const was = state.items.find((x) => x.id === id);
       return { items: state.items.map((x) => (x.id === id ? n : x)), unreadCount: Math.max(0, state.unreadCount - (was && was.readAt === null && n.readAt !== null ? 1 : 0)) };
     }),
-    markAllRead: () => guard(backend.readAll(), (unreadCount) => ({ unreadCount, items: state.items.map((x) => (x.readAt === null ? { ...x, readAt: new Date().toISOString() } : x)) })),
+    markAllRead: () => guard(bump(backend.readAll()), (unreadCount) => ({ unreadCount, items: state.items.map((x) => (x.readAt === null ? { ...x, readAt: new Date().toISOString() } : x)) })),
     loadPreferences: () => guard(backend.preferences(), (preferences) => ({ preferences })),
     setPreference: (type, enabled) => guard(backend.setPreference(type, enabled), (preferences) => ({ preferences })),
     pushUnread(unreadCount) {
       if (unreadCount === state.unreadCount) return;
+      epoch++;
       set({ unreadCount });
       if (state.loaded) void source.refresh();
     },

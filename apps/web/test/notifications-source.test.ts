@@ -89,3 +89,52 @@ describe("API", () => {
     expect(s.getState().error).toBe(true);
   });
 });
+
+describe("courses (réponses dans le désordre)", () => {
+  // Client simulé dont chaque liste répond quand le test le décide (réponse figée au moment de l'appel, comme le serveur).
+  const deferredApi = () => {
+    const pending: Array<() => void> = [];
+    let server = { items: base, unreadCount: 2 };
+    const api = {
+      listNotifications: () => {
+        const snapshot = server;
+        return new Promise((resolve) => pending.push(() => resolve({ ok: true, data: { items: snapshot.items, page: { nextCursor: null, total: snapshot.items.length }, unreadCount: snapshot.unreadCount } })));
+      },
+      markAllNotificationsRead: async () => {
+        server = { items: base.map((n) => ({ ...n, readAt: n.readAt ?? "2026-10-20T10:05:00.000Z" })), unreadCount: 0 };
+        return { ok: true, data: { marked: 2, unreadCount: 0 } };
+      },
+    };
+    return { api, pending };
+  };
+
+  it("une liste partie AVANT « tout marquer lu » et revenue après ne ressuscite pas les non lues", async () => {
+    const { api: a, pending } = deferredApi();
+    const s = createApiNotificationsSource(a as never);
+    const stale = s.refresh(); // partie avant le marquage : le serveur a encore 2 non lues
+    await s.markAllRead();
+    expect(s.getState().unreadCount).toBe(0);
+    pending.shift()!();
+    await stale;
+    expect(s.getState().unreadCount).toBe(0);
+    expect(s.getState().items.every((n) => n.readAt !== null)).toBe(true);
+  });
+
+  it("deux listes dans le désordre : la plus récente l'emporte ; un compteur poussé après le départ d'une liste l'emporte aussi", async () => {
+    const { api: a, pending } = deferredApi();
+    const s = createApiNotificationsSource(a as never);
+    const first = s.refresh();
+    await a.markAllNotificationsRead(); // le serveur change (autre onglet)
+    const second = s.refresh();
+    pending[1]!();
+    await second;
+    pending[0]!();
+    await first;
+    expect(s.getState().unreadCount).toBe(0);
+    const third = s.refresh();
+    s.pushUnread(5); // plus récent que la liste en vol (qui relance sa propre liste, laissée en attente ici)
+    pending[2]!();
+    await third;
+    expect(s.getState().unreadCount).toBe(5);
+  });
+});
