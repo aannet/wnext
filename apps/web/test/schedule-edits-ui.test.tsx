@@ -57,8 +57,8 @@ afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; frames
 
 const block = (key: string) => host.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`)!;
 const notice = () => host.querySelector(".wn-notice")!.textContent;
-const buttons = () => [...host.querySelectorAll("[role=dialog] button")].map((b) => b.textContent);
-const click = (label: string) => act(() => { [...host.querySelectorAll<HTMLButtonElement>("[role=dialog] button")].find((b) => b.textContent === label)!.click(); });
+const buttons = () => [...document.body.querySelectorAll("[role=dialog] button:not([data-wn-close])")].map((b) => b.textContent);
+const click = (label: string) => act(() => { [...document.body.querySelectorAll<HTMLButtonElement>("[role=dialog] button:not([data-wn-close])")].find((b) => b.textContent === label)!.click(); });
 function drag(target: Element, dx: number, dy = 0) {
   const ptr = (type: string, t: EventTarget, x: number, y: number) => {
     const e = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 });
@@ -88,7 +88,7 @@ describe("série : choix de portée", () => {
     await flush();
     expect(ed.splitOccurrence).toHaveBeenCalledWith("2", 1, { startDate: "2026-10-27", endDate: "2026-10-28" });
     expect(ed.updateAllocation).not.toHaveBeenCalled();
-    expect(host.querySelector("[role=dialog]")).toBeNull();
+    expect(document.body.querySelector("[role=dialog]")).toBeNull();
     expect(notice()).toBe("Modification enregistrée.");
   });
 
@@ -147,7 +147,7 @@ describe("série : choix de portée", () => {
       mount(data([WEEKLY]), ed);
       drag(block("2:1"), DAY);
       act(() => {
-        const b = [...host.querySelectorAll<HTMLButtonElement>("[role=dialog] button")].find((x) => x.textContent === label)!;
+        const b = [...document.body.querySelectorAll<HTMLButtonElement>("[role=dialog] button:not([data-wn-close])")].find((x) => x.textContent === label)!;
         b.click();
         b.click();
       });
@@ -166,7 +166,7 @@ describe("série : choix de portée", () => {
     drag(block("2:1"), DAY);
     click("Cette occurrence");
     await flush();
-    expect(host.querySelector("[role=dialog] p")!.textContent).toContain("la répétition mensuelle tombe en fin de mois");
+    expect(document.body.querySelector("[role=dialog]")!.textContent).toContain("la répétition mensuelle tombe en fin de mois");
     expect(buttons()).toEqual(["Toute la série", "Annuler"]);
     click("Toute la série");
     await flush();

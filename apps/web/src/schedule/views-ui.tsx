@@ -8,8 +8,9 @@
 import type { I18n } from "@lingui/core";
 import type { SavedView, ScheduleResponse } from "@wnext/contracts";
 import type { Zoom } from "@wnext/engine";
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { ViewsErrorCode, ViewsResult, ViewsSource } from "../data/views-source";
+import { Button, Modal } from "../design";
 import type { MessageKey } from "../i18n";
 import { activeFilterCount, normalizeFilters, sameFilters, type ViewFilters } from "./view-filters";
 
@@ -152,7 +153,6 @@ export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, onFilt
     if (!current || busy) return;
     void run(() => source.update(current, { filters: normalizeFilters(effective) }), current, (v) => { patchList(v); say(t("views.status.updated", { name: v.name })); });
   };
-  const onFormKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeForm(); } };
 
   const multi = (key: "departmentIds" | "roleIds" | "projectIds" | "personIds", label: MessageKey, options: ReadonlyArray<{ id: string; name: string }>) => (
     <div className="wn-filter">
@@ -187,27 +187,34 @@ export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, onFilt
         <span role="status" className={message?.error ? "wn-views-error" : "wn-views-status"}>{message?.text ?? ""}</span>
       </div>
       {form && (
-        <form className="wn-views-form" onSubmit={submit} onKeyDown={onFormKey}>
-          {form === "delete" ? (
-            <span>{t("views.delete.confirm", { name: current?.name ?? "" })}</span>
-          ) : (
+        <Modal title={t(form === "save" ? "views.dialog.save" : form === "rename" ? "views.dialog.rename" : "views.dialog.delete")} closeLabel={t("dialog.close")} onClose={closeForm} busy={busy}
+          footer={
             <>
-              <label>
-                <span>{t("views.form.name")}</span>{" "}
-                <input type="text" value={name} required maxLength={100} autoFocus onChange={(e) => setName(e.currentTarget.value)} />
-              </label>
-              {form === "save" && (
-                <label>
-                  <input type="checkbox" checked={shared} onChange={(e) => setShared(e.currentTarget.checked)} /> <span>{t("views.form.shared")}</span>
-                </label>
-              )}
+              <Button onClick={closeForm}>{t("views.form.cancel")}</Button>
+              <Button type="submit" form={`${uid}-form`} variant={form === "delete" ? "danger" : "primary"} disabled={busy || (form !== "delete" && !name.trim())} autoFocus={form === "delete"}>
+                {t(form === "save" ? "views.form.save" : form === "rename" ? "views.form.rename" : "views.delete.submit")}
+              </Button>
             </>
-          )}
-          <button type="submit" disabled={busy || (form !== "delete" && !name.trim())} autoFocus={form === "delete"}>
-            {t(form === "save" ? "views.form.save" : form === "rename" ? "views.form.rename" : "views.delete.submit")}
-          </button>
-          <button type="button" onClick={closeForm}>{t("views.form.cancel")}</button>
-        </form>
+          }>
+          <form id={`${uid}-form`} className="wn-views-form" onSubmit={submit}>
+            {form === "delete" ? (
+              <p>{t("views.delete.confirm", { name: current?.name ?? "" })}</p>
+            ) : (
+              <>
+                <label>
+                  <span>{t("views.form.name")}</span>{" "}
+                  <input type="text" value={name} required maxLength={100} autoFocus onChange={(e) => setName(e.currentTarget.value)} />
+                </label>
+                {form === "save" && (
+                  <label>
+                    <input type="checkbox" checked={shared} onChange={(e) => setShared(e.currentTarget.checked)} /> <span>{t("views.form.shared")}</span>
+                  </label>
+                )}
+              </>
+            )}
+            {message?.error && <p className="wn-dialog-error">{message.text}</p>}
+          </form>
+        </Modal>
       )}
       <details className="wn-filters">
         <summary>{count ? t("views.filters.count", { count }) : t("views.filters")}</summary>

@@ -12,6 +12,7 @@ import type { ScheduleResponse } from "@wnext/contracts";
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { EditError } from "../data/allocation-edits";
 import { confirmationOf, type RemovalSummary, type TeamRemovalEditor } from "../data/team-removal";
+import { Button, Modal } from "../design";
 import type { MessageKey } from "../i18n";
 import type { EditHost } from "./block-editor";
 
@@ -136,9 +137,13 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
   } else if (step?.kind === "dialog") {
     const { target, summary } = step;
     element = (
-      <div role="dialog" aria-modal="true" aria-labelledby="wn-removal-title" className="wn-dialog wn-removal-dialog" aria-busy={step.busy}
-        onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(target.key); } }}>
-        <h2 id="wn-removal-title">{t("schedule.removal.title", names(target))}</h2>
+      <Modal title={t("schedule.removal.title", names(target))} closeLabel={t("dialog.close")} onClose={() => close(target.key)} busy={step.busy} className="wn-removal-dialog"
+        footer={
+          <>
+            <Button onClick={() => close(target.key)}>{t("schedule.removal.cancel")}</Button>
+            {summary?.canRemove && <Button variant="danger" autoFocus disabled={step.busy} onClick={() => void confirm()}>{t("schedule.removal.confirm")}</Button>}
+          </>
+        }>
         {step.stale && <p role="alert">{t("schedule.removal.stale")}</p>}
         {step.error && <p role="alert" className="wn-dialog-error">{step.error}</p>}
         {!summary && !step.error && <p>{t("schedule.removal.loading")}</p>}
@@ -153,13 +158,7 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
               : <p role="alert" className="wn-dialog-error">{t("schedule.removal.locked", { count: summary.lockedLogCount })}</p>}
           </>
         )}
-        <div className="wn-dialog-actions">
-          {summary?.canRemove && (
-            <button type="button" autoFocus disabled={step.busy} onClick={() => void confirm()}>{t("schedule.removal.confirm")}</button>
-          )}
-          <button type="button" onClick={() => close(target.key)}>{t("schedule.removal.cancel")}</button>
-        </div>
-      </div>
+      </Modal>
     );
   }
   return { element };

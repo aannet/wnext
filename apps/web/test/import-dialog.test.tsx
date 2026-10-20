@@ -24,10 +24,10 @@ function mount(node: React.ReactNode) {
   root = createRoot(host);
   act(() => root!.render(node));
 }
-const button = (name: string | RegExp) => [...host.querySelectorAll("button")].find((b) => (typeof name === "string" ? b.textContent === name : name.test(b.textContent ?? "")));
+const button = (name: string | RegExp) => [...document.body.querySelectorAll("button")].find((b) => (typeof name === "string" ? b.textContent === name : name.test(b.textContent ?? "")));
 const click = async (name: string | RegExp) => { const b = button(name); if (!b) throw new Error(`bouton absent : ${name}`); act(() => b.click()); await flush(); };
 async function chooseFile(text: string) {
-  const input = host.querySelector<HTMLInputElement>("input[type=file]")!;
+  const input = document.body.querySelector<HTMLInputElement>("input[type=file]")!;
   Object.defineProperty(input, "files", { configurable: true, value: [new File([text], "import.csv", { type: "text/csv" })] });
   act(() => input.dispatchEvent(new Event("change", { bubbles: true })));
   await flush();
@@ -40,21 +40,21 @@ describe("ImportDialog", () => {
     let closed = 0;
     mount(<ImportDialog i18n={createI18n("fr")} source={demoImports()} onClose={() => closed++} readFile={readFile} />);
     expect(button("Analyser")!.disabled).toBe(true);
-    expect(host.textContent).toContain("name*, email*");
+    expect(document.body.textContent).toContain("name*, email*");
     await chooseFile("Nom;E-mail;Département\nAlice;alice@x.fr;Nouveau\nBruno;pas-un-mail;\nChloé;chloe@x.fr;\n");
     await click("Analyser");
-    expect(host.querySelector("h3")!.textContent).toBe("Aperçu : rien n’est encore importé");
-    expect([...host.querySelectorAll(".wn-import-counters li")].map((li) => li.textContent)).toEqual([
+    expect(document.body.querySelector("h3")!.textContent).toBe("Aperçu : rien n’est encore importé");
+    expect([...document.body.querySelectorAll(".wn-import-counters li")].map((li) => li.textContent)).toEqual([
       "3 lignes lues", "2 créations", "0 mise à jour", "0 ligne inchangée", "1 ligne en erreur",
     ]);
-    expect(host.textContent).toContain("Départements créés : Nouveau");
-    expect([...host.querySelectorAll("tbody tr")].map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent))).toEqual([
+    expect(document.body.textContent).toContain("Départements créés : Nouveau");
+    expect([...document.body.querySelectorAll("tbody tr")].map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent))).toEqual([
       ["3", "email", "E-mail invalide", "pas-un-mail"],
     ]);
     expect(button("Importer")).toBeUndefined();
     await click("Importer les 2 lignes valides");
-    expect(host.querySelector("h3")!.textContent).toBe("Import terminé");
-    expect(host.textContent).toContain("2 créations");
+    expect(document.body.querySelector("h3")!.textContent).toBe("Import terminé");
+    expect(document.body.textContent).toContain("2 créations");
     await click("Fermer");
     expect(closed).toBe(1);
   });
@@ -62,11 +62,11 @@ describe("ImportDialog", () => {
   it("sans erreur : « Importer » ; ré-import du même fichier : rien à importer (anglais)", async () => {
     const source = demoImports();
     mount(<ImportDialog i18n={createI18n("en")} source={source} onClose={() => {}} readFile={readFile} />);
-    act(() => { const s = host.querySelector("select")!; s.value = "clients"; s.dispatchEvent(new Event("change", { bubbles: true })); });
+    act(() => { const s = document.body.querySelector("select")!; s.value = "clients"; s.dispatchEvent(new Event("change", { bubbles: true })); });
     await chooseFile("name\nAcme\n");
     await click("Analyse");
     await click("Import");
-    expect(host.textContent).toContain("Import complete");
+    expect(document.body.textContent).toContain("Import complete");
     await source.run("clients", "name\nAcme\n", { dryRun: true }).then((r) => expect(r.ok && r.report.unchanged).toBe(1));
   });
 
@@ -76,8 +76,8 @@ describe("ImportDialog", () => {
     mount(<ImportDialog i18n={createI18n("fr")} source={forbidden} onClose={() => closed++} readFile={async () => "x"} />);
     await chooseFile("x");
     await click("Analyser");
-    expect(host.querySelector("[role=alert]")!.textContent).toBe("Seuls les propriétaires et les administrateurs du compte peuvent importer.");
-    act(() => host.querySelector("[role=dialog]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(document.body.querySelector("[role=alert]")!.textContent).toBe("Seuls les propriétaires et les administrateurs du compte peuvent importer.");
+    act(() => document.body.querySelector("[role=dialog]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     expect(closed).toBe(1);
   });
 
@@ -85,6 +85,6 @@ describe("ImportDialog", () => {
     mount(<ImportDialog i18n={createI18n("fr")} source={demoImports()} onClose={() => {}} readFile={async () => { throw new Error("x"); }} />);
     await chooseFile("x");
     await click("Analyser");
-    expect(host.querySelector("[role=alert]")!.textContent).toBe("Impossible de lire ce fichier.");
+    expect(document.body.querySelector("[role=alert]")!.textContent).toBe("Impossible de lire ce fichier.");
   });
 });

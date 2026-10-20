@@ -59,13 +59,13 @@ function mount(allocations: Alloc[], timeoffs: Timeoff[] = [], withRecords = tru
   return { src, history };
 }
 
-const dialog = () => host.querySelector<HTMLElement>("[role=dialog]");
-const button = (label: string) => [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === label);
+const dialog = () => document.body.querySelector<HTMLElement>("[role=dialog]");
+const button = (label: string) => [...document.body.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === label);
 const click = async (label: string) => { act(() => button(label)!.click()); await flush(); };
-const notice = () => host.querySelector(".wn-notice")!.textContent;
+const notice = () => document.body.querySelector(".wn-notice")!.textContent;
 const press = (target: EventTarget, init: KeyboardEventInit) =>
   act(() => { target.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init })); });
-const field = (label: string) => [...host.querySelectorAll("label")].find((l) => l.firstChild?.textContent === label)!.querySelector<HTMLInputElement | HTMLSelectElement>("input, select")!;
+const field = (label: string) => [...document.body.querySelectorAll("label")].find((l) => l.firstChild?.textContent === label)!.querySelector<HTMLInputElement | HTMLSelectElement>("input, select")!;
 function setField(label: string, value: string) {
   const el = field(label);
   const proto = el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
@@ -74,7 +74,7 @@ function setField(label: string, value: string) {
     el.dispatchEvent(new Event(el instanceof HTMLSelectElement ? "change" : "input", { bubbles: true }));
   });
 }
-const submit = async () => { act(() => { host.querySelector("form")!.requestSubmit(); }); await flush(); };
+const submit = async () => { act(() => { document.body.querySelector("form")!.requestSubmit(); }); await flush(); };
 const allocs = (src: ReturnType<typeof mount>["src"]) => src.getState().data!.allocations.map((a) => `${a.startDate}..${a.endDate}`).sort();
 
 describe("saisie d'un congé", () => {

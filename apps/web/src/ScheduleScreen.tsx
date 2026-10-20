@@ -129,7 +129,11 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     const el = grid?.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`);
     (el ?? grid)?.focus({ preventScroll: true });
   };
-  const edits = useScheduleEdits(i18n, editor, data, focusKey, history !== undefined);
+  const blockRect = (key: string) => {
+    const r = gridRef.current?.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`)?.getBoundingClientRect();
+    return r && r.width > 0 && r.height > 0 ? { left: r.left, top: r.top, width: r.width, height: r.height } : null;
+  };
+  const edits = useScheduleEdits(i18n, editor, data, focusKey, history !== undefined, blockRect);
   const editsRef = useRef(edits);
   editsRef.current = edits;
   const stack = useSyncExternalStore(history?.subscribe ?? noSubscribe, history?.getState ?? (() => NO_HISTORY));

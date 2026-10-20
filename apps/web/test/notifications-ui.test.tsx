@@ -41,7 +41,7 @@ async function mount(withNotifications = true, lang: "fr" | "en" = "fr") {
   await flush();
   return notifications;
 }
-const button = (name: string | RegExp) => [...host.querySelectorAll("button")].find((b) => (typeof name === "string" ? b.textContent === name : name.test(b.textContent ?? "")));
+const button = (name: string | RegExp) => [...document.body.querySelectorAll("button")].find((b) => (typeof name === "string" ? b.textContent === name : name.test(b.textContent ?? "")));
 const click = async (b: HTMLElement | undefined) => { if (!b) throw new Error("bouton absent"); act(() => b.click()); await flush(); };
 const live = () => host.querySelector("[aria-live=polite]")!.textContent;
 const bell = () => host.querySelector<HTMLButtonElement>(".wn-notifications-open")!;
@@ -61,7 +61,7 @@ describe("cloche et panneau", () => {
     const source = await mount();
     await click(bell());
     expect(bell().getAttribute("aria-expanded")).toBe("true");
-    const panel = host.querySelector("#wn-notifications-panel")!;
+    const panel = document.body.querySelector("#wn-notifications-panel")!;
     expect(panel.querySelector("h2")!.textContent).toBe("Notifications");
     const items = [...panel.querySelectorAll("li")];
     expect(items.map((li) => li.querySelector(".wn-notification-title")!.textContent)).toEqual([
@@ -74,22 +74,22 @@ describe("cloche et panneau", () => {
 
     await click([...items[0]!.querySelectorAll("button")].find((b) => b.textContent === "Marquer comme lue"));
     expect(live()).toBe("1 notification non lue");
-    expect(host.querySelectorAll(".wn-notification-unread")).toHaveLength(1);
+    expect(document.body.querySelectorAll(".wn-notification-unread")).toHaveLength(1);
     await click(button("Tout marquer comme lu"));
     expect(live()).toBe("Aucune notification non lue");
     expect(bell().querySelector(".wn-badge")).toBeNull();
     expect(button("Tout marquer comme lu")!.disabled).toBe(true);
 
-    const boxes = [...host.querySelectorAll<HTMLInputElement>("fieldset input[type=checkbox]")];
+    const boxes = [...document.body.querySelectorAll<HTMLInputElement>("fieldset input[type=checkbox]")];
     expect(boxes.map((b) => [b.closest("label")!.textContent, b.checked])).toEqual([
       [" les changements de mes allocations", true], [" les décisions sur mes congés", true], [" les conflits d’édition", true],
     ]);
     await click(boxes[1]);
     expect(source.getState().preferences!.find((p) => p.type === "timeoff_decided")!.enabled).toBe(false);
 
-    act(() => { host.querySelector("#wn-notifications-panel")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    act(() => { document.body.querySelector("#wn-notifications-panel")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
     await flush();
-    expect(host.querySelector("#wn-notifications-panel")).toBeNull();
+    expect(document.body.querySelector("#wn-notifications-panel")).toBeNull();
     expect(document.activeElement).toBe(bell());
   });
 

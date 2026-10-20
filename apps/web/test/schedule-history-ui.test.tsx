@@ -181,7 +181,7 @@ describe("échecs et découpe", () => {
   it("découpe d'une occurrence : enregistrée, annoncée comme non annulable", async () => {
     const t = mountDemo([alloc("1", { startDate: "2026-10-19", endDate: "2026-10-20", repeatState: "weekly", repeatEndDate: "2026-11-30" })]);
     drag(block("1:1"), DAY);
-    act(() => { [...host.querySelectorAll<HTMLButtonElement>("[role=dialog] button")].find((b) => b.textContent === "Cette occurrence")!.click(); });
+    act(() => { [...document.body.querySelectorAll<HTMLButtonElement>("[role=dialog] button")].find((b) => b.textContent === "Cette occurrence")!.click(); });
     await t.sync();
     expect(notice()).toBe("Modification enregistrée. La découpe d’une occurrence ne peut pas être annulée.");
     expect(toolbarButton("Annuler").disabled).toBe(true);

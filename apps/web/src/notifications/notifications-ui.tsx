@@ -1,13 +1,14 @@
 // Notifications in-app (FR-10, US-7.3) : cloche de la barre d'état et panneau.
 //  * Cloche : bouton « Notifications » avec le nombre de non lues ; le compteur est aussi annoncé (aria-live poli) quand il change,
 //    y compris par le temps réel (message `notifications`).
-//  * Panneau (ouvert par la cloche, Échap ou « Fermer » le ferme et rend le focus à la cloche) : la liste, la plus récente d'abord,
+//  * Panneau (popover ancré à la cloche ; Échap, clic extérieur ou « Fermer » le ferme et rend le focus à la cloche) : la liste, la plus récente d'abord,
 //    « Marquer comme lue » par notification, « Tout marquer comme lu », et les préférences par type (désabonnement).
 //  * Textes composés ici depuis le type et les compteurs regroupés du contrat (« 2 allocations créées · 1 allocation modifiée »).
 import type { I18n } from "@lingui/core";
 import type { Notification, NotificationType } from "@wnext/contracts";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { NotificationsSource } from "../data/notifications-source";
+import { Button, Popover } from "../design";
 import type { MessageKey } from "../i18n";
 
 const TYPES: readonly NotificationType[] = ["allocation_changed", "timeoff_decided", "edit_conflict"];
@@ -41,7 +42,7 @@ export function NotificationBell({ i18n, source, open, onToggle, buttonRef }: {
   );
 }
 
-export function NotificationsPanel({ i18n, source, onClose }: { i18n: I18n; source: NotificationsSource; onClose(): void }) {
+export function NotificationsPanel({ i18n, source, anchor, onClose }: { i18n: I18n; source: NotificationsSource; anchor: HTMLElement; onClose(): void }) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const state = useSyncExternalStore(source.subscribe, source.getState);
   const [busy, setBusy] = useState(false);
@@ -52,8 +53,7 @@ export function NotificationsPanel({ i18n, source, onClose }: { i18n: I18n; sour
   const run = async (fn: () => Promise<void>) => { setBusy(true); try { await fn(); } finally { setBusy(false); } };
 
   return (
-    <section id="wn-notifications-panel" className="wn-dialog wn-notifications" aria-labelledby="wn-notifications-title" aria-busy={busy}
-      onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onClose(); } }}>
+    <Popover id="wn-notifications-panel" className="wn-notifications" anchor={anchor} labelledBy="wn-notifications-title" busy={busy} onClose={onClose}>
       <h2 id="wn-notifications-title" tabIndex={-1} ref={title}>{t("notifications.title")}</h2>
       {state.error && <p role="alert" className="wn-dialog-error">{t("notifications.error")}</p>}
       {state.loaded && state.items.length === 0 && <p>{t("notifications.empty")}</p>}
@@ -76,9 +76,9 @@ export function NotificationsPanel({ i18n, source, onClose }: { i18n: I18n; sour
           })}
         </ul>
       )}
-      <div className="wn-dialog-actions">
-        <button type="button" disabled={busy || state.unreadCount === 0} onClick={() => void run(() => source.markAllRead())}>{t("notifications.markAllRead")}</button>
-        <button type="button" onClick={onClose}>{t("notifications.close")}</button>
+      <div className="flex gap-2">
+        <Button disabled={busy || state.unreadCount === 0} onClick={() => void run(() => source.markAllRead())}>{t("notifications.markAllRead")}</Button>
+        <Button onClick={onClose}>{t("notifications.close")}</Button>
       </div>
       {state.preferences && (
         <fieldset className="wn-notification-prefs">
@@ -94,6 +94,6 @@ export function NotificationsPanel({ i18n, source, onClose }: { i18n: I18n; sour
           })}
         </fieldset>
       )}
-    </section>
+    </Popover>
   );
 }

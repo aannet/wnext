@@ -60,7 +60,7 @@ export function NotificationsMenu({ i18n, source }: { i18n: I18n; source: Notifi
   return (
     <>
       <NotificationBell i18n={i18n} source={source} open={open} buttonRef={bell} onToggle={() => (open ? close() : setOpen(true))} />
-      {open && <div className="wn-header-panel"><NotificationsPanel i18n={i18n} source={source} onClose={close} /></div>}
+      {open && bell.current && <NotificationsPanel i18n={i18n} source={source} anchor={bell.current} onClose={close} />}
     </>
   );
 }

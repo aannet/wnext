@@ -12,7 +12,7 @@ test("cloche : liste, marquer lu, tout marquer lu, compteur à 0 (axe sans viola
   await bell.click();
   await expect(bell).toHaveAttribute("aria-expanded", "true");
 
-  const panel = page.getByRole("region", { name: "Notifications" });
+  const panel = page.getByRole("dialog", { name: "Notifications" });
   await expect(panel.getByRole("listitem")).toHaveCount(3);
   await expect(panel.getByRole("listitem").first()).toContainText("Camille Durand a modifié vos allocations");
   await expect(panel.getByRole("listitem").first()).toContainText("2 allocations créées · 1 allocation modifiée");
@@ -41,7 +41,7 @@ test("cloche : liste, marquer lu, tout marquer lu, compteur à 0 (axe sans viola
 test("anglais : textes du catalogue EN", async ({ page }) => {
   await openDemo(page, "en");
   await page.getByRole("button", { name: /^Notifications/ }).click();
-  const panel = page.getByRole("region", { name: "Notifications" });
+  const panel = page.getByRole("dialog", { name: "Notifications" });
   await expect(panel.getByRole("listitem").nth(1)).toContainText("Camille Durand handled your time off request");
   await expect(panel.getByRole("button", { name: "Mark all as read" })).toBeEnabled();
 });

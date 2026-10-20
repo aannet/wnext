@@ -15,6 +15,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import type { TimeoffPatch } from "../api/client.gen";
 import type { EditError } from "../data/allocation-edits";
 import type { Timeoff } from "../data/record-edits";
+import { Button, Modal } from "../design";
 import type { MessageKey } from "../i18n";
 import { planResolution, runTimeoffAction, timeoffConflicts, type Choice, type FlowDeps, type TimeoffConflictReport, type TimeoffDraft } from "./timeoff-flow";
 
@@ -127,14 +128,19 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
     }
   }
 
-  const onKey = (e: { key: string; preventDefault(): void; stopPropagation(): void }) => {
-    if (e.key !== "Escape" || !step) return;
-    e.preventDefault();
-    e.stopPropagation();
+  /** Échap : revient d'une étape (assistant, avertissement, formulaire), puis ferme. Le bouton × ferme tout. */
+  const back = () => {
+    if (!step) return;
     if (step.kind === "assist") setStep({ ...step, kind: "warn" });
     else if (step.kind === "warn") setStep({ kind: "form", id: step.id, fields: step.fields, error: null });
     else close();
   };
+  // Une seule fenêtre pour les trois étapes : le déclencheur mémorisé à l'ouverture reçoit le focus à la fermeture.
+  const modal = (title: string, children: ReactNode, footer: ReactNode, describedBy?: string) => (
+    <Modal title={title} closeLabel={t("dialog.close")} onClose={close} onEscape={back} className="wn-timeoff-dialog" footer={footer} {...(describedBy ? { describedBy } : {})}>
+      {children}
+    </Modal>
+  );
 
   let element: ReactNode = null;
   if (step?.kind === "form") element = renderForm(step);
@@ -144,10 +150,8 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
   function renderForm(s: Extract<Step, { kind: "form" }>) {
     const set = (k: keyof Fields) => (e: { target: { value: string } }) => setStep({ ...s, error: null, fields: { ...s.fields, [k]: e.target.value } });
     const d = dataRef.current;
-    return (
-      <div role="dialog" aria-modal="true" aria-labelledby="wn-timeoff-title" className="wn-dialog wn-timeoff-dialog" onKeyDown={onKey}>
-        <h2 id="wn-timeoff-title">{t(s.id === null ? "schedule.timeoff.form.create" : "schedule.timeoff.form.edit")}</h2>
-        <form onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+    return modal(t(s.id === null ? "schedule.timeoff.form.create" : "schedule.timeoff.form.edit"), (
+        <form id="wn-timeoff-form" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
           <label>{t("schedule.timeoff.form.person")}
             <select autoFocus value={s.fields.personId} onChange={set("personId")}>{d.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
           </label>
@@ -173,22 +177,21 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
           </label>
           {d.timeoffTypes.length === 0 && <p role="alert">{t("schedule.timeoff.form.noType")}</p>}
           {s.error && <p role="alert" className="wn-dialog-error">{s.error}</p>}
-          <div className="wn-dialog-actions">
-            <button type="submit" disabled={d.timeoffTypes.length === 0}>{t("schedule.timeoff.form.save")}</button>
-            {s.id !== null && <button type="button" onClick={() => void remove()}>{t("schedule.timeoff.form.delete")}</button>}
-            <button type="button" onClick={close}>{t("schedule.timeoff.form.cancel")}</button>
-          </div>
         </form>
-      </div>
-    );
+    ), (
+      <>
+        <Button onClick={close}>{t("schedule.timeoff.form.cancel")}</Button>
+        {s.id !== null && <Button variant="danger" onClick={() => void remove()}>{t("schedule.timeoff.form.delete")}</Button>}
+        <Button type="submit" form="wn-timeoff-form" variant="primary" disabled={d.timeoffTypes.length === 0}>{t("schedule.timeoff.form.save")}</Button>
+      </>
+    ));
   }
 
   function renderWarning(s: Extract<Step, { kind: "warn" }>) {
     const logged = new Map((s.logged ?? []).map((l) => [l.day, 0]));
     for (const l of s.logged ?? []) logged.set(l.day, (logged.get(l.day) ?? 0) + l.hours);
-    return (
-      <div role="dialog" aria-modal="true" aria-labelledby="wn-timeoff-warn" aria-describedby="wn-timeoff-warn-intro" className="wn-dialog wn-timeoff-dialog" onKeyDown={onKey}>
-        <h2 id="wn-timeoff-warn">{t("schedule.timeoff.warning.title", { person: personName(s.fields.personId) })}</h2>
+    return modal(t("schedule.timeoff.warning.title", { person: personName(s.fields.personId) }), (
+      <>
         <p id="wn-timeoff-warn-intro">{t("schedule.timeoff.warning.intro")}</p>
         <ul>
           {s.report.days.map((d) => (
@@ -203,13 +206,14 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
         </ul>
         {s.logged === null && <p>{t("schedule.timeoff.warning.loggedUnknown")}</p>}
         {!s.report.assistant && <p>{t("schedule.timeoff.warning.pending")}</p>}
-        <div className="wn-dialog-actions">
-          {s.report.assistant && <button type="button" autoFocus onClick={() => setStep({ ...s, kind: "assist" })}>{t("schedule.timeoff.warning.reschedule")}</button>}
-          <button type="button" autoFocus={!s.report.assistant} onClick={() => void run(s, false)}>{t("schedule.timeoff.warning.keep")}</button>
-          <button type="button" onClick={() => setStep({ kind: "form", id: s.id, fields: s.fields, error: null })}>{t("schedule.timeoff.warning.back")}</button>
-        </div>
-      </div>
-    );
+      </>
+    ), (
+      <>
+        <Button onClick={() => setStep({ kind: "form", id: s.id, fields: s.fields, error: null })}>{t("schedule.timeoff.warning.back")}</Button>
+        <Button autoFocus={!s.report.assistant} onClick={() => void run(s, false)}>{t("schedule.timeoff.warning.keep")}</Button>
+        {s.report.assistant && <Button variant="primary" autoFocus onClick={() => setStep({ ...s, kind: "assist" })}>{t("schedule.timeoff.warning.reschedule")}</Button>}
+      </>
+    ), "wn-timeoff-warn-intro");
   }
 
   function renderAssistant(s: Extract<Step, { kind: "assist" }>) {
@@ -217,9 +221,8 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
     const ids = [...new Set(s.report.days.flatMap((x) => x.allocations.map((a) => a.allocationId)))];
     const writes = new Map(planResolution(d, s.fields.personId, s.report.resolutions, s.choices).map((w) => [w.allocationId, w]));
     const range = (a: { startDate: string; endDate: string }) => ({ start: date(a.startDate), end: date(a.endDate) });
-    return (
-      <div role="dialog" aria-modal="true" aria-labelledby="wn-timeoff-assist" className="wn-dialog wn-timeoff-dialog" onKeyDown={onKey}>
-        <h2 id="wn-timeoff-assist">{t("schedule.timeoff.assistant.title")}</h2>
+    return modal(t("schedule.timeoff.assistant.title"), (
+      <>
         {ids.map((id, i) => {
           const a = d.allocations.find((x) => x.id === id);
           if (!a) return null;
@@ -247,12 +250,13 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
             </fieldset>
           );
         })}
-        <div className="wn-dialog-actions">
-          <button type="button" onClick={() => void run(s, true)}>{t("schedule.timeoff.assistant.apply")}</button>
-          <button type="button" onClick={() => setStep({ ...s, kind: "warn" })}>{t("schedule.timeoff.warning.back")}</button>
-        </div>
-      </div>
-    );
+      </>
+    ), (
+      <>
+        <Button onClick={() => setStep({ ...s, kind: "warn" })}>{t("schedule.timeoff.warning.back")}</Button>
+        <Button variant="primary" onClick={() => void run(s, true)}>{t("schedule.timeoff.assistant.apply")}</Button>
+      </>
+    ));
   }
 
   return {

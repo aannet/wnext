@@ -9,6 +9,7 @@ import type { ImportKind, ImportReport, ImportRowError } from "@wnext/contracts"
 import { IMPORT_FIELDS } from "@wnext/engine";
 import { useState, type ReactNode } from "react";
 import type { ImportFailure, ImportSource } from "../data/import-source";
+import { Button, Modal } from "../design";
 import type { MessageKey } from "../i18n";
 
 const KINDS: readonly ImportKind[] = ["people", "projects", "clients"];
@@ -87,9 +88,10 @@ export function ImportDialog({ i18n, source, onClose, readFile = (f) => f.text()
   );
 
   let body: ReactNode;
+  let footer: ReactNode;
   if (phase.kind === "form") {
     body = (
-      <form onSubmit={(e) => { e.preventDefault(); void analyze(); }}>
+      <form id="wn-import-form" onSubmit={(e) => { e.preventDefault(); void analyze(); }}>
         <label>{t("import.kind.label")}{" "}
           <select value={kind} onChange={(e) => setKind(e.target.value as ImportKind)}>
             {KINDS.map((k) => <option key={k} value={k}>{t(`import.kind.${k}`)}</option>)}
@@ -99,11 +101,13 @@ export function ImportDialog({ i18n, source, onClose, readFile = (f) => f.text()
           <input type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>
         <p className="wn-import-help">{t("import.columns", { columns })}</p>
-        <div className="wn-dialog-actions">
-          <button type="submit" disabled={!file || busy}>{busy ? t("import.analyzing") : t("import.analyze")}</button>
-          <button type="button" onClick={onClose}>{t("import.cancel")}</button>
-        </div>
       </form>
+    );
+    footer = (
+      <>
+        <Button onClick={onClose}>{t("import.cancel")}</Button>
+        <Button type="submit" form="wn-import-form" variant="primary" disabled={!file || busy}>{busy ? t("import.analyzing") : t("import.analyze")}</Button>
+      </>
     );
   } else if (phase.kind === "preview") {
     const r = phase.report;
@@ -115,15 +119,17 @@ export function ImportDialog({ i18n, source, onClose, readFile = (f) => f.text()
         {details(r)}
         {writes === 0 && <p>{t("import.nothing")}</p>}
         {writes > 0 && r.invalid > 0 && <p>{t("import.skipNote")}</p>}
-        <div className="wn-dialog-actions">
-          {writes > 0 && (
-            <button type="button" autoFocus disabled={busy} onClick={() => void apply(r)}>
-              {r.invalid > 0 ? t("import.confirmValid", { count: r.rows - r.invalid }) : t("import.confirm")}
-            </button>
-          )}
-          <button type="button" onClick={() => { setPhase({ kind: "form" }); setError(null); }}>{t("import.back")}</button>
-          <button type="button" onClick={onClose}>{t("import.cancel")}</button>
-        </div>
+      </>
+    );
+    footer = (
+      <>
+        <Button onClick={onClose}>{t("import.cancel")}</Button>
+        <Button onClick={() => { setPhase({ kind: "form" }); setError(null); }}>{t("import.back")}</Button>
+        {writes > 0 && (
+          <Button variant="primary" autoFocus disabled={busy} onClick={() => void apply(r)}>
+            {r.invalid > 0 ? t("import.confirmValid", { count: r.rows - r.invalid }) : t("import.confirm")}
+          </Button>
+        )}
       </>
     );
   } else {
@@ -132,19 +138,15 @@ export function ImportDialog({ i18n, source, onClose, readFile = (f) => f.text()
         <h3>{t("import.done")}</h3>
         {counters(phase.report)}
         {details(phase.report)}
-        <div className="wn-dialog-actions">
-          <button type="button" autoFocus onClick={onClose}>{t("import.close")}</button>
-        </div>
       </>
     );
+    footer = <Button variant="primary" autoFocus onClick={onClose}>{t("import.close")}</Button>;
   }
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="wn-import-title" className="wn-dialog wn-import-dialog" aria-busy={busy}
-      onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onClose(); } }}>
-      <h2 id="wn-import-title">{t("import.title")}</h2>
+    <Modal title={t("import.title")} closeLabel={t("dialog.close")} onClose={onClose} busy={busy} className="wn-import-dialog" footer={footer}>
       {error && <p role="alert" className="wn-dialog-error">{error}</p>}
       {body}
-    </div>
+    </Modal>
   );
 }

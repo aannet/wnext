@@ -38,7 +38,7 @@ async function mount(views: ViewsSource = createDemoViewsSource(demoSeedViews(),
 const rows = () => [...host.querySelectorAll("[role=rowheader]")].map((e) => e.textContent).filter(Boolean); // lignes recyclées vides écartées
 const count = () => Number(/(\d+) personnes?/.exec(host.querySelector("[role=toolbar]")!.textContent!)![1]);
 const viewSelect = () => host.querySelector<HTMLSelectElement>(".wn-views-row select")!;
-const button = (label: string) => [...host.querySelectorAll<HTMLButtonElement>(".wn-views button")].find((b) => b.textContent === label);
+const button = (label: string) => [...document.body.querySelectorAll<HTMLButtonElement>(".wn-views button, [role=dialog] button")].find((b) => b.textContent === label);
 const status = () => host.querySelector(".wn-views [role=status]")!.textContent;
 const optionNames = () => [...viewSelect().options].map((o) => o.textContent);
 const zoomPressed = () => [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] [aria-pressed=true]")].map((b) => b.textContent);
@@ -63,8 +63,8 @@ async function type(input: HTMLInputElement, value: string) {
 }
 async function saveCurrent(name: string, shared = false) {
   await click(button("Enregistrer la vue…"));
-  await type(host.querySelector<HTMLInputElement>(".wn-views-form input[type=text]")!, name);
-  if (shared) await act(async () => { host.querySelector<HTMLInputElement>(".wn-views-form input[type=checkbox]")!.click(); });
+  await type(document.body.querySelector<HTMLInputElement>(".wn-views-form input[type=text]")!, name);
+  if (shared) await act(async () => { document.body.querySelector<HTMLInputElement>(".wn-views-form input[type=checkbox]")!.click(); });
   await click(button("Enregistrer"));
 }
 
@@ -122,7 +122,7 @@ describe("vues sauvegardées dans l'écran", () => {
     await saveCurrent("Ingénierie", true);
     expect(status()).toBe("Vue « Ingénierie » enregistrée.");
     expect(viewSelect().selectedOptions[0]!.textContent).toBe("Ingénierie (partagée)");
-    expect(host.querySelector(".wn-views-form")).toBeNull();
+    expect(document.body.querySelector(".wn-views-form")).toBeNull();
     const list = await views.list();
     const saved = list.ok && list.value.find((v) => v.name === "Ingénierie");
     expect(saved).toMatchObject({ shared: true, filters: { departmentIds: ["3"], zoom: "day" } });
@@ -133,22 +133,22 @@ describe("vues sauvegardées dans l'écran", () => {
     await mount();
     await saveCurrent("Projet A");
     expect(status()).toBe("Une de vos vues porte déjà ce nom.");
-    expect(host.querySelector(".wn-views-form")).not.toBeNull();
-    await act(async () => { host.querySelector(".wn-views-form input")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
-    expect(host.querySelector(".wn-views-form")).toBeNull();
+    expect(document.body.querySelector(".wn-views-form")).not.toBeNull();
+    await act(async () => { document.body.querySelector(".wn-views-form input")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    expect(document.body.querySelector(".wn-views-form")).toBeNull();
   });
 
   it("renomme, puis supprime après confirmation", async () => {
     await mount();
     await choose("demo-view-2");
     await click(button("Renommer…"));
-    expect(host.querySelector<HTMLInputElement>(".wn-views-form input[type=text]")!.value).toBe("Projet A");
-    await type(host.querySelector<HTMLInputElement>(".wn-views-form input[type=text]")!, "Projet Alpha");
+    expect(document.body.querySelector<HTMLInputElement>(".wn-views-form input[type=text]")!.value).toBe("Projet A");
+    await type(document.body.querySelector<HTMLInputElement>(".wn-views-form input[type=text]")!, "Projet Alpha");
     await click(button("Renommer"));
     expect(status()).toBe("Vue renommée en « Projet Alpha ».");
     expect(optionNames()).toContain("Projet Alpha");
     await click(button("Supprimer…"));
-    expect(host.querySelector(".wn-views-form")!.textContent).toContain("Supprimer la vue « Projet Alpha » ?");
+    expect(document.body.querySelector(".wn-views-form")!.textContent).toContain("Supprimer la vue « Projet Alpha » ?");
     await click(button("Supprimer"));
     expect(status()).toBe("Vue « Projet Alpha » supprimée.");
     expect(optionNames()).not.toContain("Projet Alpha");

@@ -25,7 +25,7 @@ function mount(node: React.ReactNode) {
   root = createRoot(host);
   act(() => root!.render(node));
 }
-const button = (name: string | RegExp) => [...host.querySelectorAll("button")].find((b) => (typeof name === "string" ? b.textContent === name : name.test(b.textContent ?? "")));
+const button = (name: string | RegExp) => [...document.body.querySelectorAll("button")].find((b) => (typeof name === "string" ? b.textContent === name : name.test(b.textContent ?? "")));
 const click = async (name: string | RegExp) => { const b = button(name); if (!b) throw new Error(`bouton absent : ${name}`); act(() => b.click()); await flush(); };
 const demoImports = () => createDemoImportSource(demoImportSnapshot(demoSchedule(TODAY), TODAY));
 
@@ -47,9 +47,10 @@ describe("bouton « Importer » du conteneur", () => {
     mount(<ScheduleContainer i18n={createI18n("fr")} source={createDemoSource(data())} widthPx={960} heightPx={480} imports={demoImports()} />);
     await flush();
     await click("Importer");
-    expect(host.querySelector("[role=dialog] h2")!.textContent).toBe("Importer un fichier CSV");
-    await click("Annuler");
-    expect(host.querySelector("[role=dialog]")).toBeNull();
+    expect(document.body.querySelector("[role=dialog] h2")!.textContent).toBe("Importer un fichier CSV");
+    act(() => [...document.body.querySelectorAll<HTMLButtonElement>("[role=dialog] button")].find((b) => b.textContent === "Annuler")!.click());
+    await flush();
+    expect(document.body.querySelector("[role=dialog]")).toBeNull();
     expect(document.activeElement).toBe(button("Importer"));
   });
 });

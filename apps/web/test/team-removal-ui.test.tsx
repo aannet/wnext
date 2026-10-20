@@ -56,8 +56,8 @@ function mount(allocations: Alloc[], wrap: (s: Src) => Src = (s) => s, withHisto
 
 const block = (key: string) => host.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`)!;
 const menu = () => document.querySelector<HTMLElement>("[role=menu]");
-const dialog = () => host.querySelector<HTMLElement>("[role=dialog]");
-const button = (label: string) => [...(dialog() ?? host).querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === label);
+const dialog = () => document.body.querySelector<HTMLElement>("[role=dialog]");
+const button = (label: string) => [...(dialog() ?? document.body).querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === label);
 const click = async (el: HTMLElement) => { act(() => el.click()); await flush(); };
 const notice = () => host.querySelector(".wn-notice")!.textContent;
 const press = (target: EventTarget, init: KeyboardEventInit) =>

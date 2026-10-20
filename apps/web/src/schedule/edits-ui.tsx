@@ -6,6 +6,7 @@ import type { ScheduleResponse } from "@wnext/contracts";
 import type { GestureBlock } from "@wnext/engine";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { localSplit, patched, type Allocation, type EditError, type EditOutcome, type ScheduleEditor } from "../data/allocation-edits";
+import { Button, Modal, Popover, type Rect } from "../design";
 import type { MessageKey } from "../i18n";
 import type { EditRequest } from "./block-editor";
 import { editWarnings, type EditWarning } from "./edit-warnings";
@@ -45,6 +46,8 @@ export type FocusTarget = Pick<GestureBlock, "personId" | "startDate" | "endDate
 export function useScheduleEdits(
   i18n: I18n, editor: ScheduleEditor | undefined, data: ScheduleResponse, focusKey: (key: string, at?: FocusTarget) => void,
   undoable = false,
+  /** Rectangle (repère de la fenêtre) du bloc de clé donnée, null s'il n'est pas dessiné : ancre du popover de portée. */
+  anchorOf?: (key: string) => Rect | null,
 ): ScheduleEdits {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const [notice, setNotice] = useState("");
@@ -95,20 +98,26 @@ export function useScheduleEdits(
     else if (kind === "one" && out.error === "SERIES_SPLIT_UNSUPPORTED") open({ req, unsupported: out.reason ?? "other" });
   }
 
+  // Choix de portée : popover ancré au bloc édité s'il est dessiné (rectangle non vide), sinon fenêtre modale.
+  const anchor = choice ? anchorOf?.(choice.req.key) ?? null : null;
+  const question = choice ? (choice.unsupported === null ? t("schedule.edit.series.title") : t("schedule.edit.series.unsupported", { reason: choice.unsupported })) : "";
+  const actions = choice && (
+    <>
+      {choice.unsupported === null && <Button variant="primary" autoFocus onClick={() => void choose("one")}>{t("schedule.edit.series.one")}</Button>}
+      <Button variant={choice.unsupported === null ? "secondary" : "primary"} autoFocus={choice.unsupported !== null} onClick={() => void choose("all")}>{t("schedule.edit.series.all")}</Button>
+      <Button onClick={() => void choose("cancel")}>{t("schedule.edit.series.cancel")}</Button>
+    </>
+  );
   const element = (
     <>
-      {choice && (
-        <div role="dialog" aria-modal="true" aria-labelledby="wn-series-title" className="wn-dialog"
-          onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); void choose("cancel"); } }}>
-          <p id="wn-series-title">
-            {choice.unsupported === null ? t("schedule.edit.series.title") : t("schedule.edit.series.unsupported", { reason: choice.unsupported })}
-          </p>
-          <div className="wn-dialog-actions">
-            {choice.unsupported === null && <button type="button" autoFocus onClick={() => void choose("one")}>{t("schedule.edit.series.one")}</button>}
-            <button type="button" autoFocus={choice.unsupported !== null} onClick={() => void choose("all")}>{t("schedule.edit.series.all")}</button>
-            <button type="button" onClick={() => void choose("cancel")}>{t("schedule.edit.series.cancel")}</button>
-          </div>
-        </div>
+      {choice && anchor && (
+        <Popover anchor={anchor} labelledBy="wn-series-title" onClose={() => void choose("cancel")}>
+          <p id="wn-series-title" className="m-0 mb-3">{question}</p>
+          <div className="flex flex-wrap justify-end gap-2">{actions}</div>
+        </Popover>
+      )}
+      {choice && !anchor && (
+        <Modal title={question} closeLabel={t("dialog.close")} onClose={() => void choose("cancel")} footer={actions}>{null}</Modal>
       )}
       <div className="wn-notice" aria-live="polite">{notice}</div>
     </>

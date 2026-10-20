@@ -30,7 +30,7 @@ test("3 lignes dont 1 en erreur : rapport, import des 2 valides, ré-import sans
   await expect(dialog.locator(".wn-import-counters li").nth(1)).toHaveText("2 créations");
 
   // Ré-import : les 2 lignes déjà importées sont inchangées, seule l'erreur reste.
-  await dialog.getByRole("button", { name: "Fermer" }).click();
+  await dialog.getByRole("button", { name: "Fermer", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Importer" })).toBeFocused();
   await page.getByRole("button", { name: "Importer" }).click();

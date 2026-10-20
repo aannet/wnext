@@ -3,6 +3,7 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "./design/tokens.css";
+@import "./design/overlay.css";
 
 /* Styles provisoires de la démo ; contain:strict sur lignes et blocs, comme le spike A2. */
 /* Page sur 100dvh qui ne défile jamais : barres en hauteur naturelle, la grille prend le reste (flex 1, min-height 0). */
@@ -49,13 +50,9 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-handle-end { right: 0; }
 .wn-handle-height { left: 6px; right: 6px; bottom: 0; height: 6px; cursor: ns-resize; }
 .wn-ghost { z-index: 3; box-sizing: border-box; border-radius: 3px; opacity: 0.6; outline: 2px dashed var(--color-ink); }
-.wn-dialog { margin: 8px 0; padding: 12px; border: 1px solid var(--color-border-strong); border-radius: 6px; background: var(--surface); box-shadow: var(--shadow-popover); }
-.wn-dialog p { margin: 0 0 8px; }
-.wn-dialog-actions { display: flex; gap: 8px; }
 .wn-menu { z-index: 10; min-width: 200px; padding: 4px 0; background: var(--surface); border: 1px solid var(--color-border-strong); border-radius: 6px; box-shadow: var(--shadow-popover); }
 .wn-menu [role="menuitem"] { display: block; width: 100%; padding: 6px 12px; border: 0; background: none; text-align: left; font: inherit; cursor: pointer; }
 .wn-menu [role="menuitem"]:hover, .wn-menu [role="menuitem"]:focus-visible { background: var(--focus); color: var(--color-on-focus); outline: none; }
-.wn-removal-dialog h2 { margin: 0 0 8px; font-size: 14px; }
 .wn-removal-dialog ul { margin: 4px 0 8px; padding-left: 18px; }
 .wn-notice { min-height: 18px; margin-top: 6px; color: var(--color-text-soft); font-size: 12px; }
 
@@ -71,7 +68,7 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-timeoff-dialog h2 { margin: 0 0 8px; font-size: 14px; }
 .wn-timeoff-dialog form { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; align-items: end; }
 .wn-timeoff-dialog form label { display: flex; flex-direction: column; gap: 2px; }
-.wn-timeoff-dialog form > p, .wn-timeoff-dialog form > .wn-dialog-actions { grid-column: 1 / -1; }
+.wn-timeoff-dialog form > p { grid-column: 1 / -1; }
 .wn-timeoff-dialog ul { margin: 4px 0 8px; padding-left: 18px; }
 .wn-timeoff-choice { margin: 0 0 8px; border: 1px solid var(--border); border-radius: 4px; }
 .wn-timeoff-choice label { margin-right: 12px; }
@@ -111,7 +108,7 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 /* Import CSV (US-1.2) : bouton de la barre d'état, boîte de dialogue, tableau des erreurs par ligne. */
 .wn-notifications-open { font-size: 12px; display: inline-flex; gap: 4px; align-items: center; }
 .wn-badge { min-width: 16px; padding: 0 4px; border-radius: 8px; background: var(--cap-over); color: var(--color-on-focus); font-size: 11px; line-height: 16px; text-align: center; }
-.wn-notifications { max-width: 520px; margin: 0; }
+.wn-notifications { width: 380px; }
 .wn-notifications h2 { margin: 0 0 8px; font-size: 14px; }
 .wn-notification-list { list-style: none; margin: 0 0 8px; padding: 0; max-height: 50vh; overflow: auto; }
 .wn-notification { padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 13px; }
@@ -122,7 +119,7 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-notification-prefs { margin: 8px 0 0; display: grid; gap: 4px; font-size: 13px; }
 .wn-import-open { font-size: 12px; }
 .wn-import-dialog { max-width: 960px; }
-.wn-import-dialog h2, .wn-import-dialog h3 { margin: 0 0 8px; font-size: 14px; }
+.wn-import-dialog h3 { margin: 0 0 8px; font-size: 14px; }
 .wn-import-dialog form { display: grid; gap: 8px; }
 .wn-import-help { color: var(--color-text-soft); font-size: 12px; }
 .wn-import-counters { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 8px; padding: 0; list-style: none; }
@@ -151,8 +148,6 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-user-identity { margin: 0; padding: var(--space-2) var(--space-3); color: var(--text-muted); font-size: var(--text-label); border-bottom: 1px solid var(--border); }
 .wn-user-identity strong { color: var(--text); font-size: var(--text-form); }
 .wn-user-popover .wn-menu { z-index: auto; min-width: 0; border: 0; box-shadow: none; padding: var(--space-1) 0 0; }
-.wn-header-panel { position: absolute; right: var(--space-4); top: 100%; z-index: var(--z-popover); width: min(520px, calc(100vw - 2 * var(--space-4))); }
-.wn-header-panel .wn-dialog { margin: var(--space-2) 0 0; }
 .wn-subheader { display: flex; flex: none; flex-wrap: wrap; gap: var(--space-3) var(--space-6); align-items: center; padding: var(--space-3) 0; }
 .wn-subheader-title { margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold); }
 .wn-subheader-title:focus { outline: none; }
