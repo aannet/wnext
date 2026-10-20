@@ -27,6 +27,7 @@
     "db:migrate": "node scripts/migrate.mjs",
     "dev:stack": "node scripts/dev-stack.mjs",
     "test:browser": "playwright test -c tests/browser/playwright.config.ts",
+    "test:browser:oidc": "playwright test -c tests/browser/playwright.oidc.config.ts",
     "bench:browser": "node tests/browser/bench.mjs",
     "perf:realtime": "vitest run tests/perf/realtime-propagation.test.ts --reporter=verbose",
     "perf:engine": "vitest run tests/perf/engine-scale.test.ts --reporter=verbose",
