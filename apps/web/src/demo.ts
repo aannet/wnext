@@ -11,6 +11,10 @@
 //    aucun : les tests navigateur y posent le leur.
 //  * Trois départements (Produit, Design, Ingénierie : personne n modulo 3) et trois rôles (Senior, Confirmé, Junior : par blocs
 //    de trois), pour les filtres et les vues sauvegardées de la démo (data/views-source).
+//  * Horaire daté (BR-19) : la personne 6 passe à 4 jours (vendredi chômé) lundi prochain ; ses vendredis suivants ont une
+//    capacité nulle (et la charge planifiée y devient une surcharge signalée, BR-01).
+//  * Phases (BR-37) : le projet A a deux phases contiguës (Conception jusqu'à J+13, Réalisation ensuite) ; ses allocations
+//    sont rattachées à la phase de leur début : déplacer un bloc au-delà de la frontière donne l'avertissement de phase.
 import type { ScheduleResponse } from "@wnext/contracts";
 import { addDays } from "@wnext/engine";
 
@@ -79,14 +83,25 @@ export function demoSchedule(today: string, people = 300): ScheduleResponse {
     { id: "1", version: 1, name: "Congés payés", deducted: true }, { id: "2", version: 1, name: "RTT", deducted: true },
     { id: "3", version: 1, name: "Formation", deducted: false },
   ];
+  const phases = [
+    { id: "1", version: 1, projectId: "1", name: "Conception", startDate: from, endDate: addDays(today, 13), color: null },
+    { id: "2", version: 1, projectId: "1", name: "Réalisation", startDate: addDays(today, 14), endDate: to, color: null },
+  ];
+  for (const a of allocations) if (a.projectId === "1") a.phaseId = a.startDate <= phases[0]!.endDate ? "1" : "2";
+  const fourDays = [8, 8, 8, 8, 0, 0, 0];
+  const workSchedule = [
+    { validFrom: null, validTo: addDays(monday, -1), workDaysHours: [8, 8, 8, 8, 8, 0, 0] },
+    { validFrom: monday, validTo: null, workDaysHours: fourDays },
+  ];
   return {
     window: { from, to }, changeCursor: "0", page: { nextCursor: null, total: people },
     account: { weekStart: 1, capacityThresholds: { underPercent: 80 }, timezone: "Europe/Paris" },
     people: Array.from({ length: people }, (_, i) => ({
       id: String(i + 1), version: 1, name: `Personne ${i + 1}`, peopleType: "employee" as const, departmentId: String((i % 3) + 1), roleId: String((Math.floor(i / 3) % 3) + 1),
-      country: null, workDaysHours: [8, 8, 8, 8, 8, 0, 0], tags: [], avatarUrl: null, active: true,
+      country: null, tags: [], avatarUrl: null, active: true,
+      ...(i === 5 ? { workDaysHours: fourDays, workSchedule } : { workDaysHours: [8, 8, 8, 8, 8, 0, 0] }),
     })),
-    allocations, timeoffs, holidays: [], projects, timeoffTypes,
+    allocations, timeoffs, holidays: [], projects, phases, timeoffTypes,
     departments: ["Produit", "Design", "Ingénierie"].map((name, i) => ({ id: String(i + 1), version: 1, name })),
     roles: ["Senior", "Confirmé", "Junior"].map((name, i) => ({ id: String(i + 1), version: 1, name })),
   };

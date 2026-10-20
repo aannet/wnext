@@ -53,4 +53,24 @@ describe("demoSchedule", () => {
     expect(g.rows[1]!.timeoffs).toHaveLength(1);
     expect(g.rows[0]!.timeoffs).toEqual([]);
   });
+
+  it("horaire daté (@BR-19) : la personne 6 passe à 4 jours (vendredi chômé) lundi prochain ; la bande de capacité le suit", () => {
+    const p6 = s.people[5]!;
+    expect(p6.workDaysHours).toEqual([8, 8, 8, 8, 0, 0, 0]);
+    expect(p6.workSchedule).toHaveLength(2);
+    const monday = p6.workSchedule![1]!.validFrom!;
+    expect(monday > today).toBe(true);
+    const fridays = [-3, 4].map((d) => { const x = new Date(`${monday}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + d); return x.toISOString().slice(0, 10); });
+    const row = g.rows.find((r) => r.personId === "6")!;
+    expect(fridays.map((f) => row.cells.find((c) => c.from === f)?.capacityHours)).toEqual([8, 0]);
+  });
+
+  it("phases (@BR-37) : deux phases contiguës sur le projet A, ses allocations rattachées à la phase de leur début", () => {
+    expect(s.phases!.map((p) => [p.projectId, p.name])).toEqual([["1", "Conception"], ["1", "Réalisation"]]);
+    const [a, b] = s.phases!;
+    const onA = s.allocations.filter((x) => x.projectId === "1");
+    expect(onA.length).toBeGreaterThan(0);
+    for (const x of onA) expect(x.phaseId).toBe(x.startDate <= a!.endDate! ? a!.id : b!.id);
+    expect(s.allocations.filter((x) => x.projectId !== "1").every((x) => x.phaseId === null)).toBe(true);
+  });
 });
