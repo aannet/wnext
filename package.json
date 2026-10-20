@@ -16,6 +16,7 @@
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "test:fast": "vitest run --config vitest.check.config.ts",
     "lint:boundaries": "node scripts/lint-boundaries.mjs",
     "lint:ui-strings": "node scripts/lint-ui-strings.mjs",
     "test:boundaries": "vitest run tests/boundaries",
