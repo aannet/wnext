@@ -160,7 +160,9 @@ describe("splitSeries", () => {
       for (let ms = toMs(al.startDate); ms <= toMs(seriesEnd(al)); ms += DAY_MS) {
         const d = toIso(ms);
         const hits = [parts.before, parts.occurrence, parts.after].filter((x) => cov(x, d)).length;
-        expect(hits, JSON.stringify({ al, d, parts })).toBe(cov(al, d) ? 1 : 0);
+        // Message construit seulement en cas d'écart : un JSON.stringify par jour et par cas coûtait l'essentiel des 1,4 s du test
+        // (timeout de 5 s dépassé sous charge de la VM).
+        if (hits !== (cov(al, d) ? 1 : 0)) expect(hits, JSON.stringify({ al, d, parts })).toBe(cov(al, d) ? 1 : 0);
       }
     }
     expect(checked).toBeGreaterThan(300);
