@@ -7,6 +7,27 @@ const shots = fileURLToPath(new URL("./out/screenshots/", import.meta.url));
 const zoomButton = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
 
 test.describe("écran Schedule (démo 300 personnes)", () => {
+  for (const [width, height] of [[1280, 900], [390, 844]] as const) {
+    test(`mise en page fluide ${width}x${height} : la page ne défile jamais, la grille remplit le reste`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await openDemo(page, "fr");
+      const fits = () => page.evaluate(() => ({ doc: document.documentElement.scrollHeight, win: innerHeight, bodyW: document.documentElement.scrollWidth, winW: innerWidth }));
+      const gridBottom = () => page.evaluate(() => document.querySelector('[role="grid"]')!.getBoundingClientRect().bottom);
+      const closed = await fits();
+      expect(closed.doc).toBeLessThanOrEqual(closed.win);
+      expect(closed.bodyW).toBeLessThanOrEqual(closed.winW);
+      expect(await gridBottom()).toBeGreaterThanOrEqual(closed.win - 40);
+      const gridH = (await page.getByRole("grid").boundingBox())!.height;
+      await page.getByText("Filtres", { exact: true }).click();
+      const open = await fits();
+      expect(open.doc).toBeLessThanOrEqual(open.win);
+      expect((await page.getByRole("grid").boundingBox())!.height).toBeLessThan(gridH);
+      await page.setViewportSize({ width: width - 40, height: height - 60 });
+      await expect.poll(async () => (await fits()).doc).toBeLessThanOrEqual(height - 60);
+      await page.getByText("Filtres", { exact: true }).click();
+    });
+  }
+
   test("FR : la grille a ses rôles", async ({ page }) => {
     await openDemo(page, "fr");
     const grid = page.getByRole("grid", { name: "Planning des personnes" });

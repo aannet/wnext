@@ -89,7 +89,7 @@ function headerFormatter(locale: string) {
   return (c: HeaderCell) => fmt[c.kind].format(new Date(`${c.from}T00:00:00Z`));
 }
 
-export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewChange, clock, editor, history, records, views }: ScheduleScreenProps) {
+export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, heightPx: initialHeightPx, onViewChange, clock, editor, history, records, views }: ScheduleScreenProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [zoom, setZoom] = useState<Zoom>("day");
   const [filters, setFilters] = useState<ViewFilters>({});
@@ -187,6 +187,11 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
   // la position.
   const labelsFor = (i: I18n) => ({ label: headerFormatter(i.locale), capacityLabel: capacityLabeler(i), blockLabel: blockLabeler(i), timeoffLabel: timeoffLabeler(i) });
   const labelled = useRef(i18n);
+  // widthPx/heightPx ne sont que la taille initiale : ensuite la grille remplit l'espace restant (CSS flex) et un
+  // ResizeObserver pousse sa taille au scroller (fenêtre redimensionnée, barres ou filtres dépliés). Sans ResizeObserver
+  // (jsdom), la taille initiale reste.
+  const [size, setSize] = useState({ widthPx: initialWidthPx, heightPx: initialHeightPx });
+  const { widthPx, heightPx } = size;
   useEffect(() => {
     const s = createScroller({
       root: gridRef.current!, data: shown, today, widthPx, heightPx, clock, zoom: zoomRef.current, ...labelsFor(i18n),
@@ -213,6 +218,18 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
     if (p) focusAt(p.key, p.at);
   }, [shown]);
   useEffect(() => { scroller.current?.resize(widthPx, heightPx); }, [widthPx, heightPx]);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[entries.length - 1]?.contentRect;
+      if (!r || r.width <= 0 || r.height <= 0) return;
+      const next = { widthPx: Math.round(r.width), heightPx: Math.round(r.height) };
+      setSize((cur) => (cur.widthPx === next.widthPx && cur.heightPx === next.heightPx ? cur : next));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const zoomTo = (z: Zoom) => { scroller.current?.setZoom(z); setZoom(z); };
   const onKeyDown = (e: KeyboardEvent) => {
@@ -272,7 +289,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
       <div ref={gridRef} role="grid" aria-label={t("schedule.grid.label")} tabIndex={0} onKeyDown={onKeyDown}
         onClick={(e) => { const off = records && scroller.current?.host.timeoffAt?.(e.target); if (off) timeoffs.openEdit(off.timeoff.timeoffId); }}
         onDoubleClick={records ? onDoubleClick : undefined}
-        className="wn-grid" style={{ overflow: "auto", height: heightPx, width: widthPx }} />
+        className="wn-grid" />
       {timeoffs.element}
       {edits.element}
     </div>

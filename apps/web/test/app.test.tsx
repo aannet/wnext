@@ -40,6 +40,33 @@ const grid = () => host.querySelector("[role=grid]") as HTMLElement;
 const key = (k: string) => act(() => grid().dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })));
 
 describe("ScheduleScreen", () => {
+  it("taille de la grille : suit le ResizeObserver sans recréer le scroller", () => {
+    const observers: { cb: ResizeObserverCallback; target: Element | null }[] = [];
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = class {
+      rec: { cb: ResizeObserverCallback; target: Element | null };
+      constructor(cb: ResizeObserverCallback) { this.rec = { cb, target: null }; observers.push(this.rec); }
+      observe(t: Element) { this.rec.target = t; }
+      disconnect() {}
+      unobserve() {}
+    };
+    try {
+      mount("fr");
+      const before = headers().length;
+      const rowEl = grid().querySelector("[role=row]");
+      const notify = (width: number, height: number) => act(() => {
+        for (const o of observers) if (o.target === grid()) o.cb([{ contentRect: { width, height } } as ResizeObserverEntry], {} as ResizeObserver);
+      });
+      notify(520, 300);
+      expect(headers().length).toBeLessThan(before);
+      notify(1400, 300);
+      expect(headers().length).toBeGreaterThan(before);
+      expect(grid().querySelector("[role=row]")).toBe(rowEl);
+      expect(grid().style.height).toBe("");
+    } finally {
+      delete (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+    }
+  });
+
   it("pseudo-locale : tout le texte de l'interface passe par le catalogue (seuls les noms restent)", () => {
     mount("pseudo");
     const texts = [...host.querySelectorAll("button, [role=toolbar] span")].map((e) => e.textContent ?? "");
