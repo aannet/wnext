@@ -83,6 +83,30 @@ describe("chargement de la fenêtre", () => {
     expect(f.schedule()[1]!.query.get("to")).toBe(fresh.at(-1)!.to);
   });
 
+  it("changement de tranche sans donnée nouvelle : même objet `data` (l'écran ne reconstruit pas son modèle une seconde fois)", async () => {
+    const f = fakeApi((q) => ({ status: 200, body: pageOf(q, { allocations: [alloc("10", "1", "2026-10-20"), alloc("11", "1", "2026-12-01")] }) }));
+    const s = source(f);
+    s.start();
+    await flush();
+    const far = page(page(page(VIEW, 1), 1), 1);
+    s.setViewport(far);
+    await flush();
+    const data = s.getState().data!;
+    expect(data.allocations.map((a) => a.id).sort()).toEqual(["10", "11"]);
+    let notified = 0;
+    const off = s.subscribe(() => { notified++; });
+    // Retour sur des blocs déjà chargés : la couverture change (autre tranche), le contenu du magasin non.
+    expect(loadChunks(VIEW, 1)[0]!.from).not.toBe(loadChunks(far, 1)[0]!.from);
+    for (const v of [VIEW, page(VIEW, 1), far]) {
+      s.setViewport(v);
+      await flush();
+      expect(s.getState().data).toBe(data);
+    }
+    expect(f.schedule()).toHaveLength(2);
+    expect(notified).toBe(0);
+    off();
+  });
+
   it("pagination : suit nextCursor jusqu'au bout, n'affiche qu'une fois toutes les pages reçues", async () => {
     const f = fakeApi();
     const s = createScheduleSource({ api: f.api, pageLimit: 2 });

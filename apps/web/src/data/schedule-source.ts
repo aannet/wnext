@@ -2,8 +2,9 @@
 // Pure et sans framework : client HTTP généré et WebSocket injectés, testable avec un fetch simulé.
 //  * Fenêtre visible -> loadChunks (blocs de 28 jours, préchargement de chaque côté : une largeur de vue, au moins un bloc)
 //    -> blocs absents (hasWindow) regroupés par mergeChunks -> GET /schedule en suivant nextCursor jusqu'au bout ->
-//    ingestSchedule -> snapshot de la plage des blocs (visible et voisins : l'écran y construit son modèle par tranches).
-//  * Défilement continu : une nouvelle vue dans les mêmes blocs ne change pas `data` (même objet, pas de reconstruction).
+//    ingestSchedule -> snapshot de toute la plage chargée (l'écran y construit son modèle par tranches).
+//  * Défilement continu : `data` ne change (nouvel objet) que si le magasin change. Une nouvelle vue, même dans une autre
+//    tranche, sur des blocs déjà chargés garde le même objet : l'écran ne reconstruit son modèle qu'une fois (le sien).
 //  * Une requête en vol couvre ses blocs : un second appel ne la répète pas. Les pages d'une requête sont intégrées
 //    ensemble à la fin : un bloc n'est marqué chargé que si toutes ses pages sont arrivées.
 //  * Époque : une réinitialisation (resync du temps réel, arrêt) invalide les requêtes en cours ; leurs réponses sont ignorées.
@@ -106,15 +107,22 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
   }
 
   const chunks = (): Range[] => (viewport ? loadChunks(viewport, store.account?.weekStart ?? 1, prefetchOf(viewport)) : []);
-  /** Plage des blocs de la vue (visible et voisins) : celle du snapshot. */
-  const cover = (): Range | null => { const c = chunks(); return c.length ? { from: c[0]!.from, to: c.at(-1)!.to } : null; };
-  let shown = "";
 
-  /** Recalcule le snapshot ; un magasin vidé (resync en cours) garde l'affichage précédent. */
+  /** Plage chargée : des fenêtres du magasin, de la plus ancienne à la plus récente (null : rien de chargé). */
+  function loaded(): Range | null {
+    const ws = [...store.windows].map((k) => k.split("..") as [string, string]);
+    if (!ws.length) return null;
+    return { from: ws.reduce((m, [f]) => (f < m ? f : m), ws[0]![0]), to: ws.reduce((m, [, t]) => (t > m ? t : m), ws[0]![1]) };
+  }
+
+  /** Snapshot du dernier magasin vu : un magasin inchangé redonne le même objet. */
+  let shown: { store: ScheduleStore; data: ScheduleResponse } | null = null;
+
+  /** Recalcule le snapshot si le magasin a changé ; un magasin vidé (resync en cours) garde l'affichage précédent. */
   function refresh(patch: Partial<ScheduleSourceState> = {}) {
-    const r = cover();
-    const data = store.account && r ? snapshot(store, r.from, r.to) : state.data;
-    if (r) shown = keyOf(r);
+    const r = loaded();
+    if (store.account && r && shown?.store !== store) shown = { store, data: snapshot(store, r.from, r.to) };
+    const data = store.account && r ? shown!.data : state.data;
     set({ ...patch, data, loading: active > 0 });
   }
 
@@ -332,7 +340,6 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     setViewport(v) {
       viewport = v;
       if (started) quiet(load(false));
-      if (keyOf(cover()!) !== shown) refresh();
     },
     start() {
       if (started) return;
