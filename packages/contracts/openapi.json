@@ -4717,6 +4717,15 @@
               "role"
             ],
             "description": "Tri des lignes de personnes (défaut name)"
+          },
+          "density": {
+            "type": "string",
+            "enum": [
+              "compact",
+              "standard",
+              "airy"
+            ],
+            "description": "Densité d'affichage ; absente : la vue ne change pas la densité courante"
           }
         },
         "additionalProperties": false
@@ -4798,6 +4807,15 @@
                   "role"
                 ],
                 "description": "Tri des lignes de personnes (défaut name)"
+              },
+              "density": {
+                "type": "string",
+                "enum": [
+                  "compact",
+                  "standard",
+                  "airy"
+                ],
+                "description": "Densité d'affichage ; absente : la vue ne change pas la densité courante"
               }
             },
             "additionalProperties": false,

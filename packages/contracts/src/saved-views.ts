@@ -19,6 +19,8 @@ import { SchedulePage } from "./schedule";
 const ids = z.array(Id).max(200);
 export const SavedViewZoom = z.enum(["day", "week", "month"]).meta({ id: "SavedViewZoom" });
 export const SavedViewPeopleSort = z.enum(["name", "department", "role"]).meta({ id: "SavedViewPeopleSort" });
+/** Densité d'affichage du Schedule (RT-005, Q2 du cadrage n°1) : hauteurs de ligne fixes, compacte (~12 personnes), standard (~8), aérée (~6). */
+export const SavedViewDensity = z.enum(["compact", "standard", "airy"]).meta({ id: "SavedViewDensity" });
 
 export const ScheduleViewFilters = z
   .object({
@@ -29,6 +31,7 @@ export const ScheduleViewFilters = z
     tags: z.array(z.string().min(1).max(50)).max(50).optional().describe("Personnes portant l'un de ces tags"),
     zoom: SavedViewZoom.optional(),
     peopleSort: SavedViewPeopleSort.optional().describe("Tri des lignes de personnes (défaut name)"),
+    density: SavedViewDensity.optional().describe("Densité d'affichage ; absente : la vue ne change pas la densité courante"),
   })
   .strict()
   .meta({ id: "ScheduleViewFilters" });

@@ -939,6 +939,7 @@ export interface ScheduleViewFilters {
   tags?: Array<string>;
   zoom?: SavedViewZoom;
   peopleSort?: "name" | "department" | "role";
+  density?: "compact" | "standard" | "airy";
 }
 
 export type SavedViewZoom = "day" | "week" | "month";
@@ -954,6 +955,7 @@ export interface SavedViewCreate {
     tags?: Array<string>;
     zoom?: SavedViewZoom;
     peopleSort?: "name" | "department" | "role";
+    density?: "compact" | "standard" | "airy";
   };
   shared?: boolean;
   position?: number;
