@@ -30,7 +30,7 @@ test("en-tête WNEXT, « Bonjour », navigation Planning -> Projets -> Planning 
   await nav.getByRole("link", { name: "Projets" }).click();
   await expect(page).toHaveURL(/\/projets\?demo=1/);
   await expect(page.getByRole("heading", { level: 1, name: "Projets" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "Bientôt disponible" })).toBeVisible();
+  await expect(page.getByRole("table")).toBeVisible(); // écran Projets (lot L-F1) ; Personnes reste « Bientôt disponible »
   await expect(nav.getByRole("link", { name: "Projets" })).toHaveAttribute("aria-current", "page");
   await expect(header.getByText("Bonjour Alec")).toBeVisible();
   await expect(page.getByRole("grid")).toHaveCount(0);
