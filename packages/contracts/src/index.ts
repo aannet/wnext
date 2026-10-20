@@ -12,7 +12,7 @@ export {
 } from "./schedule";
 export {
   Change, ChangeEntity, REALTIME_PATH, REALTIME_PROTOCOL_VERSION, REALTIME_RETRY_AFTER_SECONDS, REALTIME_TICKET_PARAM, REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, REALTIME_UPGRADE_STATUS, RealtimeChanges, RealtimeClientMessage, RealtimeError,
-  RealtimeReady, RealtimeResync, RealtimeServerMessage, RealtimeSubscribe, RealtimeTicket,
+  RealtimeNotifications, RealtimeReady, RealtimeResync, RealtimeServerMessage, RealtimeSubscribe, RealtimeTicket,
 } from "./realtime";
 export {
   LoggedTime, LoggedTimeCreate, LoggedTimeList, LoggedTimeListQuery, LoggedTimePatch, LoggedTimePathParams, LoggedTimePrefillResult,
@@ -36,3 +36,7 @@ export {
 } from "./budget";
 export { SavedView, SavedViewCreate, SavedViewKind, SavedViewList, SavedViewListQuery, SavedViewPatch, SavedViewPathParams, SavedViewPeopleSort, SavedViewZoom, ScheduleViewFilters } from "./saved-views";
 export { IMPORT_MAX_CSV_CHARS, IMPORT_MAX_ERRORS, IMPORT_MAX_ROWS, ImportKind, ImportPathParams, ImportQuery, ImportReport, ImportRequest, ImportRowError, ImportRowErrorCode } from "./imports";
+export {
+  Notification, NotificationActor, NotificationCounts, NotificationEntity, NotificationList, NotificationListQuery, NotificationPage, NotificationPathParams,
+  NotificationPreference, NotificationPreferences, NotificationPreferencesUpdate, NotificationReadAllResult, NotificationType,
+} from "./notifications";

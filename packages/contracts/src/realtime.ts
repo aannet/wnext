@@ -133,7 +133,17 @@ export const RealtimeError = z
   })
   .meta({ id: "RealtimeError" });
 
+/**
+ * Le compteur de notifications non lues de l'utilisateur CONNECTÉ a changé (nouvelle notification, ou marquage lu depuis un autre
+ * onglet). Envoyé aux seules connexions du destinataire, après `ready` ; jamais diffusé au compte. Il ne porte que le compteur
+ * (lu sous la RLS du destinataire) : le client recharge GET /api/v1/notifications s'il affiche la liste. Pas de curseur : un
+ * message perdu (coupure) est rattrapé par la lecture HTTP à la reconnexion.
+ */
+export const RealtimeNotifications = z
+  .object({ v: z.literal(REALTIME_PROTOCOL_VERSION), type: z.literal("notifications"), unreadCount: z.number().int().min(0) })
+  .meta({ id: "RealtimeNotifications" });
+
 export const RealtimeServerMessage = z
-  .discriminatedUnion("type", [RealtimeChanges, RealtimeResync, RealtimeReady, RealtimeError])
+  .discriminatedUnion("type", [RealtimeChanges, RealtimeResync, RealtimeReady, RealtimeError, RealtimeNotifications])
   .meta({ id: "RealtimeServerMessage" });
 export type RealtimeServerMessage = z.infer<typeof RealtimeServerMessage>;

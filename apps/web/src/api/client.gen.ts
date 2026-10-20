@@ -935,6 +935,65 @@ export interface SavedViewPatch {
   position?: number;
 }
 
+export interface NotificationList {
+  items: Array<Notification>;
+  page: NotificationPage;
+  unreadCount: number;
+}
+
+export interface Notification {
+  id: Id;
+  type: NotificationType;
+  entity: NotificationEntity;
+  entityId: Id;
+  actor: NotificationActor | null;
+  counts: NotificationCounts;
+  startDate: IsoDate | null;
+  currentVersion: number | null;
+  createdAt: string;
+  readAt: string | null;
+}
+
+export type NotificationType = "allocation_changed" | "timeoff_decided" | "edit_conflict";
+
+export type NotificationEntity = "allocations" | "timeoffs" | "people" | "logged_time" | "departments" | "roles" | "timeoff_types" | "holidays" | "projects" | "clients" | "phases" | "project_tasks" | "milestones" | "project_expenses" | "project_budget_lines" | "saved_views";
+
+export interface NotificationActor {
+  id: Id;
+  name: string | null;
+}
+
+export interface NotificationCounts {
+  created: number;
+  updated: number;
+  deleted: number;
+  approved: number;
+  declined: number;
+}
+
+export interface NotificationPage {
+  nextCursor: string | null;
+  total: number;
+}
+
+export interface NotificationReadAllResult {
+  marked: number;
+  unreadCount: number;
+}
+
+export interface NotificationPreferences {
+  items: Array<NotificationPreference>;
+}
+
+export interface NotificationPreference {
+  type: NotificationType;
+  enabled: boolean;
+}
+
+export interface NotificationPreferencesUpdate {
+  items: Array<NotificationPreference>;
+}
+
 export interface FetchResponse {
   status: number;
   json(): Promise<unknown>;
@@ -2238,6 +2297,56 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lister mes notifications (la plus recente d'abord, paginee ; unread=true : non lues) et le compteur de non lues (GET /api/v1/notifications) */
+    async listNotifications(query: {
+      limit?: number;
+      cursor?: string;
+      unread?: boolean;
+    } = {}): Promise<ApiResult<NotificationList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/notifications" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as NotificationList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Marquer une de mes notifications comme lue (idempotent : relire une notification lue garde sa date) (POST /api/v1/notifications/{id}/read) */
+    async markNotificationRead(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<Notification, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/notifications/" + encodeURIComponent(String(input.path.id)) + "/read", { method: "POST", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as Notification }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Marquer toutes mes notifications comme lues (POST /api/v1/notifications/read-all) */
+    async markAllNotificationsRead(): Promise<ApiResult<NotificationReadAllResult, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/notifications/read-all", { method: "POST", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as NotificationReadAllResult }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lire mes preferences de notification (les trois types ; abonne par defaut) (GET /api/v1/notification-preferences) */
+    async getNotificationPreferences(): Promise<ApiResult<NotificationPreferences, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/notification-preferences", { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as NotificationPreferences }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Regler mes preferences par type (types listes regles, autres inchanges) (PUT /api/v1/notification-preferences) */
+    async updateNotificationPreferences(input: {
+      body: NotificationPreferencesUpdate;
+    }): Promise<ApiResult<NotificationPreferences, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/notification-preferences", { method: "PUT", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as NotificationPreferences }
         : { ok: false, status: res.status, error: body as ApiError };
     },
   };

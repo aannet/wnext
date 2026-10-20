@@ -25,6 +25,7 @@ import {
 } from "./logged-time";
 import { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
 import { ImportPathParams, ImportQuery, ImportReport, ImportRequest } from "./imports";
+import { Notification, NotificationList, NotificationListQuery, NotificationPathParams, NotificationPreferences, NotificationPreferencesUpdate, NotificationReadAllResult } from "./notifications";
 import { SavedView, SavedViewCreate, SavedViewList, SavedViewListQuery, SavedViewPatch, SavedViewPathParams } from "./saved-views";
 
 // Table des routes : donnees pures (zod uniquement). La spec OpenAPI en est derivee
@@ -778,6 +779,50 @@ export const routes: RouteContract[] = [
       404: { description: "Vue inconnue, hors compte ou privee d'un autre (NOT_FOUND)", schema: ApiError },
       409: { description: "Version perimee (VERSION_CONFLICT, params.currentVersion)", schema: ApiError },
       428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  // Notifications in-app (FR-10, US-7.3) : voir notifications.ts. Tout membre authentifie, sur ses seules notifications.
+  {
+    method: "get", path: "/api/v1/notifications", operationId: "listNotifications", summary: "Lister mes notifications (la plus recente d'abord, paginee ; unread=true : non lues) et le compteur de non lues", query: NotificationListQuery,
+    responses: {
+      200: { description: "Page de notifications (items, page.nextCursor, page.total) et unreadCount", schema: NotificationList },
+      400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "post", path: "/api/v1/notifications/{id}/read", operationId: "markNotificationRead", summary: "Marquer une de mes notifications comme lue (idempotent : relire une notification lue garde sa date)", params: NotificationPathParams,
+    responses: {
+      200: { description: "Notification lue", schema: Notification },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      404: { description: "Notification inconnue, d'un autre utilisateur ou d'un autre compte (NOT_FOUND)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "post", path: "/api/v1/notifications/read-all", operationId: "markAllNotificationsRead", summary: "Marquer toutes mes notifications comme lues",
+    responses: {
+      200: { description: "Nombre de notifications marquees et compteur restant (0)", schema: NotificationReadAllResult },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "get", path: "/api/v1/notification-preferences", operationId: "getNotificationPreferences", summary: "Lire mes preferences de notification (les trois types ; abonne par defaut)",
+    responses: {
+      200: { description: "Preferences par type", schema: NotificationPreferences },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "put", path: "/api/v1/notification-preferences", operationId: "updateNotificationPreferences", summary: "Regler mes preferences par type (types listes regles, autres inchanges)", body: NotificationPreferencesUpdate,
+    responses: {
+      200: { description: "Preferences apres reglage (les trois types)", schema: NotificationPreferences },
+      400: { description: "Corps invalide : type inconnu ou repete (VALIDATION_FAILED)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },
