@@ -40,9 +40,10 @@ async function freshDb(): Promise<pg.Client> {
 }
 
 describe("0002_people_history (@BR-19)", () => {
-  it("depuis zéro : la suite de non-régression v1.1 passe sur la base migrée", async () => {
+  it("depuis zéro : la suite SQL BR-19 passe, puis la suite de non-régression v1.1 aussi", async () => {
     const c = await freshDb();
     expect(await migrate(c)).toContain("0002");
+    await c.query(readFileSync("tests/sql/people_history_tests.sql", "utf8")); // lève 'FAIL: <libellé>' au premier échec
     await c.query(readFileSync("tests/sql/schema_tests.sql", "utf8"));
   }, 120_000);
 
