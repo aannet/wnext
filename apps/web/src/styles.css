@@ -57,4 +57,12 @@ body { margin: 16px; font: 13px system-ui, sans-serif; color: #1f2937; backgroun
 .wn-timeoff-tone-2 { background-color: #fef3c7; border-color: #b45309; }
 .wn-timeoff-tone-3 { background-color: #fce7f3; border-color: #be185d; }
 .wn-timeoff-pending { border-left-style: dashed; background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.75) 0 4px, transparent 4px 8px); }
+.wn-timeoff-dialog h2 { margin: 0 0 8px; font-size: 14px; }
+.wn-timeoff-dialog form { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; align-items: end; }
+.wn-timeoff-dialog form label { display: flex; flex-direction: column; gap: 2px; }
+.wn-timeoff-dialog form > p, .wn-timeoff-dialog form > .wn-dialog-actions { grid-column: 1 / -1; }
+.wn-timeoff-dialog ul { margin: 4px 0 8px; padding-left: 18px; }
+.wn-timeoff-choice { margin: 0 0 8px; border: 1px solid #e5e7eb; border-radius: 4px; }
+.wn-timeoff-choice label { margin-right: 12px; }
+.wn-dialog-error { color: #991b1b; }
 .wn-timeoff-declined { background-color: #f9fafb; border-left-style: dotted; color: #6b7280; text-decoration: line-through; }

@@ -10,11 +10,15 @@
 //  * Annuler / Rétablir (BR-40) si un historique est fourni (schedule/history) : boutons de la barre d'outils, désactivés
 //    si la pile est vide, et raccourcis Ctrl+Z, Ctrl+Maj+Z, Ctrl+Y (Cmd sur Mac) écoutés sur le document, ignorés dans un
 //    champ de saisie ou une boîte de dialogue. Le résultat est annoncé dans la région aria-live des écritures.
+//  * Congés (BR-04, schedule/timeoff-ui) si une source d'écritures est fournie (`records`) : bouton « Nouveau congé » et
+//    touche C sur la grille (sur un bloc : sa personne et son premier jour ; sur un congé, ou un jour couvert par un congé :
+//    modification), clic ou Entrée sur un congé pour le modifier, double clic sur une case vide pour en créer un.
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
-import type { HeaderCell, Viewport, Zoom } from "@wnext/engine";
+import { dayNumber, fromDayNumber, type HeaderCell, type Viewport, type Zoom } from "@wnext/engine";
 import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import type { ScheduleEditor } from "./data/allocation-edits";
+import type { ScheduleSource } from "./data/schedule-source";
 import type { MessageKey } from "./i18n";
 import { createBlockEditor } from "./schedule/block-editor";
 import { blockLabeler } from "./schedule/block-label";
@@ -23,6 +27,7 @@ import { capacityLabeler } from "./schedule/capacity-label";
 import { useScheduleEdits, type FocusTarget } from "./schedule/edits-ui";
 import type { History, HistoryDirection, HistoryResult, HistoryState } from "./schedule/history";
 import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
+import { useTimeoffEdits } from "./schedule/timeoff-ui";
 
 export interface ScheduleScreenProps {
   i18n: I18n;
@@ -39,6 +44,9 @@ export interface ScheduleScreenProps {
   editor?: ScheduleEditor;
   /** Historique d'annulation (dont `editor` est en principe l'éditeur enregistreur) ; absent : ni boutons ni raccourcis. */
   history?: History;
+  /** Écritures brutes de la source (congés, report assisté) ; absent : congés en lecture seule. */
+  records?: Pick<ScheduleSource, "getState" | "updateAllocation" | "splitOccurrence" | "createTimeoff" | "updateTimeoff" | "deleteTimeoff"
+    | "createAllocation" | "deleteAllocation" | "loggedTime">;
 }
 
 const ZOOMS: readonly Zoom[] = ["day", "week", "month"];
@@ -70,7 +78,7 @@ function headerFormatter(locale: string) {
   return (c: HeaderCell) => fmt[c.kind].format(new Date(`${c.from}T00:00:00Z`));
 }
 
-export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewChange, clock, editor, history }: ScheduleScreenProps) {
+export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewChange, clock, editor, history, records }: ScheduleScreenProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [zoom, setZoom] = useState<Zoom>("day");
   const gridRef = useRef<HTMLDivElement>(null);
@@ -106,6 +114,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
   const stack = useSyncExternalStore(history?.subscribe ?? noSubscribe, history?.getState ?? (() => NO_HISTORY));
   const describeStep = (r: HistoryResult): string => {
     const v = { direction: r.direction };
+    if (r.ok && r.label.startsWith("timeoff.")) return t("schedule.history.timeoff", { ...v, label: r.label.slice("timeoff.".length) });
     if (r.ok) return t("schedule.history.done", { ...v, label: LABELS[r.label] ?? "other" });
     if (!r.dropped) return t("schedule.history.retry", v);
     return t(r.error === "VERSION_CONFLICT" || r.error === "NOT_FOUND" ? `schedule.history.failed.${r.error}` : "schedule.history.failed.other", v);
@@ -126,6 +135,36 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [history]);
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const timeoffs = useTimeoffEdits(
+    i18n, records && { editor: records, data: () => records.getState().data ?? dataRef.current, record: history?.record }, data,
+    (text) => editsRef.current.announce(text), () => gridRef.current?.focus({ preventScroll: true }),
+  );
+  /** Personne et jour visés par une touche C (bloc focalisé, sinon première ligne au centre de la vue). */
+  const openTimeoffAt = (target: EventTarget | null) => {
+    const s = scroller.current;
+    if (!s) return;
+    const off = s.host.timeoffAt?.(target);
+    if (off) { timeoffs.openEdit(off.timeoff.timeoffId); return; }
+    const hit = s.host.blockAt(target);
+    const personId = hit?.row.personId ?? s.host.model()?.rows[0]?.personId;
+    if (personId) timeoffs.openAt(personId, hit?.block.startDate ?? fromDayNumber(Math.floor(s.view().center)));
+  };
+  /** Double clic sur une case vide : personne de la ligne, jour de la colonne. */
+  const onDoubleClick = (e: { target: EventTarget; clientX: number; clientY: number }) => {
+    const s = scroller.current;
+    const m = s?.host.model();
+    if (!s || !m || s.host.blockAt(e.target)) return;
+    if (s.host.timeoffAt?.(e.target)) return;
+    const r = s.host.surface.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    const row = m.rows.find((w) => y >= w.top && y < w.top + w.heightPx);
+    const origin = s.host.xOfDate(m.from);
+    if (!row || x < origin) return;
+    timeoffs.openAt(row.personId, fromDayNumber(dayNumber(m.from) + Math.floor((x - origin) / m.pxPerDay)));
+  };
   const editorRef = useRef(editor);
   editorRef.current = editor;
 
@@ -166,6 +205,8 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
     if (!s) return;
     const onBlock = e.target !== e.currentTarget;
     if (onBlock && e.key === "Escape") { e.preventDefault(); gridRef.current?.focus({ preventScroll: true }); return; }
+    if (records && (e.key === "c" || e.key === "C") && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); openTimeoffAt(e.target); return; }
+    if (records && e.key === "Enter" && s.host.timeoffAt?.(e.target)) { e.preventDefault(); openTimeoffAt(e.target); return; }
     if (!onBlock && e.key === "Enter") {
       const first = gridRef.current?.querySelector<HTMLElement>(".wn-block[data-key]");
       if (first) { e.preventDefault(); first.focus({ preventScroll: true }); }
@@ -198,10 +239,16 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
             </button>
           </>
         )}
+        {records && (
+          <button type="button" aria-keyshortcuts="C" onClick={() => openTimeoffAt(document.activeElement)}>{t("schedule.timeoff.new")}</button>
+        )}
         <span>{t("schedule.people.count", { count: data.people.length })}</span>
       </div>
       <div ref={gridRef} role="grid" aria-label={t("schedule.grid.label")} tabIndex={0} onKeyDown={onKeyDown}
+        onClick={(e) => { const off = records && scroller.current?.host.timeoffAt?.(e.target); if (off) timeoffs.openEdit(off.timeoff.timeoffId); }}
+        onDoubleClick={records ? onDoubleClick : undefined}
         className="wn-grid" style={{ overflow: "auto", height: heightPx, width: widthPx }} />
+      {timeoffs.element}
       {edits.element}
     </div>
   );

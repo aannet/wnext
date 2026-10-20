@@ -85,7 +85,7 @@ export function ScheduleContainer({ i18n, source, now = systemNow, widthPx, heig
       </div>
       {error}
       <ScheduleScreen i18n={i18n} data={state.data} today={today} widthPx={widthPx} heightPx={heightPx} onViewChange={source.setViewport}
-        editor={undo.history.editor} history={undo.history} />
+        editor={undo.history.editor} history={undo.history} records={source} />
     </main>
   );
 }
