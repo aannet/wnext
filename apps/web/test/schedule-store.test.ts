@@ -76,9 +76,22 @@ describe("flux temps réel", () => {
   });
 
   it("entités hors Schedule rendues à l'appelant", () => {
-    const r = applyChanges(base(), [change("phases", "7", "update", 2), change("project_team", "10", "update", 5)]);
-    expect(r.other.map((c) => c.entity)).toEqual(["phases", "project_team"]);
+    const r = applyChanges(base(), [change("clients", "7", "update", 2), change("project_team", "10", "update", 5)]);
+    expect(r.other.map((c) => c.entity)).toEqual(["clients", "project_team"]);
     expect(r.refetch).toEqual([]);
+  });
+
+  it("phases (@BR-37) : chargées avec la fenêtre, une phase plus récente est à recharger, snapshot limité aux projets de la fenêtre", () => {
+    const phase = (id: string, projectId: string, version = 1) =>
+      ({ id, version, projectId, name: `Ph${id}`, startDate: "2026-03-01", endDate: "2026-03-10", color: null });
+    const s = ingestSchedule(emptyStore(), page("2026-03-02", "2026-03-29", { allocations: [alloc("100")], phases: [phase("7", "10"), phase("8", "99")] }));
+    expect(s.tables.phases.size).toBe(2);
+    expect(snapshot(s, "2026-03-02", "2026-03-29").phases!.map((p) => p.id)).toEqual(["7"]);
+    const r = applyChanges(s, [change("phases", "7", "update", 2)]);
+    expect(r.refetch).toEqual([{ kind: "phases", id: "7" }]);
+    expect(r.other).toEqual([]);
+    // Réponse d'un serveur plus ancien, sans phases : rien à fusionner, aucune erreur.
+    expect(ingestSchedule(emptyStore(), page("2026-03-02", "2026-03-29")).tables.phases.size).toBe(0);
   });
 });
 

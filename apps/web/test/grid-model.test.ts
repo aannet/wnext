@@ -51,6 +51,39 @@ describe("buildGrid", () => {
   });
 });
 
+describe("horaire daté (@BR-19)", () => {
+  // Passage à mi-temps le lundi 9 mars : 8 h par jour avant, 4 h ensuite.
+  const dated = {
+    ...person("1"), workDaysHours: [4, 4, 4, 4, 4, 0, 0],
+    workSchedule: [
+      { validFrom: null, validTo: "2026-03-08", workDaysHours: [8, 8, 8, 8, 8, 0, 0] },
+      { validFrom: "2026-03-09", validTo: null, workDaysHours: [4, 4, 4, 4, 4, 0, 0] },
+    ],
+  };
+  const g = buildGrid(snap([dated], [
+    alloc("100", { startDate: "2026-03-02", endDate: "2026-03-13", hoursPerDay: 4 }),
+  ]), range, 10, "day");
+  const cell = (d: string) => g.rows[0]!.cells.find((c) => c.from === d)!;
+
+  it("bande de capacité : capacité de l'horaire en vigueur à chaque date", () => {
+    expect(cell("2026-03-06")).toMatchObject({ capacityHours: 8, plannedHours: 4, state: "ok" });
+    expect(cell("2026-03-09")).toMatchObject({ capacityHours: 4, plannedHours: 4, state: "ok" });
+  });
+
+  it("zoom semaine : chaque semaine somme son propre horaire", () => {
+    const w = buildGrid(snap([dated], []), range, 10, "week");
+    expect(w.rows[0]!.cells.map((c) => c.capacityHours)).toEqual([40, 20]);
+  });
+
+  it("hauteur d'un bloc en heures : journée de référence de l'horaire en vigueur au début de l'occurrence", () => {
+    const h = buildGrid(snap([dated], [
+      alloc("100", { startDate: "2026-03-03", endDate: "2026-03-03", hoursPerDay: 4 }),
+      alloc("101", { startDate: "2026-03-10", endDate: "2026-03-10", hoursPerDay: 4 }),
+    ]), range, 10);
+    expect(h.rows[0]!.blocks.map((b) => [b.allocationId, b.h])).toEqual([["100", ROW_UNIT_PX / 2], ["101", ROW_UNIT_PX]]);
+  });
+});
+
 describe("visibleRows", () => {
   it("lignes qui touchent [scrollTop, scrollTop + hauteur], avec une marge", () => {
     const people = Array.from({ length: 300 }, (_, i) => person(String(i + 1)));

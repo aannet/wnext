@@ -8,14 +8,15 @@
 //    simples hors fenêtre écartées avant tout calcul de dates.
 //  * Bande de capacité (BR-01 signalée, BR-07 tentatif distinct) en pied de chaque ligne : une cellule par jour, semaine ou
 //    mois selon le zoom, calculée ici (par tranche, jamais au redessin) avec les heures du moteur ; le ratio n'est pas
-//    transporté, il est calculé à partir des heures. Hauteur de ligne = blocs + CAP_PX.
+//    transporté, il est calculé à partir des heures. Hauteur de ligne = blocs + CAP_PX. Capacité selon l'horaire en vigueur
+//    à chaque date (BR-19 : SchedulePerson.workSchedule, lu par le moteur).
 //  * Congés : un fond par congé et par personne, sur toute la hauteur des blocs (les allocations restent visibles par-dessus :
 //    c'est le conflit BR-04). Demi-journée = demi-cellule (après-midi : commence au milieu du jour ; matin : finit au milieu).
 //    Couleur dérivée du type (le contrat n'en porte pas), statut « en attente » / « refusé » rendu par un motif (grid-dom).
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
   blockFraction, capacityCellsByPerson, dayNumber, expandOccurrences, layoutRow, scheduleToEngineInput, utilization,
-  type CapacityCell, type LayoutBlock, type ScheduleEngineInput, type Zoom,
+  workDaysHoursOn, type CapacityCell, type LayoutBlock, type ScheduleEngineInput, type Zoom,
 } from "@wnext/engine";
 
 /** Hauteur d'une ligne à 100 % de la journée de référence. Valeur provisoire, à régler à l'écran. */
@@ -210,7 +211,8 @@ export function buildGrid(s: ScheduleResponse, range: { from: string; to: string
       for (const o of expandOccurrences(a, range.from, range.to)) {
         const key = `${a.id}:${o.index}`;
         source.set(key, { a, startDate: o.startDate, endDate: o.endDate });
-        blocks.push({ id: key, startDate: o.startDate, endDate: o.endDate, fraction: blockFraction(a, p.workDaysHours) });
+        // Journée de référence : horaire en vigueur au début de l'occurrence (BR-19).
+        blocks.push({ id: key, startDate: o.startDate, endDate: o.endDate, fraction: blockFraction(a, workDaysHoursOn(p, o.startDate)) });
       }
     }
     const lay = layoutRow(blocks, range.from, range.to);

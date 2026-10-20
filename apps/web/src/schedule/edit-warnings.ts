@@ -1,6 +1,7 @@
 // Avertissements non bloquants après un geste (jamais de refus) : BR-01 surcharge (la bande de capacité la montre déjà, le
-// message la nomme) et BR-37 dates hors du projet. La phase n'est pas transportée par GET /schedule : pas d'avertissement
-// de phase ici. Calcul local sur la personne concernée, jours couverts par l'allocation, au plus 92 jours.
+// message la nomme) et BR-37 dates hors du projet ou de la phase (phases transportées par GET /schedule ; absentes ou
+// inconnues : pas d'avertissement de phase). La surcharge suit l'horaire en vigueur à chaque date (BR-19, workSchedule
+// passé au moteur par scheduleToEngineInput). Calcul local sur la personne concernée, jours couverts, au plus 92 jours.
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
   addDays, allocationDateWarnings, expandOccurrences, scheduleToEngineInput, seriesEnd, utilization, type DateBoundWarning,
@@ -32,6 +33,9 @@ function overloaded(s: ScheduleResponse, a: Allocation): boolean {
 /** Avertissements de l'allocation telle qu'après le geste (`after`), dans l'état chargé `s`. */
 export function editWarnings(s: ScheduleResponse, after: Allocation): EditWarning[] {
   const p = s.projects.find((x) => x.id === after.projectId);
-  const dates = allocationDateWarnings(after, p ? { startDate: p.startDate, endDate: p.endDate } : null) as EditWarning[];
+  const ph = after.phaseId === null ? undefined : s.phases?.find((x) => x.id === after.phaseId);
+  const dates = allocationDateWarnings(
+    after, p ? { startDate: p.startDate, endDate: p.endDate } : null, ph ? { startDate: ph.startDate, endDate: ph.endDate } : null,
+  ) as EditWarning[];
   return overloaded(s, after) ? ["OVERLOAD", ...dates] : dates;
 }

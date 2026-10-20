@@ -5,10 +5,11 @@
 //    changement en avance) ne fait jamais reculer l'état.
 //  * Une suppression laisse une pierre tombale : un chargement tardif ne ressuscite pas l'entité (ids jamais réutilisés).
 //  * Un changement plus récent que l'état local donne une entité à recharger (GET par id) ; le magasin ne fait aucun appel.
-//  * Les entités hors Schedule (clients, phases, tâches, jalons, équipe) sont rendues telles quelles à l'appelant.
+//  * Les entités hors Schedule (clients, tâches, jalons, équipe) sont rendues telles quelles à l'appelant. Les phases
+//    (BR-37, avertissement de dates) en font partie depuis qu'elles sont transportées par GET /schedule.
 import type { Change, ChangeEntity, ScheduleResponse } from "@wnext/contracts";
 
-type Row<K extends keyof ScheduleResponse> = ScheduleResponse[K] extends readonly (infer T)[] ? T : never;
+type Row<K extends keyof ScheduleResponse> = NonNullable<ScheduleResponse[K]> extends readonly (infer T)[] ? T : never;
 
 interface Entities {
   people: Row<"people">;
@@ -16,6 +17,7 @@ interface Entities {
   timeoffs: Row<"timeoffs">;
   holidays: Row<"holidays">;
   projects: Row<"projects">;
+  phases: Row<"phases">;
   timeoff_types: Row<"timeoffTypes">;
   departments: Row<"departments">;
   roles: Row<"roles">;
@@ -24,9 +26,9 @@ export type Kind = keyof Entities;
 export type EntityOf<K extends Kind> = Entities[K] & { id: string; version: number };
 export type Tables = { readonly [K in Kind]: ReadonlyMap<string, EntityOf<K>> };
 
-const KINDS: readonly Kind[] = ["people", "allocations", "timeoffs", "holidays", "projects", "timeoff_types", "departments", "roles"];
+const KINDS: readonly Kind[] = ["people", "allocations", "timeoffs", "holidays", "projects", "phases", "timeoff_types", "departments", "roles"];
 const FIELD: Record<Kind, keyof ScheduleResponse> = {
-  people: "people", allocations: "allocations", timeoffs: "timeoffs", holidays: "holidays", projects: "projects",
+  people: "people", allocations: "allocations", timeoffs: "timeoffs", holidays: "holidays", projects: "projects", phases: "phases",
   timeoff_types: "timeoffTypes", departments: "departments", roles: "roles",
 };
 
@@ -71,7 +73,8 @@ export function remove(s: ScheduleStore, kind: Kind, id: string): ScheduleStore 
 /** Fusionne une page de GET /schedule. */
 export function ingestSchedule(s: ScheduleStore, r: ScheduleResponse): ScheduleStore {
   let out: ScheduleStore = { ...s, account: r.account, windows: new Set([...s.windows, `${r.window.from}..${r.window.to}`]) };
-  for (const kind of KINDS) for (const e of r[FIELD[kind]] as EntityOf<Kind>[]) out = upsert(out, kind, e as never);
+  // `phases` est optionnel au contrat (serveur plus ancien) : absent = rien à fusionner.
+  for (const kind of KINDS) for (const e of (r[FIELD[kind]] ?? []) as EntityOf<Kind>[]) out = upsert(out, kind, e as never);
   return out;
 }
 
@@ -81,7 +84,7 @@ export interface ChangesResult {
   store: ScheduleStore;
   /** Entités à recharger par id (insert / update plus récent que l'état local), sans doublon. */
   refetch: { kind: Kind; id: string }[];
-  /** Changements hors Schedule (clients, phases, tâches, jalons, équipe), à router par l'appelant. */
+  /** Changements hors Schedule (clients, tâches, jalons, équipe), à router par l'appelant. */
   other: Change[];
 }
 
@@ -167,6 +170,7 @@ export function snapshot(s: ScheduleStore, from: string, to: string): ScheduleRe
     timeoffs: all("timeoffs").filter((t) => t.startDate <= to && t.endDate >= from),
     holidays: all("holidays").filter((h) => h.date >= from && h.date <= to),
     projects: all("projects").filter((p) => projectIds.has(p.id)),
+    phases: all("phases").filter((p) => projectIds.has(p.projectId)),
     timeoffTypes: all("timeoff_types"),
     departments: all("departments"),
     roles: all("roles"),
