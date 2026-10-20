@@ -5,7 +5,7 @@
 // dans <main>, titré par un <h1> visuellement masqué (traduit).
 import type { I18n } from "@lingui/core";
 import { todayIn, viewAt } from "@wnext/engine";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { ScheduleSource, ScheduleSourceState, SourceErrorCode } from "./data/schedule-source";
 import type { MessageKey } from "./i18n";
 import { ScheduleScreen } from "./ScheduleScreen";
@@ -14,8 +14,8 @@ import { GUTTER_PX } from "./schedule/scroller";
 export interface ScheduleContainerProps {
   i18n: I18n;
   source: ScheduleSource;
-  /** Instant courant ; la date du jour est calculée dans le fuseau du compte dès qu'il est connu. */
-  now: Date;
+  /** Horloge (tests) ; la date du jour est calculée dans le fuseau du compte dès qu'il est connu, et revérifiée chaque minute. */
+  now?: () => Date;
   widthPx: number;
   heightPx: number;
 }
@@ -25,11 +25,23 @@ const errorKey = (code: SourceErrorCode): MessageKey => `schedule.error.${SHOWN_
 const realtimeKey = (s: ScheduleSourceState["realtime"]): MessageKey =>
   s === "live" ? "schedule.realtime.live" : s === "stopped" ? "schedule.realtime.offline" : "schedule.realtime.reconnecting";
 
-export function ScheduleContainer({ i18n, source, now, widthPx, heightPx }: ScheduleContainerProps) {
+/** Période de vérification du changement de jour (onglet laissé ouvert la nuit). */
+const TODAY_CHECK_MS = 60_000;
+const systemNow = () => new Date();
+
+export function ScheduleContainer({ i18n, source, now = systemNow, widthPx, heightPx }: ScheduleContainerProps) {
   const t = (k: MessageKey) => i18n._(k);
   const state = useSyncExternalStore(source.subscribe, source.getState);
   const timezone = state.data?.account.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const today = todayIn(timezone, now);
+  const [today, setToday] = useState(() => todayIn(timezone, now()));
+
+  useEffect(() => {
+    // Même date : React ignore la mise à jour (aucun rendu) ; nouvelle date : poussée à l'écran sans recréer la grille.
+    const check = () => setToday(todayIn(timezone, now()));
+    check();
+    const id = setInterval(check, TODAY_CHECK_MS);
+    return () => clearInterval(id);
+  }, [timezone, now]);
 
   useEffect(() => {
     // Vue initiale identique à celle de l'écran (jour, centrée sur aujourd'hui, zone de dates après la colonne des noms) :

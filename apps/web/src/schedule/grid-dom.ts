@@ -29,6 +29,8 @@ export interface GridRenderer {
   /** Surface des lignes (repère des positions du modèle décalées de originX). */
   readonly surface: HTMLElement;
   stats(): { rowsCreated: number; blocksCreated: number; capsCreated: number };
+  /** Nouveaux libellés (changement de locale) : chaque ligne affichée est réécrite au prochain render. */
+  setLabels(l: Pick<GridRendererOptions, "capLabel" | "blockLabel">): void;
   destroy(): void;
 }
 
@@ -57,7 +59,8 @@ export function capBackground(c: GridCap): string {
   return layers.join(", ");
 }
 
-export function createGridRenderer(root: HTMLElement, opts: GridRendererOptions = {}): GridRenderer {
+export function createGridRenderer(root: HTMLElement, options: GridRendererOptions = {}): GridRenderer {
+  const opts = { ...options };
   const overscan = opts.overscan ?? 3;
   const surface = div("wn-surface");
   surface.style.position = "relative";
@@ -241,6 +244,15 @@ export function createGridRenderer(root: HTMLElement, opts: GridRendererOptions 
     },
     surface,
     stats: () => ({ rowsCreated, blocksCreated, capsCreated }),
+    setLabels(l) {
+      opts.capLabel = l.capLabel;
+      opts.blockLabel = l.blockLabel;
+      for (const r of active.values()) {
+        r.model = null;
+        for (const b of r.blocks.values()) b.v = {};
+        for (const c of r.caps.values()) c.v = {};
+      }
+    },
     destroy() {
       root.removeChild(surface);
       active.clear();

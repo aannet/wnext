@@ -3,7 +3,7 @@
 import type { ScheduleResponse } from "@wnext/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ScheduleContainer } from "../src/ScheduleContainer";
 import { createClient, type FetchResponse } from "../src/api/client.gen";
 import { createScheduleSource } from "../src/data/schedule-source";
@@ -25,7 +25,7 @@ function body(q: URLSearchParams): ScheduleResponse {
 
 let root: Root | null = null;
 let host: HTMLElement;
-function mount(respond: (q: URLSearchParams) => Promise<{ status: number; body: unknown }>) {
+function mount(respond: (q: URLSearchParams) => Promise<{ status: number; body: unknown }>, now: (() => Date) | null = () => new Date("2026-10-19T10:00:00Z")) {
   const fetch = async (url: string): Promise<FetchResponse> => {
     const r = await respond(new URL(url, "http://x").searchParams);
     return { status: r.status, json: async () => r.body };
@@ -34,9 +34,9 @@ function mount(respond: (q: URLSearchParams) => Promise<{ status: number; body: 
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
-  act(() => root!.render(<ScheduleContainer i18n={createI18n("fr")} source={source} now={new Date("2026-10-19T10:00:00Z")} widthPx={960} heightPx={480} />));
+  act(() => root!.render(<ScheduleContainer i18n={createI18n("fr")} source={source} {...(now ? { now } : {})} widthPx={960} heightPx={480} />));
 }
-afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; });
+afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("ScheduleContainer", () => {
   it("chargement puis grille ; statut temps réel discret", async () => {
@@ -60,6 +60,27 @@ describe("ScheduleContainer", () => {
     expect([host.querySelectorAll("main").length, host.querySelectorAll("h1").length]).toEqual([1, 1]);
     expect(main.querySelector("h1")!.textContent).toBe("Planning");
     for (const role of ["toolbar", "grid", "status"]) expect(main.querySelector(`[role=${role}]`), role).not.toBeNull();
+  });
+
+
+  it("minuit dans le fuseau du compte : « Aujourd'hui » passe au nouveau jour, sans recréer la grille", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
+    vi.stubGlobal("matchMedia", () => ({ matches: true })); // mouvement réduit : « Aujourd'hui » saute sans animation
+    vi.setSystemTime(new Date("2026-10-19T21:59:00Z")); // 23 h 59 à Paris
+    mount(async (q) => ({ status: 200, body: body(q) }), null);
+    await flush();
+    const grid = host.querySelector<HTMLElement>("[role=grid]")!;
+    const surface = host.querySelector(".wn-surface");
+    const today = () => act(() => [...host.querySelectorAll("button")].find((b) => b.textContent === "Aujourd’hui")!.click());
+    const left = grid.scrollLeft;
+    act(() => { grid.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })); });
+    today();
+    expect(grid.scrollLeft).toBe(left);
+    act(() => { vi.setSystemTime(new Date("2026-10-19T22:00:30Z")); vi.advanceTimersByTime(60_000); }); // 0 h 00 à Paris
+    expect(host.querySelector(".wn-surface")).toBe(surface);
+    expect(grid.scrollLeft).toBe(left);
+    today();
+    expect(grid.scrollLeft).toBe(left + 96);
   });
 
   it("401 : message UNAUTHENTICATED traduit, pas de grille", async () => {

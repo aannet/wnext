@@ -2,7 +2,7 @@
 // de dates sont dessinés par le contrôleur de défilement (schedule/scroller), hors réconciliation.
 //  * Défilement horizontal continu (molette, trackpad, Maj + molette, barre, flèches gauche / droite) ; zoom jour /
 //    semaine / mois au centre conservé ; précédent / suivant d'une période du zoom et « Aujourd'hui » (bouton et touche T)
-//    en défilement doux ; date du jour fournie dans le fuseau du compte (todayIn).
+//    en défilement doux ; date du jour fournie dans le fuseau du compte (todayIn), mise à jour sans recréer la grille.
 //  * Tout texte visible vient du catalogue i18n (lint : npm run lint:ui-strings) ; les noms de personnes et de projets
 //    sont des données.
 //  * Édition par gestes (pointeur et clavier, schedule/block-editor) si un éditeur est fourni ; sinon lecture seule.
@@ -81,19 +81,29 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
   const editorRef = useRef(editor);
   editorRef.current = editor;
 
+  // Le scroller est créé une seule fois : la date du jour et la locale lui sont poussées (setToday, setLabels), sans perdre
+  // la position.
+  const labelsFor = (i: I18n) => ({ label: headerFormatter(i.locale), capacityLabel: capacityLabeler(i), blockLabel: blockLabeler(i) });
+  const labelled = useRef(i18n);
   useEffect(() => {
     const s = createScroller({
-      root: gridRef.current!, data, today, widthPx, heightPx, clock, zoom: zoomRef.current, label: headerFormatter(i18n.locale),
+      root: gridRef.current!, data, today, widthPx, heightPx, clock, zoom: zoomRef.current, ...labelsFor(i18n),
       onViewChange: (v) => viewChange.current?.(v),
-      capacityLabel: capacityLabeler(i18n), blockLabel: blockLabeler(i18n),
     });
+    labelled.current = i18n;
     scroller.current = s;
     const blocks = createBlockEditor({
       root: gridRef.current!, host: s.host, clock, enabled: () => editorRef.current !== undefined,
       onCommit: (r) => editsRef.current.onCommit(r), onPreview: (p) => editsRef.current.onPreview(p),
     });
     return () => { blocks.destroy(); s.destroy(); scroller.current = null; };
-  }, [today, i18n.locale]);
+  }, []);
+  useEffect(() => { scroller.current?.setToday(today); }, [today]);
+  useEffect(() => {
+    if (labelled.current.locale === i18n.locale) return;
+    labelled.current = i18n;
+    scroller.current?.setLabels(labelsFor(i18n));
+  }, [i18n.locale]);
   useEffect(() => {
     scroller.current?.setData(data);
     const p = pendingFocus.current;

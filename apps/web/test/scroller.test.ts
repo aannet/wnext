@@ -270,6 +270,43 @@ describe("navigation", () => {
     expect(h.builds()).toBe(before + 3); // une reconstruction par changement de zoom
   });
 
+  it("écran 4K (3840 px) en zoom mois : plus de 400 jours visibles, aucun plantage, modèle borné à 400 jours", () => {
+    const h = setup({ widthPx: 3840 });
+    expect(() => h.s.setZoom("month")).not.toThrow();
+    const m = h.s.host.model()!;
+    expect(m).not.toBeNull();
+    expect(dayNumber(m.to) - dayNumber(m.from) + 1).toBeLessThanOrEqual(400);
+    expect(m.from < TODAY && m.to > TODAY).toBe(true);
+    // Défilement au pixel sur moins d'un bloc : pas de reconstruction à chaque image.
+    const before = h.builds();
+    const start = h.root.scrollLeft;
+    for (let px = 8; px <= 20 * 8; px += 8) h.scrollTo(start + px);
+    expect(h.builds()).toBe(before);
+    expect(() => h.scrollTo(start + 200 * 8)).not.toThrow();
+  });
+
+  it("date du jour mise à jour sans recréer le scroller : « Aujourd'hui » va au nouveau jour, la position est gardée", () => {
+    const h = setup({ reducedMotion: () => true });
+    h.scrollTo(h.root.scrollLeft + 5 * DAY);
+    const sl = h.root.scrollLeft;
+    h.s.setToday(addDays(TODAY, 1));
+    expect(h.root.scrollLeft).toBe(sl);
+    h.s.today();
+    h.m.frame();
+    expect(h.center()).toBe(addDays(TODAY, 1));
+  });
+
+  it("libellés changés (locale) sans recréer le scroller : en-têtes réécrits, position gardée", () => {
+    const h = setup();
+    h.scrollTo(h.root.scrollLeft + 3 * DAY);
+    const sl = h.root.scrollLeft;
+    h.s.setLabels({ label: (c) => `x${c.from}` });
+    h.m.frame();
+    expect(h.root.scrollLeft).toBe(sl);
+    const first = h.root.querySelector("[role=columnheader]")!;
+    expect(first.textContent).toBe(`x${first.getAttribute("data-from")}`);
+  });
+
   it("clavier : flèches = une unité d'en-tête ; redimensionnement : centre conservé", () => {
     const h = setup();
     h.s.nudge(1);

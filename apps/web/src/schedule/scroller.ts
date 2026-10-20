@@ -13,7 +13,7 @@
 //    Le zoom garde la date au centre.
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
-  CHUNK_DAYS, DEFAULT_PX_PER_DAY, chunkCover, dayNumber, extendTrack, fromDayNumber, headerCells, neighborDays, scrollLeftOf,
+  CHUNK_DAYS, DEFAULT_PX_PER_DAY, chunkCover, coreRange, dayNumber, extendTrack, fromDayNumber, headerCells, neighborDays, scrollLeftOf,
   stepPeriod, trackAround, trackWidthPx, viewAtScroll, visibleRange, type Bounds, type HeaderCell, type Viewport, type Zoom,
 } from "@wnext/engine";
 import type { EditHost } from "./block-editor";
@@ -67,6 +67,10 @@ export interface Scroller {
   view(): Viewport;
   zoom(): Zoom;
   setData(d: ScheduleResponse): void;
+  /** Date du jour (fuseau du compte) : cible d'« Aujourd'hui » ; la vue ne bouge pas. */
+  setToday(today: string): void;
+  /** Libellés localisés (changement de locale) : tout est réécrit au prochain dessin, la vue ne bouge pas. */
+  setLabels(l: Pick<ScrollerOptions, "label" | "capacityLabel" | "blockLabel">): void;
   resize(widthPx: number, heightPx: number): void;
   today(): void;
   step(dir: -1 | 1): void;
@@ -125,6 +129,8 @@ export function createScroller(o: ScrollerOptions): Scroller {
   let headerKey = "";
   let labels = new Map<string, string>();
   let destroyed = false;
+  let today = o.today;
+  let labelOf = o.label;
 
   const tl = () => Math.max(1, widthPx - GUTTER_PX);
   const viewFor = (center: number): Viewport => ({ zoom, center, widthPx: tl(), pxPerDay });
@@ -145,8 +151,9 @@ export function createScroller(o: ScrollerOptions): Scroller {
   function ensureModel(v: Viewport) {
     if (!model) return rebuild(v);
     const inside = (r: { from: string; to: string }) => r.from >= model!.from && r.to <= model!.to;
-    if (!inside(visibleRange(v))) return rebuild(v);
-    if (inside(visibleRange({ ...v, widthPx: v.widthPx + neighborDays(v) * v.pxPerDay })) || idlePending) return;
+    // coreRange : le visible, ou son cœur pour une vue de plus de 400 jours (modèle borné, chunkCover).
+    if (!inside(coreRange(v))) return rebuild(v);
+    if (inside(coreRange({ ...v, widthPx: v.widthPx + neighborDays(v) * v.pxPerDay })) || idlePending) return;
     idlePending = true;
     clock.idle(() => {
       idlePending = false;
@@ -159,7 +166,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
 
   function label(c: HeaderCell): string {
     let s = labels.get(c.from);
-    if (s === undefined) { s = o.label(c); labels.set(c.from, s); }
+    if (s === undefined) { s = labelOf(c); labels.set(c.from, s); }
     return s;
   }
 
@@ -283,7 +290,18 @@ export function createScroller(o: ScrollerOptions): Scroller {
       jump(c);
       emit(current(), true);
     },
-    today: () => animateTo(dayNumber(o.today) + 0.5),
+    setToday(d) { today = d; },
+    setLabels(l) {
+      labelOf = l.label;
+      labels = new Map();
+      headerKey = "";
+      grid.setLabels({
+        ...(l.capacityLabel ? { capLabel: (c: GridCap) => l.capacityLabel!(label(c), c) } : {}),
+        ...(l.blockLabel ? { blockLabel: l.blockLabel } : {}),
+      });
+      schedule();
+    },
+    today: () => animateTo(dayNumber(today) + 0.5),
     step(dir) {
       const base = anim ? viewFor(anim.c1) : current();
       animateTo(stepPeriod(base, dir, o.bounds).center);

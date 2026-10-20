@@ -22,10 +22,10 @@ const root = createRoot(document.getElementById("root")!);
 
 if (params.get("demo") === "1") {
   const source = createDemoSource(demoSchedule(todayIn("Europe/Paris", new Date())));
-  root.render(<ScheduleContainer i18n={i18n} source={source} now={new Date()} widthPx={widthPx} heightPx={heightPx - 24} />);
+  root.render(<ScheduleContainer i18n={i18n} source={source} widthPx={widthPx} heightPx={heightPx - 24} />);
 } else {
   const api = createClient({ baseUrl: "", fetch: createAuthFetch(import.meta.env) });
   const wsBase = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
   const source = createScheduleSource({ api, realtime: { wsBase, onError: (err) => console.warn(err) } });
-  root.render(<ScheduleContainer i18n={i18n} source={source} now={new Date()} widthPx={widthPx} heightPx={heightPx - 24} />);
+  root.render(<ScheduleContainer i18n={i18n} source={source} widthPx={widthPx} heightPx={heightPx - 24} />);
 }

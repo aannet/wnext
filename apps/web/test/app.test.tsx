@@ -87,4 +87,35 @@ describe("ScheduleScreen", () => {
     run();
     expect(grid().scrollLeft).toBe(left);
   });
+
+  it("nouveau jour : la grille n'est pas recréée, la position est gardée, T va au nouveau jour", () => {
+    mount("fr");
+    const surface = host.querySelector(".wn-surface");
+    const left = grid().scrollLeft;
+    key("ArrowRight");
+    run(1);
+    act(() => root!.render(<ScheduleScreen i18n={createI18n("fr")} data={data} today="2026-10-20" widthPx={960} heightPx={480} clock={clock} />));
+    expect(host.querySelector(".wn-surface")).toBe(surface);
+    expect(grid().scrollLeft).toBe(left + 96);
+    key("ArrowRight");
+    run(1);
+    key("t");
+    run();
+    expect(grid().scrollLeft).toBe(left + 96);
+  });
+
+  it("changement de locale : grille gardée (même surface, même position), en-têtes et barre traduits", () => {
+    mount("fr");
+    const surface = host.querySelector(".wn-surface");
+    key("ArrowRight");
+    run(1);
+    const left = grid().scrollLeft;
+    const before = headers()[0]!.textContent;
+    act(() => root!.render(<ScheduleScreen i18n={createI18n("en")} data={data} today="2026-10-19" widthPx={960} heightPx={480} clock={clock} />));
+    run(1);
+    expect(host.querySelector(".wn-surface")).toBe(surface);
+    expect(grid().scrollLeft).toBe(left);
+    expect(button("Next period")).toBeDefined();
+    expect(headers()[0]!.textContent).not.toBe(before);
+  });
 });

@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { addDays } from "../src/dates";
 import {
-  CHUNK_DAYS, chunkCover, coversRange, dateAtX, dayNumber, extendTrack, goToday, headerCells, loadChunks, mergeChunks,
+  CHUNK_DAYS, chunkCover, coreRange, coversRange, dateAtX, dayNumber, extendTrack, goToday, headerCells, loadChunks, mergeChunks,
   neighborDays, page, scrollBy, scrollLeftOf, setZoom, stepPeriod, todayIn, trackAround, trackDays, trackWidthPx, viewAt,
   viewAtScroll, visibleRange, weekStartOf, xOfDate,
 } from "../src/viewport";
@@ -238,5 +238,21 @@ describe("piste du défilement continu", () => {
     expect(weekStartOf(c.from, 1)).toBe(c.from);
     expect(chunkCover(scrollBy(v, 1), 1, 28)).toEqual(c);
     expect(coversRange(c, { from: addDays(c.from, -1), to: c.to })).toBe(false);
+  });
+
+  it("vue plus large que 400 jours (écran 4K en zoom mois) : couverture bornée à 400 jours, centrée, stable", () => {
+    const v = viewAt("2026-10-20", "month", 3840 - 140, { day: 96, week: 28, month: 8 }); // ~463 jours visibles
+    const span = (r: { from: string; to: string }) => dayNumber(r.to) - dayNumber(r.from) + 1;
+    expect(span(visibleRange(v))).toBeGreaterThan(400);
+    const c = chunkCover(v, 1, neighborDays(v));
+    expect(span(c)).toBeLessThanOrEqual(400);
+    expect(weekStartOf(c.from, 1)).toBe(c.from);
+    expect(coversRange(c, coreRange(v))).toBe(true);
+    expect(c.from < "2026-10-20" && c.to > "2026-10-20").toBe(true);
+    // Le cœur suit le centre ; la couverture ne change qu'après au moins un bloc de défilement.
+    for (let d = 1; d < CHUNK_DAYS; d++) expect(coversRange(c, coreRange(scrollBy(v, d * 8)))).toBe(true);
+    // Vue ordinaire : le cœur est le visible.
+    const n = viewAt("2026-10-20", "day", 960, SCALE);
+    expect(coreRange(n)).toEqual(visibleRange(n));
   });
 });

@@ -202,10 +202,36 @@ export function neighborDays(v: Viewport): number {
   return Math.min(Math.max(CHUNK_DAYS, w), Math.max(0, Math.floor((MAX_RANGE_DAYS - w) / 2) - CHUNK_DAYS));
 }
 
-/** Plage couverte par les blocs de chargement de la vue élargie de `padDays` (bornes de blocs : stable au défilement). */
+/** Blocs entiers que tient une plage de 400 jours (layout et capacité refusent au-delà). */
+const MAX_COVER_CHUNKS = Math.floor(MAX_RANGE_DAYS / CHUNK_DAYS);
+/** Demi-largeur du cœur d'une vue trop large : le modèle centré le contient encore après un bloc de défilement. */
+const CORE_HALF_DAYS = Math.floor(MAX_COVER_CHUNKS / 2 - 1) * CHUNK_DAYS - CHUNK_DAYS;
+
+/**
+ * Plage couverte par les blocs de chargement de la vue élargie de `padDays` (bornes de blocs : stable au défilement).
+ * Une vue plus large que 400 jours (zoom mois sur un écran 4K) est ramenée aux blocs centrés sur la vue qui tiennent
+ * dans 400 jours : les bords extrêmes du visible restent alors hors du modèle (voir coreRange).
+ */
 export function chunkCover(v: Viewport, weekStart: number, padDays: number): { from: string; to: string } {
-  const c = loadChunks(v, weekStart, padDays);
+  let c = loadChunks(v, weekStart, padDays);
+  if (c.length > MAX_COVER_CHUNKS) {
+    const center = fromDayNumber(v.center);
+    const mid = c.findIndex((x) => x.from <= center && x.to >= center);
+    const start = Math.min(c.length - MAX_COVER_CHUNKS, Math.max(0, mid - Math.floor(MAX_COVER_CHUNKS / 2)));
+    c = c.slice(start, start + MAX_COVER_CHUNKS);
+  }
   return { from: c[0]!.from, to: c.at(-1)!.to };
+}
+
+/**
+ * Partie de la vue que le modèle doit couvrir : le visible ; pour une vue trop large (chunkCover bornée), les jours à
+ * ±CORE_HALF_DAYS du centre, que le modèle centré contient jusqu'à ce que la vue ait défilé d'un bloc.
+ */
+export function coreRange(v: Viewport): { from: string; to: string } {
+  const r = visibleRange(v);
+  if (dayNumber(r.to) - dayNumber(r.from) + 1 <= MAX_RANGE_DAYS - 2 * CHUNK_DAYS) return r;
+  const c = Math.floor(v.center);
+  return { from: fromDayNumber(c - CORE_HALF_DAYS), to: fromDayNumber(c + CORE_HALF_DAYS) };
 }
 
 export const coversRange = (outer: { from: string; to: string }, inner: { from: string; to: string }) =>
