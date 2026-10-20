@@ -11,6 +11,7 @@ import { ScheduleScreen } from "../src/ScheduleScreen";
 import { createDemoSource } from "../src/data/demo-source";
 import type { RemovalSummary } from "../src/data/team-removal";
 import { createI18n } from "../src/i18n";
+import { historyForSource, type History } from "../src/schedule/history";
 import { GUTTER_PX, type Clock } from "../src/schedule/scroller";
 
 // @BR-10
@@ -39,13 +40,15 @@ const flush = async () => { for (let i = 0; i < 5; i++) await act(async () => { 
 afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; });
 
 type Src = ReturnType<typeof createDemoSource>;
-function mount(allocations: Alloc[], wrap: (s: Src) => Src = (s) => s) {
+function mount(allocations: Alloc[], wrap: (s: Src) => Src = (s) => s, withHistory?: (h: History) => void) {
   const src = wrap(createDemoSource(data(allocations)));
+  const history = withHistory ? historyForSource(src).history : undefined;
+  if (history) withHistory!(history);
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
   const render = () => act(() => root!.render(
-    <ScheduleScreen i18n={createI18n("fr")} data={src.getState().data!} today={TODAY} widthPx={GUTTER_PX + 960} heightPx={480} clock={clock} records={src} />));
+    <ScheduleScreen i18n={createI18n("fr")} data={src.getState().data!} today={TODAY} widthPx={GUTTER_PX + 960} heightPx={480} clock={clock} records={src}{...(history && { history, editor: history.editor })} />));
   render();
   src.subscribe(() => { queueMicrotask(render); });
   return src;
@@ -86,6 +89,23 @@ describe("menu contextuel d'un bloc", () => {
     press(menu()!, { key: "Escape" });
     press(block("a:0"), { key: "ContextMenu" });
     expect(menu()).not.toBeNull();
+  });
+});
+
+describe("historique d'annulation (BR-40)", () => {
+  it("après un retrait, les actions sur les allocations retirées sont invalidées (pas de NOT_FOUND au Ctrl+Z) ; les autres restent", async () => {
+    let h!: History;
+    mount([alloc("a"), alloc("d", { personId: "2" })], (s) => s, (x) => { h = x; });
+    await act(async () => { await h.editor.updateAllocation("d", { hoursPerDay: 6 }); await h.editor.updateAllocation("a", { hoursPerDay: 2 }); });
+    expect(h.getState().undoLabel).toBe("allocation.load");
+    rightClick(block("a:0"));
+    await click(menu()!.querySelector("[role=menuitem]")!);
+    await click(button("Retirer du projet")!);
+    expect(dialog()).toBeNull();
+    // Il reste l'action sur « d » (autre personne) ; celle sur « a » a disparu.
+    let undone = 0;
+    while (h.getState().canUndo) { await act(async () => { await h.undo(); }); undone++; }
+    expect(undone).toBe(1);
   });
 });
 

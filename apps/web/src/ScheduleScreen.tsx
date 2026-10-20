@@ -183,7 +183,8 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     timeoffs.openAt(row.personId, fromDayNumber(dayNumber(m.from) + Math.floor((x - origin) / m.pxPerDay)));
   };
   const removal = useTeamRemoval({ i18n, editor: records?.teamRemovalSummary && records.removeFromTeam ? records as TeamRemovalEditor : undefined, data: () => records?.getState().data ?? dataRef.current,
-    gridRef, blockAt: (t) => scroller.current?.host.blockAt(t) ?? null, announce: (text) => editsRef.current.announce(text) });
+    gridRef, blockAt: (t) => scroller.current?.host.blockAt(t) ?? null, announce: (text) => editsRef.current.announce(text),
+    onRemoved: (ids) => history?.invalidate("allocations", ids) });
   const quickRef = useRef<QuickEntryHandle>(null);
   const editorRef = useRef(editor);
   editorRef.current = editor;

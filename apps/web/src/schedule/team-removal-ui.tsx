@@ -30,13 +30,15 @@ export interface TeamRemovalDeps {
   gridRef: RefObject<HTMLElement | null>;
   blockAt: EditHost["blockAt"];
   announce(text: string): void;
+  /** Allocations retirées par un retrait réussi (BR-10, non annulable) : l'historique en retire les actions (BR-40). */
+  onRemoved?(allocationIds: string[]): void;
 }
 
-export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce }: TeamRemovalDeps): { element: ReactNode } {
+export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce, onRemoved }: TeamRemovalDeps): { element: ReactNode } {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const [step, setStep] = useState<Step | null>(null);
-  const deps = useRef({ editor, data, blockAt });
-  deps.current = { editor, data, blockAt };
+  const deps = useRef({ editor, data, blockAt, onRemoved });
+  deps.current = { editor, data, blockAt, onRemoved };
   const fmt = useMemo(() => new Intl.DateTimeFormat(i18n.locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }), [i18n.locale]);
   const day = (iso: string | null) => (iso ? fmt.format(new Date(`${iso}T00:00:00Z`)) : "");
 
@@ -101,8 +103,10 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce 
     if (!ed || step?.kind !== "dialog" || !step.summary || step.busy) return;
     const { target, summary } = step;
     setStep({ ...step, busy: true });
+    const gone = deps.current.data().allocations.filter((a) => a.projectId === target.projectId && a.personId === target.personId).map((a) => a.id);
     const r = await ed.removeFromTeam(target.projectId, target.personId, confirmationOf(summary));
     if (r.ok) {
+      deps.current.onRemoved?.(gone);
       close();
       announce(t("schedule.removal.done", { ...names(target), allocations: r.removedAllocations, logs: r.removedLogs }));
       return;
