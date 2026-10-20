@@ -21,12 +21,12 @@ const alloc = (id: string, personId: string, over: Partial<Alloc> = {}) => ({
   repeatState: "none" as const, repeatEndDate: null, mode: "hours" as const, hoursPerDay: 8, percent: null, ...over,
 }) as Alloc;
 
-function data(allocations: Alloc[]): ScheduleResponse {
+function data(allocations: Alloc[], schedule?: Record<string, unknown>): ScheduleResponse {
   return {
     window: { from: "2025-10-01", to: "2027-10-01" }, changeCursor: "0", page: { nextCursor: null, total: 3 },
     account: { weekStart: 1, capacityThresholds: { underPercent: 80 }, timezone: "Europe/Paris" },
     people: ["1", "2", "3"].map((id) => ({ id, version: 1, name: `P${id}`, peopleType: "employee" as const, departmentId: null, roleId: null,
-      country: null, workDaysHours: [8, 8, 8, 8, 8, 0, 0], tags: [], avatarUrl: null, active: true })),
+      country: null, workDaysHours: [8, 8, 8, 8, 8, 0, 0], tags: [], avatarUrl: null, active: true, ...(id === "1" && schedule) })),
     allocations, timeoffs: [], holidays: [], timeoffTypes: [], departments: [], roles: [],
     projects: [{ id: "1", version: 1, name: "Refonte", projectCode: null, color: "#3B82F6", status: "in_progress", nonBillable: false, startDate: null, endDate: null }],
   };
@@ -38,13 +38,13 @@ const BASE = [
   alloc("3", "3", { mode: "percentage", hoursPerDay: null, percent: 50 } as Partial<Alloc>),
 ];
 
-function setup(onCommit: (r: EditRequest) => void | Promise<unknown> = () => {}) {
+function setup(onCommit: (r: EditRequest) => void | Promise<unknown> = () => {}, schedule?: Record<string, unknown>) {
   const root = document.createElement("div");
   document.body.appendChild(root);
   const frames: (() => void)[] = [];
   const clock: Partial<Clock> = { raf: (cb) => (frames.push(cb), frames.length), caf: () => {}, now: () => 0, idle: () => {}, setTimer: () => 0, clearTimer: () => {} };
   const frame = (n = 1) => { for (let i = 0; i < n; i++) for (const f of frames.splice(0)) f(); };
-  const s = createScroller({ root, data: data(BASE), today: TODAY, widthPx: GUTTER_PX + 960, heightPx: 480, label: (c) => c.from, clock, reducedMotion: () => true });
+  const s = createScroller({ root, data: data(BASE, schedule), today: TODAY, widthPx: GUTTER_PX + 960, heightPx: 480, label: (c) => c.from, clock, reducedMotion: () => true });
   const commits: EditRequest[] = [];
   const previews: (string | null)[] = [];
   const ed = createBlockEditor({
@@ -109,6 +109,17 @@ describe("pointeur", () => {
     h.drag(h.handle("1:0", "height"), 0, 4);
     h.drag(h.handle("3:0", "height"), 0, -12);
     expect(h.commits.map((c) => c.patch)).toEqual([{ hoursPerDay: 8 - HOURS_STEP }, { percent: 75 }]);
+  });
+
+  // @BR-19
+  it("poignée basse : la conversion pixels -> heures suit l'horaire daté en vigueur au début du bloc", () => {
+    const four = [4, 4, 4, 4, 4, 0, 0];
+    const h = setup(() => {}, { workSchedule: [
+      { validFrom: null, validTo: "2026-10-24", workDaysHours: four }, { validFrom: "2026-10-25", validTo: null, workDaysHours: [8, 8, 8, 8, 8, 0, 0] },
+    ] });
+    // 12 px sur 48 px = un quart de la journée de référence : 1 h sur 4 h (et non 2 h sur la période ouverte de 8 h).
+    h.drag(h.handle("1:0", "height"), 0, -12);
+    expect(h.commits.map((c) => c.patch)).toEqual([{ hoursPerDay: 9 }]);
   });
 
   it("simple clic : rien ; Échap pendant le glisser : annulé, fantôme masqué", () => {

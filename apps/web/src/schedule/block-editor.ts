@@ -18,7 +18,7 @@
 //    surface (défilement vertical compris).
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
-  applyGesture, dayNumber, expandOccurrences, keyGesture, pointerGesture, referenceHours, type BlockPatch, type Gesture, type GestureBlock,
+  applyGesture, dayNumber, expandOccurrences, keyGesture, pointerGesture, referenceHours, workDaysHoursOn, type BlockPatch, type Gesture, type GestureBlock,
 } from "@wnext/engine";
 import { diffBlocks, gestureBlockOf, type Allocation } from "../data/allocation-edits";
 import { ROW_UNIT_PX, type GridBlock, type GridModel, type GridRow, type GridTimeoff } from "./grid-model";
@@ -189,7 +189,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       root.classList.add("wn-dragging");
     }
     const person = host.data().people.find((p) => p.id === d.personId);
-    const g = pointerGesture(d.kind, dx, dy, { pxPerDay: ppd, rowHeightPx: ROW_UNIT_PX, refHours: referenceHours(person?.workDaysHours ?? []), mode: d.occ0.mode });
+    const g = pointerGesture(d.kind, dx, dy, { pxPerDay: ppd, rowHeightPx: ROW_UNIT_PX, refHours: referenceHours(person ? workDaysHoursOn(person, d.occ0.startDate) : []), mode: d.occ0.mode });
     if (g.kind === "move") { const r = rowAt(d.anchorY + dy); if (r) g.personId = r.personId; }
     d.occ = step(d.occ0, g);
     d.ser = d.ser0 && step(d.ser0, g);
