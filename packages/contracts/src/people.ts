@@ -100,7 +100,7 @@ export const PersonProjectList = z.object({ items: z.array(PersonProject), page:
 //  1. GET  /people/{id}/deactivation-summary : récapitulatif des allocations « futures » (aucune écriture).
 //  2. POST /people/{id}/deactivation : désactive la personne et applique `disposition` à ses allocations futures, en UNE transaction.
 //  * « Futures » = lignes dont la fin effective (`repeatEndDate` pour une série, sinon `endDate`) est >= `asOf` (défaut : aujourd'hui,
-//    date UTC du serveur ; `asOf` existe pour rendre le calcul reproductible). Une allocation déjà commencée mais non terminée est
+//    dans le fuseau du compte, accounts.timezone ; `asOf` existe pour rendre le calcul reproductible). Une allocation déjà commencée mais non terminée est
 //    donc concernée EN ENTIER (la ligne est réaffectée ou supprimée d'un bloc ; elle n'est jamais coupée). Le passé n'est jamais touché.
 //  * `disposition` : `reassign` (avec `replacementId`) change la personne des lignes futures ; `delete` les supprime. Les temps saisis
 //    (logged_time) ne sont jamais supprimés ni transférés : ils restent à la personne désactivée.
@@ -117,7 +117,7 @@ export const PersonProjectList = z.object({ items: z.array(PersonProject), page:
 //  * Une personne déjà désactivée peut encore être traitée (ses allocations futures restantes) ; rejouer sans allocation future ne change rien.
 //  * Réservé à owner, admin et project_manager (403 FORBIDDEN, avant la validation du corps). Personne hors compte : 404 NOT_FOUND.
 //  * Le délai « Annuler » de 10 s (BR-40) est côté client. Les `params` d'erreur sont des scalaires : les dates absentes sont omises.
-export const PersonDeactivationQuery = z.object({ asOf: IsoDate.optional().describe("Date de référence de « futur » (défaut : aujourd'hui UTC)") });
+export const PersonDeactivationQuery = z.object({ asOf: IsoDate.optional().describe("Date de référence de « futur » (défaut : aujourd'hui dans le fuseau du compte)") });
 export type PersonDeactivationQuery = z.infer<typeof PersonDeactivationQuery>;
 
 export const PersonDeactivationSummary = z
@@ -137,7 +137,7 @@ export type PersonDeactivationDisposition = z.infer<typeof PersonDeactivationDis
 
 export const PersonDeactivationRequest = z
   .object({
-    asOf: IsoDate.optional().describe("Doit être celle du récapitulatif vu (défaut : aujourd'hui UTC)"),
+    asOf: IsoDate.optional().describe("Doit être celle du récapitulatif vu (défaut : aujourd'hui dans le fuseau du compte)"),
     disposition: PersonDeactivationDisposition.optional().describe("Obligatoire s'il y a des allocations futures"),
     replacementId: Id.optional().describe("Requis avec `reassign`, interdit avec `delete`"),
     confirmation: z.object({ allocationCount: z.number().int().min(0) }).optional().describe("Obligatoire s'il y a des allocations futures"),

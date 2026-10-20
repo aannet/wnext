@@ -14,6 +14,7 @@ import { SchedulePage } from "./schedule";
 //  * L'appartenance à l'équipe (project_team) n'est pas exigée pour allouer (Q-07 ouverte) : le retrait supprime la ligne
 //    d'équipe si elle existe (`inTeam`) et, dans tous les cas, ce que le récapitulatif annonce.
 //  * Réservé aux rôles owner, admin et project_manager (403 FORBIDDEN). Projet ou personne hors du compte : 404 NOT_FOUND.
+//    BR-33 : un project_manager ne le fait que sur les projets qu'il gère (sinon 403 FORBIDDEN, params.scope = "project").
 //  * Les `params` des erreurs sont des scalaires : les dates absentes sont omises, pas nulles.
 
 export const TeamPathParams = z.object({ projectId: Id, personId: Id });

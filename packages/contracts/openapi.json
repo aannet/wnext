@@ -2332,7 +2332,7 @@
           "asOf": {
             "type": "string",
             "format": "date",
-            "description": "Doit être celle du récapitulatif vu (défaut : aujourd'hui UTC)"
+            "description": "Doit être celle du récapitulatif vu (défaut : aujourd'hui dans le fuseau du compte)"
           },
           "disposition": {
             "type": "string",
@@ -7112,10 +7112,10 @@
             "schema": {
               "type": "string",
               "format": "date",
-              "description": "Date de référence de « futur » (défaut : aujourd'hui UTC)"
+              "description": "Date de référence de « futur » (défaut : aujourd'hui dans le fuseau du compte)"
             },
             "required": false,
-            "description": "Date de référence de « futur » (défaut : aujourd'hui UTC)",
+            "description": "Date de référence de « futur » (défaut : aujourd'hui dans le fuseau du compte)",
             "name": "asOf",
             "in": "query"
           }
