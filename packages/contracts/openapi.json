@@ -65,7 +65,9 @@
           "NOT_A_SERIES",
           "OCCURRENCE_NOT_FOUND",
           "SERIES_SPLIT_UNSUPPORTED",
-          "PERSON_HISTORY_LOCKED"
+          "PERSON_HISTORY_LOCKED",
+          "IMPORT_TOO_LARGE",
+          "IMPORT_HAS_ERRORS"
         ]
       },
       "HealthResponse": {
@@ -2844,6 +2846,211 @@
         },
         "required": [
           "added"
+        ]
+      },
+      "ImportReport": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ImportKind"
+          },
+          "dryRun": {
+            "type": "boolean"
+          },
+          "applied": {
+            "type": "boolean",
+            "description": "true si les écritures ont été faites (jamais en dryRun)"
+          },
+          "delimiter": {
+            "type": "string",
+            "enum": [
+              ",",
+              ";"
+            ]
+          },
+          "rows": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Lignes de données lues (hors en-têtes et lignes vides)"
+          },
+          "created": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updated": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unchanged": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "invalid": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Lignes en erreur, jamais appliquées"
+          },
+          "references": {
+            "type": "object",
+            "properties": {
+              "departments": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "roles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "clients": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "departments",
+              "roles",
+              "clients"
+            ],
+            "description": "Noms des références créées (ou à créer en dryRun)"
+          },
+          "ignoredColumns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "En-têtes non reconnus, tels qu'écrits"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportRowError"
+            },
+            "description": "Par ligne croissante"
+          },
+          "errorsTruncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "dryRun",
+          "applied",
+          "delimiter",
+          "rows",
+          "created",
+          "updated",
+          "unchanged",
+          "invalid",
+          "references",
+          "ignoredColumns",
+          "errors",
+          "errorsTruncated"
+        ]
+      },
+      "ImportKind": {
+        "type": "string",
+        "enum": [
+          "people",
+          "projects",
+          "clients"
+        ]
+      },
+      "ImportRowError": {
+        "type": "object",
+        "properties": {
+          "line": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Ligne physique du fichier où commence l'enregistrement (1 = en-têtes)"
+          },
+          "column": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Nom canonique de la colonne (ex. email), null pour l'enregistrement entier"
+          },
+          "code": {
+            "$ref": "#/components/schemas/ImportRowErrorCode"
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Valeur lue dans le fichier (200 caractères au plus), null si sans objet"
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "description": "Précisions (ex. firstLine, max, min)"
+          }
+        },
+        "required": [
+          "line",
+          "column",
+          "code",
+          "value",
+          "params"
+        ]
+      },
+      "ImportRowErrorCode": {
+        "type": "string",
+        "enum": [
+          "empty_file",
+          "missing_column",
+          "duplicate_column",
+          "unterminated_quote",
+          "field_count",
+          "required",
+          "too_long",
+          "invalid_email",
+          "invalid_number",
+          "invalid_enum",
+          "invalid_date",
+          "invalid_date_range",
+          "invalid_color",
+          "invalid_country",
+          "invalid_boolean",
+          "too_many_tags",
+          "duplicate_in_file",
+          "ambiguous_key",
+          "unknown_reference",
+          "ambiguous_reference",
+          "history_locked"
+        ]
+      },
+      "ImportRequest": {
+        "type": "object",
+        "properties": {
+          "csv": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 900000,
+            "description": "Contenu du fichier CSV (ligne 1 = en-têtes)"
+          },
+          "skipInvalid": {
+            "type": "boolean",
+            "description": "Appliquer les lignes valides malgré des lignes en erreur (défaut : false = tout ou rien)"
+          }
+        },
+        "required": [
+          "csv"
         ]
       },
       "DepartmentList": {
@@ -7991,6 +8198,124 @@
           },
           "404": {
             "description": "Projet ou personne inconnu (NOT_FOUND, params.entity)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/imports/{kind}": {
+      "post": {
+        "operationId": "runImport",
+        "summary": "Importer des personnes, projets ou clients depuis un CSV (dryRun = rapport sans ecriture ; sinon une transaction, idempotent)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/ImportKind"
+            },
+            "required": true,
+            "name": "kind",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "boolean",
+              "description": "true : rapport seul, aucune écriture (défaut : false, l'import est appliqué)"
+            },
+            "required": false,
+            "description": "true : rapport seul, aucune écriture (défaut : false, l'import est appliqué)",
+            "name": "dryRun",
+            "in": "query"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rapport : creees, mises a jour, inchangees, erreurs par ligne ; applied = ecritures faites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps ou parametre invalide, CSV trop long (VALIDATION_FAILED, field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant, owner ou admin requis (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Type d'import inconnu (NOT_FOUND, params.entity = route)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Trop de lignes de donnees (IMPORT_TOO_LARGE, params.maxRows, params.rows)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lignes en erreur sans skipInvalid : rien n'est ecrit (IMPORT_HAS_ERRORS, params.invalid, params.rows)",
             "content": {
               "application/json": {
                 "schema": {

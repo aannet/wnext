@@ -9,7 +9,7 @@ export interface ApiError {
   requestId: string;
 }
 
-export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "ALREADY_EXISTS" | "REFERENCE_IN_USE" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS" | "PERSON_DEACTIVATION_CONFIRMATION_REQUIRED" | "PERSON_DEACTIVATION_STALE_CONFIRMATION" | "PERSON_DEACTIVATION_INVALID_REPLACEMENT" | "LOGGED_TIME_LOCKED" | "LOGGED_TIME_DAY_LIMIT" | "RATE_LIMITED" | "NOT_A_SERIES" | "OCCURRENCE_NOT_FOUND" | "SERIES_SPLIT_UNSUPPORTED" | "PERSON_HISTORY_LOCKED";
+export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "ALREADY_EXISTS" | "REFERENCE_IN_USE" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS" | "PERSON_DEACTIVATION_CONFIRMATION_REQUIRED" | "PERSON_DEACTIVATION_STALE_CONFIRMATION" | "PERSON_DEACTIVATION_INVALID_REPLACEMENT" | "LOGGED_TIME_LOCKED" | "LOGGED_TIME_DAY_LIMIT" | "RATE_LIMITED" | "NOT_A_SERIES" | "OCCURRENCE_NOT_FOUND" | "SERIES_SPLIT_UNSUPPORTED" | "PERSON_HISTORY_LOCKED" | "IMPORT_TOO_LARGE" | "IMPORT_HAS_ERRORS";
 
 export interface HealthResponse {
   status: "ok" | "degraded";
@@ -550,6 +550,45 @@ export interface TeamBatchAdd {
 
 export interface TeamMembership {
   added: boolean;
+}
+
+export interface ImportReport {
+  kind: ImportKind;
+  dryRun: boolean;
+  applied: boolean;
+  delimiter: "," | ";";
+  rows: number;
+  created: number;
+  updated: number;
+  unchanged: number;
+  invalid: number;
+  references: {
+    departments: Array<string>;
+    roles: Array<string>;
+    clients: Array<string>;
+  };
+  ignoredColumns: Array<string>;
+  errors: Array<ImportRowError>;
+  errorsTruncated: boolean;
+}
+
+export type ImportKind = "people" | "projects" | "clients";
+
+export interface ImportRowError {
+  line: number;
+  column: string | null;
+  code: ImportRowErrorCode;
+  value: string | null;
+  params: {
+    [key: string]: string | number;
+  };
+}
+
+export type ImportRowErrorCode = "empty_file" | "missing_column" | "duplicate_column" | "unterminated_quote" | "field_count" | "required" | "too_long" | "invalid_email" | "invalid_number" | "invalid_enum" | "invalid_date" | "invalid_date_range" | "invalid_color" | "invalid_country" | "invalid_boolean" | "too_many_tags" | "duplicate_in_file" | "ambiguous_key" | "unknown_reference" | "ambiguous_reference" | "history_locked";
+
+export interface ImportRequest {
+  csv: string;
+  skipInvalid?: boolean;
 }
 
 export interface DepartmentList {
@@ -1413,6 +1452,22 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as TeamMembership }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Importer des personnes, projets ou clients depuis un CSV (dryRun = rapport sans ecriture ; sinon une transaction, idempotent) (POST /api/v1/imports/{kind}) */
+    async runImport(input: {
+      path: {
+        kind: ImportKind;
+      };
+      query?: {
+        dryRun?: boolean;
+      };
+      body: ImportRequest;
+    }): Promise<ApiResult<ImportReport, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/imports/" + encodeURIComponent(String(input.path.kind)) + toQueryString(input.query ?? {}), { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as ImportReport }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Lister : departement (pagine, tri par id ; tout membre authentifie) (GET /api/v1/departments) */

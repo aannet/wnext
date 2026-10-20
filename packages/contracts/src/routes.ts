@@ -24,6 +24,7 @@ import {
   LoggedTimeSubmitResult, LoggedTimeWindow,
 } from "./logged-time";
 import { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
+import { ImportPathParams, ImportQuery, ImportReport, ImportRequest } from "./imports";
 import { SavedView, SavedViewCreate, SavedViewList, SavedViewListQuery, SavedViewPatch, SavedViewPathParams } from "./saved-views";
 
 // Table des routes : donnees pures (zod uniquement). La spec OpenAPI en est derivee
@@ -689,6 +690,25 @@ export const routes: RouteContract[] = [
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
       403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
       404: { description: "Projet ou personne inconnu (NOT_FOUND, params.entity)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/v1/imports/{kind}",
+    operationId: "runImport",
+    summary: "Importer des personnes, projets ou clients depuis un CSV (dryRun = rapport sans ecriture ; sinon une transaction, idempotent)",
+    params: ImportPathParams,
+    query: ImportQuery,
+    body: ImportRequest,
+    responses: {
+      200: { description: "Rapport : creees, mises a jour, inchangees, erreurs par ligne ; applied = ecritures faites", schema: ImportReport },
+      400: { description: "Corps ou parametre invalide, CSV trop long (VALIDATION_FAILED, field)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Role insuffisant, owner ou admin requis (FORBIDDEN)", schema: ApiError },
+      404: { description: "Type d'import inconnu (NOT_FOUND, params.entity = route)", schema: ApiError },
+      413: { description: "Trop de lignes de donnees (IMPORT_TOO_LARGE, params.maxRows, params.rows)", schema: ApiError },
+      422: { description: "Lignes en erreur sans skipInvalid : rien n'est ecrit (IMPORT_HAS_ERRORS, params.invalid, params.rows)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },
