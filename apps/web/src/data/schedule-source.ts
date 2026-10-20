@@ -13,13 +13,23 @@
 //    quels blocs sont concernés), on oublie les autres blocs (rechargés au prochain passage) et on retire les entités
 //    toujours en retard après rechargement (sorties du visible). Sur `resync` : magasin neuf, rechargement du visible.
 //  * Erreurs : codes stables de @wnext/contracts (jamais de texte) ; l'écran les traduit.
+//  * Écritures (gestes, ADR-002 §5) : état optimiste tout de suite, puis PATCH (If-Match = version lue) ou découpe d'une
+//    occurrence. Succès : la réponse remplace l'optimiste ; refus ou réseau : retour arrière (et relecture de l'allocation
+//    sur VERSION_CONFLICT / NOT_FOUND). Tant qu'une écriture est en vol, les rechargements demandés par le temps réel sont
+//    différés : l'écho de sa propre écriture (même version que la réponse) n'est alors jamais relu, rien ne clignote.
 import { ErrorCode, type ApiError, type ScheduleResponse } from "@wnext/contracts";
-import { loadChunks, mergeChunks, neighborDays, type Viewport } from "@wnext/engine";
+import { loadChunks, mergeChunks, neighborDays, type BlockPatch, type Viewport } from "@wnext/engine";
 import type { createClient } from "../api/client.gen";
 import { RealtimeAuthError, createRealtimeClient, ticketFrom, type RealtimeClient, type RealtimeClientOptions, type RealtimeStatus } from "../realtime/client";
-import { applyChanges, emptyStore, hasWindow, ingestSchedule, snapshot, type Kind, type ScheduleStore, type Tables } from "../schedule/store";
+import {
+  applyChanges, applyOptimistic, confirmOptimistic, emptyStore, hasWindow, ingestSchedule, remove, rollbackOptimistic, snapshot, upsert,
+  type Kind, type ScheduleStore, type Tables,
+} from "../schedule/store";
+import { localSplit, patched, toApiPatch, toSplitBody, type EditOutcome, type ScheduleEditor } from "./allocation-edits";
 
-export type ScheduleApi = Pick<ReturnType<typeof createClient>, "getSchedule" | "createRealtimeTicket">;
+type Client = ReturnType<typeof createClient>;
+/** Lecture obligatoire ; écritures optionnelles (absentes : les gestes rendent UNSUPPORTED). */
+export type ScheduleApi = Pick<Client, "getSchedule" | "createRealtimeTicket"> & Partial<Pick<Client, "getAllocation" | "updateAllocation" | "splitAllocation">>;
 export type SourceErrorCode = ApiError["code"];
 
 export interface ScheduleSourceState {
@@ -43,7 +53,7 @@ export interface ScheduleSourceOptions {
   realtime?: Pick<RealtimeClientOptions, "wsBase" | "openSocket" | "setTimer" | "clearTimer" | "random" | "now" | "onError">;
 }
 
-export interface ScheduleSource {
+export interface ScheduleSource extends ScheduleEditor {
   getState(): ScheduleSourceState;
   subscribe(listener: () => void): () => void;
   /** Nouvelle vue (défilement, zoom, navigation) : charge les blocs manquants si la source est démarrée. */
@@ -211,13 +221,109 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     store = r.store;
     for (const e of r.refetch) {
       const version = changes.filter((c) => c.entity === e.kind && c.id === e.id).reduce((v, c) => Math.max(v, c.version ?? 0), 0);
-      pendingStale.set(`${e.kind}:${e.id}`, { ...e, version });
+      const k = `${e.kind}:${e.id}`;
+      pendingStale.set(k, { ...e, version: Math.max(version, pendingStale.get(k)?.version ?? 0) });
     }
-    if (r.refetch.length) scheduleRefetch();
+    if (r.refetch.length && store.pending.size === 0) scheduleRefetch();
     refresh();
   }
 
+  /** Fin d'une écriture : rechargements différés, sauf les entités désormais à jour (écho de ses propres écritures). */
+  function settled() {
+    refresh();
+    if (store.pending.size > 0) return;
+    for (const [k, e] of pendingStale) {
+      const cur = store.tables[e.kind].get(e.id);
+      if (cur && cur.version >= e.version) pendingStale.delete(k);
+    }
+    if (pendingStale.size) scheduleRefetch();
+  }
+
+  let seq = 0;
+  const busy = (id: string) => [...store.pending.values()].some((p) => p.kind === "allocations" && p.id === id);
+  const fail = (error: Exclude<EditOutcome, { ok: true }>["error"], reason?: string): EditOutcome =>
+    reason === undefined ? { ok: false, error } : { ok: false, error, reason };
+
+  /** Relit une allocation après un refus (autre version ou supprimée) ; un échec de relecture est sans suite. */
+  async function reread(id: string) {
+    if (!opts.api.getAllocation) return;
+    const ep = epoch;
+    try {
+      const res = await opts.api.getAllocation({ path: { id } });
+      if (ep !== epoch) return;
+      if (res.ok) store = upsert(store, "allocations", res.data);
+      else if (res.status === 404) store = remove(store, "allocations", id);
+      refresh();
+    } catch { /* réseau : le prochain chargement corrigera */ }
+  }
+
+  type Res<T> = { ok: true; data: T } | { ok: false; status: number; error: unknown };
+  /** Appel d'écriture : confirme (onOk) ou retour arrière des mutations `ids`, puis code stable. */
+  async function write<T>(ids: string[], call: () => Promise<Res<T>>, onOk: (d: T) => void): Promise<EditOutcome> {
+    let res: Res<T>;
+    try {
+      res = await call();
+    } catch {
+      for (const m of ids) store = rollbackOptimistic(store, m);
+      settled();
+      return fail("NETWORK");
+    }
+    if (res.ok) {
+      onOk(res.data);
+      settled();
+      return { ok: true };
+    }
+    for (const m of ids) store = rollbackOptimistic(store, m);
+    settled();
+    const reason = (res.error as { params?: { reason?: unknown } } | null)?.params?.reason;
+    return fail(errorCodeOf(res.status, res.error), typeof reason === "string" ? reason : undefined);
+  }
+
+  async function updateAllocation(id: string, patch: BlockPatch): Promise<EditOutcome> {
+    const cur = store.tables.allocations.get(id);
+    const api = opts.api.updateAllocation;
+    if (!api) return fail("UNSUPPORTED");
+    if (!cur) return fail("NOT_FOUND");
+    if (busy(id)) return fail("BUSY");
+    const m = `edit-${++seq}`;
+    store = applyOptimistic(store, m, "allocations", id, patched(cur, patch));
+    refresh();
+    const out = await write([m], () => api({ path: { id }, headers: { "If-Match": `"${cur.version}"` }, body: toApiPatch(patch) }),
+      (d) => { store = confirmOptimistic(store, m, d); });
+    if (!out.ok && (out.error === "VERSION_CONFLICT" || out.error === "NOT_FOUND")) await reread(id);
+    return out;
+  }
+
+  async function splitOccurrence(id: string, index: number, patch: BlockPatch): Promise<EditOutcome> {
+    const cur = store.tables.allocations.get(id);
+    const api = opts.api.splitAllocation;
+    if (!api) return fail("UNSUPPORTED");
+    if (!cur) return fail("NOT_FOUND");
+    if (busy(id)) return fail("BUSY");
+    const n = ++seq;
+    const local = localSplit(cur, index, patch, (k) => `tmp-${n}-${k}`);
+    if (!local.ok) return fail(local.error, local.reason);
+    const s = local.split;
+    const [mb, mo, ma] = [`split-${n}-b`, `split-${n}-o`, `split-${n}-a`];
+    store = applyOptimistic(store, mb, "allocations", id, s.before);
+    store = applyOptimistic(store, mo, "allocations", s.occurrence.id, s.occurrence);
+    const ids = [mb, mo];
+    if (s.after) { store = applyOptimistic(store, ma, "allocations", s.after.id, s.after); ids.push(ma); }
+    refresh();
+    const out = await write(ids, () => api({ path: { id }, headers: { "If-Match": `"${cur.version}"` }, body: toSplitBody(s.occurrenceDate, patch) }),
+      (d) => {
+        store = confirmOptimistic(store, mb, d.before ?? null);
+        store = confirmOptimistic(store, mo, d.occurrence ?? null);
+        if (s.after) store = confirmOptimistic(store, ma, d.after ?? null);
+        else if (d.after) store = upsert(store, "allocations", d.after);
+      });
+    if (!out.ok && (out.error === "VERSION_CONFLICT" || out.error === "NOT_FOUND")) await reread(id);
+    return out;
+  }
+
   return {
+    updateAllocation,
+    splitOccurrence,
     getState: () => state,
     subscribe(l) {
       listeners.add(l);
