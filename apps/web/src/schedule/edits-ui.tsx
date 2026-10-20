@@ -5,10 +5,10 @@ import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import type { GestureBlock } from "@wnext/engine";
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { patched, type Allocation, type EditError, type EditOutcome, type ScheduleEditor } from "../data/allocation-edits";
+import { localSplit, patched, type Allocation, type EditError, type EditOutcome, type ScheduleEditor } from "../data/allocation-edits";
 import type { MessageKey } from "../i18n";
 import type { EditRequest } from "./block-editor";
-import { editWarnings } from "./edit-warnings";
+import { editWarnings, type EditWarning } from "./edit-warnings";
 
 export interface ScheduleEdits {
   onCommit(r: EditRequest): void | Promise<void>;
@@ -21,10 +21,20 @@ const errorKey = (e: EditError): MessageKey => (SHOWN.has(e) ? `schedule.edit.er
 
 interface Choice { req: EditRequest; unsupported: string | null; done?(): void }
 
-/** Allocation isolée telle qu'après le geste sur une occurrence. */
-const occurrenceAfter = (r: EditRequest): Allocation => patched({ ...r.allocation, repeatState: "none", repeatEndDate: null }, {
-  personId: r.draft.personId, startDate: r.draft.startDate, endDate: r.draft.endDate, hoursPerDay: r.draft.hoursPerDay, percent: r.draft.percent,
-});
+/**
+ * Avertissements (BR-01, BR-37) d'une écriture, sur l'état tel qu'après elle. « Cette occurrence » : la découpe locale
+ * (localSplit, celle de l'état optimiste) donne l'occurrence écrite, bornée à la fin de série, et le reste de la série
+ * (avant / après) qui remplace l'allocation d'origine pour la surcharge. Découpe refusée : aucun avertissement (l'écriture
+ * échouera aussi).
+ */
+export function writeWarnings(s: ScheduleResponse, req: EditRequest, kind: "one" | "all"): EditWarning[] {
+  if (kind === "all" || req.occurrence === null) return editWarnings(s, patched(req.allocation, req.patch));
+  const local = localSplit(req.allocation, req.occurrence, req.occurrencePatch ?? {}, (n) => `${req.allocation.id}:split-${n}`);
+  if (!local.ok) return [];
+  const { before, occurrence, after } = local.split;
+  const rest = [before, after].filter((a): a is Allocation => a !== null);
+  return editWarnings({ ...s, allocations: [...s.allocations.filter((a) => a.id !== req.allocation.id), ...rest] }, occurrence);
+}
 
 /** Bloc à refocaliser après une écriture, par sa personne et ses dates (sa clé peut changer : occurrence découpée). */
 export type FocusTarget = Pick<GestureBlock, "personId" | "startDate" | "endDate">;
@@ -45,11 +55,10 @@ export function useScheduleEdits(
     return b.mode === "hours" ? t("schedule.edit.preview.hours", { ...v, hours: b.hoursPerDay }) : t("schedule.edit.preview.percent", { ...v, percent: b.percent });
   }
 
-  async function run(write: () => Promise<EditOutcome>, after: Allocation): Promise<EditOutcome> {
-    const warnings = editWarnings(dataRef.current, after);
+  async function run(write: () => Promise<EditOutcome>, personId: string, warnings: EditWarning[]): Promise<EditOutcome> {
     const out = await write();
     if (out.ok) {
-      const person = nameOf(after.personId);
+      const person = nameOf(personId);
       setNotice([t("schedule.edit.saved"), ...warnings.map((w) => t(`schedule.edit.warning.${w}`, { person }))].join(" "));
     } else if (out.error !== "SERIES_SPLIT_UNSUPPORTED") {
       setNotice(t(errorKey(out.error)));
@@ -57,22 +66,28 @@ export function useScheduleEdits(
     return out;
   }
 
+  // Choix en cours, vidé de façon synchrone au premier clic : un double clic ou une répétition d'Entrée (avant le nouveau
+  // rendu) ne lance pas une seconde écriture.
+  const choiceRef = useRef<Choice | null>(null);
+  const open = (c: Choice | null) => { choiceRef.current = c; setChoice(c); };
+
   async function choose(kind: "one" | "all" | "cancel") {
-    const c = choice;
+    const c = choiceRef.current;
     if (!c || !editor) return;
-    setChoice(null);
+    open(null);
     c.done?.();
     const { req } = c;
     // Tout de suite (le bouton va disparaître) : le bloc d'origine, encore affiché. Différé, ce rappel passerait après
     // l'écriture et ramènerait le focus sur la grille (la clé de l'occurrence découpée n'existe plus).
     focusKey(req.key);
     if (kind === "cancel") { setNotice(t("schedule.edit.cancelled")); return; }
+    const warnings = writeWarnings(dataRef.current, req, kind);
     const out = kind === "all"
-      ? await run(() => editor.updateAllocation(req.allocationId, req.patch), patched(req.allocation, req.patch))
-      : await run(() => editor.splitOccurrence(req.allocationId, req.occurrence!, req.occurrencePatch ?? {}), occurrenceAfter(req));
+      ? await run(() => editor.updateAllocation(req.allocationId, req.patch), req.draft.personId, warnings)
+      : await run(() => editor.splitOccurrence(req.allocationId, req.occurrence!, req.occurrencePatch ?? {}), req.draft.personId, warnings);
     // Le nœud focalisé a pu être recyclé au nouveau rendu (et l'occurrence découpée change de clé) : on le retrouve par ses dates.
     if (out.ok) focusKey(req.key, req.draft);
-    else if (kind === "one" && out.error === "SERIES_SPLIT_UNSUPPORTED") setChoice({ req, unsupported: out.reason ?? "other" });
+    else if (kind === "one" && out.error === "SERIES_SPLIT_UNSUPPORTED") open({ req, unsupported: out.reason ?? "other" });
   }
 
   const element = (
@@ -99,8 +114,8 @@ export function useScheduleEdits(
     onPreview: (p) => { if (p) setNotice(describe(p.draft)); },
     onCommit(r) {
       if (!editor) return;
-      if (r.occurrence === null) { void run(() => editor.updateAllocation(r.allocationId, r.patch), patched(r.allocation, r.patch)); return; }
-      return new Promise<void>((done) => setChoice({ req: r, unsupported: null, done }));
+      if (r.occurrence === null) { void run(() => editor.updateAllocation(r.allocationId, r.patch), r.draft.personId, writeWarnings(dataRef.current, r, "all")); return; }
+      return new Promise<void>((done) => open({ req: r, unsupported: null, done }));
     },
   };
 }

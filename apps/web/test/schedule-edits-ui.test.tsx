@@ -10,6 +10,8 @@ import { ScheduleScreen } from "../src/ScheduleScreen";
 import type { EditOutcome, ScheduleEditor } from "../src/data/allocation-edits";
 import { createDemoSource } from "../src/data/demo-source";
 import { createI18n } from "../src/i18n";
+import type { EditRequest } from "../src/schedule/block-editor";
+import { writeWarnings } from "../src/schedule/edits-ui";
 import { GUTTER_PX, type Clock } from "../src/schedule/scroller";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -139,6 +141,25 @@ describe("série : choix de portée", () => {
     expect(notice()).toBe("Modification annulée.");
   });
 
+  it("double clic (ou Entrée répétée) sur un choix : une seule écriture, notice de succès gardée", async () => {
+    for (const label of ["Cette occurrence", "Toute la série"]) {
+      const ed = fakeEditor();
+      mount(data([WEEKLY]), ed);
+      drag(block("2:1"), DAY);
+      act(() => {
+        const b = [...host.querySelectorAll<HTMLButtonElement>("[role=dialog] button")].find((x) => x.textContent === label)!;
+        b.click();
+        b.click();
+      });
+      await flush();
+      expect(ed.splitOccurrence.mock.calls.length + ed.updateAllocation.mock.calls.length).toBe(1);
+      expect(notice()).toBe("Modification enregistrée.");
+      act(() => root?.unmount());
+      host.remove();
+      root = null;
+    }
+  });
+
   it("SERIES_SPLIT_UNSUPPORTED : message traduit avec la raison, « toute la série » proposée", async () => {
     const ed = fakeEditor({ ok: true }, { ok: false, error: "SERIES_SPLIT_UNSUPPORTED", reason: "monthly_clamped" });
     mount(data([WEEKLY]), ed);
@@ -182,6 +203,27 @@ describe("résultat d'une écriture", () => {
     mount(data([alloc("1")]));
     drag(block("1:0"), DAY);
     expect(host.querySelector(".wn-ghost")).toBeNull();
+  });
+});
+
+describe("avertissements d'une écriture sur une série", () => {
+  // Série hebdomadaire lun.-mer., fin de série un lundi : la dernière occurrence (rang 2) est tronquée au 2 novembre.
+  const SERIES = alloc("5", { startDate: "2026-10-19", endDate: "2026-10-21", repeatState: "weekly", repeatEndDate: "2026-11-02" });
+  const req = (draft: Partial<EditRequest["draft"]>): EditRequest => ({
+    allocationId: "5", key: "5:2", occurrence: 2, patch: { hoursPerDay: 6 }, occurrencePatch: { hoursPerDay: 6 }, allocation: SERIES, via: "pointer",
+    draft: { personId: "1", startDate: "2026-11-02", endDate: "2026-11-04", mode: "hours", hoursPerDay: 6, percent: null, repeatState: "none", repeatEndDate: null, ...draft },
+  });
+
+  it("cette occurrence, dernière occurrence tronquée : avertissements sur les dates bornées (celles écrites)", () => {
+    // Projet fini le 2 novembre : l'occurrence écrite (2 nov. seul) n'en sort pas, même si le brouillon déborde.
+    expect(writeWarnings(data([SERIES], "2026-11-02"), req({}), "one")).toEqual([]);
+    expect(writeWarnings(data([SERIES], "2026-11-01"), req({}), "one")).toEqual(["ALLOCATION_ENDS_AFTER_PROJECT"]);
+  });
+
+  it("cette occurrence : la surcharge tient compte du reste de la série (occurrence déplacée sur la suivante)", () => {
+    // L'occurrence 0 (lun. 19 - mer. 21, 6 h) déplacée sur la semaine suivante : elle chevauche l'occurrence 1 (4 h).
+    const r: EditRequest = { ...req({}), key: "5:0", occurrence: 0, occurrencePatch: { startDate: "2026-10-26", endDate: "2026-10-28", hoursPerDay: 6 } };
+    expect(writeWarnings(data([SERIES]), r, "one")).toContain("OVERLOAD");
   });
 });
 
