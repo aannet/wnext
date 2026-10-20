@@ -98,18 +98,22 @@ END $$;
 SELECT t.ok('N01a RLS activée ET forcée sur notifications et notification_preferences',
   (SELECT bool_and(relrowsecurity AND relforcerowsecurity) FROM pg_class WHERE relname IN ('notifications', 'notification_preferences')
    HAVING COUNT(*) = 2));
+-- (0005 : + own_preferences_read et recipient_insert)
 SELECT t.ok('N01b politiques : tenant_isolation + restrictions au destinataire (liste fermée)',
   (SELECT array_agg(tablename || '.' || policyname || ':' || cmd || ':' || permissive ORDER BY tablename, policyname) FROM pg_policies
     WHERE tablename IN ('notifications', 'notification_preferences'))
   = ARRAY['notification_preferences.own_preferences_delete:DELETE:RESTRICTIVE', 'notification_preferences.own_preferences_insert:INSERT:RESTRICTIVE',
+          'notification_preferences.own_preferences_read:SELECT:RESTRICTIVE',
           'notification_preferences.own_preferences_update:UPDATE:RESTRICTIVE', 'notification_preferences.tenant_isolation:ALL:PERMISSIVE',
-          'notifications.recipient_delete:DELETE:RESTRICTIVE', 'notifications.recipient_read:SELECT:RESTRICTIVE',
+          'notifications.recipient_delete:DELETE:RESTRICTIVE', 'notifications.recipient_insert:INSERT:RESTRICTIVE',
+          'notifications.recipient_read:SELECT:RESTRICTIVE',
           'notifications.recipient_update:UPDATE:RESTRICTIVE', 'notifications.tenant_isolation:ALL:PERMISSIVE']);
 SELECT t.ok('N01c index de la boîte de réception (user_id, read_at, created_at)',
   EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'notifications' AND indexname = 'idx_notifications_inbox'
             AND indexdef LIKE '%(user_id, read_at, created_at DESC)%'));
-SELECT t.ok('N01d aucune fonction SECURITY DEFINER ajoutée (l émission tourne avec les droits de l auteur)',
-  NOT EXISTS (SELECT 1 FROM pg_proc WHERE prosecdef AND proname IN ('notify_person', 'notify_allocation', 'notify_timeoff', 'notification_wake', 'purge_notifications')));
+-- (0005 : notify_allocation et notify_timeoff passent en SECURITY DEFINER, voir notifications_hardening_tests.sql)
+SELECT t.ok('N01d SECURITY DEFINER limité aux deux fonctions de trigger d émission',
+  NOT EXISTS (SELECT 1 FROM pg_proc WHERE prosecdef AND proname IN ('notify_person', 'notification_wake', 'purge_notifications')));
 SELECT t.ok('N01e les notifications ne sont ni dans change_log (diffusé au compte) ni dans delete_log',
   NOT EXISTS (SELECT 1 FROM pg_trigger tg JOIN pg_class c ON c.oid = tg.tgrelid
                WHERE c.relname IN ('notifications', 'notification_preferences') AND tg.tgname IN ('trg_92_change_log', 'trg_91_delete_log')));
@@ -297,11 +301,15 @@ SELECT t.eq('N09g préférences : invisibles depuis un autre compte', (SELECT CO
 RESET ROLE;
 DELETE FROM notification_preferences;
 
--- N10 Exception de regroupement : la transaction qui écrit voit ce qu'elle vient d'écrire, rien d'autre
+-- N10 (0005 : l'exception de regroupement de 0004 est retirée) : l'auteur ne voit pas, même dans sa transaction, la notification
+-- qu'il produit pour autrui ; elle existe bien (lecture du propriétaire).
 SET LOCAL ROLE app_user;
 SELECT t.as('A', 'ub');
 UPDATE allocations SET hours_per_day = 5 WHERE person_id = t.id('pa') AND start_date = '2026-04-02';
-SELECT t.eq('N10a l auteur voit la seule notification produite par sa transaction', (SELECT COUNT(*) FROM notifications WHERE user_id = t.id('ua')), 1);
+SELECT t.eq('N10a l auteur ne voit pas la notification produite par sa transaction', (SELECT COUNT(*) FROM notifications WHERE user_id = t.id('ua')), 0);
+RESET ROLE;
+SELECT t.eq('N10b elle existe (propriétaire)', (SELECT COUNT(*) FROM notifications WHERE user_id = t.id('ua') AND tx_id = pg_current_xact_id()), 1);
+SET LOCAL ROLE app_user;
 RESET ROLE;
 SELECT t.commit();
 SET LOCAL ROLE app_user;

@@ -25,7 +25,7 @@ beforeAll(async () => {
   base = `postgres://postgres:postgres@127.0.0.1:${port}`;
   await server.createDatabase("n");
   c = await connect();
-  expect(await migrate(c)).toContain("0004");
+  expect(await migrate(c)).toEqual(expect.arrayContaining(["0004", "0005"]));
 }, 120_000);
 
 afterAll(async () => {
@@ -60,6 +60,10 @@ describe("0004_notifications", () => {
     await c.query(readFileSync("tests/sql/notifications_tests.sql", "utf8")); // lève 'FAIL: <libellé>' au premier échec
     await c.query(readFileSync("tests/sql/schema_tests.sql", "utf8"));
     await c.query(readFileSync("tests/sql/people_history_tests.sql", "utf8"));
+  }, 120_000);
+
+  it("0005 (durcissement) : émission SECURITY DEFINER, préférences lisibles par soi seul, insertion pour soi seul, purge des lues", async () => {
+    await c.query(readFileSync("tests/sql/notifications_hardening_tests.sql", "utf8"));
   }, 120_000);
 
   it("regroupement par vraie transaction, visibilité réservée au destinataire après COMMIT, réveil ciblé", async () => {

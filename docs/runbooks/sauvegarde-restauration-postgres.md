@@ -42,4 +42,6 @@ Objectif : RPO de quelques minutes. Principe : `archive_mode=on` + `archive_comm
 ## 4. Points de vigilance
 
 - La purge de `change_log` et `delete_log` (`purge_change_log`, rétention >= 72 h, BR-14) s'exécute en rôle `BYPASSRLS` : ne pas la lancer pendant une restauration.
+- Purge des notifications in-app (migration 0005) : `SELECT purge_notifications();` une fois par jour, même rôle (`app_user` n'y a pas accès). Défauts : une notification lue part 30 jours après sa lecture, toute notification 90 jours après sa création ; `purge_notifications(interval '90 days', interval '7 days')` pour resserrer les lues (bornes : 1 jour <= lues <= total).
+- Les migrations (dont 0005, qui le vérifie) s'exécutent en rôle superuser ou `BYPASSRLS` : ce rôle devient propriétaire des fonctions d'émission des notifications (SECURITY DEFINER), qui lisent les préférences du destinataire malgré la RLS. Une restauration `--no-owner` doit les réattribuer à un tel rôle.
 - Restaurer ne rejoue pas les NOTIFY : après reprise de l'API, le hub relit tout à la connexion d'écoute.

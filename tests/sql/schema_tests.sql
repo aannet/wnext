@@ -752,8 +752,11 @@ SELECT t.ok('T18d seule politique supplémentaire : own_memberships (lecture seu
     WHERE schemaname = 'public' AND policyname <> 'tenant_isolation' AND policyname <> 'visible_saved_views'
       AND NOT (tablename IN ('notifications', 'notification_preferences') AND permissive = 'RESTRICTIVE'))
     = ARRAY['account_members.own_memberships:SELECT', 'users.visible_users:SELECT']);
+-- (migration 0005 : notify_allocation et notify_timeoff, fonctions de trigger non exécutables par app_user, couvertes par
+--  tests/sql/notifications_hardening_tests.sql H01)
 SELECT t.ok('T18e une seule fonction SECURITY DEFINER, la résolution de connexion (elle contournerait la RLS)',
-  (SELECT array_agg(p.proname::text) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.prosecdef)
+  (SELECT array_agg(p.proname::text) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.prosecdef
+      AND NOT (p.proname IN ('notify_allocation', 'notify_timeoff') AND NOT has_function_privilege('app_user', p.oid, 'EXECUTE')))
     = ARRAY['user_id_for_subject']);
 
 -- Compte Z : au moins une ligne dans CHAQUE table cloisonnée, pour que la preuve ci-dessous porte sur toutes.
@@ -840,8 +843,9 @@ SELECT t.eq('T18g contexte A : aucune ligne d un autre compte visible, sur toute
   (SELECT COALESCE(SUM(visible_other), 0) FROM t18_res), 0);
 SELECT t.ok('T18h contexte A : toutes les lignes de A visibles, table par table',
   -- saved_views : avec la migration 0003, les vues PRIVEES d'un autre utilisateur du compte sont aussi masquees (couvert par apps/api/test/saved-views.test.ts).
-  -- notifications : avec la migration 0004, seul le destinataire les voit (couvert par tests/sql/notifications_tests.sql).
-  (SELECT bool_and(r.visible_own = x.own OR (r.tbl IN ('saved_views', 'notifications') AND r.visible_own <= x.own)) FROM t18_res r JOIN t18 x USING (tbl)));
+  -- notifications : avec la migration 0004, seul le destinataire les voit (couvert par tests/sql/notifications_tests.sql) ;
+  -- notification_preferences : avec la migration 0005, chacun ne lit que les siennes (tests/sql/notifications_hardening_tests.sql).
+  (SELECT bool_and(r.visible_own = x.own OR (r.tbl IN ('saved_views', 'notifications', 'notification_preferences') AND r.visible_own <= x.own)) FROM t18_res r JOIN t18 x USING (tbl)));
 SELECT t.eq('T18i contexte A : UPDATE hors compte n atteint aucune ligne, sur toutes les tables',
   (SELECT COALESCE(SUM(upd), 0) FROM t18_res), 0);
 SELECT t.eq('T18j contexte A : DELETE hors compte n atteint aucune ligne, sur toutes les tables',
