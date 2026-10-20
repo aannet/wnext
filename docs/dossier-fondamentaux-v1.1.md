@@ -290,7 +290,7 @@ Parcours à ajouter à la conception (absents de la v1.0) : première allocation
 ### 4.3 Direction artistique — simple mais efficace
 
 - **Tonalité** : outil professionnel épuré, sans décoration gratuite ; l'effet « wow » vient de la vitesse et de la clarté.
-- **Couleurs** : fond neutre clair, texte anthracite, **une couleur d'accent de marque**. *Amendement :* l'accent doit être **distinct de `--cap-ok`** et **conforme AA** (≥ 4,5:1 en texte/bouton, texte sur accent sombre ; le blanc sur vert vif échoue). Le vert fluo de Float est donc exclu ; la décision de marque finale reste ouverte (Q-09 de la section 7, aussi liée au risque IP). Le code couleur est **réservé aux projets** (palette générée en OKLCH, texte de bloc calculé pour ≥ 4,5:1, teintes rouges exclues). Sémantique de capacité par tokens (`--cap-under`, `--cap-ok`, `--cap-warn`, `--cap-over`), jamais détournée. Aucune couleur en dur dans les composants.
+- **Couleurs** : fond neutre clair, texte anthracite, **une couleur d'accent de marque**. *Amendement :* l'accent doit être **distinct de `--cap-ok`** et **conforme AA** (≥ 4,5:1 en texte/bouton, texte sur accent sombre ; le blanc sur vert vif échoue). Le vert fluo de Float est donc exclu ; décidé le 2026-10-21 (Q-09) : accent **pétrole `#0E7490`**, focus en encre (`docs/decisions/questions-ouvertes-avant-p1.md` n°13). Le code couleur est **réservé aux projets** (palette générée en OKLCH, texte de bloc calculé pour ≥ 4,5:1, teintes rouges exclues). Sémantique de capacité par tokens (`--cap-under`, `--cap-ok`, `--cap-warn`, `--cap-over`), jamais détournée. Aucune couleur en dur dans les composants.
 - **Typographie** : une famille sans-serif d'interface (type Inter), 3 graisses (400/500/600), chiffres tabulaires pour toute heure.
 - **Densité maîtrisée** : lignes ~40 px (32 compact, 48 confortable), ombres quasi absentes, rayons subtils, icônes linéaires. Mode sombre en option, **après stabilisation** (pas dans le premier incrément) ; pas d'inversion mécanique des couleurs.
 - **Composants clés** : bloc d'allocation, popover d'édition rapide, jauge de capacité, panneau latéral projet, toasts avec « Annuler », timeline virtualisée avec snap sur les semaines.
@@ -498,7 +498,7 @@ Production du MVP : la stratégie « dark factory » (`docs/factory/strategy.md`
 | # | Question | Source |
 |---|---|---|
 | Q-08 | Un congé `pending` réduit-il la capacité et déclenche-t-il l'avertissement BR-04 ? (BR-29 propose : réduit, sans assistant avant approbation) | archi fonctionnel Q-03, produit Q4 |
-| Q-09 | Couleur d'accent de marque et identité visuelle distincte de Float (impact IP et `--cap-ok`) | UX Q6, produit Q10 |
+| Q-09 | ~~Couleur d'accent de marque et identité visuelle distincte de Float (impact IP et `--cap-ok`)~~ **Décidé le 2026-10-21 : pétrole `#0E7490`** | UX Q6, produit Q10 |
 | Q-10 | Instant de comptage des sièges (pic mensuel, quotidien, fin de mois ?) ; traitement d'une personne archivée | archi fonctionnel Q-10, BR-34 |
 | Q-11 | Pose sur jour non ouvré (BR-01) : refuser, avertir ou autoriser ? | archi fonctionnel Q-12, UX Q7 |
 | Q-12 | « Placeholders custom » (BR-17 Enterprise) alors que les placeholders sont dans le MVP pour tous | archi fonctionnel Q-09 |

@@ -37,3 +37,9 @@ Float v3 est **dimanche-first** : `work_days_hours` indexe 0 = dimanche, 1 = lun
 | 10 | Édition d'une série répétée (BR-25, US-3.3) | MVP : **« cette occurrence »** et **« toute la série »** ; « à partir d'ici » en T2. Pas de table d'exceptions : modifier une occurrence découpe la série en au plus trois allocations (série d'avant bornée à la veille, occurrence détachée, série d'après), via `splitSeries` du moteur. |
 | 11 | Lecture de `users` par `app_user` | **RLS sur `users`** : on ne voit que soi et les membres de ses comptes. La connexion (avant de connaître le compte) passe par `user_id_for_subject(sub)`, seule fonction `SECURITY DEFINER`, qui ne renvoie que l'id. |
 | 12 | Saisie rapide sans quantité | **8 h par jour** par défaut. Sans dates ou projet ambigu : toujours signalé (`missing`, `candidates`). |
+
+## Décision du 2026-10-21 (Alec, sur recommandation)
+
+| # | Question | Décision |
+|---|---|---|
+| 13 | Accent de marque (Q-09 du dossier §7) | **Pétrole `#0E7490`**, texte blanc dessus (5,4:1), choisi parmi 4 candidats (`docs/design/comparatif-accents.html`, `docs/design/direction.md`). Le focus passe en encre `#1F2937` ; la teinte sarcelle sort de la palette projet. Token `--color-accent` dans `apps/web/src/design/tokens.css`. |

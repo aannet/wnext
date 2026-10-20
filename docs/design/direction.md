@@ -1,6 +1,6 @@
 # Direction visuelle WNEXT (D0, P6)
 
-Statut : proposition, 2026-10-21. L'accent reste à choisir (Q-09), via `comparatif-accents.html`.
+Statut : retenue, 2026-10-21. **Accent choisi par Alec : B, pétrole `#0E7490`** (Q-09 close) ; focus en encre.
 Sources :
 - références d'Alec dans `docs/recette/notes/2026-10-21-note-1/` (`ref-1` et `ref-3` sont la même image) ;
 - retours RT-001 à RT-018 de `docs/recette/registre.md` ;

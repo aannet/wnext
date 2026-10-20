@@ -25,10 +25,12 @@
   --color-text-soft: #374151; /* texte d'aide et de statut, entre --text et --text-muted */
   --color-text-muted: #5b6168;
   --color-ink: #111827; /* contour de focus du bloc, ligne de capacité, poignées : noir franc */
-  --color-focus: #1d4ed8; /* anneau de focus (spec) ; sert aussi de teinte de sélection (menu, liste, bloc armé) */
+  --color-focus: #1f2937; /* anneau de focus ; sert aussi de teinte de sélection (menu, liste, bloc armé). Encre plutôt que le bleu
+                             de la spec : l'accent pétrole est retenu (Q-09), un focus bleu à côté brouillerait les deux. 14,7:1. */
   --color-on-focus: #ffffff;
-  /* Accent de marque : provisoire, Q-09 (décision en attente). Slate 700, 10:1 sur blanc, distinct de --cap-ok. */
-  --color-accent: #334155;
+  /* Accent de marque : pétrole, décidé par Alec le 2026-10-21 (Q-09, docs/design/comparatif-accents.html). 5,4:1 sur blanc,
+     à 75° de teinte de --cap-ok, loin du bleu de Float. Texte blanc dessus. */
+  --color-accent: #0e7490;
   --color-accent-fg: #ffffff;
 
   /* Capacité. Écart : --cap-over vaut #b91c1c (valeur de la bande actuelle) et non #C62828 de la spec. */
