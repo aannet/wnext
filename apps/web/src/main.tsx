@@ -17,7 +17,10 @@ import { createApiViewsSource, createDemoViewsSource, demoSeedViews } from "./da
 import { browserOidcDeps, createOidcSession, oidcConfigFromEnv, type OidcSession } from "./data/oidc";
 import { createScheduleSource } from "./data/schedule-source";
 import { createI18n, type UiLocale } from "./i18n";
+import { createApiProjectsSource, createDemoProjectsSource } from "./data/projects-source";
 import { ScheduleContainer } from "./ScheduleContainer";
+import { ProjectsScreen } from "./projects/projects-screen";
+import { canEditProjects, scheduleProjectOf } from "./projects/projects-model";
 import { demoSchedule } from "./demo";
 import { App } from "./shell/app";
 import { canAdminister, canEditSchedule, demoMe, loadMe, type MeState } from "./shell/me";
@@ -43,6 +46,7 @@ function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, sessio
   const source = createScheduleSource({ api, realtime: { wsBase, onError: (err) => console.warn(err), onNotifications: (n) => notifications.pushUnread(n) } });
   const views = createApiViewsSource(api);
   const imports = createApiImportSource(api);
+  const projects = createApiProjectsSource(api);
   const reconnect = session && (() => void session.login());
   const load = () => { show({ status: "loading" }); void loadMe(api).then(show); };
   show = (me) => root.render(
@@ -51,7 +55,8 @@ function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, sessio
       renderPlanning={(user) => (
         <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} readOnly={!canEditSchedule(user)}
           {...(reconnect ? { onReconnect: reconnect } : {})} {...(canAdminister(user) ? { imports } : {})} />
-      )} />,
+      )}
+      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} />} />,
   );
   load();
 }
@@ -62,9 +67,11 @@ if (params.get("demo") === "1") {
   const source = createDemoSource(demo);
   const views = createDemoViewsSource(demoSeedViews());
   const imports = createDemoImportSource(demoImportSnapshot(demo, today));
+  const projects = createDemoProjectsSource(demo, { onProject: (p) => source.projectChanged?.(scheduleProjectOf(p)) });
   root.render(
     <App i18n={i18n} router={router} me={{ status: "ready", me: demoMe() }} notifications={createDemoNotificationsSource(demoNotifications(today))}
-      renderPlanning={() => <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} imports={imports} />} />,
+      renderPlanning={() => <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} imports={imports} />}
+      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} />} />,
   );
 } else if (import.meta.env.VITE_AUTH_MODE === "oidc") {
   const session = createOidcSession(oidcConfigFromEnv(import.meta.env, location.origin), browserOidcDeps());

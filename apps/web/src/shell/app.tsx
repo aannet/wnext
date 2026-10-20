@@ -17,6 +17,8 @@ export interface AppProps {
   router: Router;
   me: MeState;
   renderPlanning(me: Me): ReactNode;
+  /** Page Projets (lot L-F1) ; absente : page « bientôt disponible ». */
+  renderProjects?(me: Me): ReactNode;
   notifications?: NotificationsSource;
   /** Session à fermer (OIDC) : menu utilisateur avec Déconnexion. */
   onLogout?: () => void;
@@ -28,7 +30,7 @@ export interface AppProps {
 
 const reload = () => globalThis.location.reload();
 
-export function App({ i18n, router, me, renderPlanning, notifications, onLogout, onReconnect, onRetry }: AppProps) {
+export function App({ i18n, router, me, renderPlanning, renderProjects, notifications, onLogout, onReconnect, onRetry }: AppProps) {
   const route = useSyncExternalStore(router.subscribe, router.current);
   const previous = useRef<RouteId | null | undefined>(undefined);
   const ready = me.status === "ready";
@@ -53,6 +55,7 @@ export function App({ i18n, router, me, renderPlanning, notifications, onLogout,
       <AppHeader i18n={i18n} me={user} route={page} href={router.href} onNavigate={router.navigate}
         {...(notifications ? { notifications } : {})} {...(onLogout ? { onLogout } : {})} />
       {page === "planning" ? renderPlanning(user)
+        : page === "projects" && renderProjects ? renderProjects(user)
         : page ? <ComingSoon i18n={i18n} titleKey={ROUTE_TITLE_KEY[page]} />
         : <NotFound i18n={i18n} href={router.href("planning")} onBack={() => router.navigate("planning")} />}
     </div>
