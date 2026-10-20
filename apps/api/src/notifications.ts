@@ -100,7 +100,8 @@ export async function updateNotificationPreferences(db: Db, ctx: RequestContext,
 
 /**
  * BR-36 / US-3.5 : l'appelant vient de perdre (409 VERSION_CONFLICT) sur `entity`/`id`. Notifie l'appelant avec l'auteur et la version
- * de la ligne gagnante, sauf désabonnement. Transaction séparée : celle de l'écriture refusée est annulée. Rien si l'entité n'existe plus.
+ * de la ligne gagnante, sauf désabonnement. Transaction séparée : celle de l'écriture refusée est annulée. Rien si l'entité n'existe plus,
+ * si la version gagnante est de l'appelant lui-même, ou si une notification non lue décrit déjà ce conflit (même entité, même version).
  * `entity` est une constante du code (table d'une ressource), jamais une entrée de la requête.
  */
 export async function recordConflict(db: Db, ctx: RequestContext, entity: NotificationEntity, id: string): Promise<void> {
@@ -110,6 +111,10 @@ export async function recordConflict(db: Db, ctx: RequestContext, entity: Notifi
      SELECT $1::bigint, $2::bigint, 'edit_conflict', $3, e.id, e.modified_by, jsonb_build_object('version', e.row_version)
        FROM ${entity} e
       WHERE e.id = $4::bigint AND e.account_id = $1::bigint
+        AND e.modified_by IS DISTINCT FROM $2::bigint -- version gagnante de l'appelant (autre onglet) : pas de notification
+        AND NOT EXISTS (SELECT 1 FROM notifications x -- même conflit rejoué, encore non lu : pas de doublon
+                         WHERE x.account_id = $1::bigint AND x.user_id = $2::bigint AND x.type = 'edit_conflict' AND x.read_at IS NULL
+                           AND x.entity = $3 AND x.entity_id = e.id AND x.payload -> 'version' = to_jsonb(e.row_version))
         AND NOT EXISTS (SELECT 1 FROM notification_preferences p
                          WHERE p.account_id = $1::bigint AND p.user_id = $2::bigint AND p.type = 'edit_conflict' AND NOT p.enabled)`,
     [ctx.accountId, ctx.userId, entity, id],

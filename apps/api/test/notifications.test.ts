@@ -107,14 +107,37 @@ describe("émission par les écritures de l'API", () => {
     expect([lost.status, (lost.body as { code: string }).code]).toEqual([409, "VERSION_CONFLICT"]);
     const del = await send("admin", "DELETE", `/api/v1/allocations/${a.id}`, undefined, a.version);
     expect(del.status).toBe(409);
+    // Même conflit rejoué (PATCH puis DELETE, même version gagnante, non lue) : une seule notification, pas de rafale.
     const { items } = await list("admin", "?unread=true");
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({ type: "edit_conflict", entity: "allocations", entityId: a.id, actor: { id: "1", name: "Olga" }, currentVersion: 2, startDate: null });
     expect((await list("owner", "?unread=true")).items.filter((n) => n.type === "edit_conflict")).toEqual([]); // le gagnant n'est pas notifié du conflit
     // Autre ressource à verrou optimiste : une personne.
     const p = await send("admin", "PATCH", "/api/v1/people/3", { name: "Mia" }, 999);
     expect(p.status).toBe(409);
     expect((await list("admin", "?limit=1")).items[0]).toMatchObject({ type: "edit_conflict", entity: "people", entityId: "3" });
+    expect(errors).toEqual([]);
+  });
+
+  it("conflit d'édition : une fois lue, une nouvelle perte à la même version notifie de nouveau ; une nouvelle version gagnante aussi", async () => {
+    const a = await alloc("admin", "1", "2026-03-11");
+    await readAll("admin");
+    const v2 = (await send("owner", "PATCH", `/api/v1/allocations/${a.id}`, { notes: "v2" }, a.version)).body as { version: number };
+    expect((await send("admin", "PATCH", `/api/v1/allocations/${a.id}`, { notes: "x" }, a.version)).status).toBe(409);
+    await readAll("admin");
+    expect((await send("admin", "PATCH", `/api/v1/allocations/${a.id}`, { notes: "x" }, a.version)).status).toBe(409);
+    expect((await list("admin", "?unread=true")).items).toHaveLength(1);
+    expect((await send("owner", "PATCH", `/api/v1/allocations/${a.id}`, { notes: "v3" }, v2.version)).status).toBe(200);
+    expect((await send("admin", "PATCH", `/api/v1/allocations/${a.id}`, { notes: "x" }, a.version)).status).toBe(409);
+    expect((await list("admin", "?unread=true")).items.map((n) => n.currentVersion)).toEqual([3, 2]);
+  });
+
+  it("conflit d'édition avec soi-même (deux onglets) : 409 inchangé, aucune notification", async () => {
+    const a = await alloc("admin", "1", "2026-03-12");
+    await readAll("admin");
+    expect((await send("admin", "PATCH", `/api/v1/allocations/${a.id}`, { notes: "onglet 1" }, a.version)).status).toBe(200);
+    expect((await send("admin", "PATCH", `/api/v1/allocations/${a.id}`, { notes: "onglet 2" }, a.version)).status).toBe(409);
+    expect((await list("admin", "?unread=true")).items).toEqual([]);
     expect(errors).toEqual([]);
   });
 });
