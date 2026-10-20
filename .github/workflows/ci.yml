@@ -82,3 +82,29 @@ jobs:
           name: tests-navigateur
           path: tests/browser/out/
           if-no-files-found: ignore
+
+  # Schemathesis contre l'API réelle (npm run test:schemathesis) : informatif, jamais bloquant. Voir tests/schemathesis/README.md.
+  schemathesis:
+    name: Schemathesis (non bloquant)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tests/schemathesis/requirements.txt
+      - run: npm run test:schemathesis
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: schemathesis
+          path: tests/schemathesis/out/
+          if-no-files-found: ignore
