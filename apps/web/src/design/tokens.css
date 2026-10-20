@@ -32,6 +32,7 @@
      à 75° de teinte de --cap-ok, loin du bleu de Float. Texte blanc dessus. */
   --color-accent: #0e7490;
   --color-accent-fg: #ffffff;
+  --color-scrim: rgb(17 24 39 / 0.45); /* fond voilé derrière une fenêtre modale ou un panneau */
 
   /* Capacité. Écart : --cap-over vaut #b91c1c (valeur de la bande actuelle) et non #C62828 de la spec. */
   --color-cap-under: #6b7c93;
@@ -106,6 +107,7 @@
 
   /* Élévation : popover seulement, le reste est plat (bordure 1 px). */
   --shadow-popover: 0 4px 16px rgb(0 0 0 / 0.12);
+  --shadow-drawer: -8px 0 24px rgb(0 0 0 / 0.16); /* panneau latéral */
   --shadow-armed: 0 4px 10px rgb(0 0 0 / 0.35); /* bloc armé au toucher (hors spec) */
 
   /* Z-index : grille 0, en-têtes sticky 10, popover 30, toast 50, modal 60. */

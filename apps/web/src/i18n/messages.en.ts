@@ -2,6 +2,7 @@
 import type { MessageKey } from "./messages.fr";
 
 export const en: Record<MessageKey, string> = {
+  "dialog.close": "Close dialog",
   "app.title": "Schedule",
   "auth.logout": "Sign out",
   "auth.error": "Sign-in failed. Please try again.",
@@ -157,6 +158,9 @@ export const en: Record<MessageKey, string> = {
   "views.update": "Update view",
   "views.rename": "Rename…",
   "views.delete": "Delete…",
+  "views.dialog.save": "Save view",
+  "views.dialog.rename": "Rename view",
+  "views.dialog.delete": "Delete view",
   "views.form.name": "View name",
   "views.form.shared": "Shared with the account",
   "views.form.save": "Save",

@@ -1,6 +1,7 @@
 // Catalogue de référence (FR). Identifiants explicites, syntaxe ICU ; apostrophe typographique (’) pour ne pas
 // déclencher l'échappement ICU. Toute chaîne visible de apps/web vient d'ici (lint : npm run lint:ui-strings).
 export const fr = {
+  "dialog.close": "Fermer la fenêtre",
   "app.title": "Planning",
   "auth.logout": "Se déconnecter",
   "auth.error": "Connexion impossible. Réessayez.",
@@ -156,6 +157,9 @@ export const fr = {
   "views.update": "Mettre à jour la vue",
   "views.rename": "Renommer…",
   "views.delete": "Supprimer…",
+  "views.dialog.save": "Enregistrer la vue",
+  "views.dialog.rename": "Renommer la vue",
+  "views.dialog.delete": "Supprimer la vue",
   "views.form.name": "Nom de la vue",
   "views.form.shared": "Partagée avec le compte",
   "views.form.save": "Enregistrer",
