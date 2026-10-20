@@ -4,7 +4,7 @@ import type { ScheduleResponse } from "@wnext/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AuthFailure, ScheduleContainer } from "../src/ScheduleContainer";
+import { ScheduleContainer } from "../src/ScheduleContainer";
 import { createClient, type FetchResponse } from "../src/api/client.gen";
 import { createScheduleSource } from "../src/data/schedule-source";
 import { createI18n } from "../src/i18n";
@@ -25,7 +25,7 @@ function body(q: URLSearchParams): ScheduleResponse {
 
 let root: Root | null = null;
 let host: HTMLElement;
-function mount(respond: (q: URLSearchParams) => Promise<{ status: number; body: unknown }>, now: (() => Date) | null = () => new Date("2026-10-19T10:00:00Z"), onLogout?: () => void) {
+function mount(respond: (q: URLSearchParams) => Promise<{ status: number; body: unknown }>, now: (() => Date) | null = () => new Date("2026-10-19T10:00:00Z"), onReconnect?: () => void, readOnly = false) {
   const fetch = async (url: string): Promise<FetchResponse> => {
     const r = await respond(new URL(url, "http://x").searchParams);
     return { status: r.status, json: async () => r.body };
@@ -34,7 +34,7 @@ function mount(respond: (q: URLSearchParams) => Promise<{ status: number; body: 
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
-  act(() => root!.render(<ScheduleContainer i18n={createI18n("fr")} source={source} {...(now ? { now } : {})} {...(onLogout ? { onLogout } : {})} widthPx={960} heightPx={480} />));
+  act(() => root!.render(<ScheduleContainer i18n={createI18n("fr")} source={source} {...(now ? { now } : {})} {...(onReconnect ? { onReconnect } : {})} readOnly={readOnly} widthPx={960} heightPx={480} />));
 }
 afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; vi.useRealTimers(); vi.unstubAllGlobals(); });
 
@@ -97,29 +97,37 @@ describe("ScheduleContainer", () => {
     expect(host.querySelector("[role=grid]")).toBeNull();
   });
 
-  it("déconnexion (OIDC) : bouton traduit, présent même sans données (401), absent en mode dev", async () => {
-    const logout = vi.fn();
-    mount(async () => ({ status: 401, body: { code: "UNAUTHENTICATED", params: {}, requestId: "r" } }), undefined, logout);
+  it("401 en OIDC : bouton « Se reconnecter » sous l'alerte (la déconnexion vit dans le menu utilisateur de l'en-tête) ; absent en mode dev", async () => {
+    const reconnect = vi.fn();
+    mount(async () => ({ status: 401, body: { code: "UNAUTHENTICATED", params: {}, requestId: "r" } }), undefined, reconnect);
     await flush();
-    const button = [...host.querySelectorAll("main button")].find((b) => b.textContent === "Se déconnecter")!;
+    const button = [...host.querySelectorAll("main button")].find((b) => b.textContent === "Se reconnecter")!;
     act(() => (button as HTMLButtonElement).click());
-    expect(logout).toHaveBeenCalledTimes(1);
+    expect(reconnect).toHaveBeenCalledTimes(1);
+    expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Se déconnecter")).toBe(false);
     act(() => root?.unmount());
     host.remove();
-    mount(async (q) => ({ status: 200, body: body(q) }));
+    mount(async () => ({ status: 401, body: { code: "UNAUTHENTICATED", params: {}, requestId: "r" } }));
     await flush();
-    expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Se déconnecter")).toBe(false);
+    expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Se reconnecter")).toBe(false);
   });
 
-  it("échec de connexion : alerte traduite et bouton pour se reconnecter", () => {
-    const retry = vi.fn();
-    host = document.createElement("div");
-    document.body.appendChild(host);
-    root = createRoot(host);
-    act(() => root!.render(<AuthFailure i18n={createI18n("en")} onRetry={retry} />));
-    expect(host.querySelector("main [role=alert]")!.textContent).toBe("Sign-in failed. Please try again.");
-    act(() => host.querySelector("button")!.click());
-    expect(retry).toHaveBeenCalledTimes(1);
+  it("sous-header : titre h1 visible et barre d'outils dans le même bloc ; import dans la zone de droite", async () => {
+    mount(async (q) => ({ status: 200, body: body(q) }));
+    await flush();
+    const sub = host.querySelector(".wn-subheader")!;
+    expect(sub.querySelector("h1")!.textContent).toBe("Planning");
+    expect(sub.querySelector("[role=toolbar]")).not.toBeNull();
+    expect(sub.querySelector(".wn-statusbar [role=status]")).not.toBeNull();
+  });
+
+  it("lecture seule (member, guest) : ni boutons Annuler / Rétablir, ni « Nouveau congé », ni saisie rapide", async () => {
+    mount(async (q) => ({ status: 200, body: body(q) }), undefined, undefined, true);
+    await flush();
+    const labels = [...host.querySelectorAll("[role=toolbar] button")].map((b) => b.textContent);
+    expect(labels).toContain("Aujourd’hui");
+    for (const hidden of ["Annuler", "Rétablir", "Nouveau congé"]) expect(labels).not.toContain(hidden);
+    expect(host.querySelector(".wn-quick")).toBeNull();
   });
 
   it("code inconnu de l'écran : message générique INTERNAL_ERROR", async () => {

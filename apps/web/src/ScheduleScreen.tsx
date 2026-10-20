@@ -22,7 +22,7 @@
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import { dayNumber, fromDayNumber, type HeaderCell, type Viewport, type Zoom } from "@wnext/engine";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import type { ScheduleEditor } from "./data/allocation-edits";
 import type { ScheduleSource } from "./data/schedule-source";
 import type { ViewsSource } from "./data/views-source";
@@ -58,6 +58,10 @@ export interface ScheduleScreenProps {
   history?: History;
   /** Vues sauvegardées (filtres nommés) ; absent : ni barre de vues ni filtres. */
   views?: ViewsSource;
+  /** Titre de l'écran (h1), en tête du sous-header ; absent : sous-header sans titre. */
+  heading?: ReactNode;
+  /** Zone à droite du sous-header (statut, import) ; absent : rien. */
+  actions?: ReactNode;
   /** Écritures brutes de la source (congés, report assisté) ; absent : congés en lecture seule. */
   records?: Pick<ScheduleSource, "getState" | "updateAllocation" | "splitOccurrence" | "createTimeoff" | "updateTimeoff" | "deleteTimeoff"
     | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "onProjectsChange" | "teamRemovalSummary" | "removeFromTeam">>;
@@ -92,7 +96,7 @@ function headerFormatter(locale: string) {
   return (c: HeaderCell) => fmt[c.kind].format(new Date(`${c.from}T00:00:00Z`));
 }
 
-export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, heightPx: initialHeightPx, onViewChange, clock, editor, history, records, views }: ScheduleScreenProps) {
+export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, heightPx: initialHeightPx, onViewChange, clock, editor, history, records, views, heading, actions }: ScheduleScreenProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [zoom, setZoom] = useState<Zoom>("day");
   const [filters, setFilters] = useState<ViewFilters>({});
@@ -262,6 +266,8 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
 
   return (
     <div className="wn-schedule">
+      <div className="wn-subheader">
+      {heading}
       <div role="toolbar" aria-label={t("schedule.toolbar.label")} className="wn-toolbar">
         <button type="button" onClick={() => scroller.current?.step(-1)}>{t("schedule.prev")}</button>
         <button type="button" onClick={() => scroller.current?.today()}>{t("schedule.today")}</button>
@@ -286,6 +292,8 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
           <button type="button" aria-keyshortcuts="C" onClick={() => openTimeoffAt(document.activeElement)}>{t("schedule.timeoff.new")}</button>
         )}
         <span>{t("schedule.people.count", { count: shown.people.length })}</span>
+      </div>
+      {actions}
       </div>
       {views && <ViewsBar i18n={i18n} data={data} shownCount={shown.people.length} source={views} filters={filters} zoom={zoom} onFilters={setFilters} onZoom={zoomTo} />}
       {records && (

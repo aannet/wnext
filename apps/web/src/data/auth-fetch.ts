@@ -36,8 +36,11 @@ export function devAuthProvider(env: DevAuthEnv): AuthProvider {
   return { headers: async () => auth };
 }
 
-/** Jeton porteur de la session ; sur 401 : refresh, et à défaut nouvelle connexion (redirection). */
-export function oidcAuthProvider(session: Pick<OidcSession, "getAccessToken" | "refresh" | "login">): AuthProvider {
+/**
+ * Jeton porteur de la session ; sur 401 : refresh, et à défaut `onSessionLost` si fourni (l'écran affiche « session expirée »),
+ * sinon nouvelle connexion (redirection).
+ */
+export function oidcAuthProvider(session: Pick<OidcSession, "getAccessToken" | "refresh" | "login">, onSessionLost?: () => void): AuthProvider {
   return {
     async headers(): Promise<Record<string, string>> {
       const token = await session.getAccessToken();
@@ -45,7 +48,8 @@ export function oidcAuthProvider(session: Pick<OidcSession, "getAccessToken" | "
     },
     async onUnauthorized() {
       if (await session.refresh()) return true;
-      await session.login();
+      if (onSessionLost) onSessionLost();
+      else await session.login();
       return false;
     },
   };

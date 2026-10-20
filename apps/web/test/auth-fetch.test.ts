@@ -77,6 +77,14 @@ describe("auth-fetch, mode OIDC", () => {
     expect([r.seen.length, s.refreshes, s.logins]).toEqual([1, 1, 1]);
   });
 
+  it("refresh refusé avec onSessionLost : l'écran est prévenu (session expirée), pas de redirection, 401 rendu", async () => {
+    const r = recorder([401]);
+    const { s, session } = fakeSession(false);
+    let lost = 0;
+    expect((await createAuthFetch(oidcAuthProvider(session, () => { lost++; }), r.base)("/x", { method: "GET" })).status).toBe(401);
+    expect([r.seen.length, s.refreshes, s.logins, lost]).toEqual([1, 1, 0, 1]);
+  });
+
   it("sans jeton : aucune en-tête Authorization", async () => {
     const r = recorder();
     const { s, session } = fakeSession(true);

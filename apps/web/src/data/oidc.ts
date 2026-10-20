@@ -62,6 +62,11 @@ export class OidcError extends Error {
 export interface OidcSession {
   /** Traite un retour du fournisseur, sinon reprend la session (refresh_token), sinon redirige vers la connexion. */
   start(): Promise<"authenticated" | "redirected">;
+  /**
+   * Comme start(), mais sans session ne redirige PAS : rend "unauthenticated" pour afficher d'abord l'écran de connexion WNEXT
+   * (le bouton « Se connecter » appelle login()). Retour du fournisseur et reprise par refresh_token : inchangés.
+   */
+  restore(): Promise<"authenticated" | "unauthenticated">;
   /** Jeton d'accès valable (renouvelé d'abord s'il expire) ; null sans session. */
   getAccessToken(): Promise<string | null>;
   /** Renouvelle par le refresh_token ; false si la session est perdue (il faut se reconnecter). */
@@ -262,17 +267,22 @@ export function createOidcSession(config: OidcConfig, deps: OidcDeps): OidcSessi
     deps.replaceUrl(pending.returnTo);
   }
 
+  async function restore(): Promise<"authenticated" | "unauthenticated"> {
+    const url = new URL(deps.currentUrl());
+    if (url.searchParams.has("state") && (url.searchParams.has("code") || url.searchParams.has("error"))) {
+      await callback(url);
+      return "authenticated";
+    }
+    return (await refresh()) ? "authenticated" : "unauthenticated";
+  }
+
   return {
     async start() {
-      const url = new URL(deps.currentUrl());
-      if (url.searchParams.has("state") && (url.searchParams.has("code") || url.searchParams.has("error"))) {
-        await callback(url);
-        return "authenticated";
-      }
-      if (await refresh()) return "authenticated";
+      if ((await restore()) === "authenticated") return "authenticated";
       await login();
       return "redirected";
     },
+    restore,
     async getAccessToken() {
       if (accessToken !== null && deps.now() >= expiresAt - EXPIRY_MARGIN_MS) await refresh();
       return accessToken;

@@ -10,6 +10,7 @@ import { createDemoSource } from "../src/data/demo-source";
 import { createDemoNotificationsSource, demoNotifications } from "../src/data/notifications-source";
 import { createI18n } from "../src/i18n";
 import { notificationText } from "../src/notifications/notifications-ui";
+import { NotificationsMenu } from "../src/shell/app-header";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -31,7 +32,12 @@ async function mount(withNotifications = true, lang: "fr" | "en" = "fr") {
   document.body.appendChild(host);
   root = createRoot(host);
   const notifications = createDemoNotificationsSource(demoNotifications(TODAY, new Date("2026-10-20T10:00:00Z")));
-  act(() => root!.render(<ScheduleContainer i18n={createI18n(lang)} source={createDemoSource(data())} widthPx={960} heightPx={480} {...(withNotifications ? { notifications } : {})} />));
+  // La cloche vit désormais dans l'en-tête applicatif (shell/app-header) et non dans le conteneur : même composants, autre point de montage.
+  const i18n = createI18n(lang);
+  act(() => root!.render(<>
+    {withNotifications && <NotificationsMenu i18n={i18n} source={notifications} />}
+    <ScheduleContainer i18n={i18n} source={createDemoSource(data())} widthPx={960} heightPx={480} />
+  </>));
   await flush();
   return notifications;
 }

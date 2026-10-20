@@ -16,7 +16,7 @@ test("cloche : liste, marquer lu, tout marquer lu, compteur à 0 (axe sans viola
   await expect(panel.getByRole("listitem")).toHaveCount(3);
   await expect(panel.getByRole("listitem").first()).toContainText("Camille Durand a modifié vos allocations");
   await expect(panel.getByRole("listitem").first()).toContainText("2 allocations créées · 1 allocation modifiée");
-  const axe = await new AxeBuilder({ page }).include(".wn-statusbar").include("#wn-notifications-panel").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  const axe = await new AxeBuilder({ page }).include(".wn-appheader").include("#wn-notifications-panel").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(axe.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual([]);
 
   await panel.getByRole("listitem").first().getByRole("button", { name: "Marquer comme lue" }).click();

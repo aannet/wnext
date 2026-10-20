@@ -3,14 +3,13 @@
 // La source est créée par l'appelant (main.tsx) : le conteneur la démarre au montage et l'arrête au démontage.
 // Il porte aussi l'historique d'annulation de la session (schedule/history), abonné aux changements étrangers de la source.
 // Repères de page (axe landmark-one-main, page-has-heading-one, region) : tout le contenu, barre d'outils comprise, est
-// dans <main>, titré par un <h1> visuellement masqué (traduit).
+// dans <main>, titré par un <h1> visible (traduit) qui ouvre le sous-header de l'écran (titre + barre d'outils). L'en-tête
+// applicatif, la cloche des notifications et le menu utilisateur vivent dans la coque (shell/).
 import type { I18n } from "@lingui/core";
 import { todayIn, viewAt } from "@wnext/engine";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ImportSource } from "./data/import-source";
 import { ImportDialog } from "./imports/import-dialog";
-import type { NotificationsSource } from "./data/notifications-source";
-import { NotificationBell, NotificationsPanel } from "./notifications/notifications-ui";
 import type { ScheduleSource, ScheduleSourceState, SourceErrorCode } from "./data/schedule-source";
 import type { ViewsSource } from "./data/views-source";
 import type { MessageKey } from "./i18n";
@@ -27,12 +26,12 @@ export interface ScheduleContainerProps {
   now?: () => Date;
   widthPx: number;
   heightPx: number;
-  /** Session OIDC : affiche « Se déconnecter » (absent en mode dev, sans session à fermer). */
-  onLogout?: () => void;
-  /** Import CSV (US-1.2) : bouton « Importer » dans la barre d'état ; absent (rôle sans droit d'import) : pas de bouton. */
+  /** Session OIDC : sur 401, propose de se reconnecter (absent en mode dev, sans session à rouvrir). */
+  onReconnect?: () => void;
+  /** Import CSV (US-1.2) : bouton « Importer » dans le sous-header ; absent (rôle sans droit d'import) : pas de bouton. */
   imports?: ImportSource;
-  /** Notifications in-app (US-7.3) : cloche dans la barre d'état ; absent : pas de cloche. */
-  notifications?: NotificationsSource;
+  /** Lecture seule (member, guest : GET /me) : ni gestes, ni annulation, ni congés, ni saisie rapide. */
+  readOnly?: boolean;
 }
 
 const SHOWN_ERRORS = new Set<SourceErrorCode>(["UNAUTHENTICATED", "FORBIDDEN", "RATE_LIMITED"]);
@@ -44,7 +43,7 @@ const realtimeKey = (s: ScheduleSourceState["realtime"]): MessageKey =>
 const TODAY_CHECK_MS = 60_000;
 const systemNow = () => new Date();
 
-export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onLogout, imports, notifications }: ScheduleContainerProps) {
+export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onReconnect, imports, readOnly = false }: ScheduleContainerProps) {
   const t = (k: MessageKey) => i18n._(k);
   const state = useSyncExternalStore(source.subscribe, source.getState);
   const timezone = state.data?.account.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -72,52 +71,38 @@ export function ScheduleContainer({ i18n, source, views, now = systemNow, widthP
     <span role="status" className={`wn-realtime wn-realtime-${state.realtime}`}>{t(realtimeKey(state.realtime))}</span>
   );
   const error = state.error && <div role="alert" className="wn-error">{t(errorKey(state.error))}</div>;
+  const reconnect = state.error === "UNAUTHENTICATED" && onReconnect && <button type="button" className="wn-primary" onClick={onReconnect}>{t("auth.retry")}</button>;
 
-  const title = <h1 className="wn-visually-hidden">{t("app.title")}</h1>;
-  const logout = onLogout && <button type="button" className="wn-logout" onClick={onLogout}>{t("auth.logout")}</button>;
+  const title = <h1 tabIndex={-1} className="wn-subheader-title">{t("app.title")}</h1>;
   const [importing, setImporting] = useState(false);
   const importButton = useRef<HTMLButtonElement>(null);
   const closeImport = () => { setImporting(false); importButton.current?.focus(); };
-  const [notifying, setNotifying] = useState(false);
-  const bell = useRef<HTMLButtonElement>(null);
-  const closeNotifications = () => { setNotifying(false); bell.current?.focus(); };
 
   if (!state.data) {
     return (
       <main className="wn-schedule-container" aria-busy={state.loading}>
-        {title}
+        <div className="wn-subheader">{title}</div>
         {error ?? <div className="wn-loading">{t("schedule.loading")}</div>}
+        {reconnect}
         {status}
-        {logout}
       </main>
     );
   }
   return (
     <main className="wn-schedule-container" aria-busy={state.loading}>
-      {title}
-      <div className="wn-statusbar">
-        {status}
-        {state.loading && <span className="wn-loading">{t("schedule.loading")}</span>}
-        {notifications && <NotificationBell i18n={i18n} source={notifications} open={notifying} buttonRef={bell} onToggle={() => (notifying ? closeNotifications() : setNotifying(true))} />}
-        {imports && <button ref={importButton} type="button" className="wn-import-open" aria-haspopup="dialog" onClick={() => setImporting(true)}>{t("import.open")}</button>}
-        {logout}
-      </div>
       {error}
-      {notifications && notifying && <NotificationsPanel i18n={i18n} source={notifications} onClose={closeNotifications} />}
+      {reconnect}
       {imports && importing && <ImportDialog i18n={i18n} source={imports} onClose={closeImport} />}
       <ScheduleScreen i18n={i18n} data={state.data} today={today} widthPx={widthPx} heightPx={heightPx} onViewChange={source.setViewport}
-        editor={undo.history.editor} history={undo.history} records={source} {...(views ? { views } : {})} />
-    </main>
-  );
-}
-
-/** Connexion OIDC impossible (state invalide, fournisseur injoignable, échange refusé) : message et nouvel essai. */
-export function AuthFailure({ i18n, onRetry }: { i18n: I18n; onRetry: () => void }) {
-  return (
-    <main className="wn-schedule-container">
-      <h1 className="wn-visually-hidden">{i18n._("app.title")}</h1>
-      <div role="alert" className="wn-error">{i18n._("auth.error")}</div>
-      <button type="button" onClick={onRetry}>{i18n._("auth.retry")}</button>
+        {...(readOnly ? {} : { editor: undo.history.editor, history: undo.history, records: source })} {...(views ? { views } : {})}
+        heading={title}
+        actions={(
+          <div className="wn-statusbar">
+            {status}
+            {state.loading && <span className="wn-loading">{t("schedule.loading")}</span>}
+            {imports && <button ref={importButton} type="button" className="wn-import-open" aria-haspopup="dialog" onClick={() => setImporting(true)}>{t("import.open")}</button>}
+          </div>
+        )} />
     </main>
   );
 }

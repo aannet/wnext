@@ -16,6 +16,19 @@ Une seconde pile sur les mêmes ports est refusée au démarrage (« le port ...
 
 Piles parallèles (une par outil) : `WNEXT_DEV_API_PORT`, `WNEXT_DEV_PG_PORT`, `WNEXT_DEV_PG_DIR`. Convention du dépôt : schemathesis 3200 / 54349, charge 3300 / 54359.
 
+## Recette avec connexion (portail WNEXT, « Bonjour Alec »)
+
+```
+npm run dev:stack -- --oidc                       # Postgres, migrations, jeu d'essai, fournisseur OIDC local :3010, API :3000 en AUTH_MODE=oidc
+VITE_AUTH_MODE=oidc npm run dev -w @wnext/web     # écran sur http://localhost:5173/
+```
+
+1. Ouvrir `http://localhost:5173/` : le portail de connexion WNEXT s'affiche (aucune redirection automatique).
+2. « Se connecter » mène à la page de choix du fournisseur local (aucun mot de passe, développement seulement) : choisir **Alec** (owner du compte « WNEXT Dev », sujet `dev-alec`, e-mail `alec@wnext.test`, sans personne liée).
+3. Retour sur le planning : « Bonjour Alec » à droite de l'en-tête. Le menu de l'avatar propose Déconnexion, qui ramène au portail.
+
+Les autres comptes du jeu d'essai (`DEV_USERS` de `scripts/dev-seed.mjs`) servent à voir les droits par rôle : **Admin Dev** (admin : Réglages et Importer visibles), **Membre Dev** (member : ni Réglages ni Importer, planning en lecture seule). Le compte Alec est ajouté à chaque démarrage de `dev:stack`, y compris sur une base `.dev-pg/` semée avant ce lot. Le mode par défaut des tests reste `dev` (en-têtes `x-dev-*`, identité `VITE_DEV_*` = Admin Dev) ; `?demo=1` ouvre le planning sans API ni connexion, en tant que « Alec » fictif.
+
 ## API seule contre un Postgres existant
 
 ```

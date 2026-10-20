@@ -118,6 +118,21 @@ describe("session OIDC", () => {
     expect(h.state.tokenCalls[0]!.get("code_verifier")).toMatch(/^[A-Za-z0-9_-]{43,128}$/);
   });
 
+  it("restore() : sans session, aucune redirection (l'écran de connexion s'affiche) ; login() lance le flux ; retour et reprise inchangés", async () => {
+    const h = harness();
+    expect(await createOidcSession(CONFIG, h.deps).restore()).toBe("unauthenticated");
+    expect(h.state.navigations).toEqual([]);
+    const s = createOidcSession(CONFIG, h.deps);
+    await s.login(); // bouton « Se connecter »
+    expect(new URL(h.state.navigations[0]!).searchParams.get("code_challenge_method")).toBe("S256");
+    h.comeBack();
+    const back = createOidcSession(CONFIG, h.deps);
+    expect(await back.restore()).toBe("authenticated");
+    expect(h.state.url).toBe("http://localhost:5173/?lang=en");
+    expect(await createOidcSession(CONFIG, h.deps).restore()).toBe("authenticated"); // rechargement : refresh_token
+    expect(h.state.navigations).toHaveLength(1);
+  });
+
   it("state invalide : rejeté, aucun échange de code, URL nettoyée", async () => {
     const h = harness();
     await createOidcSession(CONFIG, h.deps).start();
