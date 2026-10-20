@@ -4,6 +4,8 @@
 //  * Les séries répétées sont développées dans la fenêtre (expandOccurrences) ; clé d'un bloc = « allocation:rang »,
 //    stable d'un rendu à l'autre (recyclage des nœuds).
 //  * Le texte d'un bloc est une donnée (nom du projet), pas une chaîne d'interface.
+//  * Construit par tranches au défilement continu : regroupement par personne mis en cache par snapshot, allocations
+//    simples hors fenêtre écartées avant tout calcul de dates.
 import type { ScheduleResponse } from "@wnext/contracts";
 import { blockFraction, expandOccurrences, layoutRow, type LayoutBlock } from "@wnext/engine";
 
@@ -29,15 +31,27 @@ export interface GridRow { personId: string; name: string; top: number; heightPx
 
 export interface GridModel { from: string; to: string; pxPerDay: number; widthPx: number; heightPx: number; rows: GridRow[] }
 
+type Alloc = ScheduleResponse["allocations"][number];
+const grouped = new WeakMap<ScheduleResponse, Map<string, Alloc[]>>();
+function byPersonOf(s: ScheduleResponse): Map<string, Alloc[]> {
+  let m = grouped.get(s);
+  if (!m) {
+    m = new Map();
+    for (const a of s.allocations) (m.get(a.personId) ?? m.set(a.personId, []).get(a.personId)!).push(a);
+    grouped.set(s, m);
+  }
+  return m;
+}
+
 export function buildGrid(s: ScheduleResponse, range: { from: string; to: string }, pxPerDay: number): GridModel {
   const projects = new Map(s.projects.map((p) => [p.id, p]));
-  const byPerson = new Map<string, ScheduleResponse["allocations"]>();
-  for (const a of s.allocations) (byPerson.get(a.personId) ?? byPerson.set(a.personId, []).get(a.personId)!).push(a);
+  const byPerson = byPersonOf(s);
   let top = 0;
   const rows = s.people.map((p): GridRow => {
-    const source = new Map<string, ScheduleResponse["allocations"][number]>();
+    const source = new Map<string, Alloc>();
     const blocks: LayoutBlock[] = [];
     for (const a of byPerson.get(p.id) ?? []) {
+      if (a.repeatState === "none" && (a.startDate > range.to || a.endDate < range.from)) continue;
       for (const o of expandOccurrences(a, range.from, range.to)) {
         const key = `${a.id}:${o.index}`;
         source.set(key, a);

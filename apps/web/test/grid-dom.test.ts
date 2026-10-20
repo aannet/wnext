@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-// Rendu DOM de la grille (ADR-005 A2) : seules les lignes visibles existent, nœuds recyclés, écritures minimales.
+// Rendu DOM de la grille et de l'en-tête (ADR-005 A2) : seules les lignes, blocs et cellules visibles existent, nœuds
+// recyclés, écritures minimales.
 import { describe, expect, it } from "vitest";
 import type { GridModel, GridRow } from "../src/schedule/grid-model";
 import { createGridRenderer } from "../src/schedule/grid-dom";
+import { createHeaderRenderer } from "../src/schedule/grid-header";
 
 const U = 48;
 const row = (i: number, blocks: GridRow["blocks"] = [], heightPx = U): GridRow => ({ personId: String(i), name: `P${i}`, top: i * U, heightPx, overflow: heightPx > U, blocks });
@@ -51,6 +53,21 @@ describe("createGridRenderer", () => {
     expect(root.querySelector('[data-key="101:0"]')).toBeNull();
   });
 
+  it("horizontal : surface à la largeur de la piste, blocs décalés de l'origine, seuls ceux de [left, right] ont un nœud", () => {
+    const root = document.createElement("div");
+    const r = createGridRenderer(root);
+    const m = model(1, [blk("1:0", 0), blk("2:0", 500), blk("3:0", 2000)]);
+    r.render(m, 0, U, { surfaceWidth: 10_000, originX: 1000, left: 1400, right: 2000 });
+    expect((root.firstElementChild as HTMLElement).style.width).toBe("10000px");
+    expect([...root.querySelectorAll(".wn-block[data-key]")].map((e) => e.getAttribute("data-key"))).toEqual(["2:0"]);
+    expect((root.querySelector('[data-key="2:0"]') as HTMLElement).style.transform).toBe("translate(1500px, 0px)");
+    r.render(m, 0, U, { surfaceWidth: 10_000, originX: 1000, left: 2800, right: 3200 }); // défilement : 2:0 recyclé pour 3:0
+    expect([...root.querySelectorAll(".wn-block[data-key]")].map((e) => e.getAttribute("data-key"))).toEqual(["3:0"]);
+    expect(r.stats().blocksCreated).toBe(1);
+    r.render(m, 0, U, { surfaceWidth: 10_000, originX: 900, left: 2800, right: 3200 }); // piste allongée à gauche
+    expect((root.querySelector('[data-key="3:0"]') as HTMLElement).style.transform).toBe("translate(2900px, 0px)");
+  });
+
   it("ligne en débordement (> 100 %) marquée ; destroy vide le conteneur", () => {
     const root = document.createElement("div");
     const r = createGridRenderer(root);
@@ -59,6 +76,26 @@ describe("createGridRenderer", () => {
     r.render(m, 0, 2 * U);
     expect(root.querySelector("[role=row]")!.classList.contains("wn-overflow")).toBe(true);
     r.destroy();
+    expect(root.childElementCount).toBe(0);
+  });
+});
+
+describe("createHeaderRenderer", () => {
+  it("en-tête collé en haut, cellules de la fenêtre seulement, nœuds recyclés ; coin masqué aux lecteurs d'écran", () => {
+    const root = document.createElement("div");
+    const h = createHeaderRenderer(root, { heightPx: 32, gutterPx: 140 });
+    const items = (from: number, n: number) => Array.from({ length: n }, (_, i) => ({ from: `d${from + i}`, x: 140 + (from + i) * 10, w: 10, label: `L${from + i}` }));
+    h.render(items(0, 5), 1000);
+    const bar = root.firstElementChild as HTMLElement;
+    expect([bar.getAttribute("role"), bar.style.position, bar.style.width]).toEqual(["row", "sticky", "1000px"]);
+    expect(bar.querySelector(".wn-corner")!.getAttribute("aria-hidden")).toBe("true");
+    const cells = () => [...root.querySelectorAll("[role=columnheader]")].map((e) => [e.getAttribute("data-from"), e.textContent]);
+    expect(cells()[0]).toEqual(["d0", "L0"]);
+    for (let s = 1; s < 200; s++) h.render(items(s, 5), 3000);
+    expect(h.stats().cellsCreated).toBe(5);
+    expect(cells().sort()).toEqual([["d199", "L199"], ["d200", "L200"], ["d201", "L201"], ["d202", "L202"], ["d203", "L203"]]);
+    expect((root.querySelector('[data-from="d199"]') as HTMLElement).style.transform).toBe("translateX(2130px)");
+    h.destroy();
     expect(root.childElementCount).toBe(0);
   });
 });
