@@ -22,6 +22,7 @@ import {
 } from "@wnext/engine";
 import { diffBlocks, gestureBlockOf, patched, type Allocation, type EditError, type EditOutcome, type ScheduleEditor } from "../data/allocation-edits";
 import type { ScheduleSource } from "../data/schedule-source";
+import { executeRecordOp } from "./timeoff-flow";
 
 export type ExecOutcome = { ok: true; id?: string } | { ok: false; error: EditError; reason?: string };
 
@@ -171,10 +172,13 @@ export function createHistory(opts: HistoryOptions): History {
 }
 
 /**
- * Historique branché sur une source : lit l'état courant de son magasin (snapshot de la plage chargée). `connect` abonne
+ * Historique branché sur une source : lit l'état courant de son magasin (snapshot de la plage chargée) ; les opérations hors
+ * mise à jour d'allocation (congés, allocations créées ou supprimées par le report assisté BR-04) passent par ses écritures. `connect` abonne
  * l'historique aux changements étrangers de la source (invalidation ciblée) et rend le désabonnement (effet React).
  */
 export function historyForSource(source: ScheduleSource, opts: Omit<HistoryOptions, "editor" | "read"> = {}): { history: History; connect(): () => void } {
-  const history = createHistory({ ...opts, editor: source, read: (id) => source.getState().data?.allocations.find((a) => a.id === id) });
+  const history = createHistory({
+    execute: executeRecordOp(source), ...opts, editor: source, read: (id) => source.getState().data?.allocations.find((a) => a.id === id),
+  });
   return { history, connect: () => source.onForeignChange((kind, ids) => history.invalidate(kind, ids)) };
 }
