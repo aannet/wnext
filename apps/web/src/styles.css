@@ -8,8 +8,7 @@ body { margin: 16px; font: 13px system-ui, sans-serif; color: #1f2937; backgroun
 .wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; overflow: hidden; white-space: nowrap; color: #6b7280; border-left: 1px solid #f3f4f6; }
 .wn-grid { position: relative; border: 1px solid #e5e7eb; }
 .wn-row { contain: strict; border-bottom: 1px solid #f3f4f6; }
-.wn-row.wn-overflow { background: #fef2f2; }
-.wn-rowheader { position: sticky; left: 0; width: 140px; padding: 4px; background: #fff; z-index: 1; }
+.wn-rowheader { position: sticky; left: 0; box-sizing: border-box; width: 140px; height: 100%; padding: 4px; background: #fff; z-index: 1; }
 .wn-block { contain: strict; box-sizing: border-box; border-radius: 3px; padding: 2px 4px; overflow: hidden; white-space: nowrap; }
 .wn-statusbar { display: flex; gap: 12px; align-items: center; min-height: 20px; color: #6b7280; font-size: 12px; }
 .wn-realtime::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: #9ca3af; }

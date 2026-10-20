@@ -45,6 +45,8 @@ describe("createGridRenderer", () => {
     const el = root.querySelector('[data-key="100:0"]') as HTMLElement;
     expect([el.style.transform, el.style.width, el.style.height, el.getAttribute("role"), el.textContent])
       .toEqual(["translate(10px, 0px)", "20px", "24px", "gridcell", "Refonte"]);
+    // Origine explicite : sinon le bloc part de sa position statique, sous l'en-tête de ligne (décalé et rogné en bas).
+    expect([el.style.position, el.style.top, el.style.left]).toEqual(["absolute", "0px", "0px"]);
     expect(el.style.backgroundColor).not.toBe("");
     expect([el.style.backgroundColor, el.style.color]).toEqual(["rgb(59, 130, 246)", "rgb(0, 0, 0)"]); // noir : 5,7:1, blanc : 3,7:1
     const tentative = root.querySelector('[data-key="101:0"]') as HTMLElement;
@@ -72,13 +74,15 @@ describe("createGridRenderer", () => {
     expect((root.querySelector('[data-key="3:0"]') as HTMLElement).style.transform).toBe("translate(2900px, 0px)");
   });
 
-  it("ligne en débordement (> 100 %) marquée ; destroy vide le conteneur", () => {
+  it("ligne en débordement (> 100 %) : plus haute, mais pas colorée en entier (la surcharge se lit par cellule dans la bande) ; destroy vide le conteneur", () => {
     const root = document.createElement("div");
     const r = createGridRenderer(root);
     const m = model(2);
     m.rows[0] = row(0, [], 1.5 * U);
     r.render(m, 0, 2 * U);
-    expect(root.querySelector("[role=row]")!.classList.contains("wn-overflow")).toBe(true);
+    const el = root.querySelector("[role=row]") as HTMLElement;
+    expect(el.style.height).toBe(`${1.5 * U}px`);
+    expect(el.className).toBe("wn-row");
     r.destroy();
     expect(root.childElementCount).toBe(0);
   });

@@ -130,6 +130,8 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       ghost.className = "wn-ghost";
       ghost.setAttribute("aria-hidden", "true");
       ghost.style.position = "absolute";
+      ghost.style.top = "0";
+      ghost.style.left = "0";
       ghost.style.pointerEvents = "none";
     }
     if (ghost.parentNode !== host.surface) host.surface.appendChild(ghost);

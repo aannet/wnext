@@ -7,7 +7,9 @@
 //    (position du début du modèle sur la piste) et seuls ceux qui touchent [left, right] ont un nœud. Une ligne n'est
 //    revisitée que si son modèle, sa fenêtre horizontale ou son origine changent (l'appelant quantifie la fenêtre).
 //  * Bande de capacité : une cellule (un nœud, motif en dégradés CSS) par période du zoom, recyclée comme les blocs ; son
-//    libellé (aria-label et infobulle) vient de l'appelant, recalculé seulement si les heures changent.
+//    libellé (aria-label et infobulle) vient de l'appelant, recalculé seulement si les heures changent. La surcharge se lit
+//    là, par période ; la ligne n'est jamais colorée en entier (son débordement vaut pour toute la tranche chargée, des
+//    semaines hors de la vue, et la colorait même là où rien n'était planifié).
 //  * Édition (block-editor) : un bloc est focalisable (tabindex -1, la grille garde un seul arrêt de tabulation) ; blockAt
 //    retrouve le bloc et la ligne d'un nœud (ou d'une poignée posée dedans par l'éditeur).
 import { blockColors } from "./block-colors";
@@ -15,7 +17,7 @@ import { CAP_PX, visibleRows, type GridBlock, type GridCap, type GridModel, type
 
 interface BlockEl { el: HTMLDivElement; text: Text; v: Partial<GridBlock>; g: GridBlock | null; row: RowEl | null }
 interface CapEl { el: HTMLDivElement; v: Partial<GridCap>; y: number }
-interface RowEl { el: HTMLDivElement; header: HTMLDivElement; index: number; model: GridModel | null; span: string; blocks: Map<string, BlockEl>; caps: Map<string, CapEl>; top: number; h: number; overflow: boolean }
+interface RowEl { el: HTMLDivElement; header: HTMLDivElement; index: number; model: GridModel | null; span: string; blocks: Map<string, BlockEl>; caps: Map<string, CapEl>; top: number; h: number }
 
 /** Placement horizontal, en pixels de surface. Absent : surface à la largeur du modèle, aucun tri horizontal. */
 export interface Horizontal { surfaceWidth: number; originX: number; left: number; right: number }
@@ -80,7 +82,7 @@ export function createGridRenderer(root: HTMLElement, opts: GridRendererOptions 
     header.setAttribute("role", "rowheader");
     el.appendChild(header);
     surface.appendChild(el);
-    return { el, header, index: -1, model: null, span: "", blocks: new Map(), caps: new Map(), top: NaN, h: NaN, overflow: false };
+    return { el, header, index: -1, model: null, span: "", blocks: new Map(), caps: new Map(), top: NaN, h: NaN };
   };
   const releaseRow = (r: RowEl) => {
     for (const b of r.blocks.values()) releaseBlock(b);
@@ -102,6 +104,9 @@ export function createGridRenderer(root: HTMLElement, opts: GridRendererOptions 
       el.setAttribute("role", "gridcell");
       el.tabIndex = -1;
       el.style.position = "absolute";
+      // Origine explicite : sans top/left, un bloc prend sa position statique, sous l'en-tête de ligne (décalé de ~22 px).
+      el.style.top = "0";
+      el.style.left = "0";
       const text = document.createTextNode("");
       el.appendChild(text);
       const made: BlockEl = { el, text, v: {}, g: null, row: null };
@@ -190,7 +195,6 @@ export function createGridRenderer(root: HTMLElement, opts: GridRendererOptions 
     r.span = span;
     if (r.top !== row.top) { r.el.style.transform = `translateY(${row.top}px)`; r.top = row.top; }
     if (r.h !== row.heightPx) { r.el.style.height = `${row.heightPx}px`; r.h = row.heightPx; }
-    if (r.overflow !== row.overflow) { r.el.classList.toggle("wn-overflow", row.overflow); r.overflow = row.overflow; }
     if (r.header.textContent !== row.name) r.header.textContent = row.name;
     const shown = row.blocks.filter((b) => b.x + h.originX + b.w >= h.left && b.x + h.originX <= h.right);
     const keep = new Set(shown.map((b) => b.key));

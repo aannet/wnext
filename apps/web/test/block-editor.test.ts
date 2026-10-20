@@ -214,5 +214,7 @@ it("nombre de nœuds stable après plusieurs gestes validés (recyclage, un seul
   expect(h.commits).toHaveLength(14);
   expect(h.s.stats().nodes).toBe(nodes);
   expect(h.root.querySelectorAll(".wn-ghost")).toHaveLength(1);
+  const g = h.root.querySelector<HTMLElement>(".wn-ghost")!.style;
+  expect([g.top, g.left]).toEqual(["0px", "0px"]); // même origine que les blocs : seul le transform place le fantôme
   expect(h.root.querySelectorAll("[data-handle]")).toHaveLength(3);
 });
