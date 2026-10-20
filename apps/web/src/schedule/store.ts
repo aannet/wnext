@@ -145,6 +145,9 @@ export function rollbackOptimistic(s: ScheduleStore, mutationId: string): Schedu
 
 // ---------- lecture ----------
 
+// Ordre naturel des noms (« Personne 2 » avant « Personne 10 »).
+const byName = new Intl.Collator(undefined, { numeric: true });
+
 /**
  * Vue « réponse de Schedule » d'une fenêtre, pour réutiliser scheduleToEngineInput (capacité, utilisation, conflits).
  * Calculée localement : `changeCursor` et `page` n'y ont pas de sens (le curseur temps réel vit dans le client temps réel).
@@ -159,7 +162,7 @@ export function snapshot(s: ScheduleStore, from: string, to: string): ScheduleRe
     changeCursor: "0",
     page: { nextCursor: null, total: s.tables.people.size },
     account: s.account,
-    people: all("people").sort((a, b) => a.name.localeCompare(b.name) || a.id.length - b.id.length || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+    people: all("people").sort((a, b) => byName.compare(a.name, b.name) || a.id.length - b.id.length || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
     allocations,
     timeoffs: all("timeoffs").filter((t) => t.startDate <= to && t.endDate >= from),
     holidays: all("holidays").filter((h) => h.date >= from && h.date <= to),

@@ -43,6 +43,15 @@ describe("fusion des fenêtres", () => {
   });
 });
 
+describe("snapshot", () => {
+  it("personnes triées par nom en ordre naturel (« Personne 2 » avant « Personne 10 »), puis par id", () => {
+    const people = ["Personne 10", "Personne 2", "personne 1", "Personne 2"].map((n, i) => person(String(i + 1), 1, n));
+    const s = ingestSchedule(emptyStore(), page("2026-03-02", "2026-03-29", { people }));
+    expect(snapshot(s, "2026-03-02", "2026-03-29").people.map((p) => [p.name, p.id]))
+      .toEqual([["personne 1", "3"], ["Personne 2", "2"], ["Personne 2", "4"], ["Personne 10", "1"]]);
+  });
+});
+
 describe("flux temps réel", () => {
   const base = () => ingestSchedule(emptyStore(), page("2026-03-02", "2026-03-29", { allocations: [alloc("100", 2)] }));
 

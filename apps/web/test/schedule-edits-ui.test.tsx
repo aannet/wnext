@@ -90,6 +90,32 @@ describe("série : choix de portée", () => {
     expect(notice()).toBe("Modification enregistrée.");
   });
 
+  it("cette occurrence : après la découpe, le focus revient au bloc de l'occurrence (nouvelle clé), pas au document", async () => {
+    const src = createDemoSource(data([WEEKLY]));
+    mount(src.getState().data!, src);
+    drag(block("2:1"), DAY);
+    click("Cette occurrence");
+    await flush();
+    rerender(src.getState().data!, src); // le conteneur redonne les données à jour
+    await flush();
+    const at = document.activeElement as HTMLElement;
+    expect(at.classList.contains("wn-block")).toBe(true);
+    expect(at.getAttribute("data-key")).toMatch(/^demo-\d+:0$/);
+    expect(at.getAttribute("aria-label")).toBe("Refonte, du mar. 27 oct. au mer. 28 oct., 4 h par jour");
+  });
+
+  it("toute la série : le focus revient au bloc déplacé", async () => {
+    const src = createDemoSource(data([WEEKLY]));
+    mount(src.getState().data!, src);
+    drag(block("2:1"), DAY);
+    click("Toute la série");
+    await flush();
+    rerender(src.getState().data!, src);
+    await flush();
+    expect(document.activeElement).toBe(block("2:1"));
+    expect(block("2:1").getAttribute("aria-label")).toBe("Refonte, du mar. 27 oct. au mer. 28 oct., 4 h par jour, chaque semaine");
+  });
+
   it("toute la série : PATCH de la série entière", async () => {
     const ed = fakeEditor();
     mount(data([WEEKLY]), ed);
@@ -194,5 +220,16 @@ describe("démo locale (?demo=1)", () => {
     rerender(src.getState().data!, src);
     expect(src.getState().data!.allocations.find((a) => a.id === "1")).toMatchObject({ version: 3, startDate: "2026-10-23" });
     fetchSpy.mockRestore();
+  });
+
+  it("l'ordre des personnes ne change pas à la première écriture (données initiales déjà passées par le magasin)", async () => {
+    const d = data([alloc("1")]);
+    d.people.reverse(); // Bruno, Alice : ordre d'arrivée différent de l'ordre du magasin
+    const src = createDemoSource(d);
+    const names = () => src.getState().data!.people.map((p) => p.name);
+    const before = names();
+    expect(before).toEqual(["Alice", "Bruno"]);
+    await src.updateAllocation("1", { hoursPerDay: 6 });
+    expect(names()).toEqual(before);
   });
 });

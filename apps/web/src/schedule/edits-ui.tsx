@@ -26,7 +26,12 @@ const occurrenceAfter = (r: EditRequest): Allocation => patched({ ...r.allocatio
   personId: r.draft.personId, startDate: r.draft.startDate, endDate: r.draft.endDate, hoursPerDay: r.draft.hoursPerDay, percent: r.draft.percent,
 });
 
-export function useScheduleEdits(i18n: I18n, editor: ScheduleEditor | undefined, data: ScheduleResponse, focusKey: (key: string) => void): ScheduleEdits {
+/** Bloc à refocaliser après une écriture, par sa personne et ses dates (sa clé peut changer : occurrence découpée). */
+export type FocusTarget = Pick<GestureBlock, "personId" | "startDate" | "endDate">;
+
+export function useScheduleEdits(
+  i18n: I18n, editor: ScheduleEditor | undefined, data: ScheduleResponse, focusKey: (key: string, at?: FocusTarget) => void,
+): ScheduleEdits {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const [notice, setNotice] = useState("");
   const [choice, setChoice] = useState<Choice | null>(null);
@@ -58,11 +63,16 @@ export function useScheduleEdits(i18n: I18n, editor: ScheduleEditor | undefined,
     setChoice(null);
     c.done?.();
     const { req } = c;
-    setTimeout(() => focusKey(req.key), 0);
+    // Tout de suite (le bouton va disparaître) : le bloc d'origine, encore affiché. Différé, ce rappel passerait après
+    // l'écriture et ramènerait le focus sur la grille (la clé de l'occurrence découpée n'existe plus).
+    focusKey(req.key);
     if (kind === "cancel") { setNotice(t("schedule.edit.cancelled")); return; }
-    if (kind === "all") { await run(() => editor.updateAllocation(req.allocationId, req.patch), patched(req.allocation, req.patch)); return; }
-    const out = await run(() => editor.splitOccurrence(req.allocationId, req.occurrence!, req.occurrencePatch ?? {}), occurrenceAfter(req));
-    if (!out.ok && out.error === "SERIES_SPLIT_UNSUPPORTED") setChoice({ req, unsupported: out.reason ?? "other" });
+    const out = kind === "all"
+      ? await run(() => editor.updateAllocation(req.allocationId, req.patch), patched(req.allocation, req.patch))
+      : await run(() => editor.splitOccurrence(req.allocationId, req.occurrence!, req.occurrencePatch ?? {}), occurrenceAfter(req));
+    // Le nœud focalisé a pu être recyclé au nouveau rendu (et l'occurrence découpée change de clé) : on le retrouve par ses dates.
+    if (out.ok) focusKey(req.key, req.draft);
+    else if (kind === "one" && out.error === "SERIES_SPLIT_UNSUPPORTED") setChoice({ req, unsupported: out.reason ?? "other" });
   }
 
   const element = (

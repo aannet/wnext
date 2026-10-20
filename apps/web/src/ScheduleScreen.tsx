@@ -16,7 +16,7 @@ import type { MessageKey } from "./i18n";
 import { createBlockEditor } from "./schedule/block-editor";
 import { blockLabeler } from "./schedule/block-label";
 import { capacityLabeler } from "./schedule/capacity-label";
-import { useScheduleEdits } from "./schedule/edits-ui";
+import { useScheduleEdits, type FocusTarget } from "./schedule/edits-ui";
 import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
 
 export interface ScheduleScreenProps {
@@ -54,7 +54,23 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
   viewChange.current = onViewChange;
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
-  const focusKey = (key: string) => {
+  // Focus après une écriture : `at` (personne et dates du bloc tel qu'écrit) retrouve le bloc même si sa clé a changé
+  // (occurrence sortie d'une série : nouvelle allocation). Si les données à jour ne sont pas encore dessinées, la demande
+  // attend le prochain setData, une seule fois. Le focus parti hors de la grille n'est pas repris.
+  const pendingFocus = useRef<{ key: string; at: FocusTarget } | null>(null);
+  const focusAt = (key: string, at: FocusTarget): boolean => {
+    const grid = gridRef.current;
+    const hits = scroller.current?.host.model()?.rows.find((r) => r.personId === at.personId)?.blocks
+      .filter((b) => b.startDate === at.startDate && b.endDate === at.endDate) ?? [];
+    const hit = hits.find((b) => b.key === key) ?? hits[0];
+    const el = hit && grid?.querySelector<HTMLElement>(`.wn-block[data-key="${hit.key}"]`);
+    if (!grid || !el) return false;
+    const active = document.activeElement;
+    if (el !== active && (active === null || active === document.body || grid.contains(active))) el.focus({ preventScroll: true });
+    return true;
+  };
+  const focusKey = (key: string, at?: FocusTarget) => {
+    if (at) { if (!focusAt(key, at)) pendingFocus.current = { key, at }; return; }
     const grid = gridRef.current;
     const el = grid?.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`);
     (el ?? grid)?.focus({ preventScroll: true });
@@ -78,7 +94,12 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
     });
     return () => { blocks.destroy(); s.destroy(); scroller.current = null; };
   }, [today, i18n.locale]);
-  useEffect(() => { scroller.current?.setData(data); }, [data]);
+  useEffect(() => {
+    scroller.current?.setData(data);
+    const p = pendingFocus.current;
+    pendingFocus.current = null;
+    if (p) focusAt(p.key, p.at);
+  }, [data]);
   useEffect(() => { scroller.current?.resize(widthPx, heightPx); }, [widthPx, heightPx]);
 
   const zoomTo = (z: Zoom) => { scroller.current?.setZoom(z); setZoom(z); };

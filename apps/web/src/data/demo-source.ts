@@ -7,7 +7,9 @@ import type { ScheduleSource, ScheduleSourceState } from "./schedule-source";
 
 export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
   let store: ScheduleStore = ingestSchedule(emptyStore(), initial);
-  let state: ScheduleSourceState = { data: initial, loading: false, error: null, realtime: "stopped" };
+  // Données initiales déjà passées par le magasin : même ordre des personnes qu'après une écriture (sinon la grille se
+  // réordonne au premier geste).
+  let state: ScheduleSourceState = { data: snapshot(store, initial.window.from, initial.window.to), loading: false, error: null, realtime: "stopped" };
   const listeners = new Set<() => void>();
   let seq = 0;
   const changed = (): EditOutcome => {
