@@ -18,3 +18,17 @@ Ouvrir l'URL affichée par Vite. `npm run dev:stack -- --reset` repart d'une bas
 - `?demo=1` : démo locale sans API (`src/demo.ts`).
 - `?lang=en` : interface en anglais (français par défaut).
 - Touche `T` : retour à aujourd'hui.
+
+## Tests navigateur et banc
+
+Hors `make check` (Chromium réel, Playwright + axe-core, code dans `tests/browser/`). Une fois : `npx playwright install chromium` (sous Linux nu, `npx playwright install-deps chromium` demande `sudo`).
+
+```
+npm run test:browser    # rôles ARIA FR/EN, zooms, Aujourd'hui / T, molette, axe-core (serious/critical = échec)
+npm run bench:browser   # fps, durées d'image, long tasks, coût de buildGrid par zoom (démo 300 personnes, 1600 x 900)
+```
+
+- Vite est lancé par la configuration (`?demo=1`, port 5183 pour les tests, 5184 pour le banc) puis arrêté. Un seul worker, un seul navigateur : ne pas les lancer pendant un `make check` (mémoire).
+- Sorties ignorées par git dans `tests/browser/out/` : captures des 3 zooms (`screenshots/`, sans comparaison bloquante), violations axe (`axe-*.json`), résultats du banc (`bench.json`).
+- Banc : défilement horizontal programmé (1500 px/s, 5 s) puis vertical (3 s) par zoom. Objectif ADR-005 §8.4 : >= 55 fps médian. La VM WSL (rendu logiciel) n'est pas le poste de référence : les chiffres sont un plancher de régression, pas une validation.
+- CI : job `browser` séparé, non bloquant (`continue-on-error`).

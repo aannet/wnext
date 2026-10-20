@@ -46,3 +46,39 @@ jobs:
           npm run guard:test-weakening -- --base "origin/$BASE_REF"
           npm run guard:pr-size -- --base "origin/$BASE_REF"
           npm run guard:br-coverage
+
+  # Tests navigateur (Playwright, axe-core) et banc fps : informatifs, jamais bloquants (npm run test:browser / bench:browser).
+  browser:
+    name: Navigateur (non bloquant)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Version de Playwright
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache des navigateurs Playwright
+        id: pw-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - run: npx playwright install --with-deps chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+      - run: npx playwright install-deps chromium
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+      - run: npm run test:browser
+      - run: npm run bench:browser
+        if: always()
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: tests-navigateur
+          path: tests/browser/out/
+          if-no-files-found: ignore

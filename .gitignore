@@ -11,6 +11,11 @@ spikes/orchestrateur/tmp-wt/
 dist/
 coverage/
 
+# Tests navigateur (npm run test:browser, bench:browser) : captures, rapports
+tests/browser/out/
+test-results/
+playwright-report/
+
 # Stryker (mutation, npm run mutation -w @wnext/engine)
 .stryker-tmp/
 reports/mutation/
