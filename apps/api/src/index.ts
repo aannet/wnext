@@ -25,3 +25,4 @@ export * from "./project-structure";
 export * from "./logged-time";
 export * from "./saved-views";
 export * from "./notifications";
+export * from "./me";

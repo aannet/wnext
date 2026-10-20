@@ -15,6 +15,7 @@ import {
 import { runImport } from "./imports";
 import { getNotificationPreferences, listNotifications, markAllNotificationsRead, markNotificationRead, recordConflict, updateNotificationPreferences } from "./notifications";
 import { createSavedView, deleteSavedView, getSavedView, listSavedViews, updateSavedView } from "./saved-views";
+import { getMe } from "./me";
 import { getSchedule } from "./schedule";
 import { addManyToTeam, addToTeam, getTeamRemovalSummary, listTeam, removeFromTeam } from "./team";
 import { createLoggedTime, deleteLoggedTime, listLoggedTime, prefillLoggedTime, submitLoggedTime, unlockLoggedTime, updateLoggedTime } from "./logged-time";
@@ -212,6 +213,11 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
   try {
     const url = new URL(req.url, "http://localhost");
     if (req.method === "GET" && url.pathname === "/api/v1/health") return { status: 200, body: { status: "ok", version: API_VERSION } satisfies HealthResponse };
+    if (req.method === "GET" && url.pathname === "/api/v1/me") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      return { status: 200, body: await getMe(deps.db, ctx) };
+    }
     if (req.method === "POST" && url.pathname === REALTIME_TICKET_PATH && deps.tickets) {
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId);

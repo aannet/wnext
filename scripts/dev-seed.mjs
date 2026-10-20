@@ -10,6 +10,8 @@ export const DEV_IDS = { accountId: "1", userId: "1", role: "admin" };
 export const DEV_USERS = [
   { id: "1", subject: "dev-admin", email: "admin@wnext.test", name: "Admin Dev", role: "admin" },
   { id: "2", subject: "dev-member", email: "membre@wnext.test", name: "Membre Dev", role: "member" },
+  // Compte de recette d'Alec (owner, sans personne liée) : se connecte via le fournisseur local, « Bonjour Alec » (lot L-B).
+  { id: "3", subject: "dev-alec", email: "alec@wnext.test", name: "Alec", role: "owner" },
 ];
 
 // Identités OIDC : jouées à chaque démarrage (y compris sur une base semée avant l'OIDC), sans effet si tout est en place.
