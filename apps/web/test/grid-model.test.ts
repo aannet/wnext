@@ -33,6 +33,8 @@ describe("buildGrid", () => {
   it("série hebdomadaire : une occurrence par semaine dans la fenêtre, clé stable par rang", () => {
     const g = buildGrid(snap([person("1")], [alloc("100", { endDate: "2026-03-02", repeatState: "weekly", repeatEndDate: "2026-12-31" })]), range, 10);
     expect(g.rows[0]!.blocks.map((b) => [b.key, b.x])).toEqual([["100:0", 0], ["100:1", 70]]);
+    // Dates de chaque occurrence et quantité, pour le libellé accessible.
+    expect(g.rows[0]!.blocks[1]).toMatchObject({ startDate: "2026-03-09", endDate: "2026-03-09", hoursPerDay: 4, percent: null, repeat: "weekly" });
   });
 
   it("empilement > 100 % : la ligne grandit, débordement signalé ; tops cumulés", () => {

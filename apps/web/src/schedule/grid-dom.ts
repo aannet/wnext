@@ -42,6 +42,8 @@ export interface GridRendererOptions {
   overscan?: number;
   /** Libellé accessible (aria-label et infobulle) d'une cellule de capacité ; absent : aucun libellé. */
   capLabel?(c: GridCap): string;
+  /** Libellé accessible d'un bloc (projet, dates, quantité) ; recalculé seulement si l'un d'eux change. */
+  blockLabel?(b: GridBlock): string;
 }
 
 /** Fond d'une cellule de capacité : confirmé (plein), tentatif (hachuré), zone de dépassement (hachures), ligne de capacité. */
@@ -183,6 +185,8 @@ export function createGridRenderer(root: HTMLElement, opts: GridRendererOptions 
     }
     if (v.label !== g.label) b.text.data = g.label;
     if (v.tentative !== g.tentative) b.el.classList.toggle("wn-tentative", g.tentative);
+    if (opts.blockLabel && (v.label !== g.label || v.startDate !== g.startDate || v.endDate !== g.endDate || v.hoursPerDay !== g.hoursPerDay
+      || v.percent !== g.percent || v.tentative !== g.tentative || v.repeat !== g.repeat)) b.el.setAttribute("aria-label", opts.blockLabel(g));
     b.v = { ...g, x };
   };
 

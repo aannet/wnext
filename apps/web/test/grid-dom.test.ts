@@ -13,7 +13,8 @@ const model = (n: number, first: GridRow["blocks"] = []): GridModel => ({
   rows: Array.from({ length: n }, (_, i) => row(i, i === 0 ? first : [])),
 });
 const blk = (key: string, x: number, over: Partial<GridRow["blocks"][number]> = {}) => ({
-  key, allocationId: key.split(":")[0]!, x, y: 0, w: 20, h: 24, color: "#3B82F6", label: "Refonte", tentative: false, clippedStart: false, clippedEnd: false, ...over,
+  key, allocationId: key.split(":")[0]!, x, y: 0, w: 20, h: 24, color: "#3B82F6", label: "Refonte", tentative: false, clippedStart: false, clippedEnd: false,
+  startDate: "2026-03-03", endDate: "2026-03-04", hoursPerDay: 4, percent: null, repeat: "none" as const, ...over,
 });
 
 describe("createGridRenderer", () => {
@@ -57,6 +58,20 @@ describe("createGridRenderer", () => {
     expect(root.querySelector('[data-key="100:0"]')).toBe(el);
     expect(el.style.transform).toBe("translate(50px, 0px)");
     expect(root.querySelector('[data-key="101:0"]')).toBeNull();
+  });
+
+  it("libellé accessible d'un bloc : posé à la création, recalculé seulement si projet, dates ou quantité changent", () => {
+    const root = document.createElement("div");
+    const calls: string[] = [];
+    const r = createGridRenderer(root, { blockLabel: (b) => { calls.push(b.key); return `${b.label} ${b.startDate} ${b.endDate} ${b.hoursPerDay}`; } });
+    r.render(model(2, [blk("100:0", 10)]), 0, 2 * U);
+    const el = root.querySelector('[data-key="100:0"]')!;
+    expect(el.getAttribute("aria-label")).toBe("Refonte 2026-03-03 2026-03-04 4");
+    r.render(model(2, [blk("100:0", 50)]), 0, 2 * U); // déplacé en pixels seulement (nouvelle tranche) : libellé inchangé
+    expect(calls).toEqual(["100:0"]);
+    r.render(model(2, [blk("100:0", 50, { endDate: "2026-03-06", hoursPerDay: 6 })]), 0, 2 * U);
+    expect(el.getAttribute("aria-label")).toBe("Refonte 2026-03-03 2026-03-06 6");
+    expect(calls).toHaveLength(2);
   });
 
   it("horizontal : surface à la largeur de la piste, blocs décalés de l'origine, seuls ceux de [left, right] ont un nœud", () => {

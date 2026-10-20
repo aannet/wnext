@@ -33,6 +33,12 @@ export interface GridBlock {
   tentative: boolean;
   clippedStart: boolean;
   clippedEnd: boolean;
+  /** Dates de l'occurrence (non rognées), quantité et répétition : libellé accessible du bloc. */
+  startDate: string;
+  endDate: string;
+  hoursPerDay: number | null;
+  percent: number | null;
+  repeat: "none" | "daily" | "weekly" | "monthly";
 }
 
 /**
@@ -135,13 +141,13 @@ export function buildGrid(s: ScheduleResponse, range: { from: string; to: string
   const caps = capCells(s, range, zoom, pxPerDay);
   let top = 0;
   const rows = s.people.map((p): GridRow => {
-    const source = new Map<string, Alloc>();
+    const source = new Map<string, { a: Alloc; startDate: string; endDate: string }>();
     const blocks: LayoutBlock[] = [];
     for (const a of byPerson.get(p.id) ?? []) {
       if (a.repeatState === "none" && (a.startDate > range.to || a.endDate < range.from)) continue;
       for (const o of expandOccurrences(a, range.from, range.to)) {
         const key = `${a.id}:${o.index}`;
-        source.set(key, a);
+        source.set(key, { a, startDate: o.startDate, endDate: o.endDate });
         blocks.push({ id: key, startDate: o.startDate, endDate: o.endDate, fraction: blockFraction(a, p.workDaysHours) });
       }
     }
@@ -150,11 +156,13 @@ export function buildGrid(s: ScheduleResponse, range: { from: string; to: string
     const row: GridRow = {
       personId: p.id, name: p.name, top, heightPx: blocksPx + CAP_PX, overflow: lay.overflow, capY: blocksPx, cells: caps.get(p.id) ?? [],
       blocks: lay.placed.map((b) => {
-        const a = source.get(b.id)!;
+        const { a, startDate, endDate } = source.get(b.id)!;
         const pr = projects.get(a.projectId);
         return {
           key: b.id, allocationId: a.id, x: b.col * pxPerDay, w: b.span * pxPerDay, y: b.y * ROW_UNIT_PX, h: b.h * ROW_UNIT_PX,
           color: pr?.color ?? null, label: pr?.name ?? "", tentative: a.status === "tentative", clippedStart: b.clippedStart, clippedEnd: b.clippedEnd,
+          startDate, endDate, hoursPerDay: a.mode === "hours" ? a.hoursPerDay : null, percent: a.mode === "percentage" ? a.percent : null,
+          repeat: a.repeatState,
         };
       }),
     };

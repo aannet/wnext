@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { ScheduleEditor } from "./data/allocation-edits";
 import type { MessageKey } from "./i18n";
 import { createBlockEditor } from "./schedule/block-editor";
+import { blockLabeler } from "./schedule/block-label";
 import { capacityLabeler } from "./schedule/capacity-label";
 import { useScheduleEdits } from "./schedule/edits-ui";
 import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
@@ -68,7 +69,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
     const s = createScroller({
       root: gridRef.current!, data, today, widthPx, heightPx, clock, zoom: zoomRef.current, label: headerFormatter(i18n.locale),
       onViewChange: (v) => viewChange.current?.(v),
-      capacityLabel: capacityLabeler(i18n),
+      capacityLabel: capacityLabeler(i18n), blockLabel: blockLabeler(i18n),
     });
     scroller.current = s;
     const blocks = createBlockEditor({

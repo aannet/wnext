@@ -19,7 +19,7 @@ import {
 import type { EditHost } from "./block-editor";
 import { createGridRenderer } from "./grid-dom";
 import { createHeaderRenderer, type HeaderItem } from "./grid-header";
-import { buildGrid, type GridCap, type GridModel } from "./grid-model";
+import { buildGrid, type GridBlock, type GridCap, type GridModel } from "./grid-model";
 
 /** Largeur de la colonne des noms de personnes (gouttière collée à gauche). */
 export const GUTTER_PX = 140;
@@ -59,6 +59,8 @@ export interface ScrollerOptions {
   build?: typeof buildGrid;
   /** Libellé accessible d'une cellule de capacité, avec la période déjà formatée (catalogue i18n). */
   capacityLabel?(period: string, c: GridCap): string;
+  /** Libellé accessible d'un bloc (catalogue i18n). */
+  blockLabel?(b: GridBlock): string;
 }
 
 export interface Scroller {
@@ -101,7 +103,10 @@ export function createScroller(o: ScrollerOptions): Scroller {
   const smoothMs = o.smoothMs ?? 300;
   const reduced = o.reducedMotion ?? prefersReducedMotion;
   const header = createHeaderRenderer(root, { heightPx: HEADER_PX, gutterPx: GUTTER_PX });
-  const grid = createGridRenderer(root, o.capacityLabel ? { capLabel: (c) => o.capacityLabel!(label(c), c) } : {});
+  const grid = createGridRenderer(root, {
+    ...(o.capacityLabel ? { capLabel: (c: GridCap) => o.capacityLabel!(label(c), c) } : {}),
+    ...(o.blockLabel ? { blockLabel: o.blockLabel } : {}),
+  });
 
   let data = o.data;
   let zoom: Zoom = o.zoom ?? "day";
