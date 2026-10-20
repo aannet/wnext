@@ -1,7 +1,14 @@
 // Conversions des gestes vers le contrat (ADR-002 §5) : charge dans `load`, découpe sans répétition, patch cumulé.
 import type { ScheduleResponse } from "@wnext/contracts";
-import { describe, expect, it } from "vitest";
+import * as engine from "@wnext/engine";
+import { describe, expect, it, vi } from "vitest";
 import { diffBlocks, gestureBlockOf, localSplit, toApiPatch, toSplitBody } from "../src/data/allocation-edits";
+
+// splitSeries reste le vrai ; seuls les tests de refus typés lui substituent une erreur.
+vi.mock("@wnext/engine", async (orig) => {
+  const real = await orig<typeof import("@wnext/engine")>();
+  return { ...real, splitSeries: vi.fn(real.splitSeries) };
+});
 
 const alloc = (id: string, over: Partial<ScheduleResponse["allocations"][number]> = {}) => ({
   id, version: 3, personId: "1", projectId: "1", phaseId: null, taskId: null, groupId: null, name: null, notes: null,
@@ -28,5 +35,17 @@ describe("localSplit", () => {
   });
   it("allocation non répétée : NOT_A_SERIES", () => {
     expect(localSplit(alloc("1"), 0, {}, String)).toEqual({ ok: false, error: "NOT_A_SERIES" });
+  });
+  it("refus du moteur lus sur le code typé (SeriesSplitError), pas sur le texte du message ; autre erreur relancée", () => {
+    const fail = (e: Error) => vi.mocked(engine.splitSeries).mockImplementationOnce(() => { throw e; });
+    const typed = (code: engine.SeriesSplitCode) => Object.assign(new engine.SeriesSplitError(code, "x"), { message: "texte libre" });
+    fail(typed("SERIES_OVERLAPPING"));
+    expect(localSplit(weekly, 0, {}, String)).toEqual({ ok: false, error: "SERIES_SPLIT_UNSUPPORTED", reason: "overlapping" });
+    fail(typed("SERIES_MONTHLY_CLAMPED"));
+    expect(localSplit(weekly, 0, {}, String)).toEqual({ ok: false, error: "SERIES_SPLIT_UNSUPPORTED", reason: "monthly_clamped" });
+    fail(typed("OCCURRENCE_NOT_FOUND"));
+    expect(localSplit(weekly, 0, {}, String)).toEqual({ ok: false, error: "OCCURRENCE_NOT_FOUND" });
+    fail(new Error("SERIES_OVERLAPPING: imitation"));
+    expect(() => localSplit(weekly, 0, {}, String)).toThrow("imitation");
   });
 });

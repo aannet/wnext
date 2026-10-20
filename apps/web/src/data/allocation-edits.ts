@@ -4,7 +4,7 @@
 //  * « Cette occurrence » (BR-25, décision 10 : découpe, pas d'exceptions) : les trois morceaux de splitSeries du moteur,
 //    l'occurrence et la suite portant des ids temporaires jusqu'à la réponse.
 import type { ApiError, ScheduleResponse } from "@wnext/contracts";
-import { splitSeries, type BlockPatch, type GestureBlock } from "@wnext/engine";
+import { SeriesSplitError, splitSeries, type BlockPatch, type GestureBlock, type SeriesSplitCode } from "@wnext/engine";
 import type { AllocationPatch, AllocationSplit } from "../api/client.gen";
 
 export type Allocation = ScheduleResponse["allocations"][number];
@@ -72,16 +72,17 @@ export interface LocalSplit {
   after: Allocation | null;
 }
 
-const REASONS: Record<string, string> = { SERIES_OVERLAPPING: "overlapping", SERIES_MONTHLY_CLAMPED: "monthly_clamped" };
+const REASONS: Partial<Record<SeriesSplitCode, string>> = { SERIES_OVERLAPPING: "overlapping", SERIES_MONTHLY_CLAMPED: "monthly_clamped" };
 
-/** Découpe locale (optimiste) ; une découpe que le moteur refuse rend le code du contrat et sa raison. */
+/** Découpe locale (optimiste) ; un refus typé du moteur (SeriesSplitError) rend le code du contrat et sa raison. */
 export function localSplit(a: Allocation, index: number, p: BlockPatch, tempId: (n: 1 | 2) => string):
   { ok: true; split: LocalSplit } | { ok: false; error: EditError; reason?: string } {
   let s: ReturnType<typeof splitSeries<Allocation>>;
   try {
     s = splitSeries(a, index);
   } catch (err) {
-    const tag = String((err as Error).message).split(":")[0]!;
+    if (!(err instanceof SeriesSplitError)) throw err;
+    const tag = err.code;
     if (tag === "NOT_A_SERIES" || tag === "OCCURRENCE_NOT_FOUND") return { ok: false, error: tag };
     return { ok: false, error: "SERIES_SPLIT_UNSUPPORTED", reason: REASONS[tag] };
   }

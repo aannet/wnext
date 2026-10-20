@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { AllocationCreate, AllocationGroup, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, AllocationSplitResult, OccurrencePatch, PersonAllocationListQuery, ProjectAllocationListQuery } from "@wnext/contracts";
-import { expandOccurrences, seriesEnd, splitSeries, type RepeatInput, type SeriesSplit } from "@wnext/engine";
+import { SeriesSplitError, expandOccurrences, seriesEnd, splitSeries, type RepeatInput, type SeriesSplit } from "@wnext/engine";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { assertWriter, day, idParam, invalid, isId, lockAndCheck as lockRow, notFound } from "./write";
@@ -81,7 +81,7 @@ async function applyPatch(tx: Queryable, ctx: RequestContext, cur: Row, patch: A
   return toScheduleAllocation(rows[0]!);
 }
 
-/** Insère une ligne nouvelle (version 1) avec les valeurs de `cur` modifiées par `patch` ; garde le `group_id` de `cur`. */
+/** Insère une ligne nouvelle (version 1), hors de tout groupe, avec les valeurs de `cur` modifiées par `patch`. */
 async function insertPatched(tx: Queryable, ctx: RequestContext, cur: Row, patch: AllocationPatch | OccurrencePatch): Promise<ScheduleAllocation> {
   const values = await resolvePatch(tx, ctx, cur, patch);
   const { rows } = await tx.query<Row>(
@@ -90,7 +90,7 @@ async function insertPatched(tx: Queryable, ctx: RequestContext, cur: Row, patch
      VALUES ($1::bigint, $2::uuid, $3::bigint, $4::bigint, $5::bigint, $6::bigint, $7, $8, $9::date, $10::date,
              $11::allocation_mode, $12::numeric, $13::numeric, $14::allocation_status, $15::boolean, $16::smallint, $17::repeat_state_t, $18::date)
      RETURNING ${ALLOCATION_COLUMNS}`,
-    [ctx.accountId, cur.group_id ?? null, ...values],
+    [ctx.accountId, null, ...values],
   );
   return toScheduleAllocation(rows[0]!);
 }
@@ -122,7 +122,9 @@ async function resolvePatch(tx: Queryable, ctx: RequestContext, cur: Row, input:
     if (endDate < startDate) throw invalid("endDate");
     if (repeatState === "none" ? repeatEnd !== null : repeatEnd === null || repeatEnd < endDate) throw invalid("repeatEndDate");
 
-    await assertReferences(tx, ctx.accountId, { personId: has("personId") ? personId : undefined, projectId, phaseId, taskId });
+    // Patch vide : les références sont celles de la ligne verrouillée, déjà garanties par les FK composites (compte, projet).
+    const empty = Object.values(patch).every((v) => v === undefined);
+    if (!empty) await assertReferences(tx, ctx.accountId, { personId: has("personId") ? personId : undefined, projectId, phaseId, taskId });
 
     const mode = patch.load?.mode ?? cur.mode;
     const hours = patch.load ? (patch.load.mode === "hours" ? patch.load.hoursPerDay : null) : cur.hours_per_day === null ? null : Number(cur.hours_per_day);
@@ -149,15 +151,19 @@ export async function deleteAllocation(db: Db, ctx: RequestContext, id: string, 
 // --- « Cette occurrence » (BR-25, décision 10 du registre) -------------------------------------------------------------
 // Pas de table d'exceptions : la série est découpée par splitSeries de @wnext/engine (aucune règle de découpe dupliquée ici).
 // « Avant » réécrit la ligne d'origine (ou la supprime pour l'occurrence 0) ; l'occurrence et « après » sont insérées.
+// Groupes (BR-26, une ligne par personne dans un groupe) : seule « avant », la ligne d'origine qui garde son id, reste dans
+// le groupe. L'occurrence et « après » sont insérées avec group_id NULL, y compris quand l'occurrence 0 supprime la ligne
+// d'origine. Sinon une édition « tous » appliquerait un même patch à plusieurs morceaux de la même personne (400 sur
+// l'occurrence isolée, ou morceaux remis aux mêmes dates, découpe défaite).
 
-/** Les refus du moteur portent leur code en préfixe du message ; on les traduit en codes stables du contrat. */
+/** Les refus typés du moteur (SeriesSplitError) sont traduits en codes stables du contrat ; le reste est relancé tel quel. */
 function splitFailure(e: unknown, occurrenceDate: string): unknown {
-  const code = e instanceof Error ? e.message.split(":")[0] : "";
+  if (!(e instanceof SeriesSplitError)) return e;
+  const code = e.code;
   if (code === "NOT_A_SERIES") return new ApiFailure("NOT_A_SERIES");
   if (code === "OCCURRENCE_NOT_FOUND") return new ApiFailure("OCCURRENCE_NOT_FOUND", { occurrenceDate });
   if (code === "SERIES_OVERLAPPING") return new ApiFailure("SERIES_SPLIT_UNSUPPORTED", { reason: "overlapping" });
-  if (code === "SERIES_MONTHLY_CLAMPED") return new ApiFailure("SERIES_SPLIT_UNSUPPORTED", { reason: "monthly_clamped" });
-  return e;
+  return new ApiFailure("SERIES_SPLIT_UNSUPPORTED", { reason: "monthly_clamped" });
 }
 
 export async function splitAllocation(db: Db, ctx: RequestContext, id: string, expectedVersion: number, body: AllocationSplit): Promise<AllocationSplitResult> {
@@ -172,10 +178,10 @@ export async function splitAllocation(db: Db, ctx: RequestContext, id: string, e
     const d = body.occurrenceDate;
     let parts: SeriesSplit<RepeatInput>;
     try {
-      if (series.repeatState === "none") throw new Error("NOT_A_SERIES");
+      if (series.repeatState === "none") throw new SeriesSplitError("NOT_A_SERIES", "allocation non répétée");
       // Date -> rang : l'occurrence qui COMMENCE ce jour-là (fenêtre d'un jour, hors série = aucune).
       const hit = d >= series.startDate && d <= seriesEnd(series) ? expandOccurrences(series, d, d).find((o) => o.startDate === d) : undefined;
-      if (!hit) throw new Error("OCCURRENCE_NOT_FOUND");
+      if (!hit) throw new SeriesSplitError("OCCURRENCE_NOT_FOUND", d);
       parts = splitSeries(series, hit.index);
     } catch (e) {
       throw splitFailure(e, d);

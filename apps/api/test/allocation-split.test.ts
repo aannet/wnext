@@ -105,12 +105,44 @@ describe("POST /allocations/{id}/split : découpe", () => {
     expect(await count()).toBe(2);
   });
 
-  it("le groupId de la série est conservé par les morceaux", async () => {
+  it("avant-dernière occurrence d'une série qui finit au milieu d'un bloc : « après » devient l'occurrence tronquée, non répétée", async () => {
+    // Lundi-mercredi, fin de série le mardi 17/03 : la dernière occurrence (16-17/03) est tronquée.
+    const a = await create({ ...weekly, endDate: "2026-03-04", repeatEndDate: "2026-03-17" });
+    const r = await ok(a, { occurrenceDate: "2026-03-09" });
+    expect(pick(r.before)).toEqual({ startDate: "2026-03-02", endDate: "2026-03-04", repeatState: "weekly", repeatEndDate: "2026-03-08" });
+    expect(pick(r.occurrence)).toEqual({ startDate: "2026-03-09", endDate: "2026-03-11", repeatState: "none", repeatEndDate: null });
+    expect(pick(r.after)).toEqual({ startDate: "2026-03-16", endDate: "2026-03-17", repeatState: "none", repeatEndDate: null });
+    expect(await count()).toBe(3);
+  });
+
+  it("groupe (BR-26) : seule la ligne d'origine reste dans le groupe ; une édition « tous » ne touche pas les morceaux détachés", async () => {
     const g = await send("pm", "POST", "/api/v1/allocation-groups", { ...weekly, personId: undefined, members: [{ personId: "1" }, { personId: "2" }] });
     expect(g.status).toBe(201);
+    const [first, second] = (g.body as { items: unknown[] }).items.map((x) => ScheduleAllocation.parse(x));
+    const r = await ok(first!, { occurrenceDate: "2026-03-09" });
+    expect([r.before!.groupId, r.occurrence!.groupId, r.after!.groupId]).toEqual([first!.groupId, null, null]);
+    const u = await send("pm", "PATCH", `/api/v1/allocations/${second!.id}/group`, { name: "tous", endDate: "2026-03-04" }, second!.version);
+    expect(u.status, JSON.stringify(u.body)).toBe(200);
+    expect((u.body as { items: Alloc[] }).items.map((x) => x.id).sort()).toEqual([first!.id, second!.id].sort());
+    for (const x of [r.occurrence!, r.after!]) {
+      expect((await send("member", "GET", `/api/v1/allocations/${x.id}`)).body).toMatchObject({ ...pick(x), name: null, version: 1, groupId: null });
+    }
+  });
+
+  it("groupe, occurrence 0 : la ligne d'origine est supprimée et « après » ne reprend pas le groupe", async () => {
+    const g = await send("pm", "POST", "/api/v1/allocation-groups", { ...weekly, personId: undefined, members: [{ personId: "1" }, { personId: "2" }] });
     const first = ScheduleAllocation.parse((g.body as { items: unknown[] }).items[0]);
-    const r = await ok(first, { occurrenceDate: "2026-03-09" });
-    for (const x of [r.before!, r.occurrence!, r.after!]) expect(x.groupId).toBe(first.groupId);
+    const r = await ok(first, { occurrenceDate: "2026-03-02" });
+    expect([r.before, r.occurrence!.groupId, r.after!.groupId]).toEqual([undefined, null, null]);
+  });
+
+  it("« après » sans patch : aucune relecture des références (projet, phase, tâche) déjà valides sur la ligne verrouillée", async () => {
+    const a = await create();
+    const seen: string[] = [];
+    const spy: Db = { transaction: (fn) => db.transaction((tx) => fn({ query: (sql: string, args?: unknown[]) => { seen.push(sql); return tx.query(sql, args); } } as never)) };
+    const r = await dispatch({ ...deps, db: spy }, { method: "POST", url: `/api/v1/allocations/${a.id}/split`, headers: { authorization: "pm", "if-match": `"${a.version}"` }, body: JSON.stringify({ occurrenceDate: "2026-03-09" }) });
+    expect(r.status).toBe(200);
+    expect(seen.filter((q) => /FROM (projects|phases|project_tasks|people)\b/.test(q))).toEqual([]);
   });
 });
 
