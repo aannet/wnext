@@ -49,7 +49,7 @@ describe("projets", () => {
     expect(ok(ScheduleProject, p)).toBe(true);
     expect(ok(ScheduleProject, { ...p, startDate: undefined })).toBe(false); // bornes toujours présentes (BR-37 côté client)
     expect(ok(ProjectDetail, p)).toBe(false);
-    expect(ok(ProjectDetail, { ...p, projectManagerId: null, tags: [], notes: null })).toBe(true);
+    expect(ok(ProjectDetail, { ...p, projectManagerId: null, clientId: null, tags: [], notes: null })).toBe(true);
   });
 });
 

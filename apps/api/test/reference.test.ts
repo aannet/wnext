@@ -191,7 +191,7 @@ describe("/api/v1/projects", () => {
     const r = await send("pm", "POST", "/api/v1/projects", { name: "Site web" });
     expect(r.status).toBe(201);
     expect(ProjectDetail.safeParse(r.body).success).toBe(true);
-    expect(r.body).toMatchObject({ version: 1, name: "Site web", projectCode: null, color: "#3B82F6", status: "planned", nonBillable: false, startDate: null, endDate: null, projectManagerId: null, tags: [], notes: null });
+    expect(r.body).toMatchObject({ version: 1, name: "Site web", projectCode: null, color: "#3B82F6", status: "planned", nonBillable: false, startDate: null, endDate: null, projectManagerId: null, clientId: null, tags: [], notes: null });
     id = body<{ id: string }>(r).id;
   });
 
@@ -208,6 +208,17 @@ describe("/api/v1/projects", () => {
     expect((await send("other", "POST", "/api/v1/projects", { name: "C", projectCode: "J-1" })).status).toBe(201);
     const p = body<any>(await send("admin", "POST", "/api/v1/projects", { name: "D" }));
     expect(err(await send("admin", "PATCH", `/api/v1/projects/${p.id}`, { projectCode: "J-1" }, 1)).code).toBe("ALREADY_EXISTS");
+  });
+
+  it("rattache le projet à un client du compte (clientId), 404 pour un client d'un autre compte, null détache", async () => {
+    const c = body<{ id: string }>(await send("admin", "POST", "/api/v1/clients", { name: "Acme" }));
+    const foreign = body<{ id: string }>(await send("other", "POST", "/api/v1/clients", { name: "Intrus" }));
+    const p = await send("pm", "POST", "/api/v1/projects", { name: "Avec client", clientId: c.id });
+    expect(p.body).toMatchObject({ clientId: c.id });
+    expect(err(await send("pm", "POST", "/api/v1/projects", { name: "X", clientId: foreign.id }))).toMatchObject({ code: "NOT_FOUND", params: { entity: "client" } });
+    const pid = body<{ id: string }>(p).id;
+    expect(err(await send("admin", "PATCH", `/api/v1/projects/${pid}`, { clientId: foreign.id }, 1)).code).toBe("NOT_FOUND");
+    expect((await send("admin", "PATCH", `/api/v1/projects/${pid}`, { clientId: null }, 1)).body).toMatchObject({ clientId: null, version: 2 });
   });
 
   it("modifie, archive (statut), efface un champ (null) ; cohérence des dates sur l'état résultant", async () => {

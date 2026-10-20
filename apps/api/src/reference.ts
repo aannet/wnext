@@ -160,13 +160,14 @@ export const deleteHoliday = (db: Db, ctx: RequestContext, id: string, expected:
   remove(db, ctx, { table: "holidays", entity: "holiday", columns: HOLIDAY_COLUMNS, dependents: {} }, id, expected);
 
 // --- Projets ----------------------------------------------------------------------------------------------------------
-const DETAIL_COLUMNS = `${PROJECT_COLUMNS}, project_manager_id, tags, notes`;
+const DETAIL_COLUMNS = `${PROJECT_COLUMNS}, project_manager_id, client_id, tags, notes`;
 const failProject = translate("project", "projectCode");
 
 function toDetail(r: Row): ProjectDetail {
   return {
     ...toScheduleProject(r),
-    projectManagerId: r.project_manager_id === null ? null : String(r.project_manager_id), tags: r.tags as string[], notes: r.notes ?? null,
+    projectManagerId: r.project_manager_id === null ? null : String(r.project_manager_id),
+    clientId: r.client_id === null ? null : String(r.client_id), tags: r.tags as string[], notes: r.notes ?? null,
   };
 }
 
@@ -175,17 +176,23 @@ async function assertManager(tx: Queryable, accountId: string, id: string | null
   if (!isId(id) || !(await tx.query("SELECT 1 FROM people WHERE id = $1::bigint AND account_id = $2::bigint", [id, accountId])).rows.length) throw notFound("person");
 }
 
+async function assertClient(tx: Queryable, accountId: string, id: string | null | undefined) {
+  if (!id) return;
+  if (!isId(id) || !(await tx.query("SELECT 1 FROM clients WHERE id = $1::bigint AND account_id = $2::bigint", [id, accountId])).rows.length) throw notFound("client");
+}
+
 export async function createProject(db: Db, ctx: RequestContext, body: ProjectCreate): Promise<ProjectDetail> {
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     await assertManager(tx, ctx.accountId, body.projectManagerId);
+    await assertClient(tx, ctx.accountId, body.clientId);
     const { rows } = await tx.query<Row>(
-      `INSERT INTO projects (account_id, name, project_code, color, start_date, end_date, status, project_manager_id, non_billable, tags, notes)
-       VALUES ($1::bigint, $2, $3, COALESCE($4, '#3B82F6'), $5::date, $6::date, $7::project_status, $8::bigint, $9::boolean, $10::text[], $11)
+      `INSERT INTO projects (account_id, name, project_code, color, start_date, end_date, status, project_manager_id, non_billable, tags, notes, client_id)
+       VALUES ($1::bigint, $2, $3, COALESCE($4, '#3B82F6'), $5::date, $6::date, $7::project_status, $8::bigint, $9::boolean, $10::text[], $11, $12::bigint)
        RETURNING ${DETAIL_COLUMNS}`,
       [
         ctx.accountId, body.name, body.projectCode ?? null, body.color ?? null, body.startDate ?? null, body.endDate ?? null,
-        body.status ?? "planned", body.projectManagerId ?? null, body.nonBillable ?? false, body.tags ?? [], body.notes ?? null,
+        body.status ?? "planned", body.projectManagerId ?? null, body.nonBillable ?? false, body.tags ?? [], body.notes ?? null, body.clientId ?? null,
       ],
     ).catch(failProject);
     // BR-33 : le project_manager qui crée un projet en devient co-gestionnaire (sinon il ne pourrait plus l'écrire).
@@ -211,14 +218,16 @@ export async function updateProject(db: Db, ctx: RequestContext, id: string, exp
     if (startDate && endDate && endDate < startDate) throw invalid("endDate"); // état résultant (le patch seul ne suffit pas à le voir)
     const manager = has("projectManagerId") ? patch.projectManagerId! : cur.project_manager_id === null ? null : String(cur.project_manager_id);
     if (has("projectManagerId")) await assertManager(tx, ctx.accountId, manager);
+    const clientId = has("clientId") ? patch.clientId! : cur.client_id === null ? null : String(cur.client_id);
+    if (has("clientId")) await assertClient(tx, ctx.accountId, clientId);
     const { rows } = await tx.query<Row>(
       `UPDATE projects SET name = $3, project_code = $4, color = $5, start_date = $6::date, end_date = $7::date, status = $8::project_status,
-              project_manager_id = $9::bigint, non_billable = $10::boolean, tags = $11::text[], notes = $12
+              project_manager_id = $9::bigint, non_billable = $10::boolean, tags = $11::text[], notes = $12, client_id = $14::bigint
         WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $13::int RETURNING ${DETAIL_COLUMNS}`,
       [
         id, ctx.accountId, patch.name ?? cur.name, has("projectCode") ? patch.projectCode : cur.project_code, patch.color ?? String(cur.color).trim(),
         startDate, endDate, patch.status ?? cur.status, manager, patch.nonBillable ?? cur.non_billable, patch.tags ?? cur.tags,
-        has("notes") ? patch.notes : cur.notes, expected,
+        has("notes") ? patch.notes : cur.notes, expected, clientId,
       ],
     ).catch(failProject);
     if (!rows[0]) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: Number(cur.row_version) + 1 });
