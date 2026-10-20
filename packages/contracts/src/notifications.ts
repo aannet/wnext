@@ -18,7 +18,10 @@ import { ReferenceListQuery } from "./reference";
 //    et `counts` (aucun texte côté API).
 //  * Liste : la plus récente d'abord (tri par id décroissant), paginée par curseur ; `unread=true` ne garde que les non lues ;
 //    `unreadCount` est toujours le total des non lues de l'appelant (badge), indépendant du filtre et de la page.
-//  * Rétention : 90 jours, lues ou non.
+//  * Rétention : une notification lue disparaît 30 jours après sa lecture ; toute notification, lue ou non, 90 jours après sa
+//    création (migration 0005, purge_notifications).
+//  * edit_conflict : pas de doublon tant qu'une notification non lue désigne déjà la même entité à la même version gagnante (un
+//    même 409 rejoué ne notifie qu'une fois) ; rien si la version gagnante est de l'appelant lui-même (autre onglet).
 //  * Temps réel : le message `notifications` (realtime.ts) n'est envoyé qu'aux connexions du destinataire, et ne porte que le
 //    nouveau compteur ; le client recharge la liste s'il l'affiche.
 
