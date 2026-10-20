@@ -1,0 +1,3 @@
+# Versions épinglées pour des passes reproductibles (npm run test:schemathesis).
+schemathesis==4.32.1
+hypothesis==6.170.5

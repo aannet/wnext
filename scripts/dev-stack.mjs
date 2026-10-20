@@ -2,7 +2,7 @@
 // Pile de développement locale : `npm run dev:stack [-- --reset] [-- --oidc]`.
 //  * --oidc : démarre aussi le fournisseur OIDC local (scripts/dev-idp.mjs, port WNEXT_DEV_IDP_PORT, défaut 3010) et lance
 //    l'API en AUTH_MODE=oidc (OIDC_ISSUER / OIDC_AUDIENCE / OIDC_JWKS_URL pointant vers lui). Sans l'option : AUTH_MODE=dev.
-//  * Postgres embarqué PERSISTANT dans .dev-pg/ (ignoré par git), port fixe (WNEXT_DEV_PG_PORT, défaut 54329).
+//  * Postgres embarqué PERSISTANT dans .dev-pg/ (ignoré par git ; WNEXT_DEV_PG_DIR pour un autre dossier), port fixe (WNEXT_DEV_PG_PORT, défaut 54329).
 //  * Migrations (scripts/migrate.mjs) puis jeu d'essai idempotent (scripts/dev-seed.mjs).
 //  * API en AUTH_MODE=dev par défaut (port WNEXT_DEV_API_PORT, défaut 3000), connectée en superutilisateur avec DB_ROLE=app_user :
 //    la RLS s'applique comme en production (SET LOCAL ROLE par transaction).
@@ -20,7 +20,7 @@ import { DEV_IDS, DEV_USERS, seedDev } from "./dev-seed.mjs";
 import { migrate } from "./migrate.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const pgDir = join(root, ".dev-pg");
+const pgDir = process.env.WNEXT_DEV_PG_DIR ?? join(root, ".dev-pg");
 const dataDir = join(pgDir, "data");
 const pgPort = Number(process.env.WNEXT_DEV_PG_PORT ?? 54329);
 const apiPort = Number(process.env.WNEXT_DEV_API_PORT ?? 3000);

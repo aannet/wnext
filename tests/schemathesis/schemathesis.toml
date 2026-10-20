@@ -1,0 +1,25 @@
+# Checks globaux : tous, sauf exclusions justifiées (voir tests/schemathesis/README.md).
+[checks]
+enabled = true
+# E-01 : le contrat n'exprime pas les validations sémantiques (curseur opaque, plafond de plage 400 j, ids numériques,
+#        objets stricts) : les 400 sur données valides au schéma sont attendus.
+positive_data_acceptance.enabled = false
+# E-02 : un If-Match absent donne 428 (RFC 6585, documenté au contrat) ; Schemathesis n'attend que 400/401/403/406/415/422.
+missing_required_header.enabled = false
+# E-03 : routeur maison, 404 (et non 405 + Allow) sur méthode non déclarée.
+unsupported_method.enabled = false
+allow_header_conformance.enabled = false
+
+# E-04 : requestBody déclaré requis, mais l'API accepte l'absence de corps (tous les champs sont optionnels, garde 428 conservée).
+[[operations]]
+include-name = "POST /api/v1/people/{id}/deactivation"
+checks.negative_data_rejection.enabled = false
+
+[[operations]]
+include-name = "POST /api/v1/projects/{projectId}/team/{personId}/removal"
+checks.negative_data_rejection.enabled = false
+
+# E-05 : 404 NOT_FOUND (entity person) sur un personId inconnu, non documenté sur GET /api/v1/logged-time.
+[[operations]]
+include-name = "GET /api/v1/logged-time"
+checks.status_code_conformance.enabled = false
