@@ -1,7 +1,9 @@
 // Source de données du Schedule : relie la vue (viewport du moteur) au magasin pur (schedule/store) et à l'API réelle.
 // Pure et sans framework : client HTTP généré et WebSocket injectés, testable avec un fetch simulé.
-//  * Fenêtre visible -> loadChunks (blocs de 28 jours, préchargement de chaque côté) -> blocs absents (hasWindow) regroupés
-//    par mergeChunks -> GET /schedule en suivant nextCursor jusqu'au bout -> ingestSchedule -> snapshot(visible).
+//  * Fenêtre visible -> loadChunks (blocs de 28 jours, préchargement de chaque côté : une largeur de vue, au moins un bloc)
+//    -> blocs absents (hasWindow) regroupés par mergeChunks -> GET /schedule en suivant nextCursor jusqu'au bout ->
+//    ingestSchedule -> snapshot de la plage des blocs (visible et voisins : l'écran y construit son modèle par tranches).
+//  * Défilement continu : une nouvelle vue dans les mêmes blocs ne change pas `data` (même objet, pas de reconstruction).
 //  * Une requête en vol couvre ses blocs : un second appel ne la répète pas. Les pages d'une requête sont intégrées
 //    ensemble à la fin : un bloc n'est marqué chargé que si toutes ses pages sont arrivées.
 //  * Époque : une réinitialisation (resync du temps réel, arrêt) invalide les requêtes en cours ; leurs réponses sont ignorées.
@@ -12,7 +14,7 @@
 //    toujours en retard après rechargement (sorties du visible). Sur `resync` : magasin neuf, rechargement du visible.
 //  * Erreurs : codes stables de @wnext/contracts (jamais de texte) ; l'écran les traduit.
 import { ErrorCode, type ApiError, type ScheduleResponse } from "@wnext/contracts";
-import { loadChunks, mergeChunks, visibleRange, type Viewport } from "@wnext/engine";
+import { loadChunks, mergeChunks, neighborDays, type Viewport } from "@wnext/engine";
 import type { createClient } from "../api/client.gen";
 import { RealtimeAuthError, createRealtimeClient, ticketFrom, type RealtimeClient, type RealtimeClientOptions, type RealtimeStatus } from "../realtime/client";
 import { applyChanges, emptyStore, hasWindow, ingestSchedule, snapshot, type Kind, type ScheduleStore, type Tables } from "../schedule/store";
@@ -35,7 +37,7 @@ export interface ScheduleSourceOptions {
   api: ScheduleApi;
   /** Personnes par page de GET /schedule (défaut 200, max 500 côté API). */
   pageLimit?: number;
-  /** Jours préchargés de chaque côté du visible (défaut : un bloc). */
+  /** Jours préchargés de chaque côté du visible (défaut : une largeur de vue, au moins un bloc). */
   prefetchDays?: number;
   /** Absent : pas de temps réel (chargements seuls). */
   realtime?: Pick<RealtimeClientOptions, "wsBase" | "openSocket" | "setTimer" | "clearTimer" | "random" | "now" | "onError">;
@@ -73,7 +75,7 @@ const minCursor = (cs: readonly string[]) => cs.reduce((a, b) => (BigInt(b) < Bi
 
 export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSource {
   const pageLimit = opts.pageLimit ?? 200;
-  const prefetch = opts.prefetchDays ?? 28;
+  const prefetchOf = (v: Viewport) => opts.prefetchDays ?? neighborDays(v);
   const listeners = new Set<() => void>();
 
   let store: ScheduleStore = emptyStore();
@@ -93,13 +95,18 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     for (const l of listeners) l();
   }
 
-  /** Recalcule la vue visible ; un magasin vidé (resync en cours) garde l'affichage précédent. */
+  const chunks = (): Range[] => (viewport ? loadChunks(viewport, store.account?.weekStart ?? 1, prefetchOf(viewport)) : []);
+  /** Plage des blocs de la vue (visible et voisins) : celle du snapshot. */
+  const cover = (): Range | null => { const c = chunks(); return c.length ? { from: c[0]!.from, to: c.at(-1)!.to } : null; };
+  let shown = "";
+
+  /** Recalcule le snapshot ; un magasin vidé (resync en cours) garde l'affichage précédent. */
   function refresh(patch: Partial<ScheduleSourceState> = {}) {
-    const data = store.account && viewport ? snapshot(store, visibleRange(viewport).from, visibleRange(viewport).to) : state.data;
+    const r = cover();
+    const data = store.account && r ? snapshot(store, r.from, r.to) : state.data;
+    if (r) shown = keyOf(r);
     set({ ...patch, data, loading: active > 0 });
   }
-
-  const chunks = (): Range[] => (viewport ? loadChunks(viewport, store.account?.weekStart ?? 1, prefetch) : []);
 
   async function fetchAll(range: Range, ep: number): Promise<ScheduleResponse[]> {
     const pages: ScheduleResponse[] = [];
@@ -219,7 +226,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     setViewport(v) {
       viewport = v;
       if (started) quiet(load(false));
-      refresh();
+      if (keyOf(cover()!) !== shown) refresh();
     },
     start() {
       if (started) return;
