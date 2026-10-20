@@ -377,3 +377,29 @@ describe("messages illisibles et arrêt", () => {
     expect(h.statuses.at(-1)).toBe("connecting");
   });
 });
+
+describe("notifications in-app (message `notifications`)", () => {
+  it("transmet le compteur de non lues à onNotifications, sans toucher au curseur ni à la connexion", async () => {
+    const counts: number[] = [];
+    const h = setup({ onNotifications: (n) => counts.push(n) });
+    h.client.start();
+    await flush();
+    await h.goLive("10");
+    h.last().say({ v: 1, type: "notifications", unreadCount: 3 });
+    h.last().say(changes("11"));
+    h.last().say({ v: 1, type: "notifications", unreadCount: 0 });
+    expect(counts).toEqual([3, 0]);
+    expect(h.got).toEqual([{ changes: [ch("11")], cursor: "11" }]);
+    expect(h.sockets).toHaveLength(1);
+    expect(h.last().closed).toBe(false);
+  });
+  it("sans consommateur, ou consommateur en échec : la connexion reste ouverte", async () => {
+    const h = setup({ onNotifications: () => { throw new Error("badge"); } });
+    h.client.start();
+    await flush();
+    await h.goLive("10");
+    h.last().say({ v: 1, type: "notifications", unreadCount: 1 });
+    expect(h.last().closed).toBe(false);
+    expect(h.errors).toHaveLength(1);
+  });
+});

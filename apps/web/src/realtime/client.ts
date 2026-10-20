@@ -48,6 +48,8 @@ export interface RealtimeClientOptions {
   /** Lot de changements (références seulement) ; `cursor` est déjà mémorisé. Le client recharge les entités dont sa copie est plus ancienne. */
   onChanges(changes: Change[], cursor: string): void;
   onStatus?(status: RealtimeStatus): void;
+  /** Compteur de notifications in-app non lues de l'utilisateur connecté (message `notifications`) ; absent : message ignoré. */
+  onNotifications?(unreadCount: number): void;
   /** La session n'est plus authentifiée : le client s'est arrêté. */
   onUnauthenticated?(): void;
   /** Journal des échecs (réseau, message illisible, erreur du serveur) : jamais bloquant. */
@@ -197,6 +199,8 @@ export function createRealtimeClient(opts: RealtimeClientOptions): RealtimeClien
           reload = true;
           finish(0);
         }
+      } else if (msg.type === "notifications") {
+        try { opts.onNotifications?.(msg.unreadCount); } catch (err) { report(err); } // un badge en échec ne coupe pas le flux
       } else if (msg.type === "resync") {
         reload = true; // le serveur ferme ensuite ; on recharge sans attendre davantage
       } else if (msg.type === "error") {

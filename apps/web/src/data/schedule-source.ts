@@ -56,7 +56,7 @@ export interface ScheduleSourceOptions {
   /** Jours préchargés de chaque côté du visible (défaut : une largeur de vue, au moins un bloc). */
   prefetchDays?: number;
   /** Absent : pas de temps réel (chargements seuls). */
-  realtime?: Pick<RealtimeClientOptions, "wsBase" | "openSocket" | "setTimer" | "clearTimer" | "random" | "now" | "onError">;
+  realtime?: Pick<RealtimeClientOptions, "wsBase" | "openSocket" | "setTimer" | "clearTimer" | "random" | "now" | "onError" | "onNotifications">;
 }
 
 /** Projet proposé à la saisie rapide (liste complète du compte, pas seulement ceux de la fenêtre). */
