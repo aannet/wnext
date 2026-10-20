@@ -697,6 +697,7 @@ export interface ProjectDetail {
   startDate: IsoDate | null;
   endDate: IsoDate | null;
   projectManagerId: Id | null;
+  clientId: Id | null;
   tags: Array<string>;
   notes: string | null;
 }
@@ -709,6 +710,7 @@ export interface ProjectCreate {
   endDate?: IsoDate | null;
   status?: "tentative" | "planned" | "in_progress" | "on_hold" | "completed" | "archived";
   projectManagerId?: Id | null;
+  clientId?: Id | null;
   nonBillable?: boolean;
   tags?: Array<string>;
   notes?: string | null;
@@ -722,6 +724,7 @@ export interface ProjectPatch {
   endDate?: IsoDate | null;
   status?: "tentative" | "planned" | "in_progress" | "on_hold" | "completed" | "archived";
   projectManagerId?: Id | null;
+  clientId?: Id | null;
   nonBillable?: boolean;
   tags?: Array<string>;
   notes?: string | null;

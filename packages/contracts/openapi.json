@@ -3483,6 +3483,16 @@
               }
             ]
           },
+          "clientId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "tags": {
             "type": "array",
             "items": {
@@ -3507,6 +3517,7 @@
           "startDate",
           "endDate",
           "projectManagerId",
+          "clientId",
           "tags",
           "notes"
         ]
@@ -3577,6 +3588,17 @@
               }
             ],
             "description": "Une personne du compte"
+          },
+          "clientId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Un client du compte ; null = sans client"
           },
           "nonBillable": {
             "type": "boolean"
@@ -3669,6 +3691,17 @@
               }
             ],
             "description": "Une personne du compte"
+          },
+          "clientId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Un client du compte ; null = sans client"
           },
           "nonBillable": {
             "type": "boolean"

@@ -79,6 +79,7 @@ const projectFields = {
   endDate: orNull(IsoDate).optional(),
   status: ScheduleProject.shape.status.optional().describe("Défaut planned ; \"archived\" tient lieu de suppression"),
   projectManagerId: orNull(Id).optional().describe("Une personne du compte"),
+  clientId: orNull(Id).optional().describe("Un client du compte ; null = sans client"),
   nonBillable: z.boolean().optional(),
   tags: tags.optional(),
   notes: z.string().max(5000).nullable().optional(),
@@ -97,6 +98,7 @@ export const ProjectPatch = z
 /** Projet complet : la forme du Schedule plus ce qui ne s'affiche pas dans la grille. */
 export const ProjectDetail = ScheduleProject.extend({
   projectManagerId: orNull(Id),
+  clientId: orNull(Id),
   tags: z.array(z.string()),
   notes: z.string().nullable(),
 }).meta({ id: "ProjectDetail" });
