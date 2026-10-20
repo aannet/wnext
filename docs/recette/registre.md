@@ -14,9 +14,9 @@ Reproduction : vérifiée dans le code de `main` à `11bc44d` (écran Schedule, 
 
 | ID | Retour | Citation (ligne) | Nature | Spec | Écart | Écran | Gravité | Cible | Lot | Statut |
 |---|---|---|---|---|---|---|---|---|---|---|
-| RT-001 | Pas d'en-tête applicatif portant le nom de l'app ; la barre d'outils doit s'intégrer à un header ou un sous-header | « il n'y a aucun header qui reprend le nom de l'app […] avec une toolbar intégrée à ce header ou sub-header » (l. 3) | manque | ux-ui §2.1 (barre haute) ; dossier §4.1 principe 1 (onglets) | écart | Coque | majeure | P6 | L-B | validé |
-| RT-002 | L'app s'ouvre sans authentification ; il faut un portail de connexion adossé à la base des utilisateurs | « je ne devrais pas pouvoir accéder à ça de façon complètement libre. Je devrais passer par un portail d'authentification » (l. 3) | manque | ADR-002 §1 (`users` / `account_members`) ; OIDC PKCE existant mais mode `dev` par défaut, pas d'écran de connexion | écart | Connexion | majeure | P6 | L-B | validé |
-| RT-003 | Afficher l'utilisateur connecté (« Bonjour Alec ») à droite de l'en-tête | « j'ai « Bonjour Alec », qui est disponible traditionnellement plutôt à droite » (l. 5) | manque | ux-ui §2.1 ; nécessite `GET /me` (absent) | écart | Coque | mineure | P6 | L-B | validé |
+| RT-001 | Pas d'en-tête applicatif portant le nom de l'app ; la barre d'outils doit s'intégrer à un header ou un sous-header | « il n'y a aucun header qui reprend le nom de l'app […] avec une toolbar intégrée à ce header ou sub-header » (l. 3) | manque | ux-ui §2.1 (barre haute) ; dossier §4.1 principe 1 (onglets) | écart | Coque | majeure | P6 | L-B | corrigé (`4e0cffe`..`869d328`) |
+| RT-002 | L'app s'ouvre sans authentification ; il faut un portail de connexion adossé à la base des utilisateurs | « je ne devrais pas pouvoir accéder à ça de façon complètement libre. Je devrais passer par un portail d'authentification » (l. 3) | manque | ADR-002 §1 (`users` / `account_members`) ; OIDC PKCE existant mais mode `dev` par défaut, pas d'écran de connexion | écart | Connexion | majeure | P6 | L-B | corrigé (`4e0cffe`..`869d328`) |
+| RT-003 | Afficher l'utilisateur connecté (« Bonjour Alec ») à droite de l'en-tête | « j'ai « Bonjour Alec », qui est disponible traditionnellement plutôt à droite » (l. 5) | manque | ux-ui §2.1 ; nécessite `GET /me` (absent) | écart | Coque | mineure | P6 | L-B | corrigé (`4e0cffe`..`869d328`) |
 | RT-004 | Le canevas (grille) convient à ce stade | « le canevas a l'air, ma foi, très bien » (l. 8) | constat | ADR-005 | — | Schedule | — | à préserver | — | validé |
 | RT-005 | Réglage de densité d'affichage à 3 niveaux (aujourd'hui ~12 personnes visibles ; viser aussi ~8 et ~6) | « régler trois tailles de densité […] passerait de 12 à 8 […] encore un autre niveau où on passerait à 6 » (l. 10-12) | manque | ux-ui §2.1 (toggle densité), §2.2 (32 / 40 / 48 px) ; dossier §4.1 principe 6 | écart, et *contesté* sur les valeurs (Q1) | Schedule | majeure | P6 | L-C | validé |
 | RT-006 | En densité aérée, les éléments grossissent (blocs, textes) et occupent toute la hauteur | « je vais pouvoir faire grossir les éléments pour rendre tout ça beaucoup plus aéré » (l. 14) | graphique | ux-ui §2.2, §3.2 | hors spec (la spec ne change que la hauteur de ligne) | Schedule | mineure | P6 | L-C | validé |
@@ -46,6 +46,13 @@ Reproduction : vérifiée dans le code de `main` à `11bc44d` (écran Schedule, 
 | L-C | Densité à 3 niveaux et jauge par personne dans la colonne de gauche | RT-005 à RT-008 | Opus (grille) | L-A, L-D | non |
 | L-E | Éditeur de créneau : création (bouton, clic ou glisser en zone libre), pop-in à onglets Projet / tâche et Congé, changement de projet / tâche / personnes, couleur du projet | RT-011, RT-013 à RT-018 | Opus | L-D, L-C | à vérifier (aucun prévu) |
 | L-F | Back-office : écrans Projets (liste, création, panneau propriétés et équipe), Personnes (liste, création, modification datée), Réglages (départements, rôles, clients, types de congé, fériés) | RT-010, RT-012, RT-018 | Sonnet | L-B | si une route manque |
+
+## Points ouverts relevés pendant l'exécution
+
+| ID | Constat | Origine | Cible |
+|---|---|---|---|
+| PO-01 | Un membre ne peut pas demander de congé : l'API refuse toute écriture à `member` (`assertWriter`), donc l'écran est en lecture seule pour lui. Or US-5.1 prévoit la demande de congé par le membre (statut `pending`, approbation ensuite) | L-B | L-F / S3 (approbation des congés), décision produit à confirmer |
+| PO-02 | Quitter le Planning le démonte : défilement, zoom et pile d'annulation repartent de zéro au retour | L-B | L-C ou CX-Schedule |
 
 ## Questions à Alec (cadrage n°1)
 

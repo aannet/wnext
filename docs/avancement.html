@@ -144,9 +144,9 @@ const AS_OF = "2026-10-21";
 const RECETTE = {
   notes: [{ id: 1, date: "2026-10-21", file: "docs/recette/notes/2026-10-21-note-1.txt", cadrage: "docs/recette/cadrage-1.html", status: "cadrage validé (2026-10-21)" }],
   retours: [
-    { id: "RT-001", t: "Pas d'en-tête applicatif portant le nom de l'app ; la barre d'outils doit s'intégrer à un header ou un sous-header", nature: "manque", gravite: "majeure", lot: "L-B", statut: "validé" },
-    { id: "RT-002", t: "L'app s'ouvre sans authentification ; il faut un portail de connexion adossé à la base des utilisateurs", nature: "manque", gravite: "majeure", lot: "L-B", statut: "validé" },
-    { id: "RT-003", t: "Afficher l'utilisateur connecté (« Bonjour Alec ») à droite de l'en-tête", nature: "manque", gravite: "mineure", lot: "L-B", statut: "validé" },
+    { id: "RT-001", t: "Pas d'en-tête applicatif portant le nom de l'app ; la barre d'outils doit s'intégrer à un header ou un sous-header", nature: "manque", gravite: "majeure", lot: "L-B", statut: "corrigé" },
+    { id: "RT-002", t: "L'app s'ouvre sans authentification ; il faut un portail de connexion adossé à la base des utilisateurs", nature: "manque", gravite: "majeure", lot: "L-B", statut: "corrigé" },
+    { id: "RT-003", t: "Afficher l'utilisateur connecté (« Bonjour Alec ») à droite de l'en-tête", nature: "manque", gravite: "mineure", lot: "L-B", statut: "corrigé" },
     { id: "RT-004", t: "Le canevas (grille) convient à ce stade", nature: "constat", gravite: "—", lot: "—", statut: "validé" },
     { id: "RT-005", t: "Réglage de densité d'affichage à 3 niveaux (aujourd'hui ~12 personnes visibles ; viser aussi ~8 et ~6)", nature: "manque", gravite: "majeure", lot: "L-C", statut: "validé" },
     { id: "RT-006", t: "En densité aérée, les éléments grossissent (blocs, textes) et occupent toute la hauteur", nature: "graphique", gravite: "mineure", lot: "L-C", statut: "validé" },
@@ -166,7 +166,7 @@ const RECETTE = {
   ],
   lots: [
     { id: "L-A", t: "Tailwind v4 et design tokens (socle sans changement visible, garde-fou anti-couleurs en dur)", statut: "fait" },
-    { id: "L-B", t: "Coque applicative : en-tête WNEXT, navigation (Schedule, Projets, Personnes, Réglages), barre d'outils en sous-header, écran de connexion OIDC par défaut en recette, « Bonjour Alec »", statut: "proposé" },
+    { id: "L-B", t: "Coque applicative : en-tête WNEXT, navigation (Schedule, Projets, Personnes, Réglages), barre d'outils en sous-header, écran de connexion OIDC par défaut en recette, « Bonjour Alec »", statut: "fait" },
     { id: "L-D", t: "Primitives de fenêtres (Modal, Popover, Drawer) et migration de tous les dialogues vers des fenêtres superposées (Fermer + Échap)", statut: "proposé" },
     { id: "L-C", t: "Densité à 3 niveaux et jauge par personne dans la colonne de gauche", statut: "proposé" },
     { id: "L-E", t: "Éditeur de créneau : création (bouton, clic ou glisser en zone libre), pop-in à onglets Projet / tâche et Congé, changement de projet / tâche / personnes, couleur du projet", statut: "proposé" },
@@ -299,7 +299,7 @@ const PHASES = [
       { t: "L-A Tailwind et design tokens, garde-fou anti-couleurs en dur", s: "done", n: "Tailwind 4.3.3 sans preflight, tokens.css, lint:raw-colors (3 exceptions motivées)" },
       { t: "Direction visuelle et choix de l'accent (Q-09), sur images de référence", s: "done", n: "accent pétrole #0E7490, focus encre (docs/design/direction.md, comparatif-accents.html)" },
       { t: "L-D Fenêtres superposées (Modal, Popover, Drawer)", s: "todo" },
-      { t: "L-B Coque : en-tête, navigation, connexion, utilisateur connecté", s: "todo" },
+      { t: "L-B Coque : en-tête, navigation, connexion, utilisateur connecté", s: "done", n: "GET /me, routeur, portail OIDC, Bonjour, écritures selon le rôle" },
       { t: "L-C Densité à 3 niveaux et jauge par personne", s: "todo" },
       { t: "L-E Éditeur de créneau (création, pop-in Projet / Congé, changement de projet)", s: "todo" },
       { t: "L-F Back-office Projets, Personnes, Réglages", s: "todo" },
