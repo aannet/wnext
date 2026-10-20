@@ -33,6 +33,10 @@ describe("localSplit", () => {
     expect(r.ok && [r.split.occurrenceDate, r.split.before, r.split.occurrence.hoursPerDay, r.split.occurrence.repeatState, r.split.after?.id, r.split.after?.startDate])
       .toEqual(["2026-10-19", null, 6, "none", "t2", "2026-10-26"]);
   });
+  it("série d'un groupe : seul le morceau avant reste dans le groupe, comme côté API (BR-26)", () => {
+    const r = localSplit({ ...weekly, groupId: "g1" }, 1, {}, (k) => `t${k}`);
+    expect(r.ok && [r.split.before?.groupId, r.split.occurrence.groupId, r.split.after?.groupId]).toEqual(["g1", null, null]);
+  });
   it("allocation non répétée : NOT_A_SERIES", () => {
     expect(localSplit(alloc("1"), 0, {}, String)).toEqual({ ok: false, error: "NOT_A_SERIES" });
   });

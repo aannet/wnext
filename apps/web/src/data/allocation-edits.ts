@@ -92,8 +92,9 @@ export function localSplit(a: Allocation, index: number, p: BlockPatch, tempId: 
     split: {
       occurrenceDate: s.occurrence.startDate,
       before: s.before,
-      occurrence: { ...patched(s.occurrence, occPatch), id: tempId(1), version: 0 },
-      after: s.after && { ...s.after, id: tempId(2), version: 0 },
+      // Comme l'API : seul « avant » (la ligne d'origine) reste dans le groupe, les morceaux insérés en sortent (BR-26).
+      occurrence: { ...patched(s.occurrence, occPatch), id: tempId(1), version: 0, groupId: null },
+      after: s.after && { ...s.after, id: tempId(2), version: 0, groupId: null },
     },
   };
 }
