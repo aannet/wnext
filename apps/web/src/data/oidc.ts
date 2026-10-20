@@ -12,6 +12,9 @@
 //     (XSS) pourrait le lire, mais il pourrait tout autant appeler l'API avec le jeton en mémoire : le vrai rempart reste la CSP.
 //     Le fournisseur fait tourner le refresh_token (chaque usage révoque le précédent), ce qui borne un vol. Cible production
 //     possible : un BFF avec cookie httpOnly, hors de cette étape.
+//  4. Renouvellement : minuteur à 80 % de la durée de vie (au plus tard 60 s avant l'expiration) ; getAccessToken() renouvelle
+//     aussi d'abord si le jeton est (presque) expiré (onglet en veille, minuteur en retard). Refresh simultanés fusionnés.
+//  5. logout() : jetons et état effacés, puis fin de session chez le fournisseur (end_session_endpoint) avec retour à l'écran.
 // Aucune dépendance au navigateur dans la logique : réseau, stockage, URL, aléa, hachage et minuteurs sont injectés (tests).
 
 export interface OidcConfig {
@@ -57,17 +60,22 @@ export class OidcError extends Error {
 }
 
 export interface OidcSession {
-  /** Traite un retour du fournisseur, sinon redirige vers la connexion. */
+  /** Traite un retour du fournisseur, sinon reprend la session (refresh_token), sinon redirige vers la connexion. */
   start(): Promise<"authenticated" | "redirected">;
-  /** Jeton d'accès ; null sans session. */
+  /** Jeton d'accès valable (renouvelé d'abord s'il expire) ; null sans session. */
   getAccessToken(): Promise<string | null>;
+  /** Renouvelle par le refresh_token ; false si la session est perdue (il faut se reconnecter). */
+  refresh(): Promise<boolean>;
   /** Redirige vers le fournisseur (nouvelle connexion). */
   login(): Promise<void>;
+  logout(): Promise<void>;
 }
 
 const PENDING_KEY = "wnext.oidc.pending";
 const REFRESH_KEY = "wnext.oidc.refresh";
 const CALLBACK_PARAMS = ["code", "state", "iss", "session_state", "error", "error_description", "error_uri"];
+/** Marge sous laquelle getAccessToken renouvelle avant de rendre le jeton. */
+const EXPIRY_MARGIN_MS = 10_000;
 
 export function base64UrlEncode(bytes: Uint8Array): string {
   let bin = "";
@@ -135,6 +143,9 @@ const formBody = (fields: Record<string, string>) => new URLSearchParams(fields)
 export function createOidcSession(config: OidcConfig, deps: OidcDeps): OidcSession {
   let discovery: Promise<Discovery> | null = null;
   let accessToken: string | null = null;
+  let expiresAt = 0;
+  let timer: unknown = null;
+  let refreshing: Promise<boolean> | null = null;
 
   const discover = () =>
     (discovery ??= (async () => {
@@ -149,9 +160,24 @@ export function createOidcSession(config: OidcConfig, deps: OidcDeps): OidcSessi
 
   const randomString = (n: number) => base64UrlEncode(deps.randomBytes(n));
 
+  const clear = () => {
+    if (timer !== null) deps.clearTimer(timer);
+    timer = null;
+    accessToken = null;
+    expiresAt = 0;
+    deps.storage.removeItem(REFRESH_KEY);
+  };
+
   const accept = (t: TokenResponse) => {
+    const now = deps.now();
+    const lifetime = Math.max(t.expires_in, 1) * 1000;
     accessToken = t.access_token;
+    expiresAt = now + lifetime;
     if (t.refresh_token) deps.storage.setItem(REFRESH_KEY, t.refresh_token);
+    if (timer !== null) deps.clearTimer(timer);
+    // 80 % de la durée de vie, mais au plus tard 60 s avant l'expiration ; jamais moins d'une seconde.
+    const delay = Math.max(lifetime - 60_000, lifetime * 0.8, 1000);
+    timer = deps.setTimer(() => { timer = null; void refresh(); }, delay);
   };
 
   const postToken = async (fields: Record<string, string>) => {
@@ -178,6 +204,26 @@ export function createOidcSession(config: OidcConfig, deps: OidcDeps): OidcSessi
       throw new OidcError("ID_TOKEN");
     }
   };
+
+  async function refresh(): Promise<boolean> {
+    return (refreshing ??= (async () => {
+      try {
+        const rt = deps.storage.getItem(REFRESH_KEY);
+        if (!rt) return false;
+        const r = await postToken({ grant_type: "refresh_token", refresh_token: rt });
+        if (r.status === 200 && isTokenResponse(r.body)) {
+          accept(r.body);
+          return true;
+        }
+        clear(); // refresh refusé (révoqué, expiré) : la session est perdue
+        return false;
+      } catch {
+        return false; // réseau ou fournisseur injoignable : on garde le refresh_token pour un essai ultérieur
+      } finally {
+        refreshing = null;
+      }
+    })());
+  }
 
   async function login(): Promise<void> {
     const d = await discover();
@@ -223,13 +269,26 @@ export function createOidcSession(config: OidcConfig, deps: OidcDeps): OidcSessi
         await callback(url);
         return "authenticated";
       }
+      if (await refresh()) return "authenticated";
       await login();
       return "redirected";
     },
     async getAccessToken() {
+      if (accessToken !== null && deps.now() >= expiresAt - EXPIRY_MARGIN_MS) await refresh();
       return accessToken;
     },
+    refresh,
     login,
+    async logout() {
+      clear();
+      deps.storage.removeItem(PENDING_KEY);
+      const d = await discover().catch(() => null);
+      if (!d?.end_session_endpoint) return deps.navigate(config.redirectUri);
+      const u = new URL(d.end_session_endpoint);
+      u.searchParams.set("client_id", config.clientId);
+      u.searchParams.set("post_logout_redirect_uri", config.redirectUri);
+      deps.navigate(u.toString());
+    },
   };
 }
 

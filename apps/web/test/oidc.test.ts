@@ -62,6 +62,12 @@ function harness(opts: { url?: string; ttl?: number } = {}) {
     setTimer: (fn, ms) => { const id = ++timerSeq; timers.push({ fn, at: clock + ms, id }); return id; },
     clearTimer: (h) => { const i = timers.findIndex((t) => t.id === h); if (i >= 0) timers.splice(i, 1); },
   };
+  /** Avance l'horloge et déclenche les minuteurs échus. */
+  const advance = async (ms: number) => {
+    clock += ms;
+    for (const t of timers.filter((x) => x.at <= clock)) { timers.splice(timers.indexOf(t), 1); t.fn(); }
+    for (let i = 0; i < 3; i++) await new Promise((r) => setTimeout(r, 0));
+  };
   /** Revient du fournisseur avec un code et le state envoyé (ou un autre). */
   const comeBack = (over: { state?: string; code?: string; iss?: string } = {}) => {
     const sent = new URL(state.navigations.at(-1)!).searchParams;
@@ -71,7 +77,8 @@ function harness(opts: { url?: string; ttl?: number } = {}) {
     back.searchParams.set("iss", over.iss ?? ISSUER);
     state.url = back.toString();
   };
-  return { deps, state, store, comeBack };
+  const jump = (ms: number) => { clock += ms; };
+  return { deps, state, store, advance, jump, comeBack };
 }
 
 async function loggedIn(opts: { ttl?: number } = {}) {
@@ -143,6 +150,55 @@ describe("session OIDC", () => {
     const stored = [...h.store.values()].join(" ");
     expect(stored).not.toContain("at-1");
     expect(stored).toContain("rt-1");
+  });
+
+  it("renouvelé avant expiration par minuteur ; le refresh_token tourne", async () => {
+    const { h, s } = await loggedIn();
+    await h.advance(239_000);
+    expect(h.state.tokenCalls).toHaveLength(1);
+    await h.advance(2_000); // 80 % de 300 s
+    expect(h.state.tokenCalls.at(-1)!.get("grant_type")).toBe("refresh_token");
+    expect(h.state.tokenCalls.at(-1)!.get("refresh_token")).toBe("rt-1");
+    expect(await s.getAccessToken()).toBe("at-2");
+    expect([...h.store.values()].join(" ")).toContain("rt-2");
+  });
+
+  it("jeton expiré (onglet en veille, minuteur en retard) : getAccessToken renouvelle d'abord", async () => {
+    const { h, s } = await loggedIn();
+    h.state.tokenCalls.length = 0;
+    h.jump(400_000); // horloge avancée sans déclencher les minuteurs
+    expect(await s.getAccessToken()).toBe("at-2");
+    expect(h.state.tokenCalls).toHaveLength(1);
+  });
+
+  it("rechargement de la page : reprise par le refresh_token sans redirection", async () => {
+    const { h } = await loggedIn();
+    const again = createOidcSession(CONFIG, h.deps);
+    expect(await again.start()).toBe("authenticated");
+    expect(await again.getAccessToken()).toBe("at-2");
+    expect(h.state.navigations).toHaveLength(1);
+  });
+
+  it("refresh refusé : false, session vidée ; deux refresh simultanés = un seul appel", async () => {
+    const { h, s } = await loggedIn();
+    const calls = h.state.tokenCalls.length;
+    const [a, b] = await Promise.all([s.refresh(), s.refresh()]);
+    expect([a, b]).toEqual([true, true]);
+    expect(h.state.tokenCalls.length).toBe(calls + 1);
+    h.state.refreshValid.clear();
+    expect(await s.refresh()).toBe(false);
+    expect(await s.getAccessToken()).toBeNull();
+    expect([...h.store.values()].join(" ")).not.toContain("rt-");
+  });
+
+  it("déconnexion : session vidée puis fin de session chez le fournisseur avec retour vers l'écran", async () => {
+    const { h, s } = await loggedIn();
+    await s.logout();
+    expect(await s.getAccessToken()).toBeNull();
+    expect(h.store.size).toBe(0);
+    const u = new URL(h.state.navigations.at(-1)!);
+    expect(u.origin + u.pathname).toBe(`${ISSUER}/logout`);
+    expect(u.searchParams.get("post_logout_redirect_uri")).toBe(CONFIG.redirectUri);
   });
 });
 
