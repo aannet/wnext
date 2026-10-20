@@ -2,6 +2,9 @@
 // déclencher l'échappement ICU. Toute chaîne visible de apps/web vient d'ici (lint : npm run lint:ui-strings).
 export const fr = {
   "app.title": "Planning",
+  "auth.logout": "Se déconnecter",
+  "auth.error": "Connexion impossible. Réessayez.",
+  "auth.retry": "Se reconnecter",
   "schedule.grid.label": "Planning des personnes",
   "schedule.toolbar.label": "Navigation dans le planning",
   "schedule.today": "Aujourd’hui",

@@ -4,7 +4,7 @@ import type { ScheduleResponse } from "@wnext/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ScheduleContainer } from "../src/ScheduleContainer";
+import { AuthFailure, ScheduleContainer } from "../src/ScheduleContainer";
 import { createClient, type FetchResponse } from "../src/api/client.gen";
 import { createScheduleSource } from "../src/data/schedule-source";
 import { createI18n } from "../src/i18n";
@@ -25,7 +25,7 @@ function body(q: URLSearchParams): ScheduleResponse {
 
 let root: Root | null = null;
 let host: HTMLElement;
-function mount(respond: (q: URLSearchParams) => Promise<{ status: number; body: unknown }>, now: (() => Date) | null = () => new Date("2026-10-19T10:00:00Z")) {
+function mount(respond: (q: URLSearchParams) => Promise<{ status: number; body: unknown }>, now: (() => Date) | null = () => new Date("2026-10-19T10:00:00Z"), onLogout?: () => void) {
   const fetch = async (url: string): Promise<FetchResponse> => {
     const r = await respond(new URL(url, "http://x").searchParams);
     return { status: r.status, json: async () => r.body };
@@ -34,7 +34,7 @@ function mount(respond: (q: URLSearchParams) => Promise<{ status: number; body: 
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
-  act(() => root!.render(<ScheduleContainer i18n={createI18n("fr")} source={source} {...(now ? { now } : {})} widthPx={960} heightPx={480} />));
+  act(() => root!.render(<ScheduleContainer i18n={createI18n("fr")} source={source} {...(now ? { now } : {})} {...(onLogout ? { onLogout } : {})} widthPx={960} heightPx={480} />));
 }
 afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; vi.useRealTimers(); vi.unstubAllGlobals(); });
 
@@ -95,6 +95,31 @@ describe("ScheduleContainer", () => {
     await flush();
     expect(host.querySelector("[role=alert]")!.textContent).toBe("Session expirée ou absente : reconnectez-vous.");
     expect(host.querySelector("[role=grid]")).toBeNull();
+  });
+
+  it("déconnexion (OIDC) : bouton traduit, présent même sans données (401), absent en mode dev", async () => {
+    const logout = vi.fn();
+    mount(async () => ({ status: 401, body: { code: "UNAUTHENTICATED", params: {}, requestId: "r" } }), undefined, logout);
+    await flush();
+    const button = [...host.querySelectorAll("main button")].find((b) => b.textContent === "Se déconnecter")!;
+    act(() => (button as HTMLButtonElement).click());
+    expect(logout).toHaveBeenCalledTimes(1);
+    act(() => root?.unmount());
+    host.remove();
+    mount(async (q) => ({ status: 200, body: body(q) }));
+    await flush();
+    expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Se déconnecter")).toBe(false);
+  });
+
+  it("échec de connexion : alerte traduite et bouton pour se reconnecter", () => {
+    const retry = vi.fn();
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+    act(() => root!.render(<AuthFailure i18n={createI18n("en")} onRetry={retry} />));
+    expect(host.querySelector("main [role=alert]")!.textContent).toBe("Sign-in failed. Please try again.");
+    act(() => host.querySelector("button")!.click());
+    expect(retry).toHaveBeenCalledTimes(1);
   });
 
   it("code inconnu de l'écran : message générique INTERNAL_ERROR", async () => {

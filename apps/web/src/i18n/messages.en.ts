@@ -3,6 +3,9 @@ import type { MessageKey } from "./messages.fr";
 
 export const en: Record<MessageKey, string> = {
   "app.title": "Schedule",
+  "auth.logout": "Sign out",
+  "auth.error": "Sign-in failed. Please try again.",
+  "auth.retry": "Sign in again",
   "schedule.grid.label": "People schedule",
   "schedule.toolbar.label": "Schedule navigation",
   "schedule.today": "Today",

@@ -16,6 +16,7 @@ body { margin: 16px; font: 13px system-ui, sans-serif; color: #1f2937; backgroun
 .wn-realtime-connecting::before, .wn-realtime-waiting::before { background: #f59e0b; }
 .wn-error { margin: 8px 0; padding: 8px 12px; border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; border-radius: 4px; }
 .wn-loading { color: #6b7280; }
+.wn-logout { margin-left: auto; font-size: 12px; }
 /* Couleurs d'un bloc (fond, texte noir ou blanc selon la luminance, bord) posées par grid-dom (block-colors). Tentatif :
    teinte claire, bord pointillé de la couleur du projet et hachures légères (pas d'opacité, qui casserait le contraste). */
 .wn-block.wn-tentative { border: 1px dashed; padding: 1px 3px; background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgba(0,0,0,.06) 4px 8px); }

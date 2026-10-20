@@ -20,6 +20,8 @@ export interface ScheduleContainerProps {
   now?: () => Date;
   widthPx: number;
   heightPx: number;
+  /** Session OIDC : affiche « Se déconnecter » (absent en mode dev, sans session à fermer). */
+  onLogout?: () => void;
 }
 
 const SHOWN_ERRORS = new Set<SourceErrorCode>(["UNAUTHENTICATED", "FORBIDDEN", "RATE_LIMITED"]);
@@ -31,7 +33,7 @@ const realtimeKey = (s: ScheduleSourceState["realtime"]): MessageKey =>
 const TODAY_CHECK_MS = 60_000;
 const systemNow = () => new Date();
 
-export function ScheduleContainer({ i18n, source, now = systemNow, widthPx, heightPx }: ScheduleContainerProps) {
+export function ScheduleContainer({ i18n, source, now = systemNow, widthPx, heightPx, onLogout }: ScheduleContainerProps) {
   const t = (k: MessageKey) => i18n._(k);
   const state = useSyncExternalStore(source.subscribe, source.getState);
   const timezone = state.data?.account.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -61,6 +63,7 @@ export function ScheduleContainer({ i18n, source, now = systemNow, widthPx, heig
   const error = state.error && <div role="alert" className="wn-error">{t(errorKey(state.error))}</div>;
 
   const title = <h1 className="wn-visually-hidden">{t("app.title")}</h1>;
+  const logout = onLogout && <button type="button" className="wn-logout" onClick={onLogout}>{t("auth.logout")}</button>;
 
   if (!state.data) {
     return (
@@ -68,6 +71,7 @@ export function ScheduleContainer({ i18n, source, now = systemNow, widthPx, heig
         {title}
         {error ?? <div className="wn-loading">{t("schedule.loading")}</div>}
         {status}
+        {logout}
       </main>
     );
   }
@@ -77,10 +81,22 @@ export function ScheduleContainer({ i18n, source, now = systemNow, widthPx, heig
       <div className="wn-statusbar">
         {status}
         {state.loading && <span className="wn-loading">{t("schedule.loading")}</span>}
+        {logout}
       </div>
       {error}
       <ScheduleScreen i18n={i18n} data={state.data} today={today} widthPx={widthPx} heightPx={heightPx} onViewChange={source.setViewport}
         editor={undo.history.editor} history={undo.history} />
+    </main>
+  );
+}
+
+/** Connexion OIDC impossible (state invalide, fournisseur injoignable, échange refusé) : message et nouvel essai. */
+export function AuthFailure({ i18n, onRetry }: { i18n: I18n; onRetry: () => void }) {
+  return (
+    <main className="wn-schedule-container">
+      <h1 className="wn-visually-hidden">{i18n._("app.title")}</h1>
+      <div role="alert" className="wn-error">{i18n._("auth.error")}</div>
+      <button type="button" onClick={onRetry}>{i18n._("auth.retry")}</button>
     </main>
   );
 }
