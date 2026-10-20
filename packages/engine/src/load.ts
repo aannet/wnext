@@ -3,10 +3,11 @@
 import { percentToHours } from "./percent";
 import { DAY_MS, addMonths, assertRange, hoursAt, monthsBetween, toMs, windowDays, workHours, type WindowDays } from "./dates";
 import { seriesEnd } from "./repeat";
+import { workDaysHoursOn, type ScheduledPerson } from "./work-schedule";
 
-export interface LoadPersonInput {
+/** workSchedule (optionnel) : historique daté de l'horaire (BR-19) ; la base du % et le jour ouvré en dépendent. */
+export interface LoadPersonInput extends ScheduledPerson {
   id: string;
-  workDaysHours: readonly number[];
 }
 
 export interface AllocationInput {
@@ -96,7 +97,7 @@ export function plannedLoadByPerson(input: LoadInput, cal: WindowDays): Map<stri
     const rows = acc.get(a.personId) ?? acc.set(a.personId, new Array(cal.iso.length)).get(a.personId)!;
 
     for (let i = lo; i <= hi; i++) {
-      const wd = hoursAt(person.workDaysHours, cal.dow[i]!);
+      const wd = hoursAt(person.workSchedule ? workDaysHoursOn(person, cal.iso[i]!) : person.workDaysHours, cal.dow[i]!);
       if (wd <= 0) continue;
       const offset = cal.first + i - start;
       const covered = a.repeatState === "none" || a.repeatState === "daily" ? true

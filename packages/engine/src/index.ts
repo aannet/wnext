@@ -1,6 +1,7 @@
 export const ENGINE_VERSION = "0.0.0";
 export * from "./dates";
 export * from "./capacity";
+export * from "./work-schedule";
 export * from "./load";
 export * from "./utilization";
 export * from "./timeoff-conflicts";

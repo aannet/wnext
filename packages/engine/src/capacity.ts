@@ -1,15 +1,17 @@
 // Capacité nette par personne et par jour. Miroir TS de daily_capacity() (schema.sql) ; la parité est
 // vérifiée par test/capacity.test.ts (mêmes cas que tests/sql/schema_tests.sql T05..T07).
 // Dates : chaînes ISO "YYYY-MM-DD" (pas de fuseau). work_days_hours : index 0 = lundi (ADR-001).
+// Horaire daté (BR-19) : PersonInput.workSchedule, lu jour par jour comme person_work_days_hours_on() (migration 0002).
 
 import { assertRange, hoursAt, windowDays } from "./dates";
+import { workDaysHoursOn, type ScheduledPerson } from "./work-schedule";
 
 export type Half = "am" | "pm";
 
-export interface PersonInput {
+/** workDaysHours = horaire de la période ouverte ; workSchedule (optionnel) = historique daté (BR-19). */
+export interface PersonInput extends ScheduledPerson {
   id: string;
   active: boolean;
-  workDaysHours: readonly number[];
   country: string | null;
   departmentId: string | null;
 }
@@ -71,7 +73,7 @@ export function dailyCapacity(input: CapacityInput): CapacityRow[] {
     const timeoffs = timeoffsByPerson.get(p.id) ?? [];
     for (let i = 0; i < cal.iso.length; i++) {
       const day = cal.iso[i]!;
-      const base = hoursAt(p.workDaysHours, cal.dow[i]!);
+      const base = hoursAt(workDaysHoursOn(p, day), cal.dow[i]!); // horaire en vigueur ce jour-là (BR-19)
 
       // Férié : portée compte / pays / département ; le plus grand l'emporte, plafonné à l'horaire du jour.
       let holiday = 0;
