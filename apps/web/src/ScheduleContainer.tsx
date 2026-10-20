@@ -57,7 +57,7 @@ export function ScheduleContainer({ i18n, source, now, widthPx, heightPx }: Sche
         {state.loading && <span className="wn-loading">{t("schedule.loading")}</span>}
       </div>
       {error}
-      <ScheduleScreen i18n={i18n} data={state.data} today={today} widthPx={widthPx} heightPx={heightPx} onViewChange={source.setViewport} />
+      <ScheduleScreen i18n={i18n} data={state.data} today={today} widthPx={widthPx} heightPx={heightPx} onViewChange={source.setViewport} editor={source} />
     </div>
   );
 }

@@ -5,13 +5,18 @@
 //    en défilement doux ; date du jour fournie dans le fuseau du compte (todayIn).
 //  * Tout texte visible vient du catalogue i18n (lint : npm run lint:ui-strings) ; les noms de personnes et de projets
 //    sont des données.
+//  * Édition par gestes (pointeur et clavier, schedule/block-editor) si un éditeur est fourni ; sinon lecture seule.
+//    Entrée sur la grille donne le focus à un bloc, Échap sur un bloc le rend à la grille.
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import type { HeaderCell, Viewport, Zoom } from "@wnext/engine";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import type { ScheduleEditor } from "./data/allocation-edits";
 import type { MessageKey } from "./i18n";
+import { createBlockEditor } from "./schedule/block-editor";
 import { capacityLabeler } from "./schedule/capacity-label";
-import { createScroller,type Clock, type Scroller } from "./schedule/scroller";
+import { useScheduleEdits } from "./schedule/edits-ui";
+import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
 
 export interface ScheduleScreenProps {
   i18n: I18n;
@@ -24,6 +29,8 @@ export interface ScheduleScreenProps {
   onViewChange?(view: Viewport): void;
   /** Horloge du défilement (tests) ; par défaut requestAnimationFrame et minuteries du navigateur. */
   clock?: Partial<Clock>;
+  /** Écritures (source branchée sur l'API ou démo locale) ; absent : lecture seule. */
+  editor?: ScheduleEditor;
 }
 
 const ZOOMS: readonly Zoom[] = ["day", "week", "month"];
@@ -37,7 +44,7 @@ function headerFormatter(locale: string) {
   return (c: HeaderCell) => fmt[c.kind].format(new Date(`${c.from}T00:00:00Z`));
 }
 
-export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewChange, clock }: ScheduleScreenProps) {
+export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewChange, clock, editor }: ScheduleScreenProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [zoom, setZoom] = useState<Zoom>("day");
   const gridRef = useRef<HTMLDivElement>(null);
@@ -46,6 +53,16 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
   viewChange.current = onViewChange;
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
+  const focusKey = (key: string) => {
+    const grid = gridRef.current;
+    const el = grid?.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`);
+    (el ?? grid)?.focus({ preventScroll: true });
+  };
+  const edits = useScheduleEdits(i18n, editor, data, focusKey);
+  const editsRef = useRef(edits);
+  editsRef.current = edits;
+  const editorRef = useRef(editor);
+  editorRef.current = editor;
 
   useEffect(() => {
     const s = createScroller({
@@ -54,7 +71,11 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
       capacityLabel: capacityLabeler(i18n),
     });
     scroller.current = s;
-    return () => { s.destroy(); scroller.current = null; };
+    const blocks = createBlockEditor({
+      root: gridRef.current!, host: s.host, clock, enabled: () => editorRef.current !== undefined,
+      onCommit: (r) => editsRef.current.onCommit(r), onPreview: (p) => editsRef.current.onPreview(p),
+    });
+    return () => { blocks.destroy(); s.destroy(); scroller.current = null; };
   }, [today, i18n.locale]);
   useEffect(() => { scroller.current?.setData(data); }, [data]);
   useEffect(() => { scroller.current?.resize(widthPx, heightPx); }, [widthPx, heightPx]);
@@ -63,7 +84,15 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
   const onKeyDown = (e: KeyboardEvent) => {
     const s = scroller.current;
     if (!s) return;
+    const onBlock = e.target !== e.currentTarget;
+    if (onBlock && e.key === "Escape") { e.preventDefault(); gridRef.current?.focus({ preventScroll: true }); return; }
+    if (!onBlock && e.key === "Enter") {
+      const first = gridRef.current?.querySelector<HTMLElement>(".wn-block[data-key]");
+      if (first) { e.preventDefault(); first.focus({ preventScroll: true }); }
+      return;
+    }
     if (e.key === "t" || e.key === "T") s.today();
+    else if (onBlock) return;
     else if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); s.nudge(e.key === "ArrowLeft" ? -1 : 1); }
   };
 
@@ -83,6 +112,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
       </div>
       <div ref={gridRef} role="grid" aria-label={t("schedule.grid.label")} tabIndex={0} onKeyDown={onKeyDown}
         className="wn-grid" style={{ overflow: "auto", height: heightPx, width: widthPx }} />
+      {edits.element}
     </div>
   );
 }
