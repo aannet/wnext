@@ -105,7 +105,7 @@
 </div>
 
 <script>
-const AS_OF = "2026-10-19";
+const AS_OF = "2026-10-20";
 
 // s: done | part | todo | defer — n: note courte
 const PHASES = [
@@ -135,10 +135,10 @@ const PHASES = [
       { t: "Outbox change_log (séquence sans trou, purge ≥ 72 h)", s: "done" },
       { t: "RLS cross-tenant sur 100 % des tables", s: "done", n: "T18 : inventaire fermé + preuve table par table sous app_user" },
       { t: "Triggers BR-10 / BR-12 / BR-14", s: "done", n: "BR-12 T13, BR-14 T12 + T19 (purge_delete_log) ; BR-10 porté par l'API" },
-      { t: "Répétitions d'allocations", s: "part", n: "occurrences et découpe splitSeries (moteur) faites ; endpoint d'édition à faire" },
+      { t: "Répétitions d'allocations", s: "done", n: "occurrences, splitSeries (moteur) et POST /allocations/{id}/split (API)" },
       { t: "Outil de migrations (« migrations depuis zéro »)", s: "done", n: "scripts/migrate.mjs, testé sur embedded-postgres" },
       { t: "Revue humaine des tests SQL", s: "todo" },
-      { t: "Couverture branches ≥ 95 % et mutation ≥ 70 %", s: "done", n: "branches ≥ 95 % imposées par make check ; mutation 85,5 % (npm run mutation -w @wnext/engine)" },
+      { t: "Couverture branches ≥ 95 % et mutation ≥ 70 %", s: "done", n: "branches ≥ 95 % imposées par make check ; mutation 90,35 % (npm run mutation -w @wnext/engine)" },
       { t: "Matrice BR : 100 % des BR du MVP avec un test", s: "part", n: "29 BR sous garde ; sans test : BR-19 (historisation)" },
       { t: "Tests de concurrence sur un vrai PostgreSQL (embedded-postgres)", s: "done" },
     ] },
@@ -170,6 +170,8 @@ const PHASES = [
       { t: "Jalons de projet (CRUD)", s: "done" },
       { t: "Désactivation d'une personne avec allocations futures (BR-31) : récapitulatif, confirmation, réaffectation", s: "done" },
       { t: "Temps réel de la structure des projets (clients, phases, tâches, jalons, équipe) dans le journal de changements", s: "done" },
+      { t: "Modifier ou supprimer une occurrence d'une série (POST /allocations/{id}/split)", s: "done" },
+      { t: "Dates pg lues en texte (plus de recul d'un jour à l'est de UTC)", s: "done" },
       { t: "Dépenses de projet et lignes de budget", s: "defer", n: "fait en avance, hors MVP (budgets en T3), non compté" },
       { t: "Rattrapage après coupure", s: "done", n: "testé au niveau session, pas encore sous charge" },
       { t: "Tests de contrat Schemathesis", s: "part", n: "fuzz local des 88 opérations (2 bugs 500 corrigés) ; Schemathesis non lancé" },
@@ -182,16 +184,17 @@ const PHASES = [
       { t: "Application web : squelette", s: "done", n: "Vite + React 19, écran Schedule (démo locale : npm run dev -w @wnext/web)" },
       { t: "Client temps réel web (reconnexion, reprise par curseur, resync, retryAfterSeconds du 429)", s: "done" },
       { t: "Adaptateur contrat → moteur (capacité côté client)", s: "done" },
-      { t: "Grille virtualisée 300 × 12 mois", s: "part", n: "DOM recyclé fait ; défilement horizontal continu et banc navigateur à faire" },
+      { t: "Écran Schedule branché sur l'API (GET /schedule, proxy Vite, pile de dev locale dev:stack)", s: "part", n: "lecture, écritures et temps réel vérifiés sur la pile locale (écho 18 ms après un PATCH) ; authentification OIDC navigateur à faire (auth-fetch.ts)" },
+      { t: "Grille virtualisée 300 × 12 mois", s: "done", n: "DOM recyclé, défilement continu ; banc Chromium 59,9 fps médian sur la VM (poste de référence à mesurer)" },
       { t: "Zooms jour / semaine / mois, navigation, « Aujourd'hui »", s: "done", n: "boutons et touche T à l'écran" },
       { t: "Blocs multi-jours à hauteur variable (moteur de layout)", s: "done", n: "rendus dans la grille DOM" },
-      { t: "Drag-and-drop + alternative clavier / tactile", s: "part", n: "moteur de gestes et raccourcis faits, rendu à faire" },
+      { t: "Drag-and-drop + alternative clavier / tactile", s: "part", n: "souris et clavier faits, écritures optimistes, 7 tests navigateur ; gestes tactiles (poignées, appui long) à faire" },
       { t: "Undo / redo de session", s: "part", n: "moteur fait (pile + cascades différées 10 s), branchement UI à faire" },
-      { t: "Indicateurs et barres de capacité", s: "part", n: "moteur fait (barres par zoom), rendu à faire" },
+      { t: "Indicateurs et barres de capacité", s: "done", n: "bande en pied de ligne (confirmé, tentatif hachuré, dépassement signalé)" },
       { t: "Avertissement BR-04 dans l'UI", s: "todo" },
       { t: "i18n FR + EN", s: "done", n: "Lingui, catalogues FR/EN, pseudo-locale, lint des chaînes en dur dans make check" },
       { t: "Saisie rapide en langage simple (« Refonte 6h lun-mer »)", s: "part", n: "analyseur FR/EN fait (8 h par défaut), barre de saisie à faire" },
-      { t: "Benchmark 60 fps, E2E Playwright, axe-core AA", s: "todo", n: "moteur mesuré : 300 × 365 j en ~100 ms (npm run perf:engine)" },
+      { t: "Benchmark 60 fps, E2E Playwright, axe-core AA", s: "done", n: "test:browser 15/15, axe 0 violation, job CI browser non bloquant ; buildGrid 32 / 52 / 94 ms (jour / semaine / mois)" },
     ] },
   { id: "p4", name: "P4 · Congés, fériés, vues, permissions", weight: 70, status: "",
     goal: "Fonctions autour du Schedule pour rendre le produit utilisable.",
@@ -219,11 +222,12 @@ const PHASES = [
 ];
 
 const NEXT = [
-  "<b>Relire la journée du 19/10</b> (rapport : <code>docs/plan-jour-2026-10-19.md</code>, tout est fusionné dans <code>main</code>), dont deux commits de contrat (<code>5a884e6</code>, <code>d0dd82b</code>) et la RLS sur <code>users</code>.",
-  "<b>Brancher l'écran sur l'API</b> : GET /schedule par blocs (loadChunks), flux temps réel, authentification OIDC dans le navigateur.",
-  "<b>Grille</b> : défilement horizontal continu, barres de capacité, gestes (glisser, étirer) branchés sur les moteurs, banc 60 fps sur un poste de référence.",
-  "<b>Signer P1</b> : ta relecture des tests SQL, BR-19 (historisation).",
-  "<b>CI</b> : make check prend ~100 s en local ; l'étage rapide a 3 min de délai.",
+  "<b>Relire la journée du 20/10</b> (rapport : <code>docs/plan-jour-2026-10-20.md</code>) et les commits de contrat <code>5a884e6</code>, <code>d0dd82b</code>, <code>a551c70</code> (CODEOWNERS).",
+  "<b>Authentification OIDC PKCE</b> dans le navigateur (point de branchement : <code>apps/web/src/data/auth-fetch.ts</code>).",
+  "<b>Gestes tactiles</b> (poignées, appui long) et avertissement de phase BR-37 dans l'écran (GET /schedule ne transporte pas les phases).",
+  "<b>Signer P1</b> : ta relecture des tests SQL (T18 à T20), BR-19 (historisation), <code>today()</code> en UTC dans <code>apps/api/src/people.ts</code>.",
+  "<b>Perf</b> : mettre en cache l'utilisation par bloc de 28 jours (zoom mois, ~94 ms) ; mesurer sur un poste de référence.",
+  "<b>Outillage</b> : autoriser <code>rtk git</code> aux sous-agents."
 ];
 
 const W = { done: 1, part: 0.5, todo: 0 };
