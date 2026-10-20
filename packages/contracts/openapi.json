@@ -89,6 +89,120 @@
           "version"
         ]
       },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/MeUser"
+          },
+          "role": {
+            "$ref": "#/components/schemas/MeRole"
+          },
+          "person": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MePerson"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "account": {
+            "$ref": "#/components/schemas/MeAccount"
+          }
+        },
+        "required": [
+          "user",
+          "role",
+          "person",
+          "account"
+        ]
+      },
+      "MeUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Nom affichable (nom, à défaut e-mail local)"
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
+        ]
+      },
+      "Id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Identifiant opaque (chaîne)"
+      },
+      "MeRole": {
+        "type": "string",
+        "enum": [
+          "owner",
+          "admin",
+          "project_manager",
+          "member",
+          "guest"
+        ],
+        "description": "Rôle de l'utilisateur dans le compte"
+      },
+      "MePerson": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "MeAccount": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Fuseau IANA du compte"
+          },
+          "weekStart": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7,
+            "description": "Premier jour affiché, ISO : 1 = lundi ... 7 = dimanche"
+          },
+          "defaultLocale": {
+            "type": "string",
+            "description": "Langue par défaut du compte (BCP 47 court, ex. fr)"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "timezone",
+          "weekStart",
+          "defaultLocale"
+        ]
+      },
       "RealtimeTicket": {
         "type": "object",
         "properties": {
@@ -357,11 +471,6 @@
           "avatarUrl",
           "active"
         ]
-      },
-      "Id": {
-        "type": "string",
-        "minLength": 1,
-        "description": "Identifiant opaque (chaîne)"
       },
       "Version": {
         "type": "integer",
@@ -4990,6 +5099,44 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "getMe",
+        "summary": "Utilisateur connecte : identite, role dans le compte, personne liee eventuelle, compte (tout membre authentifie)",
+        "responses": {
+          "200": {
+            "description": "Utilisateur, role, personne liee (ou null) et compte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }

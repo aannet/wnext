@@ -6,6 +6,7 @@ import {
 } from "./budget";
 import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
+import { Me } from "./me";
 import { REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket } from "./realtime";
 import { TeamBatchAdd, TeamBatchResult, TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
 import { PersonDeactivationQuery, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonCreate, PersonHistoryList, PersonHistoryQuery, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProjectList, PersonProjectListQuery } from "./people";
@@ -129,6 +130,17 @@ export const routes: RouteContract[] = [
     summary: "Etat du service",
     responses: {
       200: { description: "Service operationnel", schema: HealthResponse },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/me",
+    operationId: "getMe",
+    summary: "Utilisateur connecte : identite, role dans le compte, personne liee eventuelle, compte (tout membre authentifie)",
+    responses: {
+      200: { description: "Utilisateur, role, personne liee (ou null) et compte", schema: Me },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },

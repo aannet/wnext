@@ -16,6 +16,36 @@ export interface HealthResponse {
   version: string;
 }
 
+export interface Me {
+  user: MeUser;
+  role: MeRole;
+  person: MePerson | null;
+  account: MeAccount;
+}
+
+export interface MeUser {
+  id: Id;
+  name: string;
+  email: string;
+}
+
+export type Id = string;
+
+export type MeRole = "owner" | "admin" | "project_manager" | "member" | "guest";
+
+export interface MePerson {
+  id: Id;
+  name: string;
+}
+
+export interface MeAccount {
+  id: Id;
+  name: string;
+  timezone: string;
+  weekStart: number;
+  defaultLocale: string;
+}
+
 export interface RealtimeTicket {
   ticket: string;
   expiresInSeconds: number;
@@ -69,8 +99,6 @@ export interface SchedulePerson {
   avatarUrl: string | null;
   active: boolean;
 }
-
-export type Id = string;
 
 export type Version = number;
 
@@ -1020,6 +1048,14 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as HealthResponse }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Utilisateur connecte : identite, role dans le compte, personne liee eventuelle, compte (tout membre authentifie) (GET /api/v1/me) */
+    async getMe(): Promise<ApiResult<Me, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/me", { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as Me }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Ticket d'upgrade du temps reel (usage unique, 30 s) pour les clients qui ne peuvent pas poser d'en-tete sur un WebSocket ; tout membre authentifie (POST /api/v1/realtime/ticket) */
