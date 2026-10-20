@@ -3,9 +3,11 @@
 // l'application des changements appartient à l'appelant, après choix de l'utilisateur (reporter / réduire / garder).
 // Le temps loggé est signalé, jamais modifié. BR-05 : seules les données de la personne concernée comptent.
 // BR-29 : un congé en attente est signalé (badge) mais ne déclenche l'assistant qu'à l'approbation.
+// BR-19 : la charge d'un jour suit l'horaire en vigueur ce jour-là (workDaysHoursOn), comme dailyCapacity et resolutionWrites.
 import { dailyCapacity, type HolidayInput, type PersonInput, type TimeoffInput } from "./capacity";
 import { addDays, MAX_RANGE_DAYS } from "./dates";
 import { allocationHoursOn, type AllocationInput } from "./load";
+import { workDaysHoursOn } from "./work-schedule";
 
 export interface IdentifiedAllocation extends AllocationInput {
   id: string;
@@ -74,7 +76,7 @@ export function detectTimeoffConflicts(input: TimeoffConflictInput): TimeoffConf
     // Le congé doit réellement retirer de la capacité ce jour-là (pas un week-end, pas un férié déjà plein).
     if ((without.get(row.day)?.capacityHours ?? 0) - row.capacityHours <= 0) continue;
     const allocations = mine
-      .map((a) => ({ allocationId: a.id, hours: allocationHoursOn(a, person.workDaysHours, row.day) }))
+      .map((a) => ({ allocationId: a.id, hours: allocationHoursOn(a, workDaysHoursOn(person, row.day), row.day) }))
       .filter((a) => a.hours > 0);
     const planned = allocations.reduce((s, a) => s + a.hours, 0);
     const logged = input.logged.filter((l) => l.personId === person.id && l.day === row.day).reduce((s, l) => s + l.hours, 0);
@@ -134,7 +136,8 @@ export function proposeResolution(input: ResolutionInput): DayResolution[] {
   );
   const planned = new Map<string, number>();
   for (const day of capacity.keys()) {
-    planned.set(day, mine.reduce((s, a) => s + allocationHoursOn(a, person.workDaysHours, day), 0));
+    const wdh = workDaysHoursOn(person, day);
+    planned.set(day, mine.reduce((s, a) => s + allocationHoursOn(a, wdh, day), 0));
   }
   const spare = (day: string) => Math.max((capacity.get(day) ?? 0) - (planned.get(day) ?? 0), 0);
 

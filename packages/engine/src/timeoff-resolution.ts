@@ -45,6 +45,9 @@ export interface ResolutionWritesInput {
 
 type Amount = number | "origin";
 
+/** allocations.hours_per_day est NUMERIC(4,2) : quantités au centième (sans résidu flottant, un « presque 0 » vaut 0). */
+const cents = (h: number) => Math.round(h * 100) / 100;
+
 export function resolutionWrites(input: ResolutionWritesInput): ResolutionWrites | null {
   const { allocation: a, choice } = input;
   const wdhOn = (day: string) => workDaysHoursOn({ workDaysHours: input.workDaysHours, ...(input.workSchedule && { workSchedule: input.workSchedule }) }, day);
@@ -59,10 +62,10 @@ export function resolutionWrites(input: ResolutionWritesInput): ResolutionWrites
       const moves = r.moves.filter((m) => m.allocationId === a.id);
       const moved = moves.reduce((s, m) => s + m.hours, 0);
       if (moved <= 0) continue;
-      amounts.set(r.day, h - moved);
+      amounts.set(r.day, cents(h - moved));
       movedHours += moved;
       for (const m of moves) {
-        amounts.set(m.toDay, (amounts.get(m.toDay) ?? allocationHoursOn(a, wdhOn(m.toDay), m.toDay)) + m.hours);
+        amounts.set(m.toDay, cents((amounts.get(m.toDay) ?? allocationHoursOn(a, wdhOn(m.toDay), m.toDay)) + m.hours));
       }
     } else {
       const red = r.reduce.find((x) => x.allocationId === a.id);
