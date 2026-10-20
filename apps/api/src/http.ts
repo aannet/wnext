@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, SavedViewCreate, SavedViewListQuery, SavedViewPatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonHistoryQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT, type PersonHistoryQuery as PersonHistoryQueryT } from "@wnext/contracts";
+import { ImportPathParams, ImportQuery, ImportRequest, type ImportQuery as ImportQueryT, REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, SavedViewCreate, SavedViewListQuery, SavedViewPatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonHistoryQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT, type PersonHistoryQuery as PersonHistoryQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import type { RateLimiter } from "./rate-limit";
@@ -12,6 +12,7 @@ import {
   departmentReader, holidayReader, projectReader, roleReader, timeoffTypeReader,
   updateDepartment, updateHoliday, updateProject, updateRole, updateTimeoffType,
 } from "./reference";
+import { runImport } from "./imports";
 import { createSavedView, deleteSavedView, getSavedView, listSavedViews, updateSavedView } from "./saved-views";
 import { getSchedule } from "./schedule";
 import { addManyToTeam, addToTeam, getTeamRemovalSummary, listTeam, removeFromTeam } from "./team";
@@ -71,6 +72,8 @@ const STATUS: Record<ApiError["code"], number> = {
   OCCURRENCE_NOT_FOUND: 404,
   SERIES_SPLIT_UNSUPPORTED: 409,
   PERSON_HISTORY_LOCKED: 409,
+  IMPORT_TOO_LARGE: 413,
+  IMPORT_HAS_ERRORS: 422,
 };
 
 const fail = (code: ApiError["code"], requestId: string, params: ApiError["params"] = {}): HttpReply =>
@@ -93,7 +96,7 @@ function parseQuery<T>(schema: QuerySchema, search: URLSearchParams): T {
     if (values.length > 1 || !(key in schema.shape)) throw new ApiFailure("VALIDATION_FAILED", { field: key });
     const v = values[0]!;
     if (hasNul(v)) throw new ApiFailure("VALIDATION_FAILED", { field: key });
-    if (key === "includeInactive") {
+    if (key === "includeInactive" || key === "dryRun") {
       if (v !== "true" && v !== "false") throw new ApiFailure("VALIDATION_FAILED", { field: key });
       raw[key] = v === "true";
     } else if (key === "limit") {
@@ -246,6 +249,16 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       try { personId = decodeURIComponent(deactivation[1]!); } catch { personId = "%"; }
       if (deactivation[2] === "deactivation-summary") return { status: 200, body: await getPersonDeactivationSummary(deps.db, ctx, personId, parseQuery(PersonDeactivationQuery, url.searchParams) as PersonDeactivationQueryT) };
       return { status: 200, body: await deactivatePerson(deps.db, ctx, personId, parseJsonBody(PersonDeactivationRequest, req.body ?? "{}")) };
+    }
+    const importRoute = /^\/api\/v1\/imports\/([^/]+)$/.exec(url.pathname);
+    if (importRoute && req.method === "POST") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (!ADMINS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role }); // avant la validation du corps
+      const kind = ImportPathParams.safeParse({ kind: importRoute[1] });
+      if (!kind.success) return fail("NOT_FOUND", requestId, { entity: "route" });
+      const query = parseQuery<ImportQueryT>(ImportQuery, url.searchParams);
+      return { status: 200, body: await runImport(deps.db, ctx, kind.data.kind, query, parseJsonBody(ImportRequest, req.body)) };
     }
     if (url.pathname === "/api/v1/allocation-groups" && req.method === "POST") {
       const ctx = await deps.authenticate(req.headers);
