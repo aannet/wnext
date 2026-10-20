@@ -3,7 +3,7 @@ import { withContext, type Db, type Queryable, type RequestContext } from "./db"
 import { ApiFailure } from "./failure";
 import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor, reader } from "./reference";
 import { PROJECT_COLUMNS, PERSON_COLUMNS, toSchedulePerson, toScheduleProject, type Row, type SchedulePerson } from "./schedule";
-import { assertProjectScope, assertWriter, idParam, isId, lockAndCheck, notFound } from "./write";
+import { accountToday, assertProjectScope, assertWriter, idParam, isId, lockAndCheck, notFound } from "./write";
 
 // Écriture des personnes planifiables. Mêmes principes que les allocations et les congés (rôles, verrou optimiste, RLS +
 // account_id). Pas de suppression (voir le contrat) : `active: false` désactive sans toucher aux allocations ni aux congés.
@@ -129,7 +129,6 @@ export async function listPersonHistory(db: Db, ctx: RequestContext, personId: s
 // allocation insérée en parallèle attend la fin et la confirmation reste exacte.
 
 const FUTURE = "account_id = $1::bigint AND person_id = $2::bigint AND COALESCE(repeat_end_date, end_date) >= $3::date";
-const today = () => new Date().toISOString().slice(0, 10);
 
 async function loadDeactivation(tx: Queryable, ctx: RequestContext, id: string, asOf: string, lock: boolean, extraLock?: string) {
   if (!isId(id)) throw notFound("person");
@@ -154,13 +153,13 @@ async function loadDeactivation(tx: Queryable, ctx: RequestContext, id: string, 
 
 export async function getPersonDeactivationSummary(db: Db, ctx: RequestContext, id: string, query: PersonDeactivationQuery): Promise<PersonDeactivationSummary> {
   assertWriter(ctx);
-  return withContext(db, ctx, async (tx) => (await loadDeactivation(tx, ctx, id, query.asOf ?? today(), false)).summary);
+  return withContext(db, ctx, async (tx) => (await loadDeactivation(tx, ctx, id, query.asOf ?? await accountToday(tx, ctx.accountId), false)).summary);
 }
 
 export async function deactivatePerson(db: Db, ctx: RequestContext, id: string, request: PersonDeactivationRequest): Promise<PersonDeactivationResult> {
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
-    const asOf = request.asOf ?? today();
+    const asOf = request.asOf ?? await accountToday(tx, ctx.accountId); // défaut : aujourd'hui dans le fuseau du compte
     const { summary, replacement } = await loadDeactivation(tx, ctx, id, asOf, true, request.replacementId);
     // BR-33 : supprimer ou réaffecter les allocations futures, c'est écrire sur leurs projets ; un PM doit tous les gérer.
     if (ctx.role === "project_manager" && summary.allocationCount > 0) {
