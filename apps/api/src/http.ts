@@ -1,12 +1,12 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT } from "@wnext/contracts";
+import { REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonHistoryQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT, type PersonHistoryQuery as PersonHistoryQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import type { RateLimiter } from "./rate-limit";
 import { allocationReader, createAllocation, createAllocationGroup, deleteAllocation, deleteAllocationGroup, updateAllocationGroup, listPersonAllocations, listProjectAllocations, splitAllocation, updateAllocation } from "./allocations";
 import { budgetLineReader, createBudgetLine, createExpense, deleteBudgetLine, deleteExpense, expenseReader, updateBudgetLine, updateExpense } from "./budget";
-import { createPerson, deactivatePerson, getPersonDeactivationSummary, listPersonProjects, personReader, updatePerson } from "./people";
+import { createPerson, deactivatePerson, getPersonDeactivationSummary, listPersonHistory, listPersonProjects, personReader, updatePerson } from "./people";
 import {
   createDepartment, createHoliday, createProject, createRole, createTimeoffType, deleteDepartment, deleteHoliday, deleteRole, deleteTimeoffType,
   departmentReader, holidayReader, projectReader, roleReader, timeoffTypeReader,
@@ -69,6 +69,7 @@ const STATUS: Record<ApiError["code"], number> = {
   NOT_A_SERIES: 409,
   OCCURRENCE_NOT_FOUND: 404,
   SERIES_SPLIT_UNSUPPORTED: 409,
+  PERSON_HISTORY_LOCKED: 409,
 };
 
 const fail = (code: ApiError["code"], requestId: string, params: ApiError["params"] = {}): HttpReply =>
@@ -222,6 +223,14 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       let personId: string;
       try { personId = decodeURIComponent(personProjects[1]!); } catch { personId = "%"; }
       return { status: 200, body: await listPersonProjects(deps.db, ctx, personId, parseQuery(PersonProjectListQuery, url.searchParams) as { limit?: number; cursor?: string; status?: string }) };
+    }
+    const personHistory = /^\/api\/v1\/people\/([^/]+)\/history$/.exec(url.pathname);
+    if (personHistory && req.method === "GET") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      let personId: string;
+      try { personId = decodeURIComponent(personHistory[1]!); } catch { personId = "%"; }
+      return { status: 200, body: await listPersonHistory(deps.db, ctx, personId, parseQuery<PersonHistoryQueryT>(PersonHistoryQuery, url.searchParams)) };
     }
     const deactivation = /^\/api\/v1\/people\/([^/]+)\/(deactivation-summary|deactivation)$/.exec(url.pathname);
     if (deactivation && (deactivation[2] === "deactivation-summary" ? req.method === "GET" : req.method === "POST")) {

@@ -2,7 +2,7 @@
 // corps générés depuis les schémas puis mutés (champ manquant, mauvais type, null, champ inconnu, chaîne géante, JSON
 // invalide), paramètres de chemin et de requête hostiles, If-Match variés, plusieurs rôles. Invariant : jamais de 5xx, et
 // toute erreur au format ApiError (code stable, requestId), sauf le 431 du parseur HTTP de Node (URL > 16 Ko). Graine fixe ; élargir : FUZZ_CASES=300 FUZZ_SEED=7 npm run test:e2e.
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist";
 import { citext } from "@electric-sql/pglite/contrib/citext";
@@ -21,6 +21,8 @@ let internal = 0;
 beforeAll(async () => {
   pg = new PGlite({ extensions: { btree_gist, citext } });
   await pg.exec(readFileSync("schema.sql", "utf8"));
+  // Base de production : la baseline puis migrations/ (GET /people/{id}/history lit people_history, migration 0002).
+  for (const f of readdirSync("migrations").filter((x) => x.endsWith(".sql")).sort()) await pg.exec(readFileSync(`migrations/${f}`, "utf8"));
   // Un peu de données réelles pour que des ids existent (1, 2) et que les chemins heureux soient aussi parcourus.
   await pg.exec(`
     INSERT INTO users (email) VALUES ('u1@x.test'), ('u2@x.test');
