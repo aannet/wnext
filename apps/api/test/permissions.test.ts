@@ -14,6 +14,7 @@ import { dispatch, type Db, type HttpDeps, type HttpReply, type RequestContext }
 let pg: PGlite;
 const db: Db = { transaction: (fn) => pg.transaction(async (tx) => { await tx.query("SET LOCAL ROLE app_user"); return fn(tx as never); }) };
 // Compte 1 : P1 (chef de projet = Paula, personne liée à l'utilisateur 2), P2 (co-gestion : project_managers de l'utilisateur 3), P3 (personne).
+// Personnes : Alice 1, Bob 2, Paula 3, Mona 4 (compte 1), Intrus 5 (compte 2), Léa 6 (compte 1, réservée au pré-remplissage).
 // Compte 2 : un admin et son projet. Les identifiants sont fixés par l'ordre d'insertion ci-dessous.
 const roles: Record<string, RequestContext | null> = {
   owner: { accountId: "1", userId: "1", role: "owner" },
@@ -42,7 +43,7 @@ beforeAll(async () => {
   await pg.exec(`
     INSERT INTO users (email) SELECT 'u' || g || '@x.test' FROM generate_series(1, 7) g;
     INSERT INTO accounts (name) VALUES ('A'), ('B');
-    INSERT INTO people (account_id, name) VALUES (1, 'Alice'), (1, 'Bob'), (1, 'Paula'), (1, 'Mona'), (2, 'Intrus');
+    INSERT INTO people (account_id, name) VALUES (1, 'Alice'), (1, 'Bob'), (1, 'Paula'), (1, 'Mona'), (2, 'Intrus'), (1, 'Léa');
     INSERT INTO account_members (account_id, user_id, role, person_id) VALUES
       (1, 1, 'owner', NULL), (1, 2, 'project_manager', 3), (1, 3, 'project_manager', NULL), (1, 4, 'project_manager', NULL),
       (1, 5, 'member', 4), (1, 6, 'guest', NULL), (2, 7, 'admin', NULL);
@@ -112,6 +113,16 @@ const ACTIONS: Record<string, Action> = {
   "POST /logged-time": { req: (who, p) => send(who, "POST", "/api/v1/logged-time", log(p)) },
   "PATCH /logged-time/{id}": { prep: created("/api/v1/logged-time", log), req: patchOf("/api/v1/logged-time", { hours: 2 }) },
   "DELETE /logged-time/{id}": { prep: created("/api/v1/logged-time", log), req: deleteOf("/api/v1/logged-time") },
+  // Pré-remplissage et soumission portent sur une fenêtre (une personne) : ce qui serait écrit doit être sur des projets gérés.
+  // Léa (6) : aucune autre allocation (la personne 1 porte des répétitions hebdomadaires qui couvriraient la fenêtre).
+  "POST /logged-time/prefill": {
+    prep: (p) => ok(send("admin", "POST", "/api/v1/allocations", alloc(p, "6"))),
+    req: (who, _p, a) => send(who, "POST", "/api/v1/logged-time/prefill", { personId: "6", from: a.startDate, to: a.endDate }),
+  },
+  "POST /logged-time/submit": {
+    prep: created("/api/v1/logged-time", log),
+    req: (who, _p, l) => send(who, "POST", "/api/v1/logged-time/submit", { personId: "1", from: l.workDate, to: l.workDate }),
+  },
 };
 
 // Projet visé selon le rôle : le PM vise un projet qu'il gère (allow) ou non (scope) ; l'autre compte vise P1 du compte 1.
@@ -170,6 +181,16 @@ describe("BR-33 : changer d'un projet géré vers un autre", () => {
   it("PATCH d'une allocation de P3 vers P1 par le chef de P1 : 403 (il ne gère pas la ligne d'origine)", async () => {
     const a = await adminAlloc("3");
     expect((await send("pmLead", "PATCH", `/api/v1/allocations/${a.id}`, { projectId: "1" }, a.version)).status).toBe(403);
+  });
+
+  it("soumission d'une fenêtre mêlant P1 et P3 par le chef de P1 : 403, aucun brouillon verrouillé (tout ou rien)", async () => {
+    const workDate = nextDates().start;
+    await ok(send("admin", "POST", "/api/v1/logged-time", { personId: "6", projectId: "1", workDate, hours: 1 }));
+    await ok(send("admin", "POST", "/api/v1/logged-time", { personId: "6", projectId: "3", workDate, hours: 1 }));
+    const r = await send("pmLead", "POST", "/api/v1/logged-time/submit", { personId: "6", from: workDate, to: workDate });
+    expect([r.status, (r.body as any).params]).toEqual([403, { role: "project_manager", scope: "project" }]);
+    const list = await ok(send("admin", "GET", `/api/v1/logged-time?personId=6&from=${workDate}&to=${workDate}`));
+    expect(list.items.map((l: any) => l.status)).toEqual(["draft", "draft"]);
   });
 
   it("le PM qui crée un projet en devient co-gestionnaire et peut l'écrire ensuite", async () => {

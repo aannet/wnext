@@ -7,7 +7,8 @@ import { assertAdmin, assertProjectScope, assertWriter, day, invalid, isId, lock
 
 // Temps saisis (logged_time) : pré-remplissage (BR-11), cycle de vie et verrouillage (BR-12, BR-28). Règles portées ici ; le reste
 // l'est par le trigger guard_logged_time de schema.sql, qui reste le dernier rempart (immutabilité hors brouillon, 24 h, placeholder) :
-//  * rôle : owner, admin, project_manager écrivent ; owner et admin déverrouillent ; la lecture est ouverte à tout membre authentifié ;
+//  * rôle : owner, admin, project_manager écrivent ; owner et admin déverrouillent ; un project_manager seulement sur les projets qu'il
+//    gère (BR-33, assertProjectScope), y compris pour le pré-remplissage et la soumission (403 si une ligne écrite est hors périmètre) ; la lecture est ouverte à tout membre authentifié ;
 //  * seules les lignes en brouillon se modifient ou se suppriment, même pour un admin (il déverrouille d'abord, ce qui est tracé) ;
 //  * la logique de pré-remplissage est pure et vit dans @wnext/engine (planPrefill) ; ici, uniquement la lecture des entrées et l'écriture ;
 //  * isolation : RLS (app_user + contexte de withContext) ET account_id dans chaque requête.
@@ -165,6 +166,9 @@ export async function prefillLoggedTime(db: Db, ctx: RequestContext, body: Logge
       workDaysHours: person.workDaysHours, allocations, from: body.from, to: body.to,
       existing: existing.map((r) => ({ allocationId: orNullId(r.allocation_id), workDate: day(r.work_date), hours: Number(r.hours) })),
     });
+    // BR-33 : un project_manager ne pré-remplit que des projets qu'il gère. Tout ou rien, comme assertProjectScope : si une ligne
+    // à créer est sur un projet non géré, 403 sans rien écrire (pas de miroir partiel silencieux). Un plan vide n'écrit rien : pas de contrôle.
+    await assertProjectScope(tx, ctx, ...plan.map((r) => r.projectId));
     let createdCount = 0;
     for (const row of plan) {
       try {
@@ -189,6 +193,16 @@ export async function submitLoggedTime(db: Db, ctx: RequestContext, body: Logged
   assertWindow(body.from, body.to);
   return withContext(db, ctx, async (tx) => {
     await requirePerson(tx, ctx.accountId, body.personId);
+    // BR-33 : la soumission est atomique (tous les brouillons de la fenêtre) ; un project_manager ne peut donc soumettre que si
+    // TOUS ces brouillons sont sur des projets qu'il gère, sinon 403 sans rien verrouiller (pas de soumission partielle).
+    // FOR UPDATE : l'ensemble contrôlé est celui qui sera soumis (pas de brouillon ajouté entre le contrôle et l'UPDATE).
+    const { rows: drafts } = await tx.query<Row>(
+      `SELECT project_id FROM logged_time
+       WHERE account_id = $1::bigint AND person_id = $2::bigint AND work_date BETWEEN $3::date AND $4::date AND status = 'draft'
+       FOR UPDATE`,
+      [ctx.accountId, body.personId, body.from, body.to],
+    );
+    await assertProjectScope(tx, ctx, ...drafts.map((r) => idOf(r.project_id)));
     const { rows: submitted } = await tx.query<Row>(
       `UPDATE logged_time SET status = 'submitted'
        WHERE account_id = $1::bigint AND person_id = $2::bigint AND work_date BETWEEN $3::date AND $4::date AND status = 'draft'
