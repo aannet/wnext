@@ -5,7 +5,7 @@ import {
   HOLIDAY_COLUMNS, NAMED_COLUMNS, PROJECT_COLUMNS, TIMEOFF_TYPE_COLUMNS, toScheduleDepartment, toScheduleHoliday, toScheduleProject, toScheduleRole, toScheduleTimeoffType,
   type Row, type ScheduleDepartment, type ScheduleHoliday, type ScheduleRole, type ScheduleTimeoffType,
 } from "./schedule";
-import { assertAdmin, assertWriter, day, invalid, isId, lockAndCheck, notFound } from "./write";
+import { assertAdmin, assertProjectScope, assertWriter, day, invalid, isId, lockAndCheck, notFound } from "./write";
 
 // Lecture et écriture des entités de référence : départements, rôles, types de congé, fériés (configuration : owner et admin), projets
 // (owner, admin, project_manager). Même mécanique que les allocations : rôle contrôlé avant tout accès aux données, verrou
@@ -33,7 +33,8 @@ export interface Removal { table: "departments" | "roles" | "timeoff_types" | "h
 export async function remove(db: Db, ctx: RequestContext, def: Removal, id: string, expected: number): Promise<void> {
   if (def.writers) assertWriter(ctx); else assertAdmin(ctx);
   await withContext(db, ctx, async (tx) => {
-    await lockAndCheck(tx, def.table, def.columns, def.entity, ctx.accountId, id, expected);
+    const cur = await lockAndCheck(tx, def.table, def.columns, def.entity, ctx.accountId, id, expected);
+    if (cur.project_id !== undefined) await assertProjectScope(tx, ctx, String(cur.project_id)); // données de projet (BR-33)
     const counts: Record<string, number> = {};
     for (const [label, sql] of Object.entries(def.dependents)) counts[label] = Number((await tx.query<Row>(sql, [ctx.accountId, id])).rows[0]!.n);
     if (Object.values(counts).some((n) => n > 0)) throw new ApiFailure("REFERENCE_IN_USE", { entity: def.entity, ...counts });
@@ -187,6 +188,14 @@ export async function createProject(db: Db, ctx: RequestContext, body: ProjectCr
         body.status ?? "planned", body.projectManagerId ?? null, body.nonBillable ?? false, body.tags ?? [], body.notes ?? null,
       ],
     ).catch(failProject);
+    // BR-33 : le project_manager qui crée un projet en devient co-gestionnaire (sinon il ne pourrait plus l'écrire).
+    if (ctx.role === "project_manager") {
+      await tx.query(
+        `INSERT INTO project_managers (project_id, account_id, user_id)
+         SELECT $1::bigint, account_id, user_id FROM account_members WHERE account_id = $2::bigint AND user_id = $3::bigint ON CONFLICT DO NOTHING`,
+        [rows[0]!.id, ctx.accountId, ctx.userId],
+      );
+    }
     return toDetail(rows[0]!);
   });
 }
@@ -195,6 +204,7 @@ export async function updateProject(db: Db, ctx: RequestContext, id: string, exp
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     const cur = await lockAndCheck(tx, "projects", DETAIL_COLUMNS, "project", ctx.accountId, id, expected);
+    await assertProjectScope(tx, ctx, id);
     const has = <K extends keyof ProjectPatch>(k: K) => patch[k] !== undefined;
     const startDate = has("startDate") ? patch.startDate! : cur.start_date === null ? null : day(cur.start_date);
     const endDate = has("endDate") ? patch.endDate! : cur.end_date === null ? null : day(cur.end_date);

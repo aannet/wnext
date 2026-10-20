@@ -38,6 +38,9 @@ beforeAll(async () => {
     INSERT INTO accounts (name) VALUES ('A'), ('B');
     INSERT INTO people (account_id, name, active) VALUES (1,'hal',true), (1,'eve',true), (1,'vide',true), (1,'inactive',false), (2,'intrus',true), (1,'gwen',true), (1,'ian',true), (1,'zoe',true);
     INSERT INTO projects (account_id, name) VALUES (1,'P'), (1,'Q'), (2,'R');
+    -- BR-33 : l'utilisateur 1 (joué aussi en project_manager) gère les projets du compte 1.
+    INSERT INTO account_members (account_id, user_id, role) VALUES (1, 1, 'project_manager');
+    INSERT INTO project_managers (project_id, account_id, user_id) SELECT id, account_id, 1 FROM projects WHERE account_id = 1;
     INSERT INTO allocations (account_id, person_id, project_id, start_date, end_date, mode, hours_per_day, repeat_state, repeat_end_date) VALUES
       (1,1,1,'2026-05-25','2026-05-29','hours',8,'none',NULL),
       (1,1,1,'2026-06-01','2026-06-02','hours',8,'none',NULL),

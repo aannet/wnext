@@ -50,6 +50,9 @@ beforeAll(async () => {
     INSERT INTO accounts (name) VALUES ('A'), ('B');
     INSERT INTO people (account_id, name) VALUES (1,'hal'), (1,'bob'), (2,'intrus');
     INSERT INTO projects (account_id, name) VALUES (1,'P1'), (2,'Q');
+    -- BR-33 : l'utilisateur 1 (joué aussi en project_manager) gère les projets du compte 1.
+    INSERT INTO account_members (account_id, user_id, role) VALUES (1, 1, 'project_manager');
+    INSERT INTO project_managers (project_id, account_id, user_id) SELECT id, account_id, 1 FROM projects WHERE account_id = 1;
   `);
 }, 120_000);
 afterAll(async () => { await pg?.close(); }, 60_000);
@@ -142,7 +145,10 @@ describe("POST /allocations/{id}/split : découpe", () => {
     const spy: Db = { transaction: (fn) => db.transaction((tx) => fn({ query: (sql: string, args?: unknown[]) => { seen.push(sql); return tx.query(sql, args); } } as never)) };
     const r = await dispatch({ ...deps, db: spy }, { method: "POST", url: `/api/v1/allocations/${a.id}/split`, headers: { authorization: "pm", "if-match": `"${a.version}"` }, body: JSON.stringify({ occurrenceDate: "2026-03-09" }) });
     expect(r.status).toBe(200);
-    expect(seen.filter((q) => /FROM (projects|phases|project_tasks|people)\b/.test(q))).toEqual([]);
+    const refs = seen.filter((q) => /FROM (projects|phases|project_tasks|people)\b/.test(q));
+    // BR-33 : le contrôle de périmètre du project_manager lit projects UNE fois (avec project_managers) ; aucune relecture de référence.
+    expect(refs.filter((q) => !q.includes("project_managers"))).toEqual([]);
+    expect(refs.filter((q) => q.includes("project_managers")).length).toBe(1);
   });
 });
 

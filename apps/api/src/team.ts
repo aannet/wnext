@@ -4,7 +4,7 @@ import { withContext, type Db, type Queryable, type RequestContext } from "./db"
 import { ApiFailure } from "./failure";
 import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor } from "./reference";
 import type { Row } from "./schedule";
-import { assertWriter, day, isId, notFound } from "./write";
+import { assertProjectScope, assertWriter, day, isId, notFound } from "./write";
 
 // Retrait d'une personne d'un projet (BR-10). La décision (récapitulatif, garde de confirmation, refus si temps verrouillés)
 // vient du moteur (planTeamRemoval, parité testée avec team_removal_summary() de schema.sql) ; ce module charge l'état,
@@ -50,6 +50,7 @@ export async function getTeamRemovalSummary(db: Db, ctx: RequestContext, project
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     await assertExist(tx, ctx.accountId, projectId, personId, false);
+    await assertProjectScope(tx, ctx, projectId);
     const { allocations, logged, inTeam } = await load(tx, ctx.accountId, projectId, personId);
     return toContract(summarizeTeamRemoval({ projectId, personId, allocations, logged }), inTeam);
   });
@@ -59,6 +60,7 @@ export async function removeFromTeam(db: Db, ctx: RequestContext, projectId: str
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     await assertExist(tx, ctx.accountId, projectId, personId, true);
+    await assertProjectScope(tx, ctx, projectId);
     const { allocations, logged, inTeam } = await load(tx, ctx.accountId, projectId, personId);
     const plan = planTeamRemoval({ projectId, personId, allocations, logged, confirmation: request.confirmation });
     if (!plan.ok) {
@@ -78,6 +80,7 @@ export async function addToTeam(db: Db, ctx: RequestContext, projectId: string, 
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     await assertExist(tx, ctx.accountId, projectId, personId, true);
+    await assertProjectScope(tx, ctx, projectId);
     const r = await tx.query(
       `INSERT INTO project_team (project_id, person_id, account_id) VALUES ($1::bigint, $2::bigint, $3::bigint) ON CONFLICT DO NOTHING RETURNING 1`,
       [projectId, personId, ctx.accountId],
@@ -95,6 +98,7 @@ export async function addManyToTeam(db: Db, ctx: RequestContext, projectId: stri
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     if (!isId(projectId) || !(await tx.query("SELECT 1 FROM projects WHERE id = $1::bigint AND account_id = $2::bigint", [projectId, ctx.accountId])).rows.length) throw notFound("project");
+    await assertProjectScope(tx, ctx, projectId);
     const wanted = request.personIds;
     const known = new Set(
       (await tx.query<Row>(

@@ -3,7 +3,7 @@ import { planPrefill, type PrefillAllocation } from "@wnext/engine";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { assertWindow, type Row } from "./schedule";
-import { assertAdmin, assertWriter, day, invalid, isId, lockAndCheck, notFound } from "./write";
+import { assertAdmin, assertProjectScope, assertWriter, day, invalid, isId, lockAndCheck, notFound } from "./write";
 
 // Temps saisis (logged_time) : pré-remplissage (BR-11), cycle de vie et verrouillage (BR-12, BR-28). Règles portées ici ; le reste
 // l'est par le trigger guard_logged_time de schema.sql, qui reste le dernier rempart (immutabilité hors brouillon, 24 h, placeholder) :
@@ -87,6 +87,7 @@ export async function createLoggedTime(db: Db, ctx: RequestContext, body: Logged
   return withContext(db, ctx, async (tx) => {
     assertCanLog(await requirePerson(tx, ctx.accountId, body.personId));
     await assertStructure(tx, ctx.accountId, body.projectId, body.phaseId, body.taskId);
+    await assertProjectScope(tx, ctx, body.projectId);
     try {
       const { rows } = await tx.query<Row>(
         `INSERT INTO logged_time (account_id, person_id, project_id, phase_id, project_task_id, work_date, hours, billable, notes)
@@ -104,6 +105,7 @@ export async function updateLoggedTime(db: Db, ctx: RequestContext, id: string, 
   if (patch.hours !== undefined) assertCents(patch.hours);
   return withContext(db, ctx, async (tx) => {
     const cur = await lockAndCheck(tx, "logged_time", LOGGED_TIME_COLUMNS, "loggedTime", ctx.accountId, id, expected);
+    await assertProjectScope(tx, ctx, idOf(cur.project_id));
     mustBeDraft(cur);
     const phaseId = patch.phaseId === undefined ? orNullId(cur.phase_id) : patch.phaseId;
     const taskId = patch.taskId === undefined ? orNullId(cur.project_task_id) : patch.taskId;
@@ -123,6 +125,7 @@ export async function deleteLoggedTime(db: Db, ctx: RequestContext, id: string, 
   assertWriter(ctx);
   await withContext(db, ctx, async (tx) => {
     const cur = await lockAndCheck(tx, "logged_time", LOGGED_TIME_COLUMNS, "loggedTime", ctx.accountId, id, expected);
+    await assertProjectScope(tx, ctx, idOf(cur.project_id));
     mustBeDraft(cur);
     try {
       await tx.query("DELETE FROM logged_time WHERE id = $1::bigint AND account_id = $2::bigint", [id, ctx.accountId]);

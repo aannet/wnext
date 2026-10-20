@@ -3,7 +3,7 @@ import { withContext, type Db, type Queryable, type RequestContext } from "./db"
 import { ApiFailure } from "./failure";
 import { reader, remove } from "./reference";
 import type { Row } from "./schedule";
-import { assertWriter, day, idParam, invalid, isId, lockAndCheck, notFound } from "./write";
+import { assertProjectScope, assertWriter, day, idParam, invalid, isId, lockAndCheck, notFound } from "./write";
 
 // Dépenses de projet et lignes de budget (contrat : packages/contracts/src/budget.ts). Données FINANCIÈRES : owner, admin et
 // project_manager lisent ET écrivent (garde ici en plus de la couche HTTP). Même mécanique que project-structure.ts (verrou
@@ -46,6 +46,7 @@ export async function createExpense(db: Db, ctx: RequestContext, body: ProjectEx
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     await assertProject(tx, ctx.accountId, body.projectId);
+    await assertProjectScope(tx, ctx, body.projectId);
     const { rows } = await tx.query<Row>(
       `INSERT INTO project_expenses (account_id, project_id, name, amount, currency, spent_on)
        VALUES ($1::bigint, $2::bigint, $3, $4::numeric, COALESCE($5, (SELECT currency_code FROM accounts WHERE id = $1::bigint)), $6::date) RETURNING ${EXPENSE_COLUMNS}`,
@@ -59,6 +60,7 @@ export async function updateExpense(db: Db, ctx: RequestContext, id: string, exp
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     const cur = await lockAndCheck(tx, "project_expenses", EXPENSE_COLUMNS, "project_expense", ctx.accountId, id, expected);
+    await assertProjectScope(tx, ctx, String(cur.project_id));
     const { rows } = await tx.query<Row>(
       `UPDATE project_expenses SET name = $3, amount = $4::numeric, currency = $5, spent_on = $6::date
         WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $7::int RETURNING ${EXPENSE_COLUMNS}`,
@@ -93,6 +95,7 @@ export async function createBudgetLine(db: Db, ctx: RequestContext, body: Projec
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     await assertProject(tx, ctx.accountId, body.projectId);
+    await assertProjectScope(tx, ctx, body.projectId);
     if (body.taskId !== undefined && (!isId(body.taskId) || !(await tx.query("SELECT 1 FROM project_tasks WHERE id = $1::bigint AND project_id = $2::bigint AND account_id = $3::bigint", [body.taskId, body.projectId, ctx.accountId])).rows.length)) throw notFound("project_task");
     if (body.personId !== undefined && (!isId(body.personId) || !(await tx.query("SELECT 1 FROM people WHERE id = $1::bigint AND account_id = $2::bigint", [body.personId, ctx.accountId])).rows.length)) throw notFound("person");
     const { rows } = await tx.query<Row>(
@@ -108,6 +111,7 @@ export async function updateBudgetLine(db: Db, ctx: RequestContext, id: string, 
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     const cur = await lockAndCheck(tx, "project_budget_lines", BUDGET_LINE_COLUMNS, "project_budget_line", ctx.accountId, id, expected);
+    await assertProjectScope(tx, ctx, String(cur.project_id));
     const hours = patch.hours !== undefined ? patch.hours : cur.hours === null ? null : Number(cur.hours);
     const amount = patch.amount !== undefined ? patch.amount : orNullMoney(cur.amount);
     if (hours === null && amount === null) throw invalid("hours"); // état résultant : une ligne garde au moins une valeur

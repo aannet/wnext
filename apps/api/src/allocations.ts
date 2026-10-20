@@ -3,7 +3,7 @@ import type { AllocationCreate, AllocationGroup, AllocationGroupCreate, Allocati
 import { SeriesSplitError, expandOccurrences, seriesEnd, splitSeries, type RepeatInput, type SeriesSplit } from "@wnext/engine";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
-import { assertWriter, day, idParam, invalid, isId, lockAndCheck as lockRow, notFound } from "./write";
+import { assertProjectScope, assertWriter, day, idParam, invalid, isId, lockAndCheck as lockRow, notFound } from "./write";
 import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor, reader } from "./reference";
 import { ALLOCATION_COLUMNS, assertWindow, toScheduleAllocation, type Row, type ScheduleAllocation } from "./schedule";
 
@@ -32,6 +32,7 @@ export async function createAllocation(db: Db, ctx: RequestContext, body: Alloca
   if (body.taskId && !isId(body.taskId)) throw notFound("task");
   return withContext(db, ctx, async (tx) => {
     await assertReferences(tx, ctx.accountId, body);
+    await assertProjectScope(tx, ctx, body.projectId);
     const load = body.load;
     const { rows } = await tx.query<Row>(
       `INSERT INTO allocations (account_id, person_id, project_id, phase_id, project_task_id, name, notes, start_date, end_date,
@@ -54,6 +55,7 @@ export async function updateAllocation(db: Db, ctx: RequestContext, id: string, 
   assertPatchIds(patch);
   return withContext(db, ctx, async (tx) => {
     const cur = await lockRow(tx, "allocations", ALLOCATION_COLUMNS, "allocation", ctx.accountId, id, expectedVersion);
+    await assertProjectScope(tx, ctx, String(cur.project_id), patch.projectId); // BR-33 : le projet d'origine ET celui d'arrivée
     return applyPatch(tx, ctx, cur, patch);
   });
 }
@@ -142,7 +144,8 @@ async function resolvePatch(tx: Queryable, ctx: RequestContext, cur: Row, input:
 export async function deleteAllocation(db: Db, ctx: RequestContext, id: string, expectedVersion: number): Promise<void> {
   assertWriter(ctx);
   await withContext(db, ctx, async (tx) => {
-    await lockRow(tx, "allocations", ALLOCATION_COLUMNS, "allocation", ctx.accountId, id, expectedVersion);
+    const cur = await lockRow(tx, "allocations", ALLOCATION_COLUMNS, "allocation", ctx.accountId, id, expectedVersion);
+    await assertProjectScope(tx, ctx, String(cur.project_id));
     const { rows } = await tx.query("DELETE FROM allocations WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $3::int RETURNING id", [id, ctx.accountId, expectedVersion]);
     if (!rows.length) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: expectedVersion + 1 });
   });
@@ -171,6 +174,7 @@ export async function splitAllocation(db: Db, ctx: RequestContext, id: string, e
   if (body.patch) assertPatchIds(body.patch);
   return withContext(db, ctx, async (tx) => {
     const cur = await lockRow(tx, "allocations", ALLOCATION_COLUMNS, "allocation", ctx.accountId, id, expectedVersion);
+    await assertProjectScope(tx, ctx, String(cur.project_id), body.patch?.projectId);
     const series: RepeatInput = {
       startDate: day(cur.start_date), endDate: day(cur.end_date), repeatState: cur.repeat_state,
       repeatEndDate: cur.repeat_end_date === null ? null : day(cur.repeat_end_date),
@@ -220,6 +224,7 @@ export async function createAllocationGroup(db: Db, ctx: RequestContext, body: A
   const groupId = randomUUID();
   return withContext(db, ctx, async (tx) => {
     await assertReferences(tx, ctx.accountId, body);
+    await assertProjectScope(tx, ctx, body.projectId);
     const items: ScheduleAllocation[] = [];
     for (const m of body.members) {
       await assertReferences(tx, ctx.accountId, { personId: m.personId, projectId: body.projectId }); // première personne inconnue, dans l'ordre du corps
@@ -264,6 +269,7 @@ export async function updateAllocationGroup(db: Db, ctx: RequestContext, id: str
   assertPatchIds(patch);
   return withContext(db, ctx, async (tx) => {
     const { groupId, rows } = await lockGroup(tx, ctx, id, expectedVersion);
+    await assertProjectScope(tx, ctx, ...rows.map((r) => String(r.project_id)), patch.projectId);
     const items: ScheduleAllocation[] = [];
     for (const cur of rows) items.push(await applyPatch(tx, ctx, cur, patch));
     return { groupId, items };
@@ -274,6 +280,7 @@ export async function deleteAllocationGroup(db: Db, ctx: RequestContext, id: str
   assertWriter(ctx);
   await withContext(db, ctx, async (tx) => {
     const { groupId, rows } = await lockGroup(tx, ctx, id, expectedVersion);
+    await assertProjectScope(tx, ctx, ...rows.map((r) => String(r.project_id)));
     const del = await tx.query("DELETE FROM allocations WHERE group_id = $1::uuid AND account_id = $2::bigint RETURNING id", [groupId, ctx.accountId]);
     if (del.rows.length !== rows.length) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: expectedVersion + 1 }); // filet : les lignes sont verrouillées
   });

@@ -3,7 +3,7 @@ import { withContext, type Db, type Queryable, type RequestContext } from "./db"
 import { ApiFailure } from "./failure";
 import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor, reader } from "./reference";
 import { PROJECT_COLUMNS, PERSON_COLUMNS, toSchedulePerson, toScheduleProject, type Row, type SchedulePerson } from "./schedule";
-import { assertWriter, idParam, isId, lockAndCheck, notFound } from "./write";
+import { assertProjectScope, assertWriter, idParam, isId, lockAndCheck, notFound } from "./write";
 
 // Écriture des personnes planifiables. Mêmes principes que les allocations et les congés (rôles, verrou optimiste, RLS +
 // account_id). Pas de suppression (voir le contrat) : `active: false` désactive sans toucher aux allocations ni aux congés.
@@ -162,6 +162,11 @@ export async function deactivatePerson(db: Db, ctx: RequestContext, id: string, 
   return withContext(db, ctx, async (tx) => {
     const asOf = request.asOf ?? today();
     const { summary, replacement } = await loadDeactivation(tx, ctx, id, asOf, true, request.replacementId);
+    // BR-33 : supprimer ou réaffecter les allocations futures, c'est écrire sur leurs projets ; un PM doit tous les gérer.
+    if (ctx.role === "project_manager" && summary.allocationCount > 0) {
+      const projects = (await tx.query<Row>(`SELECT DISTINCT project_id FROM allocations WHERE ${FUTURE}`, [ctx.accountId, id, asOf])).rows;
+      await assertProjectScope(tx, ctx, ...projects.map((r) => String(r.project_id)));
+    }
     // Les params d'erreur sont des scalaires : dates nulles omises.
     const { firstAllocation, lastAllocation, ...rest } = summary;
     const params = { ...rest, ...(firstAllocation && { firstAllocation }), ...(lastAllocation && { lastAllocation }) };

@@ -13,6 +13,35 @@ const ADMINS = new Set<RequestContext["role"]>(["owner", "admin"]);
 export const assertAdmin = (ctx: RequestContext) => {
   if (!ADMINS.has(ctx.role)) throw new ApiFailure("FORBIDDEN", { role: ctx.role });
 };
+/**
+ * BR-33 : un project_manager n'écrit que sur les projets qu'il gère, c'est-à-dire ceux dont il est le chef de projet
+ * (projects.project_manager_id = la personne liée à son compte, account_members.person_id) ou dont il est co-gestionnaire
+ * (project_managers). owner et admin : tous les projets ; member et guest sont déjà refusés par assertWriter.
+ * Appelé DANS la transaction, après la vérification d'existence (un projet inconnu reste un 404) : 403 FORBIDDEN avec
+ * params.scope = "project" (code stable, distinct du refus par rôle seul). Plusieurs projets : tous doivent être gérés.
+ */
+export async function assertProjectScope(tx: Queryable, ctx: RequestContext, ...projectIds: Array<string | null | undefined>): Promise<void> {
+  if (ctx.role !== "project_manager") return;
+  const ids = [...new Set(projectIds.filter((v): v is string => typeof v === "string" && isId(v)))];
+  if (!ids.length) return;
+  if (!isId(ctx.userId)) throw new ApiFailure("FORBIDDEN", { role: ctx.role, scope: "project" });
+  const { rows } = await tx.query<Row>(
+    `SELECT count(*) AS n,
+            count(*) FILTER (WHERE EXISTS (SELECT 1 FROM project_managers m WHERE m.account_id = p.account_id AND m.project_id = p.id AND m.user_id = $3::bigint)
+                                OR p.project_manager_id IN (SELECT person_id FROM account_members WHERE account_id = p.account_id AND user_id = $3::bigint)) AS managed
+       FROM projects p WHERE p.account_id = $1::bigint AND p.id = ANY ($2::bigint[])`,
+    [ctx.accountId, ids, ctx.userId],
+  );
+  if (Number(rows[0]!.n) !== ids.length) throw notFound("project"); // projet inconnu : 404 comme pour les autres rôles
+  if (Number(rows[0]!.managed) !== ids.length) throw new ApiFailure("FORBIDDEN", { role: ctx.role, scope: "project" });
+}
+
+/** Jour calendaire courant (YYYY-MM-DD) dans le fuseau du compte (accounts.timezone), calculé par la base comme history_effective_from (0002). */
+export async function accountToday(tx: Queryable, accountId: string): Promise<string> {
+  const { rows } = await tx.query<Row>("SELECT (now() AT TIME ZONE COALESCE((SELECT timezone FROM accounts WHERE id = $1::bigint), 'UTC'))::date::text AS d", [accountId]);
+  return String(rows[0]!.d);
+}
+
 export const invalid = (field: string) => new ApiFailure("VALIDATION_FAILED", { field });
 export const notFound = (entity: string) => new ApiFailure("NOT_FOUND", { entity });
 

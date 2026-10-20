@@ -3,7 +3,7 @@ import { withContext, type Db, type Queryable, type RequestContext } from "./db"
 import { ApiFailure } from "./failure";
 import { count, reader, remove } from "./reference";
 import type { Row } from "./schedule";
-import { assertWriter, day, idParam, invalid, isId, lockAndCheck, notFound } from "./write";
+import { assertProjectScope, assertWriter, day, idParam, invalid, isId, lockAndCheck, notFound } from "./write";
 
 // Clients, phases, tâches et jalons de projet (contrat : packages/contracts/src/project-structure.ts). Données de projet : owner, admin et
 // project_manager écrivent, tout membre lit. Même mécanique que reference.ts (verrou optimiste, suppression sans cascade silencieuse,
@@ -94,6 +94,7 @@ export async function createPhase(db: Db, ctx: RequestContext, body: PhaseCreate
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     await assertProject(tx, ctx.accountId, body.projectId);
+    await assertProjectScope(tx, ctx, body.projectId);
     const position = body.position ?? (await nextPosition(tx, "phases", ctx.accountId, body.projectId));
     const { rows } = await tx.query<Row>(
       `INSERT INTO phases (account_id, project_id, name, start_date, end_date, status, color, non_billable, notes, position)
@@ -108,6 +109,7 @@ export async function updatePhase(db: Db, ctx: RequestContext, id: string, expec
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     const cur = await lockAndCheck(tx, "phases", PHASE_COLUMNS, "phase", ctx.accountId, id, expected);
+    await assertProjectScope(tx, ctx, String(cur.project_id));
     const has = <K extends keyof PhasePatch>(k: K) => patch[k] !== undefined;
     const startDate = has("startDate") ? patch.startDate! : orNullDay(cur.start_date);
     const endDate = has("endDate") ? patch.endDate! : orNullDay(cur.end_date);
@@ -147,6 +149,7 @@ export async function createProjectTask(db: Db, ctx: RequestContext, body: Proje
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     await assertProject(tx, ctx.accountId, body.projectId);
+    await assertProjectScope(tx, ctx, body.projectId);
     await assertPhaseOf(tx, ctx.accountId, body.projectId, body.phaseId);
     const position = body.position ?? (await nextPosition(tx, "project_tasks", ctx.accountId, body.projectId));
     const { rows } = await tx.query<Row>(
@@ -162,6 +165,7 @@ export async function updateProjectTask(db: Db, ctx: RequestContext, id: string,
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     const cur = await lockAndCheck(tx, "project_tasks", TASK_COLUMNS, "project_task", ctx.accountId, id, expected);
+    await assertProjectScope(tx, ctx, String(cur.project_id));
     const phaseId = patch.phaseId !== undefined ? patch.phaseId : orNullId(cur.phase_id);
     if (patch.phaseId !== undefined) await assertPhaseOf(tx, ctx.accountId, idOf(cur.project_id), phaseId);
     const { rows } = await tx.query<Row>(
@@ -200,6 +204,7 @@ export async function createMilestone(db: Db, ctx: RequestContext, body: Milesto
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     await assertProject(tx, ctx.accountId, body.projectId);
+    await assertProjectScope(tx, ctx, body.projectId);
     await assertPhaseOf(tx, ctx.accountId, body.projectId, body.phaseId);
     const { rows } = await tx.query<Row>(
       `INSERT INTO milestones (account_id, project_id, phase_id, name, due_date) VALUES ($1::bigint, $2::bigint, $3::bigint, $4, $5::date) RETURNING ${MILESTONE_COLUMNS}`,
@@ -213,6 +218,7 @@ export async function updateMilestone(db: Db, ctx: RequestContext, id: string, e
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     const cur = await lockAndCheck(tx, "milestones", MILESTONE_COLUMNS, "milestone", ctx.accountId, id, expected);
+    await assertProjectScope(tx, ctx, String(cur.project_id));
     const phaseId = patch.phaseId !== undefined ? patch.phaseId : orNullId(cur.phase_id);
     if (patch.phaseId !== undefined) await assertPhaseOf(tx, ctx.accountId, idOf(cur.project_id), phaseId);
     const { rows } = await tx.query<Row>(
