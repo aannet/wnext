@@ -1,110 +1,110 @@
+/* Tailwind v4 : thème et utilitaires seulement, SANS preflight (le reset changerait les boutons natifs ; il viendra avec
+   les primitives). Les tokens de design vivent dans design/tokens.css. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "./design/tokens.css";
+
 /* Styles provisoires de la démo ; contain:strict sur lignes et blocs, comme le spike A2. */
 /* Page sur 100dvh qui ne défile jamais : barres en hauteur naturelle, la grille prend le reste (flex 1, min-height 0). */
 html, body, #root { height: 100%; margin: 0; overflow: hidden; }
-body { box-sizing: border-box; height: 100dvh; padding: 16px; font: 13px system-ui, sans-serif; color: #1f2937; background: #fff; }
+body { box-sizing: border-box; height: 100dvh; padding: 16px; font: var(--text-body) var(--font-sans); color: var(--text); background: var(--surface); }
 .wn-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .wn-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .wn-toolbar button[aria-pressed="true"] { font-weight: 600; }
-.wn-header { background: #fff; border-bottom: 1px solid #e5e7eb; }
-.wn-corner { background: #fff; }
-.wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; overflow: hidden; white-space: nowrap; color: #6b7280; border-left: 1px solid #f3f4f6; }
+.wn-header { background: var(--surface); border-bottom: 1px solid var(--border); }
+.wn-corner { background: var(--surface); }
+.wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; overflow: hidden; white-space: nowrap; color: var(--text-muted); border-left: 1px solid var(--color-border-subtle); }
 .wn-schedule-container { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .wn-schedule-container > * { flex: none; }
 .wn-schedule { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .wn-schedule > * { flex: none; }
 .wn-schedule > .wn-grid { flex: 1; min-height: 0; overflow: auto; }
-.wn-grid { position: relative; border: 1px solid #e5e7eb; }
-.wn-row { contain: strict; border-bottom: 1px solid #f3f4f6; }
-.wn-rowheader { position: sticky; left: 0; box-sizing: border-box; width: 140px; height: 100%; padding: 4px; background: #fff; z-index: 1; }
+.wn-grid { position: relative; border: 1px solid var(--border); }
+.wn-row { contain: strict; border-bottom: 1px solid var(--color-border-subtle); }
+.wn-rowheader { position: sticky; left: 0; box-sizing: border-box; width: 140px; height: 100%; padding: 4px; background: var(--surface); z-index: 1; }
 .wn-block { contain: strict; box-sizing: border-box; border-radius: 3px; padding: 2px 4px; overflow: hidden; white-space: nowrap; }
-.wn-statusbar { display: flex; gap: 12px; align-items: center; min-height: 20px; color: #6b7280; font-size: 12px; }
-.wn-realtime::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: #9ca3af; }
-.wn-realtime-live::before { background: #10b981; }
-.wn-realtime-connecting::before, .wn-realtime-waiting::before { background: #f59e0b; }
-.wn-error { margin: 8px 0; padding: 8px 12px; border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; border-radius: 4px; }
-.wn-loading { color: #6b7280; }
+.wn-statusbar { display: flex; gap: 12px; align-items: center; min-height: 20px; color: var(--text-muted); font-size: 12px; }
+.wn-realtime::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--color-status-idle); }
+.wn-realtime-live::before { background: var(--color-status-live); }
+.wn-realtime-connecting::before, .wn-realtime-waiting::before { background: var(--color-status-pending); }
+.wn-error { margin: 8px 0; padding: 8px 12px; border: 1px solid var(--color-danger-border); background: var(--color-danger-bg); color: var(--color-danger-text); border-radius: 4px; }
+.wn-loading { color: var(--text-muted); }
 .wn-logout { margin-left: auto; font-size: 12px; }
 /* Couleurs d'un bloc (fond, texte noir ou blanc selon la luminance, bord) posées par grid-dom (block-colors). Tentatif :
    teinte claire, bord pointillé de la couleur du projet et hachures légères (pas d'opacité, qui casserait le contraste). */
-.wn-block.wn-tentative { border: 1px dashed; padding: 1px 3px; background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgba(0,0,0,.06) 4px 8px); }
+.wn-block.wn-tentative { border: 1px dashed; padding: 1px 3px; background-image: repeating-linear-gradient(45deg, transparent 0 4px, var(--color-hatch-dark) 4px 8px); }
 
 /* Bande de capacité en pied de ligne (BR-01, BR-07). Contrastes >= 3:1 sur le fond (WCAG 1.4.11) ; l'information ne repose
    jamais sur la couleur seule : tentatif = hachures bleues, dépassement = hachures rouges + ligne de capacité + cadre. */
-:root {
-  --wn-cap-confirmed: #1d4ed8;
-  --wn-cap-tentative-hatch: repeating-linear-gradient(45deg, #1d4ed8 0 2px, #bfdbfe 2px 5px);
-  --wn-cap-over-hatch: repeating-linear-gradient(-45deg, #b91c1c 0 2px, #fecaca 2px 5px);
-  --wn-cap-line: #111827;
-}
-.wn-cap { contain: strict; box-sizing: border-box; border-left: 1px solid #fff; background-color: #e5e7eb; }
-.wn-cap.wn-cap-none { background-color: #f9fafb; }
-.wn-cap.wn-cap-over { box-shadow: inset 0 0 0 1px #b91c1c; }
+.wn-cap { contain: strict; box-sizing: border-box; border-left: 1px solid var(--surface); background-color: var(--border); }
+.wn-cap.wn-cap-none { background-color: var(--surface-sunken); }
+.wn-cap.wn-cap-over { box-shadow: inset 0 0 0 1px var(--cap-over); }
 
 /* Édition par gestes : poignées de 6 px (début, fin, hauteur), fantôme du geste, choix de portée d'une série, annonces. */
 .wn-block { cursor: grab; }
-.wn-block:focus-visible { outline: 2px solid #111827; outline-offset: 1px; }
+.wn-block:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 1px; }
 .wn-dragging, .wn-dragging .wn-block { cursor: grabbing; user-select: none; }
 .wn-handle { position: absolute; touch-action: none; }
 .wn-handle-start, .wn-handle-end { top: 0; bottom: 6px; width: 6px; cursor: ew-resize; }
 .wn-handle-start { left: 0; }
 .wn-handle-end { right: 0; }
 .wn-handle-height { left: 6px; right: 6px; bottom: 0; height: 6px; cursor: ns-resize; }
-.wn-ghost { z-index: 3; box-sizing: border-box; border-radius: 3px; opacity: 0.6; outline: 2px dashed #111827; }
-.wn-dialog { margin: 8px 0; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+.wn-ghost { z-index: 3; box-sizing: border-box; border-radius: 3px; opacity: 0.6; outline: 2px dashed var(--color-ink); }
+.wn-dialog { margin: 8px 0; padding: 12px; border: 1px solid var(--color-border-strong); border-radius: 6px; background: var(--surface); box-shadow: var(--shadow-popover); }
 .wn-dialog p { margin: 0 0 8px; }
 .wn-dialog-actions { display: flex; gap: 8px; }
-.wn-menu { z-index: 10; min-width: 200px; padding: 4px 0; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.16); }
+.wn-menu { z-index: 10; min-width: 200px; padding: 4px 0; background: var(--surface); border: 1px solid var(--color-border-strong); border-radius: 6px; box-shadow: var(--shadow-popover); }
 .wn-menu [role="menuitem"] { display: block; width: 100%; padding: 6px 12px; border: 0; background: none; text-align: left; font: inherit; cursor: pointer; }
-.wn-menu [role="menuitem"]:hover, .wn-menu [role="menuitem"]:focus-visible { background: #1d4ed8; color: #fff; outline: none; }
+.wn-menu [role="menuitem"]:hover, .wn-menu [role="menuitem"]:focus-visible { background: var(--focus); color: var(--color-on-focus); outline: none; }
 .wn-removal-dialog h2 { margin: 0 0 8px; font-size: 14px; }
 .wn-removal-dialog ul { margin: 4px 0 8px; padding-left: 18px; }
-.wn-notice { min-height: 18px; margin-top: 6px; color: #374151; font-size: 12px; }
+.wn-notice { min-height: 18px; margin-top: 6px; color: var(--color-text-soft); font-size: 12px; }
 
 /* Congés (BR-04) : fond derrière les blocs, sur la hauteur des blocs, teinte du type (texte sombre, contraste >= 4,5:1) et
    bord gauche marqué. En attente : hachures blanches et bord en tirets ; refusé : sans fond, barré. Demi-journée = demi-cellule. */
-.wn-timeoff { contain: strict; box-sizing: border-box; padding: 2px 4px; overflow: hidden; white-space: nowrap; font-size: 11px; color: #1f2937; border-left: 3px solid; cursor: pointer; }
-.wn-timeoff:focus-visible { outline: 2px solid #111827; outline-offset: -2px; }
-.wn-timeoff-tone-0 { background-color: #e0e7ff; border-color: #4338ca; }
-.wn-timeoff-tone-1 { background-color: #dcfce7; border-color: #15803d; }
-.wn-timeoff-tone-2 { background-color: #fef3c7; border-color: #b45309; }
-.wn-timeoff-tone-3 { background-color: #fce7f3; border-color: #be185d; }
-.wn-timeoff-pending { border-left-style: dashed; background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.75) 0 4px, transparent 4px 8px); }
+.wn-timeoff { contain: strict; box-sizing: border-box; padding: 2px 4px; overflow: hidden; white-space: nowrap; font-size: 11px; color: var(--text); border-left: 3px solid; cursor: pointer; }
+.wn-timeoff:focus-visible { outline: 2px solid var(--color-ink); outline-offset: -2px; }
+.wn-timeoff-tone-0 { background-color: var(--color-timeoff-0-bg); border-color: var(--color-timeoff-0-border); }
+.wn-timeoff-tone-1 { background-color: var(--color-timeoff-1-bg); border-color: var(--color-timeoff-1-border); }
+.wn-timeoff-tone-2 { background-color: var(--color-timeoff-2-bg); border-color: var(--color-timeoff-2-border); }
+.wn-timeoff-tone-3 { background-color: var(--color-timeoff-3-bg); border-color: var(--color-timeoff-3-border); }
+.wn-timeoff-pending { border-left-style: dashed; background-image: repeating-linear-gradient(135deg, var(--color-hatch-light) 0 4px, transparent 4px 8px); }
 .wn-timeoff-dialog h2 { margin: 0 0 8px; font-size: 14px; }
 .wn-timeoff-dialog form { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; align-items: end; }
 .wn-timeoff-dialog form label { display: flex; flex-direction: column; gap: 2px; }
 .wn-timeoff-dialog form > p, .wn-timeoff-dialog form > .wn-dialog-actions { grid-column: 1 / -1; }
 .wn-timeoff-dialog ul { margin: 4px 0 8px; padding-left: 18px; }
-.wn-timeoff-choice { margin: 0 0 8px; border: 1px solid #e5e7eb; border-radius: 4px; }
+.wn-timeoff-choice { margin: 0 0 8px; border: 1px solid var(--border); border-radius: 4px; }
 .wn-timeoff-choice label { margin-right: 12px; }
-.wn-dialog-error { color: #991b1b; }
-.wn-timeoff-declined { background-color: #f9fafb; border-left-style: dotted; color: #6b7280; text-decoration: line-through; }
+.wn-dialog-error { color: var(--color-danger-text); }
+.wn-timeoff-declined { background-color: var(--surface-sunken); border-left-style: dotted; color: var(--text-muted); text-decoration: line-through; }
 .wn-quick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
 .wn-quick-field { position: relative; flex: 1 1 280px; }
 .wn-quick-field input { width: 100%; box-sizing: border-box; }
-.wn-quick-list { position: absolute; z-index: 5; left: 0; right: 0; margin: 2px 0 0; padding: 0; list-style: none; background: #fff; border: 1px solid #d1d5db; }
+.wn-quick-list { position: absolute; z-index: 5; left: 0; right: 0; margin: 2px 0 0; padding: 0; list-style: none; background: var(--surface); border: 1px solid var(--color-border-strong); }
 .wn-quick-list li { padding: 4px 8px; cursor: pointer; }
-.wn-quick-list li[aria-selected="true"] { background: #1d4ed8; color: #fff; }
-.wn-quick-preview { flex-basis: 100%; min-height: 1.2em; color: #374151; font-size: 13px; }
-.wn-quick-error { flex-basis: 100%; color: #b91c1c; }
+.wn-quick-list li[aria-selected="true"] { background: var(--focus); color: var(--color-on-focus); }
+.wn-quick-preview { flex-basis: 100%; min-height: 1.2em; color: var(--color-text-soft); font-size: 13px; }
+.wn-quick-error { flex-basis: 100%; color: var(--cap-over); }
 
 /* Toucher (WCAG 2.5.7) : bloc non sélectionné = le doigt défile la grille ; sélectionné ou glisser armé (appui long) = le geste
    est au bloc. Poignées d'un bloc sélectionné : zones de saisie de 44 px (dans le bloc, contain: strict le rogne), repère visible. */
 .wn-block { touch-action: pan-x pan-y; -webkit-touch-callout: none; }
 .wn-block.wn-selected, .wn-block.wn-armed { touch-action: none; }
-.wn-block.wn-selected { outline: 2px solid #111827; outline-offset: 1px; }
-.wn-block.wn-armed { outline: 3px solid #1d4ed8; box-shadow: 0 4px 10px rgba(0,0,0,.35); }
+.wn-block.wn-selected { outline: 2px solid var(--color-ink); outline-offset: 1px; }
+.wn-block.wn-armed { outline: 3px solid var(--focus); box-shadow: var(--shadow-armed); }
 .wn-block.wn-selected .wn-handle-start, .wn-block.wn-selected .wn-handle-end { top: 0; bottom: 0; width: min(44px, 40%); min-width: 22px; }
 .wn-block.wn-selected .wn-handle-height { left: min(44px, 40%); right: min(44px, 40%); bottom: 0; height: min(44px, 50%); min-height: 16px; }
-.wn-block.wn-selected .wn-handle::after { content: ""; position: absolute; background: #111827; box-shadow: 0 0 0 1px #fff; border-radius: 2px; }
+.wn-block.wn-selected .wn-handle::after { content: ""; position: absolute; background: var(--color-ink); box-shadow: 0 0 0 1px var(--surface); border-radius: 2px; }
 .wn-block.wn-selected .wn-handle-start::after, .wn-block.wn-selected .wn-handle-end::after { top: 25%; bottom: 25%; width: 4px; left: 3px; }
 .wn-block.wn-selected .wn-handle-end::after { left: auto; right: 3px; }
 .wn-block.wn-selected .wn-handle-height::after { left: 25%; right: 25%; height: 4px; bottom: 3px; }
 /* Vues sauvegardées (schedule/views-ui) */
 .wn-views { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; font-size: 13px; }
 .wn-views-row, .wn-views-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.wn-views-modified { color: #92400e; }
-.wn-views-status { color: #374151; }
-.wn-views-error { color: #b91c1c; }
+.wn-views-modified { color: var(--color-warn-text); }
+.wn-views-status { color: var(--color-text-soft); }
+.wn-views-error { color: var(--cap-over); }
 .wn-filters summary { cursor: pointer; width: max-content; }
 .wn-filters-body { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-top: 6px; }
 .wn-filter { display: flex; flex-direction: column; gap: 2px; }
@@ -112,23 +112,23 @@ body { box-sizing: border-box; height: 100dvh; padding: 16px; font: 13px system-
 /* Import CSV (US-1.2) : bouton de la barre d'état, boîte de dialogue, tableau des erreurs par ligne. */
 .wn-notifications-open { margin-left: auto; font-size: 12px; display: inline-flex; gap: 4px; align-items: center; }
 .wn-notifications-open + .wn-visually-hidden + .wn-import-open, .wn-notifications-open + .wn-visually-hidden + .wn-logout { margin-left: 0; }
-.wn-badge { min-width: 16px; padding: 0 4px; border-radius: 8px; background: #b91c1c; color: #fff; font-size: 11px; line-height: 16px; text-align: center; }
+.wn-badge { min-width: 16px; padding: 0 4px; border-radius: 8px; background: var(--cap-over); color: var(--color-on-focus); font-size: 11px; line-height: 16px; text-align: center; }
 .wn-notifications { max-width: 520px; margin-left: auto; }
 .wn-notifications h2 { margin: 0 0 8px; font-size: 14px; }
 .wn-notification-list { list-style: none; margin: 0 0 8px; padding: 0; max-height: 50vh; overflow: auto; }
-.wn-notification { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
-.wn-notification-unread { border-left: 3px solid #1d4ed8; background: #eff6ff; }
+.wn-notification { padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.wn-notification-unread { border-left: 3px solid var(--focus); background: var(--color-info-bg); }
 .wn-notification p { margin: 0 0 2px; }
-.wn-notification-details, .wn-notification-time { color: #4b5563; font-size: 12px; }
-.wn-notification-flag { margin-left: 6px; font-weight: 600; color: #1d4ed8; }
+.wn-notification-details, .wn-notification-time { color: var(--color-text-soft); font-size: 12px; }
+.wn-notification-flag { margin-left: 6px; font-weight: 600; color: var(--focus); }
 .wn-notification-prefs { margin: 8px 0 0; display: grid; gap: 4px; font-size: 13px; }
 .wn-import-open { margin-left: auto; font-size: 12px; }
 .wn-import-open + .wn-logout { margin-left: 0; }
 .wn-import-dialog { max-width: 960px; }
 .wn-import-dialog h2, .wn-import-dialog h3 { margin: 0 0 8px; font-size: 14px; }
 .wn-import-dialog form { display: grid; gap: 8px; }
-.wn-import-help { color: #374151; font-size: 12px; }
+.wn-import-help { color: var(--color-text-soft); font-size: 12px; }
 .wn-import-counters { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 8px; padding: 0; list-style: none; }
 .wn-import-errors { margin: 0 0 8px; border-collapse: collapse; font-size: 12px; }
 .wn-import-errors caption { text-align: left; font-weight: 600; }
-.wn-import-errors th, .wn-import-errors td { padding: 2px 8px; border: 1px solid #e5e7eb; text-align: left; vertical-align: top; }
+.wn-import-errors th, .wn-import-errors td { padding: 2px 8px; border: 1px solid var(--border); text-align: left; vertical-align: top; }

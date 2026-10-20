@@ -1,0 +1,154 @@
+/* Design tokens de WNEXT (docs/review/ux-ui.md §3). Thème clair uniquement : le mode sombre est hors périmètre.
+   Seul fichier de apps/web/src autorisé à contenir des couleurs littérales (garde-fou scripts/lint-raw-colors.mjs).
+   `@theme static` : Tailwind émet toutes les variables, utilisées ou non, pour que le CSS et le TS puissent y faire
+   référence par var(--…). Les couleurs de projet viennent des données (projects.color) et ne sont pas des tokens. */
+
+@theme static {
+  /* Les palettes et échelles par défaut de Tailwind sont retirées : seuls les tokens ci-dessous existent. */
+  --color-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --font-*: initial;
+  --ease-*: initial;
+
+  /* §3.1 Couleurs sémantiques (colonne « Clair »). */
+  /* Écart : la page est blanche aujourd'hui (spec : #FAFAF8) ; on garde le blanc pour ne rien changer au rendu. */
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  /* Écart : zones vides de la bande de capacité en #f9fafb (spec --surface-sunken : #F1F2EF). */
+  --color-surface-sunken: #f9fafb;
+  --color-border: #e3e5e0;
+  --color-border-subtle: #f3f4f6; /* séparateurs de lignes et colonnes, plus discrets que --border */
+  --color-border-strong: #d1d5db; /* contour de popovers, menus, boîtes de dialogue */
+  --color-text: #1f2328;
+  --color-text-soft: #374151; /* texte d'aide et de statut, entre --text et --text-muted */
+  --color-text-muted: #5b6168;
+  --color-ink: #111827; /* contour de focus du bloc, ligne de capacité, poignées : noir franc */
+  --color-focus: #1d4ed8; /* anneau de focus (spec) ; sert aussi de teinte de sélection (menu, liste, bloc armé) */
+  --color-on-focus: #ffffff;
+  /* Accent de marque : provisoire, Q-09 (décision en attente). Slate 700, 10:1 sur blanc, distinct de --cap-ok. */
+  --color-accent: #334155;
+  --color-accent-fg: #ffffff;
+
+  /* Capacité. Écart : --cap-over vaut #b91c1c (valeur de la bande actuelle) et non #C62828 de la spec. */
+  --color-cap-under: #6b7c93;
+  --color-cap-ok: #1e8e3e;
+  --color-cap-warn: #b45309;
+  --color-cap-over: #b91c1c;
+  --color-cap-confirmed: #1d4ed8; /* bande de capacité : part confirmée (pas dans la spec) */
+  --color-cap-tentative-light: #bfdbfe; /* fond des hachures du tentatif */
+  --color-cap-over-light: #fecaca; /* fond des hachures du dépassement */
+  --color-timeoff: #d8dadf;
+
+  /* États : erreur, avertissement, information, indicateur temps réel (valeurs de l'écran actuel, hors spec). */
+  --color-danger-text: #991b1b;
+  --color-danger-border: #fecaca;
+  --color-danger-bg: #fef2f2;
+  --color-warn-text: #92400e;
+  --color-info-bg: #eff6ff;
+  --color-status-idle: #9ca3af;
+  --color-status-live: #10b981;
+  --color-status-pending: #f59e0b;
+
+  /* Teintes des types de congé (fond clair + bord), texte sombre >= 4,5:1. */
+  --color-timeoff-0-bg: #e0e7ff;
+  --color-timeoff-0-border: #4338ca;
+  --color-timeoff-1-bg: #dcfce7;
+  --color-timeoff-1-border: #15803d;
+  --color-timeoff-2-bg: #fef3c7;
+  --color-timeoff-2-border: #b45309;
+  --color-timeoff-3-bg: #fce7f3;
+  --color-timeoff-3-border: #be185d;
+
+  /* Transparences des hachures. */
+  --color-hatch-dark: rgb(0 0 0 / 0.06);
+  --color-hatch-light: rgb(255 255 255 / 0.75);
+
+  /* §3.2 Typographie. Écart : Inter n'est pas encore chargée, la pile reste celle de l'écran actuel. */
+  --font-sans: system-ui, sans-serif;
+  --text-caption: 11px;
+  --text-caption--line-height: 16px;
+  --text-label: 12px;
+  --text-label--line-height: 16px;
+  --text-body: 13px; /* corps dense, défaut Schedule */
+  --text-body--line-height: 20px;
+  --text-form: 14px;
+  --text-form--line-height: 20px;
+  --text-heading: 16px;
+  --text-heading--line-height: 24px;
+  --text-title: 20px;
+  --text-title--line-height: 28px;
+  --text-kpi: 28px;
+  --text-kpi--line-height: 36px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  /* §3.3 Espacements (base 4 px : 2, 4, 8, 12, 16, 24, 32, 48 px). */
+  --spacing: 4px;
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* Rayons : 4 (champs, puces), 6 (blocs), 8 (popovers, cartes), 999 (avatars, pastilles). */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 999px;
+
+  /* Élévation : popover seulement, le reste est plat (bordure 1 px). */
+  --shadow-popover: 0 4px 16px rgb(0 0 0 / 0.12);
+  --shadow-armed: 0 4px 10px rgb(0 0 0 / 0.35); /* bloc armé au toucher (hors spec) */
+
+  /* Z-index : grille 0, en-têtes sticky 10, popover 30, toast 50, modal 60. */
+  --z-grid: 0;
+  --z-sticky: 10;
+  --z-popover: 30;
+  --z-toast: 50;
+  --z-modal: 60;
+
+  /* Mouvement : 80 / 120 / 200 ms ; ramené à 1 ms sous prefers-reduced-motion (voir plus bas). */
+  --duration-fast: 80ms;
+  --duration-base: 120ms;
+  --duration-slow: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Hauteurs de contrôles : 28 (dense), 32 (défaut), 44 (cible tactile). */
+  --control-dense: 28px;
+  --control-default: 32px;
+  --control-touch: 44px;
+}
+
+/* Alias courts de la spec (--bg, --surface, --cap-ok…) pour le CSS écrit à la main. */
+:root {
+  --bg: var(--color-bg);
+  --surface: var(--color-surface);
+  --surface-sunken: var(--color-surface-sunken);
+  --border: var(--color-border);
+  --text: var(--color-text);
+  --text-muted: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --accent-fg: var(--color-accent-fg);
+  --focus: var(--color-focus);
+  --cap-under: var(--color-cap-under);
+  --cap-ok: var(--color-cap-ok);
+  --cap-warn: var(--color-cap-warn);
+  --cap-over: var(--color-cap-over);
+  --timeoff: var(--color-timeoff);
+
+  /* Bande de capacité (BR-01, BR-07) : lus par grid-dom.ts. */
+  --wn-cap-confirmed: var(--color-cap-confirmed);
+  --wn-cap-tentative-hatch: repeating-linear-gradient(45deg, var(--color-cap-confirmed) 0 2px, var(--color-cap-tentative-light) 2px 5px);
+  --wn-cap-over-hatch: repeating-linear-gradient(-45deg, var(--color-cap-over) 0 2px, var(--color-cap-over-light) 2px 5px);
+  --wn-cap-line: var(--color-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-fast: 1ms; --duration-base: 1ms; --duration-slow: 1ms; }
+}
