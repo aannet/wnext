@@ -62,6 +62,13 @@ describe("ScheduleContainer", () => {
     for (const role of ["toolbar", "grid", "status"]) expect(main.querySelector(`[role=${role}]`), role).not.toBeNull();
   });
 
+  it("historique d'annulation de la session : Annuler / Rétablir dans la barre d'outils, désactivés au départ", async () => {
+    mount(async (q) => ({ status: 200, body: body(q) }));
+    await flush();
+    const button = (label: string) => [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] button")].find((b) => b.textContent === label);
+    expect([button("Annuler")?.disabled, button("Rétablir")?.disabled]).toEqual([true, true]);
+  });
+
 
   it("minuit dans le fuseau du compte : « Aujourd'hui » passe au nouveau jour, sans recréer la grille", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });

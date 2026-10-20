@@ -13,6 +13,8 @@ import { editWarnings, type EditWarning } from "./edit-warnings";
 export interface ScheduleEdits {
   onCommit(r: EditRequest): void | Promise<void>;
   onPreview(p: { allocation: Allocation; draft: GestureBlock } | null): void;
+  /** Annonce (aria-live) d'un résultat hors geste : annuler / rétablir. */
+  announce(text: string): void;
   element: ReactNode;
 }
 
@@ -39,8 +41,10 @@ export function writeWarnings(s: ScheduleResponse, req: EditRequest, kind: "one"
 /** Bloc à refocaliser après une écriture, par sa personne et ses dates (sa clé peut changer : occurrence découpée). */
 export type FocusTarget = Pick<GestureBlock, "personId" | "startDate" | "endDate">;
 
+/** `undoable` : un historique d'annulation enregistre les écritures ; la découpe (non annulable) le précise alors. */
 export function useScheduleEdits(
   i18n: I18n, editor: ScheduleEditor | undefined, data: ScheduleResponse, focusKey: (key: string, at?: FocusTarget) => void,
+  undoable = false,
 ): ScheduleEdits {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const [notice, setNotice] = useState("");
@@ -55,11 +59,12 @@ export function useScheduleEdits(
     return b.mode === "hours" ? t("schedule.edit.preview.hours", { ...v, hours: b.hoursPerDay }) : t("schedule.edit.preview.percent", { ...v, percent: b.percent });
   }
 
-  async function run(write: () => Promise<EditOutcome>, personId: string, warnings: EditWarning[]): Promise<EditOutcome> {
+  async function run(write: () => Promise<EditOutcome>, personId: string, warnings: EditWarning[], split = false): Promise<EditOutcome> {
     const out = await write();
     if (out.ok) {
       const person = nameOf(personId);
-      setNotice([t("schedule.edit.saved"), ...warnings.map((w) => t(`schedule.edit.warning.${w}`, { person }))].join(" "));
+      const note = split && undoable ? [t("schedule.edit.split.notUndoable")] : [];
+      setNotice([t("schedule.edit.saved"), ...note, ...warnings.map((w) => t(`schedule.edit.warning.${w}`, { person }))].join(" "));
     } else if (out.error !== "SERIES_SPLIT_UNSUPPORTED") {
       setNotice(t(errorKey(out.error)));
     }
@@ -84,7 +89,7 @@ export function useScheduleEdits(
     const warnings = writeWarnings(dataRef.current, req, kind);
     const out = kind === "all"
       ? await run(() => editor.updateAllocation(req.allocationId, req.patch), req.draft.personId, warnings)
-      : await run(() => editor.splitOccurrence(req.allocationId, req.occurrence!, req.occurrencePatch ?? {}), req.draft.personId, warnings);
+      : await run(() => editor.splitOccurrence(req.allocationId, req.occurrence!, req.occurrencePatch ?? {}), req.draft.personId, warnings, true);
     // Le nœud focalisé a pu être recyclé au nouveau rendu (et l'occurrence découpée change de clé) : on le retrouve par ses dates.
     if (out.ok) focusKey(req.key, req.draft);
     else if (kind === "one" && out.error === "SERIES_SPLIT_UNSUPPORTED") open({ req, unsupported: out.reason ?? "other" });
@@ -111,6 +116,7 @@ export function useScheduleEdits(
 
   return {
     element,
+    announce: setNotice,
     onPreview: (p) => { if (p) setNotice(describe(p.draft)); },
     onCommit(r) {
       if (!editor) return;

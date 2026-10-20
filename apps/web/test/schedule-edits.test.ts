@@ -195,8 +195,8 @@ describe("historique branché sur la source (undo / redo)", () => {
 
   async function withHistory(initial: ScheduleResponse["allocations"], realtime = false) {
     const h = await harness(initial, realtime);
-    const { history, dispose } = historyForSource(h.s);
-    return { ...h, history, dispose };
+    const { history, connect } = historyForSource(h.s);
+    return { ...h, history, dispose: connect() };
   }
   async function move(h: Awaited<ReturnType<typeof withHistory>>) {
     const p = h.history.editor.updateAllocation("10", { startDate: "2026-10-22", endDate: "2026-10-23" });

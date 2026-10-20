@@ -171,11 +171,10 @@ export function createHistory(opts: HistoryOptions): History {
 }
 
 /**
- * Historique branché sur une source : lit l'état courant de son magasin (snapshot de la plage chargée) et invalide les
- * actions touchées par ses changements étrangers. `dispose` coupe l'abonnement.
+ * Historique branché sur une source : lit l'état courant de son magasin (snapshot de la plage chargée). `connect` abonne
+ * l'historique aux changements étrangers de la source (invalidation ciblée) et rend le désabonnement (effet React).
  */
-export function historyForSource(source: ScheduleSource, opts: Omit<HistoryOptions, "editor" | "read"> = {}): { history: History; dispose(): void } {
+export function historyForSource(source: ScheduleSource, opts: Omit<HistoryOptions, "editor" | "read"> = {}): { history: History; connect(): () => void } {
   const history = createHistory({ ...opts, editor: source, read: (id) => source.getState().data?.allocations.find((a) => a.id === id) });
-  const dispose = source.onForeignChange((kind, ids) => history.invalidate(kind, ids));
-  return { history, dispose };
+  return { history, connect: () => source.onForeignChange((kind, ids) => history.invalidate(kind, ids)) };
 }

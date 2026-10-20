@@ -7,16 +7,20 @@
 //    sont des données.
 //  * Édition par gestes (pointeur et clavier, schedule/block-editor) si un éditeur est fourni ; sinon lecture seule.
 //    Entrée sur la grille donne le focus à un bloc, Échap sur un bloc le rend à la grille.
+//  * Annuler / Rétablir (BR-40) si un historique est fourni (schedule/history) : boutons de la barre d'outils, désactivés
+//    si la pile est vide, et raccourcis Ctrl+Z, Ctrl+Maj+Z, Ctrl+Y (Cmd sur Mac) écoutés sur le document, ignorés dans un
+//    champ de saisie ou une boîte de dialogue. Le résultat est annoncé dans la région aria-live des écritures.
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import type { HeaderCell, Viewport, Zoom } from "@wnext/engine";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import type { ScheduleEditor } from "./data/allocation-edits";
 import type { MessageKey } from "./i18n";
 import { createBlockEditor } from "./schedule/block-editor";
 import { blockLabeler } from "./schedule/block-label";
 import { capacityLabeler } from "./schedule/capacity-label";
 import { useScheduleEdits, type FocusTarget } from "./schedule/edits-ui";
+import type { History, HistoryDirection, HistoryResult, HistoryState } from "./schedule/history";
 import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
 
 export interface ScheduleScreenProps {
@@ -32,9 +36,29 @@ export interface ScheduleScreenProps {
   clock?: Partial<Clock>;
   /** Écritures (source branchée sur l'API ou démo locale) ; absent : lecture seule. */
   editor?: ScheduleEditor;
+  /** Historique d'annulation (dont `editor` est en principe l'éditeur enregistreur) ; absent : ni boutons ni raccourcis. */
+  history?: History;
 }
 
 const ZOOMS: readonly Zoom[] = ["day", "week", "month"];
+const NO_HISTORY: HistoryState = { canUndo: false, canRedo: false, undoLabel: null, redoLabel: null };
+const noSubscribe = () => () => {};
+const LABELS: Record<string, string> = { "allocation.move": "move", "allocation.resize": "resize", "allocation.load": "load" };
+
+/** Cible où Ctrl+Z appartient au navigateur (champ de saisie) ou à une boîte de dialogue ouverte. */
+function ownsUndo(t: EventTarget | null): boolean {
+  if (!(t instanceof HTMLElement)) return false;
+  return t.isContentEditable || t.matches("input, textarea, select") || t.closest("[role=dialog]") !== null;
+}
+
+/** Raccourci d'historique d'un événement clavier (Ctrl ou Cmd, sans Alt), ou null. */
+export function historyShortcut(e: Pick<globalThis.KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">): HistoryDirection | null {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return null;
+  const k = e.key.toLowerCase();
+  if (k === "z") return e.shiftKey ? "redo" : "undo";
+  if (k === "y" && !e.shiftKey) return "redo";
+  return null;
+}
 
 function headerFormatter(locale: string) {
   const fmt = {
@@ -45,7 +69,7 @@ function headerFormatter(locale: string) {
   return (c: HeaderCell) => fmt[c.kind].format(new Date(`${c.from}T00:00:00Z`));
 }
 
-export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewChange, clock, editor }: ScheduleScreenProps) {
+export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewChange, clock, editor, history }: ScheduleScreenProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [zoom, setZoom] = useState<Zoom>("day");
   const gridRef = useRef<HTMLDivElement>(null);
@@ -75,9 +99,32 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
     const el = grid?.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`);
     (el ?? grid)?.focus({ preventScroll: true });
   };
-  const edits = useScheduleEdits(i18n, editor, data, focusKey);
+  const edits = useScheduleEdits(i18n, editor, data, focusKey, history !== undefined);
   const editsRef = useRef(edits);
   editsRef.current = edits;
+  const stack = useSyncExternalStore(history?.subscribe ?? noSubscribe, history?.getState ?? (() => NO_HISTORY));
+  const describeStep = (r: HistoryResult): string => {
+    const v = { direction: r.direction };
+    if (r.ok) return t("schedule.history.done", { ...v, label: LABELS[r.label] ?? "other" });
+    if (!r.dropped) return t("schedule.history.retry", v);
+    return t(r.error === "VERSION_CONFLICT" || r.error === "NOT_FOUND" ? `schedule.history.failed.${r.error}` : "schedule.history.failed.other", v);
+  };
+  const stepRef = useRef<(d: HistoryDirection) => void>(() => {});
+  stepRef.current = (d) => {
+    if (!history) return;
+    void history[d]().then((r) => { if (r) editsRef.current.announce(describeStep(r)); });
+  };
+  useEffect(() => {
+    if (!history) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      const d = historyShortcut(e);
+      if (!d || ownsUndo(e.target)) return;
+      e.preventDefault();
+      stepRef.current(d);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [history]);
   const editorRef = useRef(editor);
   editorRef.current = editor;
 
@@ -140,6 +187,16 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
             {t(`schedule.zoom.${z}`)}
           </button>
         ))}
+        {history && (
+          <>
+            <button type="button" disabled={!stack.canUndo} aria-keyshortcuts="Control+Z Meta+Z" onClick={() => stepRef.current("undo")}>
+              {t("schedule.history.undo")}
+            </button>
+            <button type="button" disabled={!stack.canRedo} aria-keyshortcuts="Control+Shift+Z Control+Y Meta+Shift+Z" onClick={() => stepRef.current("redo")}>
+              {t("schedule.history.redo")}
+            </button>
+          </>
+        )}
         <span>{t("schedule.people.count", { count: data.people.length })}</span>
       </div>
       <div ref={gridRef} role="grid" aria-label={t("schedule.grid.label")} tabIndex={0} onKeyDown={onKeyDown}
