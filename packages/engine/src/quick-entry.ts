@@ -47,8 +47,9 @@ const DAYS: Record<QuickLocale, string[][]> = {
   fr: [["lun", "lundi"], ["mar", "mardi"], ["mer", "mercredi"], ["jeu", "jeudi"], ["ven", "vendredi"], ["sam", "samedi"], ["dim", "dimanche"]],
   en: [["mon", "monday"], ["tue", "tues", "tuesday"], ["wed", "wednesday"], ["thu", "thur", "thurs", "thursday"], ["fri", "friday"], ["sat", "saturday"], ["sun", "sunday"]],
 };
+// Les mots sont comparés après fold() (sans accent, minuscules) : la liste ne doit contenir que des formes pliées.
 const WORDS = {
-  fr: { today: ["aujourd'hui", "aujourdhui", "auj"], tomorrow: ["demain"], until: ["jusqu'au", "jusquau", "jusqu'à", "jusqua"], from: ["du"], to: ["au"], tentative: ["tentatif", "tentative"] },
+  fr: { today: ["aujourd'hui", "aujourdhui", "auj"], tomorrow: ["demain"], until: ["jusqu'au", "jusquau", "jusqu'a", "jusqua"], from: ["du"], to: ["au"], tentative: ["tentatif", "tentative"] },
   en: { today: ["today"], tomorrow: ["tomorrow"], until: ["until", "till", "to"], from: ["from"], to: ["to"], tentative: ["tentative"] },
 } as const;
 

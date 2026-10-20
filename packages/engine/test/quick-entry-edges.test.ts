@@ -125,10 +125,19 @@ describe("« jusqu'au » / « until »", () => {
       expect(p(`Refonte 4h ${w} 28`, en), w).toMatchObject({ startDate: "2026-10-19", endDate: "2026-10-28" });
     }
   });
-  // BUG trouvé par la revue des mutants : les mots sont comparés après fold() (sans accent), mais la liste contient « jusqu'à »
-  // avec accent. « jusqu'à 28 » (la graphie correcte) et « jusqu'a 28 » ne sont donc jamais reconnus.
-  it.fails("« jusqu'à 28 » (avec accent) devrait être reconnu comme « jusqu'au 28 »", () => {
+  it("« jusqu'à 28 » (avec accent) est reconnu comme « jusqu'au 28 »", () => {
     expect(p("Refonte 4h jusqu'à 28", fr)).toMatchObject({ endDate: "2026-10-28", projectQuery: "Refonte" });
+  });
+  it("variantes de graphie de « jusqu'au » : accent, majuscules, apostrophe typographique", () => {
+    for (const w of ["jusqu'à", "Jusqu'À", "JUSQU'AU", "jusqu’à", "jusqu’au", "jusqu'a"]) {
+      expect(p(`Refonte 4h ${w} 28`, fr), w).toMatchObject({ endDate: "2026-10-28", projectQuery: "Refonte" });
+    }
+  });
+  it("variantes de graphie des autres mots-clés FR : aujourd'hui, demain, tentatif", () => {
+    for (const w of ["Aujourd’hui", "AUJOURD'HUI", "aujourdhui"]) expect(p(`Refonte 4h ${w}`, fr), w).toMatchObject({ startDate: "2026-10-19", endDate: "2026-10-19" });
+    expect(p("Refonte 4h DEMAIN", fr)).toMatchObject({ startDate: "2026-10-20" });
+    expect(p("Refonte 4h Tentatif", fr).tentative).toBe(true);
+    expect(p("Refonte 4h TENTATIVE", fr).tentative).toBe(true);
   });
   it("« jusqu'au N » compte aujourd'hui ; N déjà passé : mois suivant", () => {
     expect(p("Refonte 4h jusqu'au 19", fr)).toMatchObject({ startDate: "2026-10-19", endDate: "2026-10-19" });
