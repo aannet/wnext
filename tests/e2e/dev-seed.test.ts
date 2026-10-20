@@ -6,7 +6,7 @@ import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist";
 import { citext } from "@electric-sql/pglite/contrib/citext";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 // @ts-expect-error module JS sans types
-import { DEV_IDS, seedDev } from "../../scripts/dev-seed.mjs";
+import { DEV_IDS, DEV_USERS, seedDev } from "../../scripts/dev-seed.mjs";
 
 let db: PGlite;
 const client = () => ({
@@ -62,5 +62,17 @@ describe("jeu d'essai de développement", () => {
 
   it("l'identité d'essai (compte 1, utilisateur 1, admin) existe comme membre", () => {
     expect(DEV_IDS).toEqual({ accountId: "1", userId: "1", role: "admin" });
+  });
+
+  it("identités OIDC du jeu d'essai : sujets posés, un membre en plus de l'admin, rattrapage idempotent d'une base déjà semée", async () => {
+    const subjects = async () => (await db.query<{ id: number; idp_subject: string | null; role: string }>(
+      "SELECT u.id::int AS id, u.idp_subject, m.role::text AS role FROM users u JOIN account_members m ON m.user_id = u.id ORDER BY u.id")).rows;
+    expect(await subjects()).toEqual(DEV_USERS.map((u: { id: string; subject: string; role: string }) => ({ id: Number(u.id), idp_subject: u.subject, role: u.role })));
+    // Base semée avant l'OIDC : sujet absent, membre absent -> rattrapés au prochain démarrage, sans doublon.
+    await db.exec("DELETE FROM users WHERE id = 2; UPDATE users SET idp_subject = NULL WHERE id = 1;");
+    expect(await seedDev(client())).toBe(false);
+    expect(await seedDev(client())).toBe(false);
+    expect(await subjects()).toHaveLength(DEV_USERS.length);
+    expect((await subjects())[0]!.idp_subject).toBe(DEV_USERS[0].subject);
   });
 });

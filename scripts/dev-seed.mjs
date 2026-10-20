@@ -1,9 +1,26 @@
 // Jeu d'essai de développement (npm run dev:stack) : ids fixes, idempotent (rien si le compte 1 « WNEXT Dev » existe déjà).
-//  * 1 compte (semaine du lundi, Europe/Paris), 1 admin membre, 50 personnes sur 3 départements, 6 projets dont 1 tentative,
+//  * 1 compte (semaine du lundi, Europe/Paris), 1 admin et 1 membre (sujets OIDC, DEV_USERS), 50 personnes sur 3 départements, 6 projets dont 1 tentative,
 //    ~300 allocations sur -3/+3 mois (heures et pourcentage), une série hebdomadaire, un congé d'une demi-journée, un férié.
 //  * Les dates sont relatives au lundi de la semaine du semis (l'écran s'ouvre sur « aujourd'hui »), les ids sont stables.
 // Exécuté en superutilisateur (la RLS ne s'applique pas) : ne sert qu'à amorcer une base de développement.
 export const DEV_IDS = { accountId: "1", userId: "1", role: "admin" };
+
+// Utilisateurs de connexion du compte 1 et leur sujet OIDC (`users.idp_subject`) : le fournisseur local
+// (scripts/dev-idp.mjs) émet des jetons dont `sub` vaut `subject`. Le premier est l'identité de DEV_IDS.
+export const DEV_USERS = [
+  { id: "1", subject: "dev-admin", email: "admin@wnext.test", name: "Admin Dev", role: "admin" },
+  { id: "2", subject: "dev-member", email: "membre@wnext.test", name: "Membre Dev", role: "member" },
+];
+
+// Identités OIDC : jouées à chaque démarrage (y compris sur une base semée avant l'OIDC), sans effet si tout est en place.
+// L'id fixe la ligne ; le sujet n'est posé que s'il manque (jamais écrasé).
+export const IDENTITIES_SQL = DEV_USERS.map((u) => `
+INSERT INTO users (id, email, name, locale, idp_subject) OVERRIDING SYSTEM VALUE
+  VALUES (${u.id}, '${u.email}', '${u.name}', 'fr', '${u.subject}') ON CONFLICT (id) DO NOTHING;
+UPDATE users SET idp_subject = '${u.subject}' WHERE id = ${u.id} AND idp_subject IS NULL;
+INSERT INTO account_members (account_id, user_id, role) VALUES (1, ${u.id}, '${u.role}') ON CONFLICT DO NOTHING;`).join("\n") + `
+SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT max(id) FROM users));
+`;
 
 const MONDAY = "(current_date - (extract(isodow FROM current_date)::int - 1))";
 
@@ -53,16 +70,20 @@ INSERT INTO holidays (id, account_id, name, hdate, country) OVERRIDING SYSTEM VA
 // Les identités sont posées à la main : avancer les séquences au-delà des ids fixes.
 const SEQUENCED = ["users", "accounts", "departments", "people", "projects", "allocations", "timeoff_types", "timeoffs", "holidays"];
 
-/** Sème le jeu d'essai si le compte 1 « WNEXT Dev » n'existe pas. Retourne true si semé. */
+/** Sème le jeu d'essai si le compte 1 « WNEXT Dev » n'existe pas (true si semé) ; complète les identités OIDC dans tous les cas. */
 export async function seedDev(client) {
   const found = await client.query("SELECT 1 FROM accounts WHERE id = 1 AND name = 'WNEXT Dev'");
-  if (found.rowCount > 0) return false;
+  if (found.rowCount > 0) {
+    await client.query(IDENTITIES_SQL);
+    return false;
+  }
   const other = await client.query("SELECT count(*)::int AS n FROM accounts");
   if (other.rows[0].n > 0) throw new Error("la base contient déjà des comptes : relancer avec --reset");
   await client.query("BEGIN");
   try {
     await client.query(SEED_SQL);
     for (const t of SEQUENCED) await client.query(`SELECT setval(pg_get_serial_sequence('${t}', 'id'), (SELECT max(id) FROM ${t}))`);
+    await client.query(IDENTITIES_SQL);
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK");
