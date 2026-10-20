@@ -81,4 +81,15 @@ describe("conversion fidèle : chaque champ du contrat arrive au moteur", () => 
     expect(rows[rows.length - 1]!.day).toBe("2026-05-29");
     expect(new Set(rows.map((r) => r.personId))).toEqual(new Set(["9"]));
   });
+  it("horaire daté (@BR-19) : workSchedule transmis tel quel, capacité différente avant et après le changement", () => {
+    const workSchedule = [
+      { validFrom: null, validTo: "2026-05-10", workDaysHours: [8, 8, 8, 8, 8, 0, 0] },
+      { validFrom: "2026-05-11", validTo: null, workDaysHours: [4, 4, 4, 4, 4, 0, 0] },
+    ];
+    const dated = { ...rich, people: [{ ...rich.people[0]!, active: true, workDaysHours: [4, 4, 4, 4, 4, 0, 0], workSchedule }] };
+    expect(scheduleToEngineInput(dated).people[0]!.workSchedule).toEqual(workSchedule);
+    const cap = (d: string) => scheduleUtilization({ ...dated, timeoffs: [], holidays: [] }).find((r) => r.day === d)!.capacityHours;
+    expect(cap("2026-05-08")).toBe(8); // vendredi, ancien horaire
+    expect(cap("2026-05-11")).toBe(4); // lundi, nouvel horaire
+  });
 });

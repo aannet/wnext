@@ -1,6 +1,6 @@
 # Écarts contrat / API relevés par Schemathesis
 
-Source : `npm run test:schemathesis` (Schemathesis 4.32.1, `packages/contracts/openapi.json`, 25 exemples par opération, phases examples + coverage + fuzzing, rôles admin puis member). Le contrat (`packages/contracts`) n'est pas modifié par ce lot : chaque écart est consigné avec la correction proposée, et neutralisé dans `tests/schemathesis/schemathesis.toml` (à retirer une fois le contrat corrigé).
+Source : `npm run test:schemathesis` (Schemathesis 4.32.1, `packages/contracts/openapi.json`, 25 exemples par opération, phases examples + coverage + fuzzing, rôles admin puis member). Chaque écart est consigné avec la correction proposée, et neutralisé dans `tests/schemathesis/schemathesis.toml` tant que le contrat n'est pas corrigé. E-04 et E-05 sont corrigés (lot H2) ; E-01 à E-03 restent ouverts.
 
 Bilan : aucun 500, aucune réponse non conforme à son schéma, aucun code d'erreur hors `ErrorCode`, 403 conformes pour member. Les écarts sont tous du côté de l'expressivité du contrat.
 
@@ -27,7 +27,9 @@ Désactivés globalement. Le routeur maison répond 404 (ApiError) sur une méth
 
 ## E-04 — `requestBody` requis, mais l'API accepte l'absence de corps (check `negative_data_rejection`, ST201)
 
-Opérations : `POST /api/v1/people/{id}/deactivation`, `POST /api/v1/projects/{projectId}/team/{personId}/removal`. Exclues par opération.
+**Statut : corrigé (2026-10-20, lot H2).** `RouteContract.bodyOptional` (contrat) -> `requestBody.required: false` pour ces deux opérations ; exclusion retirée de `schemathesis.toml`. Le client généré rend `body` facultatif.
+
+Opérations : `POST /api/v1/people/{id}/deactivation`, `POST /api/v1/projects/{projectId}/team/{personId}/removal`. Étaient exclues par opération.
 
 Exemple : `curl -X POST .../api/v1/people/51/deactivation` sans corps -> 200 (personne désactivée), alors que le contrat déclare `requestBody.required: true`. Le code fait volontairement `req.body ?? "{}"` (`apps/api/src/http.ts`) et des tests existants s'appuient sur cette tolérance (`apps/api/test/team.test.ts`, `person-deactivation.test.ts`) ; tous les champs du corps sont optionnels et la garde 428 (confirmation) reste appliquée, donc aucun risque métier.
 
@@ -35,7 +37,9 @@ Correction proposée (contrat) : `requestBody.required: false` pour ces deux op�
 
 ## E-05 — 404 non documenté sur `GET /api/v1/logged-time` (check `status_code_conformance`, ST103)
 
-Opération exclue pour ce check. Exemple : `GET /api/v1/logged-time?personId=0&from=2000-01-01&to=2000-01-01` -> 404 `{"code":"NOT_FOUND","params":{"entity":"person"}}`, alors que seuls 200, 400, 401, 500 sont documentés (le 403 n'y existe pas : lecture ouverte à member).
+**Statut : corrigé (2026-10-20, lot H2).** Réponse `404` (`ApiError`, `NOT_FOUND`, `params.entity = person`) ajoutée à `listLoggedTime` ; exclusion retirée de `schemathesis.toml`.
+
+Opération était exclue pour ce check. Exemple : `GET /api/v1/logged-time?personId=0&from=2000-01-01&to=2000-01-01` -> 404 `{"code":"NOT_FOUND","params":{"entity":"person"}}`, alors que seuls 200, 400, 401, 500 sont documentés (le 403 n'y existe pas : lecture ouverte à member).
 
 Correction proposée (contrat) : ajouter la réponse `404` (`ApiError`) à `listLoggedTime`. Constat voisin : les autres listes filtrées par une entité (`/people/{id}/allocations`, ...) documentent déjà leur 404.
 

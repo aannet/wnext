@@ -25,7 +25,12 @@ export function scheduleToEngineInput(r: ScheduleResponse): ScheduleEngineInput 
     from: r.window.from,
     to: r.window.to,
     thresholds: { underPercent: r.account.capacityThresholds.underPercent ?? DEFAULT_THRESHOLDS.underPercent },
-    people: r.people.map((p) => ({ id: p.id, active: p.active, workDaysHours: p.workDaysHours, country: p.country, departmentId: p.departmentId })),
+    // Horaire daté (BR-19) : transmis seulement s'il existe (absent = horaire constant). Le département reste le courant
+    // pour les fériés d'équipe, comme daily_capacity (migration 0002).
+    people: r.people.map((p) => ({
+      id: p.id, active: p.active, workDaysHours: p.workDaysHours, country: p.country, departmentId: p.departmentId,
+      ...(p.workSchedule && { workSchedule: p.workSchedule }),
+    })),
     holidays: r.holidays.map((h) => ({ hdate: h.date, country: h.country, departmentId: h.departmentId, hoursOff: h.hoursOff })),
     timeoffs: r.timeoffs.map((t) => {
       const type = types.get(t.typeId);

@@ -83,6 +83,52 @@ export const toScheduleProject = (r: Row): ScheduleProject => ({
   startDate: r.start_date === null ? null : day(r.start_date), endDate: r.end_date === null ? null : day(r.end_date),
 });
 
+export type SchedulePhase = NonNullable<ScheduleResponse["phases"]>[number];
+export const SCHEDULE_PHASE_COLUMNS = `id, row_version, project_id, name, start_date, end_date, color`;
+export const toSchedulePhase = (r: Row): SchedulePhase => ({
+  id: idOf(r.id), version: num(r.row_version), projectId: idOf(r.project_id), name: String(r.name),
+  startDate: r.start_date === null ? null : day(r.start_date), endDate: r.end_date === null ? null : day(r.end_date),
+  color: r.color === null ? null : String(r.color).trim(),
+});
+
+// Horaire daté (BR-19) : people_history vient de la migration 0002. Une base au seul schema.sql (tests de l'étage rapide)
+// ne l'a pas : la réponse n'a alors pas d'horaire daté (même repli que person_work_days_hours_on). Seule la présence est
+// mise en cache (une migration appliquée plus tard est vue au prochain appel).
+const historyReady = new WeakSet<Db>();
+async function hasPeopleHistory(db: Db, tx: Queryable): Promise<boolean> {
+  if (historyReady.has(db)) return true;
+  const ok = Boolean((await tx.query<Row>("SELECT to_regclass('people_history') IS NOT NULL AS ok")).rows[0]?.ok);
+  if (ok) historyReady.add(db);
+  return ok;
+}
+
+type WorkPeriod = NonNullable<SchedulePerson["workSchedule"]>[number];
+
+/**
+ * Historique COMPLET de l'horaire des personnes (pas seulement la fenêtre) : à version égale, une personne est la même
+ * d'une fenêtre à l'autre (le client fusionne les fenêtres par version). Une personne à période unique n'en reçoit pas.
+ */
+async function workSchedules(db: Db, tx: Queryable, accountId: string, personIds: string[]): Promise<Map<string, WorkPeriod[]>> {
+  const out = new Map<string, WorkPeriod[]>();
+  if (!personIds.length || !(await hasPeopleHistory(db, tx))) return out;
+  const { rows } = await tx.query<Row>(
+    `SELECT person_id, valid_from, valid_to, work_days_hours FROM people_history
+      WHERE account_id = $1 AND attribute = 'work_days_hours' AND person_id = ANY ($2::bigint[])
+      ORDER BY person_id, valid_from NULLS FIRST, id`,
+    [accountId, personIds],
+  );
+  for (const r of rows) {
+    const id = idOf(r.person_id);
+    const list = out.get(id) ?? out.set(id, []).get(id)!;
+    list.push({
+      validFrom: r.valid_from === null ? null : day(r.valid_from), validTo: r.valid_to === null ? null : day(r.valid_to),
+      workDaysHours: (r.work_days_hours as unknown[]).map(num),
+    });
+  }
+  for (const [id, list] of out) if (list.length === 1 && list[0]!.validFrom === null && list[0]!.validTo === null) out.delete(id);
+  return out;
+}
+
 interface PageCursor { name: string; id: string }
 const encodeCursor = (c: PageCursor) => Buffer.from(JSON.stringify(c)).toString("base64url");
 function decodeCursor(raw: string): PageCursor {
@@ -151,7 +197,12 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
     const last = pageRows[pageRows.length - 1];
     const personIds = pageRows.map((r) => idOf(r.id));
 
-    const people = pageRows.map(toSchedulePerson);
+    const schedules = await workSchedules(db, tx, a, personIds);
+    const people = pageRows.map((r) => {
+      const p = toSchedulePerson(r);
+      const ws = schedules.get(p.id);
+      return ws ? { ...p, workSchedule: ws } : p;
+    });
 
     const range = [a, q.from, q.to, personIds] as const;
     const allocRows = personIds.length ? (await tx.query<Row>(
@@ -176,6 +227,12 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
     const projectRows = projectIds.length ? (await tx.query<Row>(
       `SELECT ${PROJECT_COLUMNS} FROM projects
         WHERE account_id = $1 AND id = ANY ($2::bigint[]) ORDER BY id`,
+      [a, projectIds],
+    )).rows : [];
+
+    const phaseRows = projectIds.length ? (await tx.query<Row>(
+      `SELECT ${SCHEDULE_PHASE_COLUMNS} FROM phases
+        WHERE account_id = $1 AND project_id = ANY ($2::bigint[]) ORDER BY project_id, position, id`,
       [a, projectIds],
     )).rows : [];
 
@@ -206,6 +263,7 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
       timeoffs: timeoffRows.map(toScheduleTimeoff),
       holidays: holidayRows.rows.map(toScheduleHoliday),
       projects: projectRows.map(toScheduleProject),
+      phases: phaseRows.map(toSchedulePhase),
       timeoffTypes: typeRows.rows.map(toScheduleTimeoffType),
       departments: deptRows.rows.map(toScheduleDepartment),
       roles: roleRows.rows.map(toScheduleRole),

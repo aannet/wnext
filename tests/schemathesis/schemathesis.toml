@@ -10,16 +10,4 @@ missing_required_header.enabled = false
 unsupported_method.enabled = false
 allow_header_conformance.enabled = false
 
-# E-04 : requestBody déclaré requis, mais l'API accepte l'absence de corps (tous les champs sont optionnels, garde 428 conservée).
-[[operations]]
-include-name = "POST /api/v1/people/{id}/deactivation"
-checks.negative_data_rejection.enabled = false
-
-[[operations]]
-include-name = "POST /api/v1/projects/{projectId}/team/{personId}/removal"
-checks.negative_data_rejection.enabled = false
-
-# E-05 : 404 NOT_FOUND (entity person) sur un personId inconnu, non documenté sur GET /api/v1/logged-time.
-[[operations]]
-include-name = "GET /api/v1/logged-time"
-checks.status_code_conformance.enabled = false
+# E-04 (corps facultatif de deactivation et removal) et E-05 (404 de GET /logged-time) : corrigés au contrat, plus d'exclusion.

@@ -34,6 +34,6 @@ Sens des codes courants : ST103 statut non documenté, ST201 requête invalide a
 Tous les checks sont actifs (`schemathesis.toml`), sauf des exclusions justifiées, chacune liée à un écart de contrat consigné dans [`docs/review/schemathesis-ecarts.md`](../../docs/review/schemathesis-ecarts.md) :
 
 - global : `positive_data_acceptance` (E-01, le contrat n'exprime pas les validations sémantiques), `missing_required_header` (E-02, 428 attendu et documenté), `unsupported_method` et `allow_header_conformance` (E-03, 404 au lieu de 405) ;
-- par opération : `negative_data_rejection` sur `deactivation` et `removal` (E-04, corps optionnel de fait), `status_code_conformance` sur `GET /logged-time` (E-05, 404 non documenté).
+- par opération : aucune (E-04 et E-05 corrigés au contrat le 2026-10-20).
 
 Une exclusion se retire dès que le contrat est corrigé. Ne pas en ajouter sans entrée dans le fichier d'écarts. Le passage en `member` vérifie les 403 documentés (écritures refusées sans 5xx ni corps hors format).
