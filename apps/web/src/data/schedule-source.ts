@@ -62,11 +62,15 @@ export interface ScheduleSourceOptions {
 /** Projet proposé à la saisie rapide (liste complète du compte, pas seulement ceux de la fenêtre). */
 export interface ProjectRef { id: string; name: string }
 
+export type ScheduleProjectPatch = ScheduleResponse["projects"][number];
+
 export interface ScheduleSource extends ScheduleEditor, RecordEditor, TeamRemovalEditor {
   /** Tous les projets du compte (GET /projects, paginé), gardés pour la session ; rafraîchis sur l'événement temps réel « projects ». */
   listProjects(): Promise<ProjectRef[]>;
   /** Avertit quand la liste des projets a changé (le cache est alors vidé : relire avec listProjects). */
   onProjectsChange(listener: () => void): () => void;
+  /** Démo seulement : un projet créé ou modifié par l'écran Projets est appliqué aux blocs (l'API passe par le temps réel). */
+  projectChanged?(project: ScheduleProjectPatch): void;
   getState(): ScheduleSourceState;
   subscribe(listener: () => void): () => void;
   /** Nouvelle vue (défilement, zoom, navigation) : charge les blocs manquants si la source est démarrée. */

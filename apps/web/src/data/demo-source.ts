@@ -15,6 +15,8 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
   // réordonne au premier geste).
   let state: ScheduleSourceState = { data: snapshot(store, initial.window.from, initial.window.to), loading: false, error: null, realtime: "stopped" };
   const listeners = new Set<() => void>();
+  const projectListeners = new Set<() => void>();
+  const known = new Map(initial.projects.map((p) => [p.id, p] as const));
   let seq = 0;
   const changed = (): EditOutcome => {
     state = { ...state, data: snapshot(store, initial.window.from, initial.window.to) };
@@ -23,8 +25,14 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
   };
 
   return {
-    listProjects: async () => initial.projects.map((p) => ({ id: p.id, name: p.name })),
-    onProjectsChange: () => () => {}, // projets fixes en démo
+    listProjects: async () => [...known.values()].map((p) => ({ id: p.id, name: p.name })),
+    onProjectsChange: (l) => { projectListeners.add(l); return () => projectListeners.delete(l); },
+    // Projet créé ou modifié depuis l'écran Projets : les blocs prennent la nouvelle couleur au retour sur le planning.
+    projectChanged(p) {
+      known.set(p.id, p);
+      if (store.tables.projects.has(p.id)) { store = upsert(store, "projects", { ...p }); changed(); }
+      for (const l of projectListeners) l();
+    },
     getState: () => state,
     subscribe(l) {
       listeners.add(l);
