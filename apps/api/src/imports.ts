@@ -11,7 +11,8 @@ import { accountToday, assertAdmin, day } from "./write";
 //  * Une transaction, précédée d'un verrou consultatif par compte : deux imports du même compte s'exécutent l'un après l'autre (la
 //    clé des clients, le nom, n'a pas de contrainte d'unicité en base). Le dryRun prend le même chemin et n'écrit rien.
 //  * Écritures ordinaires : created_by / modified_by, version et change_log par les triggers ; historique daté des personnes
-//    (0002) avec la date d'effet par défaut (aujourd'hui, fuseau du compte), la période verrouillée étant refusée par ligne par le plan.
+//    (0002) avec la date d'effet par défaut (aujourd'hui, fuseau du compte), la période verrouillée étant refusée par ligne par le plan
+//    (les personnes sont tenues pendant l'import : une soumission concurrente attend, ou est vue par le plan).
 
 type Eq<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 /** Les codes d'erreur du moteur sont exactement ceux du contrat (échec de compilation sinon). */
@@ -124,6 +125,11 @@ export async function runImport(db: Db, ctx: RequestContext, kind: ImportKind, q
   const dryRun = query.dryRun === true;
   return withContext(db, ctx, async (tx) => {
     await tx.query("SELECT pg_advisory_xact_lock(hashtextextended('wnext.import:' || $1::text, 0))", [ctx.accountId]);
+    // BR-12/BR-19 : la période verrouillée lue par le plan doit rester vraie jusqu'aux UPDATE (sinon le trigger de people_history
+    // lève WN019 et tout l'import échoue en 500). Les personnes sont tenues AVANT la lecture de l'état, dans une requête à part (en
+    // READ COMMITTED, la lecture suivante voit donc une soumission validée pendant l'attente) ; la soumission prend la personne en
+    // FOR SHARE (logged-time.ts). NO KEY UPDATE : n'empêche pas les clés étrangères vers people (allocations, temps saisis).
+    if (kind === "people" && !dryRun) await tx.query("SELECT 1 FROM people WHERE account_id = $1::bigint ORDER BY id FOR NO KEY UPDATE", [ctx.accountId]);
     const plan = planImport(analysis, await loadSnapshot(tx, ctx.accountId, kind));
     if (!dryRun && plan.errors.length > 0 && body.skipInvalid !== true) throw new ApiFailure("IMPORT_HAS_ERRORS", { invalid: plan.invalid, rows: plan.rows });
     if (!dryRun) await apply(tx, ctx.accountId, plan);

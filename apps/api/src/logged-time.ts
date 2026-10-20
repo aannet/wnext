@@ -195,6 +195,9 @@ export async function submitLoggedTime(db: Db, ctx: RequestContext, body: Logged
   assertWindow(body.from, body.to);
   return withContext(db, ctx, async (tx) => {
     await requirePerson(tx, ctx.accountId, body.personId);
+    // BR-19 : la soumission étend la période verrouillée de la personne ; FOR SHARE la sérialise avec les écritures de people (import,
+    // PATCH), qui lisent cette période avant d'écrire l'historique daté.
+    await tx.query("SELECT 1 FROM people WHERE id = $1::bigint AND account_id = $2::bigint FOR SHARE", [body.personId, ctx.accountId]);
     // BR-33 : la soumission est atomique (tous les brouillons de la fenêtre) ; un project_manager ne peut donc soumettre que si
     // TOUS ces brouillons sont sur des projets qu'il gère, sinon 403 sans rien verrouiller (pas de soumission partielle).
     // FOR UPDATE : l'ensemble contrôlé est celui qui sera soumis (pas de brouillon ajouté entre le contrôle et l'UPDATE).
