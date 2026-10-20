@@ -58,7 +58,13 @@ function withTable<K extends Kind>(s: ScheduleStore, kind: K, f: (m: Map<string,
   return { ...s, tables: { ...s.tables, [kind]: m } };
 }
 
-/** Insère ou remplace si la version est strictement plus récente (ou l'entité absente) ; ignore une entité supprimée. */
+/**
+ * Insère ou remplace si la version est strictement plus récente (ou l'entité absente) ; ignore une entité supprimée.
+ * Remplacement entier : une personne reçue SANS workSchedule efface l'horaire daté connu. C'est voulu, car l'API omet le
+ * champ quand l'historique n'a qu'une période ouverte (apps/api/src/schedule.ts, workSchedules) : l'omission signifie
+ * « horaire constant = workDaysHours », jamais « inconnu ». Conserver l'ancien historique ferait survivre des périodes
+ * supprimées côté serveur (une version plus récente qui les ramène à une seule).
+ */
 export function upsert<K extends Kind>(s: ScheduleStore, kind: K, e: EntityOf<K>): ScheduleStore {
   const cur = s.tables[kind].get(e.id) as EntityOf<K> | undefined;
   if (s.tombstones.has(tomb(kind, e.id)) || (cur && cur.version >= e.version)) return s;

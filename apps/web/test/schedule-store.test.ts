@@ -43,6 +43,24 @@ describe("fusion des fenêtres", () => {
   });
 });
 
+describe("horaire daté d'une personne (BR-19)", () => {
+  const dated = (version: number) => ({ ...person("1", version), workSchedule: [
+    { validFrom: null, validTo: "2026-03-01", workDaysHours: [8, 8, 8, 8, 8, 0, 0] }, { validFrom: "2026-03-02", validTo: null, workDaysHours: [8, 8, 8, 8, 0, 0, 0] },
+  ] });
+  it("une version plus récente sans workSchedule (période unique, champ omis par l'API) remplace l'horaire daté", () => {
+    let s = ingestSchedule(emptyStore(), page("2026-03-02", "2026-03-29", { people: [dated(1)] }));
+    expect(s.tables.people.get("1")!.workSchedule).toHaveLength(2);
+    s = upsert(s, "people", person("1", 2));
+    expect(s.tables.people.get("1")!.workSchedule).toBeUndefined();
+  });
+  it("une version égale ou plus ancienne sans workSchedule ne change rien", () => {
+    let s = ingestSchedule(emptyStore(), page("2026-03-02", "2026-03-29", { people: [dated(2)] }));
+    s = upsert(s, "people", person("1", 2));
+    s = upsert(s, "people", person("1", 1));
+    expect(s.tables.people.get("1")!.workSchedule).toHaveLength(2);
+  });
+});
+
 describe("snapshot", () => {
   it("personnes triées par nom en ordre naturel (« Personne 2 » avant « Personne 10 »), puis par id", () => {
     const people = ["Personne 10", "Personne 2", "personne 1", "Personne 2"].map((n, i) => person(String(i + 1), 1, n));
