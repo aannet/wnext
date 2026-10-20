@@ -58,7 +58,7 @@ describe("0002_people_history (@BR-19)", () => {
       INSERT INTO accounts (name) VALUES ('A');
       INSERT INTO departments (account_id, name) VALUES (1, 'D');
       INSERT INTO people (account_id, name, work_days_hours, department_id, cost_rate) VALUES (1, 'p', '{6,6,6,6,6,0,0}', 1, 42), (1, 'q', DEFAULT, NULL, NULL);`);
-    expect(await migrate(c)).toEqual(["0002", "0003"]);
+    expect(await migrate(c)).toEqual(["0002", "0003", "0004"]);
     const { rows } = await c.query(
       `SELECT pe.name, h.attribute, h.valid_from, h.valid_to, h.work_days_hours::text AS wdh, h.department_id, h.cost_rate::text AS cost
          FROM people_history h JOIN people pe ON pe.id = h.person_id ORDER BY pe.name, h.attribute`);
