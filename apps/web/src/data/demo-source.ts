@@ -1,8 +1,11 @@
 // Source de démonstration (?demo=1) : mêmes interfaces que la source branchée sur l'API, sans aucun appel réseau. Les gestes
 // s'appliquent tout de suite au magasin local (version + 1), pour que l'écran et les futurs tests navigateur les exercent.
+// Congés et allocations (record-edits) aussi ; le chevauchement de congés est refusé comme par l'API (TIMEOFF_OVERLAP).
+// Aucun temps saisi en démo.
 import type { ScheduleResponse } from "@wnext/contracts";
 import { emptyStore, ingestSchedule, remove, snapshot, upsert, type ScheduleStore } from "../schedule/store";
 import { localSplit, patched, type EditOutcome } from "./allocation-edits";
+import { allocationFromCreate, overlapsTimeoff, patchedTimeoff, timeoffFromCreate } from "./record-edits";
 import type { ScheduleSource, ScheduleSourceState } from "./schedule-source";
 
 export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
@@ -34,6 +37,38 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
       store = upsert(store, "allocations", { ...patched(a, patch), version: a.version + 1 });
       return changed();
     },
+    async createTimeoff(body) {
+      const t = timeoffFromCreate(body, `demo-${++seq}`, 1);
+      if (overlapsTimeoff(store.tables.timeoffs.values(), t)) return { ok: false, error: "TIMEOFF_OVERLAP" };
+      store = upsert(store, "timeoffs", t);
+      changed();
+      return { ok: true, id: t.id };
+    },
+    async updateTimeoff(id, patch) {
+      const t = store.tables.timeoffs.get(id);
+      if (!t) return { ok: false, error: "NOT_FOUND" };
+      const next = { ...patchedTimeoff(t, patch), version: t.version + 1 };
+      if (overlapsTimeoff(store.tables.timeoffs.values(), next)) return { ok: false, error: "TIMEOFF_OVERLAP" };
+      store = upsert(store, "timeoffs", next);
+      return changed();
+    },
+    async deleteTimeoff(id) {
+      if (!store.tables.timeoffs.has(id)) return { ok: false, error: "NOT_FOUND" };
+      store = remove(store, "timeoffs", id);
+      return changed();
+    },
+    async createAllocation(body) {
+      const a = allocationFromCreate(body, `demo-${++seq}`, 1);
+      store = upsert(store, "allocations", a);
+      changed();
+      return { ok: true, id: a.id };
+    },
+    async deleteAllocation(id) {
+      if (!store.tables.allocations.has(id)) return { ok: false, error: "NOT_FOUND" };
+      store = remove(store, "allocations", id);
+      return changed();
+    },
+    loggedTime: async () => [],
     async splitOccurrence(id, index, patch) {
       const a = store.tables.allocations.get(id);
       if (!a) return { ok: false, error: "NOT_FOUND" };

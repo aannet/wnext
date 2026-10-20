@@ -18,6 +18,7 @@
 //    occurrence. Succès : la réponse remplace l'optimiste ; refus ou réseau : retour arrière (et relecture de l'allocation
 //    sur VERSION_CONFLICT / NOT_FOUND). Tant qu'une écriture est en vol, les rechargements demandés par le temps réel sont
 //    différés : l'écho de sa propre écriture (même version que la réponse) n'est alors jamais relu, rien ne clignote.
+//  * Congés et allocations créées / supprimées (record-edits) : même chemin optimiste ; une création rend l'id du serveur.
 import { ErrorCode, type ApiError, type ScheduleResponse } from "@wnext/contracts";
 import { loadChunks, mergeChunks, neighborDays, type BlockPatch, type Viewport } from "@wnext/engine";
 import type { createClient } from "../api/client.gen";
@@ -27,10 +28,12 @@ import {
   type Kind, type ScheduleStore, type Tables,
 } from "../schedule/store";
 import { localSplit, patched, toApiPatch, toSplitBody, type EditOutcome, type ScheduleEditor } from "./allocation-edits";
+import { allocationFromCreate, patchedTimeoff, timeoffFromCreate, type CreateOutcome, type RecordEditor } from "./record-edits";
 
 type Client = ReturnType<typeof createClient>;
 /** Lecture obligatoire ; écritures optionnelles (absentes : les gestes rendent UNSUPPORTED). */
-export type ScheduleApi = Pick<Client, "getSchedule" | "createRealtimeTicket"> & Partial<Pick<Client, "getAllocation" | "updateAllocation" | "splitAllocation">>;
+export type ScheduleApi = Pick<Client, "getSchedule" | "createRealtimeTicket"> & Partial<Pick<Client, "getAllocation" | "updateAllocation" | "splitAllocation">>
+  & Partial<Pick<Client, "createTimeoff" | "updateTimeoff" | "deleteTimeoff" | "createAllocation" | "deleteAllocation" | "listLoggedTime">>;
 export type SourceErrorCode = ApiError["code"];
 
 export interface ScheduleSourceState {
@@ -54,7 +57,7 @@ export interface ScheduleSourceOptions {
   realtime?: Pick<RealtimeClientOptions, "wsBase" | "openSocket" | "setTimer" | "clearTimer" | "random" | "now" | "onError">;
 }
 
-export interface ScheduleSource extends ScheduleEditor {
+export interface ScheduleSource extends ScheduleEditor, RecordEditor {
   getState(): ScheduleSourceState;
   subscribe(listener: () => void): () => void;
   /** Nouvelle vue (défilement, zoom, navigation) : charge les blocs manquants si la source est démarrée. */
@@ -265,7 +268,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
 
   let seq = 0;
   const busy = (id: string) => [...store.pending.values()].some((p) => p.kind === "allocations" && p.id === id);
-  const fail = (error: Exclude<EditOutcome, { ok: true }>["error"], reason?: string): EditOutcome =>
+  const fail = (error: Exclude<EditOutcome, { ok: true }>["error"], reason?: string): Exclude<EditOutcome, { ok: true }> =>
     reason === undefined ? { ok: false, error } : { ok: false, error, reason };
 
   /** Relit une allocation après un refus (autre version ou supprimée) ; un échec de relecture est sans suite. */
@@ -345,7 +348,68 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     return out;
   }
 
+  const busyOn = (kind: Kind, id: string) => [...store.pending.values()].some((p) => p.kind === kind && p.id === id);
+  const ifMatch = (version: number) => ({ "If-Match": `"${version}"` });
+
+  /** Création optimiste (id temporaire) puis POST ; rend l'id du serveur. */
+  async function create<K extends "timeoffs" | "allocations", T extends { id: string }>(
+    kind: K, local: (tmp: string) => unknown, call: () => Promise<Res<T>>,
+  ): Promise<CreateOutcome> {
+    const n = ++seq;
+    const m = `create-${n}`;
+    store = applyOptimistic(store, m, kind, `tmp-${kind}-${n}`, local(`tmp-${kind}-${n}`) as never);
+    refresh();
+    let id = "";
+    const out = await write([m], call, (d) => { store = confirmOptimistic(store, m, d as never); id = d.id; });
+    return out.ok ? { ok: true, id } : out;
+  }
+
+  /** Mise à jour (after) ou suppression (null) optimiste avec If-Match. */
+  async function change<T>(kind: "timeoffs" | "allocations", id: string, after: (cur: never) => unknown, call: (version: number) => Promise<Res<T>> | undefined): Promise<EditOutcome> {
+    const cur = store.tables[kind].get(id);
+    if (!cur) return fail("NOT_FOUND");
+    if (busyOn(kind, id)) return fail("BUSY");
+    const m = `${kind}-${++seq}`;
+    const next = after(cur as never);
+    store = applyOptimistic(store, m, kind, id, next as never);
+    refresh();
+    return write([m], () => call(cur.version)!, (d) => { store = confirmOptimistic(store, m, next === null ? null : (d as never)); });
+  }
+
+  const records: RecordEditor = {
+    async createTimeoff(body) {
+      const api = opts.api.createTimeoff;
+      return api ? create("timeoffs", (tmp) => timeoffFromCreate(body, tmp), () => api({ body })) : fail("UNSUPPORTED");
+    },
+    async updateTimeoff(id, patch) {
+      const api = opts.api.updateTimeoff;
+      return api ? change("timeoffs", id, (t) => patchedTimeoff(t, patch), (v) => api({ path: { id }, headers: ifMatch(v), body: patch })) : fail("UNSUPPORTED");
+    },
+    async deleteTimeoff(id) {
+      const api = opts.api.deleteTimeoff;
+      return api ? change("timeoffs", id, () => null, (v) => api({ path: { id }, headers: ifMatch(v) })) : fail("UNSUPPORTED");
+    },
+    async createAllocation(body) {
+      const api = opts.api.createAllocation;
+      return api ? create("allocations", (tmp) => allocationFromCreate(body, tmp), () => api({ body })) : fail("UNSUPPORTED");
+    },
+    async deleteAllocation(id) {
+      const api = opts.api.deleteAllocation;
+      return api ? change("allocations", id, () => null, (v) => api({ path: { id }, headers: ifMatch(v) })) : fail("UNSUPPORTED");
+    },
+    async loggedTime(personId, from, to) {
+      if (!opts.api.listLoggedTime) return null;
+      try {
+        const res = await opts.api.listLoggedTime({ personId, from, to });
+        return res.ok ? res.data.items.map((l) => ({ personId: l.personId, day: l.workDate, hours: l.hours })) : null;
+      } catch {
+        return null;
+      }
+    },
+  };
+
   return {
+    ...records,
     updateAllocation,
     splitOccurrence,
     onForeignChange(l) {
