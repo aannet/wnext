@@ -24,7 +24,8 @@ Ouvrir l'URL affichée par Vite. `npm run dev:stack -- --reset` repart d'une bas
 Hors `make check` (Chromium réel, Playwright + axe-core, code dans `tests/browser/`). Une fois : `npx playwright install chromium` (sous Linux nu, `npx playwright install-deps chromium` demande `sudo`).
 
 ```
-npm run test:browser    # rôles ARIA FR/EN, zooms, Aujourd'hui / T, molette, axe-core (serious/critical = échec)
+npm run test:browser    # rôles ARIA FR/EN, zooms, Aujourd'hui / T, molette, axe-core (serious/critical = échec),
+                        # gestes (glisser, poignées, Échap, clavier, portée d'une série et retour du focus)
 npm run bench:browser   # fps, durées d'image, long tasks, coût de buildGrid par zoom (démo 300 personnes, 1600 x 900)
 ```
 

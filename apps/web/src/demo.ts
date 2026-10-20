@@ -4,7 +4,8 @@
 // toutes les personnes) : chaque personne a un profil et un fil continu d'allocations bout à bout.
 //  * ~6 % vides, ~8 % en surcharge (fil à 7-8 h plus des ajouts ponctuels), les autres chargées entre 60 et 100 %.
 //  * Un bloc sur trois environ est partagé entre deux projets en parallèle (empilés, somme <= la journée : pas de surcharge).
-//  * Une personne sur sept (dont la première) a une série hebdomadaire d'une journée (2 h), fil plafonné à 6 h.
+//  * Une personne sur sept (dont la troisième, visible au chargement) a une série hebdomadaire d'une journée (2 h), fil
+//    plafonné à 6 h. La première n'en a pas et n'est jamais vide : Entrée sur la grille y focalise un bloc simple (tests).
 import type { ScheduleResponse } from "@wnext/contracts";
 import { addDays } from "@wnext/engine";
 
@@ -33,9 +34,9 @@ export function demoSchedule(today: string, people = 300): ScheduleResponse {
   for (let p = 1; p <= people; p++) {
     const id = String(p);
     const profile = rnd(100);
-    if (p !== 1 && profile < 6) continue; // vide
-    const overloaded = p !== 1 && profile < 14;
-    const series = p % 7 === 1;
+    if (p !== 1 && p !== 3 && profile < 6) continue; // vide
+    const overloaded = p !== 1 && p !== 3 && profile < 14;
+    const series = p % 7 === 3;
     const mine = [rnd(colors.length), rnd(colors.length), rnd(colors.length)].map((i) => String(i + 1));
     const max = series ? 6 : 8;
     const target = overloaded ? 8 : clamp(Math.round(8 * (0.6 + rnd(41) / 100)), max);

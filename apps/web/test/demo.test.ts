@@ -40,7 +40,8 @@ describe("demoSchedule", () => {
     expect(s.allocations.some((a) => a.status === "tentative")).toBe(true);
     const weekly = s.allocations.filter((a) => a.repeatState === "weekly");
     expect(weekly.length).toBeGreaterThan(30);
-    expect(weekly.some((a) => a.personId === "1")).toBe(true);
+    expect(weekly.some((a) => a.personId === "3")).toBe(true);
+    expect(weekly.some((a) => a.personId === "1")).toBe(false);
     expect(s.allocations.length).toBeLessThan(20_000); // ordre de grandeur du banc inchangé (12 000 auparavant)
   });
 });
