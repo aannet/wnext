@@ -50,6 +50,19 @@
   .legend .dot { margin: 0; }
   .next li { padding: 6px 0; }
   .next ol { margin: 0; padding-left: 20px; }
+  .rm { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .rm .col { background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .rm .col.t1 { border-top-color: var(--accent); }
+  .rm .col h3 { margin: 0 0 4px; font-size: 15px; }
+  .rm .col ul { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
+  .rm .ph { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 3px 0; border-top: 1px solid #f0f2f6; }
+  .rm .ph:first-of-type { border-top: 0; }
+  .kpis { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 0 0 12px; padding: 0; list-style: none; font-size: 13px; }
+  .kpis b { font-variant-numeric: tabular-nums; font-size: 18px; }
+  table.t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.t th, table.t td { text-align: left; padding: 6px 8px; border-top: 1px solid #f0f2f6; vertical-align: top; }
+  table.t th { color: var(--muted); font-weight: 600; font-size: 12.5px; border-top: 0; }
+  .tw { overflow-x: auto; }
   details summary { cursor: pointer; font-size: 13px; color: var(--accent); }
   @media (max-width: 880px) {
     .layout { display: block; }
@@ -64,6 +77,8 @@
   <nav id="nav">
     <h1>WNEXT</h1>
     <a href="#synthese">Synthèse</a>
+    <a href="#roadmap">Feuille de route</a>
+    <a href="#recette">Recette</a>
     <div id="nav-phases"></div>
     <a href="#suite">Et maintenant ?</a>
     <a href="#methode">Méthode</a>
@@ -86,6 +101,20 @@
       <div id="overview"></div>
     </section>
 
+    <section id="roadmap">
+      <h2>Feuille de route</h2>
+      <p class="sub">Trajectoire du dossier §5.6 (T1 à T4). T1 est le MVP « Schedule + capacité » ; il est réalisé par les phases P0 à P6 de <code>docs/factory/strategy.md</code>.</p>
+      <div class="rm" id="rm"></div>
+      <p class="goal" style="margin-top:12px"><b>Explicitement hors MVP (T1)</b> : timesheets et rapports (T2), facturation du produit lui-même (exclue, ADR-004), budgets, rate cards et marge (T3), API publique v3, mobile sous 1024 px, mode sombre, SSO (T3), Smart Assign, Talent Intelligence et MCP (T4).</p>
+    </section>
+
+    <section id="recette">
+      <h2>Recette</h2>
+      <p class="sub">Retours d'Alec tracés dans <a href="recette/registre.md"><code>docs/recette/registre.md</code></a>, cadrés par note (<a href="recette/cadrage-1.html"><code>cadrage-1.html</code></a>). Scénarios : <a href="recette/scenarios.md"><code>docs/recette/scenarios.md</code></a>.</p>
+      <div class="card" id="rc-notes"></div>
+      <div class="card"><ul class="kpis" id="rc-kpis"></ul><div class="tw"><table class="t" id="rc-lots"></table></div></div>
+    </section>
+
     <div id="phases"></div>
 
     <section id="suite">
@@ -97,15 +126,53 @@
     <section id="methode">
       <h2>Méthode</h2>
       <div class="card">
-        <p style="margin-top:0">Chaque phase est celle de <code>docs/factory/strategy.md</code> §1. Son pourcentage = (faits + 0,5 × partiels) / éléments comptés. Les éléments « reportés » sont exclus. Le total pondère chaque phase par son budget indicatif (25 / 70 / 90 / 120 / 70 / 45 M tokens), donc l'UI (P3) pèse plus que les fondations.</p>
-        <p style="margin-bottom:0">Pour mettre à jour : éditer le tableau <code>PHASES</code> en haut du script de ce fichier (<code>s</code> = <code>done</code>, <code>part</code>, <code>todo</code> ou <code>defer</code>).</p>
+        <p style="margin-top:0">Chaque phase est celle de <code>docs/factory/strategy.md</code> §1. Son pourcentage = (faits + 0,5 × partiels) / éléments comptés. Les éléments « reportés » sont exclus. Le total pondère chaque phase par son budget indicatif (25 / 70 / 90 / 120 / 70 / 45 / 60 M tokens), donc l'UI (P3) pèse plus que les fondations. P6 (expérience et recette, ADR-008) est pilotée par les retours d'Alec : ils sont consignés dans le registre de recette, cadrés par note, et son gate exige un registre sans retour bloquant ni majeur et les scénarios passés à la main.</p>
+        <p style="margin-bottom:0">Pour mettre à jour : éditer le tableau <code>PHASES</code> en haut du script de ce fichier (<code>s</code> = <code>done</code>, <code>part</code>, <code>todo</code> ou <code>defer</code>) et le tableau <code>RECETTE</code> pour la recette (statuts des retours et des lots, à recopier depuis <code>docs/recette/registre.md</code>).</p>
       </div>
     </section>
   </main>
 </div>
 
 <script>
-const AS_OF = "2026-10-20";
+const AS_OF = "2026-10-21";
+
+// RECETTE — mise à jour : recopier les statuts depuis docs/recette/registre.md.
+// retours[].statut : qualifié | validé | planifié | corrigé | vérifié | rejeté | reporté (T2+)
+// retours[].lot : un ou plusieurs lots séparés par une virgule, "—" si aucun ; gravite : bloquante | majeure | mineure | cosmétique | —
+// lots[].statut : proposé | planifié | en cours | livré | vérifié ; l'avancement d'un lot = retours vérifiés / retours rattachés.
+// notes[] : une entrée par note d'Alec (fichier brut, cadrage associé, statut du cadrage).
+const RECETTE = {
+  notes: [{ id: 1, date: "2026-10-21", file: "docs/recette/notes/2026-10-21-note-1.txt", cadrage: "docs/recette/cadrage-1.html", status: "cadrage à valider" }],
+  retours: [
+    { id: "RT-001", t: "Pas d'en-tête applicatif portant le nom de l'app ; la barre d'outils doit s'intégrer à un header ou un sous-header", nature: "manque", gravite: "majeure", lot: "L-B", statut: "qualifié" },
+    { id: "RT-002", t: "L'app s'ouvre sans authentification ; il faut un portail de connexion adossé à la base des utilisateurs", nature: "manque", gravite: "majeure", lot: "L-B", statut: "qualifié" },
+    { id: "RT-003", t: "Afficher l'utilisateur connecté (« Bonjour Alec ») à droite de l'en-tête", nature: "manque", gravite: "mineure", lot: "L-B", statut: "qualifié" },
+    { id: "RT-004", t: "Le canevas (grille) convient à ce stade", nature: "constat", gravite: "—", lot: "—", statut: "qualifié" },
+    { id: "RT-005", t: "Réglage de densité d'affichage à 3 niveaux (aujourd'hui ~12 personnes visibles ; viser aussi ~8 et ~6)", nature: "manque", gravite: "majeure", lot: "L-C", statut: "qualifié" },
+    { id: "RT-006", t: "En densité aérée, les éléments grossissent (blocs, textes) et occupent toute la hauteur", nature: "graphique", gravite: "mineure", lot: "L-C", statut: "qualifié" },
+    { id: "RT-007", t: "Réglage de densité appliqué à la volée d'abord, puis sauvegardé et attaché au profil", nature: "manque", gravite: "mineure", lot: "L-C", statut: "qualifié" },
+    { id: "RT-008", t: "Jauge d'allocation / surallocation par personne, sur une période à définir (recommandation demandée)", nature: "manque", gravite: "majeure", lot: "L-C", statut: "qualifié" },
+    { id: "RT-009", t: "Les formulaires (ex. nouveau congé) s'ouvrent dans un panneau inséré en bas de page au lieu d'une fenêtre superposée", nature: "ergonomie", gravite: "majeure", lot: "L-D", statut: "qualifié" },
+    { id: "RT-010", t: "Aucune interface pour éditer les propriétés d'un projet (et de ses tâches)", nature: "manque", gravite: "bloquante", lot: "L-F", statut: "qualifié" },
+    { id: "RT-011", t: "Aucune interface pour modifier une allocation déjà posée (changer son projet, sa tâche…)", nature: "manque", gravite: "bloquante", lot: "L-E", statut: "qualifié" },
+    { id: "RT-012", t: "Pas de back-office : listes et CRUD des projets, des personnes et des équipes", nature: "manque", gravite: "bloquante", lot: "L-F", statut: "qualifié" },
+    { id: "RT-013", t: "Clic (ou double-clic, à définir) sur un bloc posé : ouvre une pop-in d'édition qui reprend les informations du projet", nature: "ergonomie", gravite: "majeure", lot: "L-E", statut: "qualifié" },
+    { id: "RT-014", t: "Changer le projet ou la tâche d'un bloc depuis le référentiel (liste reliée aux données)", nature: "manque", gravite: "bloquante", lot: "L-E", statut: "qualifié" },
+    { id: "RT-015", t: "Créer une allocation sans passer par la saisie rapide : bouton visible et clic ou glisser dans une zone libre, qui crée un bloc provisoire puis ouvre l'édition", nature: "manque", gravite: "bloquante", lot: "L-E", statut: "qualifié" },
+    { id: "RT-016", t: "Dans la pop-in, choisir une ou plusieurs personnes", nature: "manque", gravite: "majeure", lot: "L-E", statut: "qualifié" },
+    { id: "RT-017", t: "Une même pop-in pour un créneau : onglet « Projet / tâche » (par défaut) et onglet « Congé », car un créneau posé peut être une absence qui impacte la capacité", nature: "ergonomie", gravite: "majeure", lot: "L-E", statut: "qualifié" },
+    { id: "RT-018", t: "Changer la couleur du projet depuis les propriétés de ce qui est posé", nature: "manque", gravite: "mineure", lot: "L-E, L-F", statut: "qualifié" },
+    { id: "RT-019", t: "Utiliser Tailwind (bibliothèque CSS)", nature: "décision", gravite: "—", lot: "L-A", statut: "planifié" },
+  ],
+  lots: [
+    { id: "L-A", t: "Tailwind v4 et design tokens (socle sans changement visible, garde-fou anti-couleurs en dur)", statut: "en cours" },
+    { id: "L-B", t: "Coque applicative : en-tête WNEXT, navigation (Schedule, Projets, Personnes, Réglages), barre d'outils en sous-header, écran de connexion OIDC par défaut en recette, « Bonjour Alec »", statut: "proposé" },
+    { id: "L-D", t: "Primitives de fenêtres (Modal, Popover, Drawer) et migration de tous les dialogues vers des fenêtres superposées (Fermer + Échap)", statut: "proposé" },
+    { id: "L-C", t: "Densité à 3 niveaux et jauge par personne dans la colonne de gauche", statut: "proposé" },
+    { id: "L-E", t: "Éditeur de créneau : création (bouton, clic ou glisser en zone libre), pop-in à onglets Projet / tâche et Congé, changement de projet / tâche / personnes, couleur du projet", statut: "proposé" },
+    { id: "L-F", t: "Back-office : écrans Projets (liste, création, panneau propriétés et équipe), Personnes (liste, création, modification datée), Réglages (départements, rôles, clients, types de congé, fériés)", statut: "proposé" },
+  ],
+};
 
 // s: done | part | todo | defer — n: note courte
 const PHASES = [
@@ -224,15 +291,33 @@ const PHASES = [
       { t: "Staging → prod canary + smoke post-déploiement", s: "todo" },
       { t: "Gate de release humain", s: "todo" },
     ] },
+  { id: "p6", name: "P6 · Expérience et recette", weight: 60, status: "now",
+    goal: "Rendre le MVP T1 utilisable par un humain : design system, coque, écrans Projets / Personnes / Réglages, recette pilotée par les retours d'Alec (ADR-008).",
+    items: [
+      { t: "Cadre P6 : ADR-008, ligne P6 dans strategy.md, registre de recette", s: "done" },
+      { t: "Cadrage de la note n°1 (19 retours, 6 lots)", s: "part", n: "en attente de la validation d'Alec : docs/recette/cadrage-1.html" },
+      { t: "L-A Tailwind et design tokens, garde-fou anti-couleurs en dur", s: "part", n: "en cours" },
+      { t: "Direction visuelle et choix de l'accent (Q-09), sur images de référence", s: "todo" },
+      { t: "L-D Fenêtres superposées (Modal, Popover, Drawer)", s: "todo" },
+      { t: "L-B Coque : en-tête, navigation, connexion, utilisateur connecté", s: "todo" },
+      { t: "L-C Densité à 3 niveaux et jauge par personne", s: "todo" },
+      { t: "L-E Éditeur de créneau (création, pop-in Projet / Congé, changement de projet)", s: "todo" },
+      { t: "L-F Back-office Projets, Personnes, Réglages", s: "todo" },
+      { t: "Primitives et catalogue", s: "todo" },
+      { t: "Assistant de première allocation et « Trouver quelqu'un de dispo »", s: "todo" },
+      { t: "Approbation des congés", s: "todo" },
+      { t: "Aide des raccourcis et palette Ctrl+K", s: "todo" },
+      { t: "Seed et recette automatisée (test:recette)", s: "todo" },
+      { t: "Recette humaine par Alec, registre sans bloquant ni majeur", s: "todo" },
+      { t: "Gate P6 signé", s: "todo" },
+    ] },
 ];
 
 const NEXT = [
-  "<b>Relire la nuit du 20/10</b> (rapport : <code>docs/plan-nuit-2026-10-20.md</code>) et les commits de contrat (CODEOWNERS, liste dans <code>docs/review/relecture-tests-sql.md</code>).",
-  "<b>Signer P1</b> : ta relecture des tests SQL avec la fiche (T18d, T18h, T18f ajustés par 0003 et 0004) ; corriger CODEOWNERS (<code>/db/migrations/</code> et <code>/db/rls/</code> n'existent pas).",
-  "<b>Gate P3</b> : mesurer le 60 fps sur un poste de référence ; trancher <code>group_id</code> après découpe (BR-26).",
-  "<b>Relire les notifications</b> (hors passe de clôture), ajouter le job de purge et rendre les préférences lisibles dans le compte.",
-  "<b>P5</b> : profiler le PATCH (227 ms sous 500 clients), rejouer PITR et <code>pg_dump</code>, job nocturne de charge.",
-  "<b>Reliquats</b> : département daté pour les fériés, date de clôture de période (Q-06), bouton Importer selon le rôle en OIDC, zones de 44 px."
+  "<b>Valider le cadrage n°1</b> : <code>docs/recette/cadrage-1.html</code> (19 retours, 6 lots), répondre aux questions Q1 à Q5.",
+  "<b>Déposer les images de référence</b> pour la direction visuelle (accent, Q-09) dans <code>docs/recette/notes/2026-10-21-note-1/</code> ou <code>docs/design/references/</code>.",
+  "<b>Relectures en attente</b> : CODEOWNERS (<code>/db/migrations/</code> et <code>/db/rls/</code> n'existent pas) et tests SQL avec <code>docs/review/relecture-tests-sql.md</code>.",
+  "<b>P5 en tâche de fond</b> : profiler le PATCH (227 ms sous 500 clients), rejouer PITR et <code>pg_dump</code>, job nocturne de charge."
 ];
 
 const W = { done: 1, part: 0.5, todo: 0 };
@@ -268,6 +353,39 @@ document.getElementById("phases").innerHTML = PHASES.map(p => {
     <p class="goal" style="margin:8px 0 0">${count(p.items,"done")} faits · ${count(p.items,"part")} partiels · ${count(p.items,"todo")} à faire${count(p.items,"defer") ? ` · ${count(p.items,"defer")} reporté` : ""}</p>
     <ul class="items">${li}</ul></div></section>`;
 }).join("");
+
+
+// Feuille de route
+const tagTxt = (p) => p.status === "closed" ? "clos" : p.status === "now" ? "en cours" : "";
+const T1 = PHASES.map(p => `<div class="ph"><span>${p.name.split(" · ")[0]} ${p.name.split(" · ")[1]}</span><span><b>${pct(p.items)} %</b> ${tagFor(p)}</span></div>`).join("");
+const T1pc = global;
+document.getElementById("rm").innerHTML = `
+  <div class="col t1"><h3>T1 · MVP « Schedule + capacité »<span class="tag now">en cours</span></h3>
+    <p class="goal" style="margin:0 0 8px">Personnes et projets, Schedule temps réel, capacité, congés et fériés, permissions simples, vues sauvegardées. <b>${T1pc} %</b> au global.</p>${T1}</div>
+  <div class="col"><h3>T2<span class="tag">non démarré</span></h3><ul><li>Timesheets</li><li>Rapports et export CSV</li><li>PM par projet</li><li>Notifications e-mail</li><li>Profil utilisateur (préférences, p. ex. densité)</li></ul></div>
+  <div class="col"><h3>T3<span class="tag">non démarré</span></h3><ul><li>Budgets, rate cards, marge</li><li>Phases et dépenses</li><li>API v3</li><li>Mobile web puis natif</li><li>SSO</li></ul></div>
+  <div class="col"><h3>T4<span class="tag">non démarré</span></h3><ul><li>Smart Assign (IA)</li><li>Talent Intelligence</li><li>MCP</li></ul></div>`;
+
+// Recette
+const RS = RECETTE.retours;
+const cntBy = (k, v) => RS.filter(r => r[k] === v).length;
+const lotsOf = (r) => r.lot.split(",").map(x => x.trim()).filter(x => x && x !== "—");
+document.getElementById("rc-notes").innerHTML = RECETTE.notes.map(n =>
+  `<b>Note n°${n.id}</b> du ${n.date.split("-").reverse().join("/")} — <span class="tag now">${n.status}</span><br><span class="note" style="color:var(--muted);font-size:13px"><code>${n.file}</code> · <a href="${n.cadrage.replace("docs/", "")}">cadrage</a> · <a href="recette/registre.md">registre</a> · <a href="recette/scenarios.md">scénarios</a></span>`).join("<br>");
+const statuts = ["qualifié", "validé", "planifié", "corrigé", "vérifié", "rejeté", "reporté (T2+)"];
+const gravs = ["bloquante", "majeure", "mineure", "cosmétique"];
+const open = (g) => RS.filter(r => r.gravite === g && r.statut !== "vérifié" && r.statut !== "rejeté" && !r.statut.startsWith("reporté")).length;
+document.getElementById("rc-kpis").innerHTML =
+  `<li><b>${RS.length}</b> retours</li>` +
+  statuts.filter(s => cntBy("statut", s)).map(s => `<li><b>${cntBy("statut", s)}</b> ${s}</li>`).join("") +
+  `<li style="flex-basis:100%"></li>` +
+  gravs.filter(g => RS.some(r => r.gravite === g)).map(g => `<li><b>${open(g)}/${cntBy("gravite", g)}</b> ouverts, gravité ${g}</li>`).join("");
+document.getElementById("rc-lots").innerHTML = "<thead><tr><th>Lot</th><th>Contenu</th><th>Statut</th><th>Retours vérifiés</th></tr></thead><tbody>" +
+  RECETTE.lots.map(l => {
+    const rs = RS.filter(r => lotsOf(r).includes(l.id));
+    const ok = rs.filter(r => r.statut === "vérifié").length;
+    return `<tr><td><b>${l.id}</b></td><td>${l.t}</td><td>${l.statut}</td><td style="white-space:nowrap">${ok} / ${rs.length}<div class="bar" style="width:90px;height:6px;margin-top:4px"><i style="width:${rs.length ? 100 * ok / rs.length : 0}%"></i></div></td></tr>`;
+  }).join("") + "</tbody>";
 
 document.getElementById("next").innerHTML = NEXT.map(n => `<li>${n}</li>`).join("");
 

@@ -1,0 +1,35 @@
+OK alors voici ce que je peux expliquer, dire un petit peu dans le désordre. Ça va mêler à la fois du graphique et du fonctionnel, plein de choses ensemble, mais ça va falloir ensuite détricoter.
+
+Dans le layout général je vois qu'il n'y a aucun header qui reprend le nom de l'app, comme une application ou un applicatif connecté d'habitude, avec une toolbar intégrée à ce header ou sub-header (à voir). Effectivement on n'en a jamais tout à fait parlé mais en théorie je ne devrais pas pouvoir accéder à ça de façon complètement libre. Je devrais passer par un portail d'authentification me permettant d'accéder à la... Je crois que c'est la partie base user derrière.
+
+Si je suis authentifié, dans mon waiter je m'authentifie en tant qu'Alec : j'ai « Bonjour Alec », qui est disponible traditionnellement plutôt à droite. 
+
+
+ensuite le canevas a l'air, ma foi, très bien, en tout cas à ce stade.
+
+Ce qui doit probablement manquer en termes de features, c'est une action sur le rendu du site, un petit peu : une option de visualisation, peut-être dans un premier temps uniquement à la volée et, dans un deuxième temps, qui serait sauvegardée, peut-être attachée au profil. Elle permet de régler trois tailles de densité d'informations affichées à l'écran.
+
+Là je trouve qu'on est en densité assez extrême et qu'il faudrait proposer à minima deux autres vues. Je vois que, sur mon écran, j'ai 12 personnes affichées, ce qui a un impact sur la hauteur de chaque ligne, ce qui rend les choses très compactes et peu faciles à lire. J'aurais tendance à rajouter deux autres niveaux : un autre niveau où on passerait de 12 à 8 par exemple, et encore un autre niveau où on passerait à 6. Testons ça.
+
+Ça veut dire quoi ? Si, par exemple, j'affiche une hauteur de 6, donc globalement 6 personnes, je devrais occuper toute la hauteur actuelle dédiée, mais je vais pouvoir faire grossir les éléments pour rendre tout ça beaucoup plus aéré.
+
+Ce qui m'amène à une autre fonctionnalité également : chaque personne devra avoir une petite barre de remplissage, une sorte de jauge d'allocation, de surallocation, probablement en fonction de la période observée, qui n'est aujourd'hui pas encore définie. Est-ce que c'est juste la période du viewport ? Est-ce qu'on en fait quelque chose d'autre ? Ça, je veux bien ta recommandation dessus.
+Je vois qu'il y a des boutons, par exemple de saisie d'un nouveau congé, qui vont ouvrir une sorte de panel docké en bas. C'est pas une pop-in. Tout ça, ça va pas.
+
+C'est pareil : je ne sais pas comment on édite les propriétés afférentes à un projet. Je pense qu'en back office il y a pas mal de choses attachées à un projet ou à une tâche aussi. Enfin le moment, c'est qu'on pose à l'écran en termes d'allocation. Aujourd'hui on manque d'un bout d'interface pour permettre de changer l'allocation qu'on pose.
+
+Je ne vois pas non plus d'endroit où on a, on va dire, la vue un petit peu derrière les rideaux, accès back office, où je peux paramétrer la liste. J'ai un CRUD avec la liste des projets, par exemple, ou la liste des équipes. Je sais qu'il y a des notions d'équipes qui sont disponibles, je ne les vois pas. Idem pour la liste des personnes. Tout ça, c'est back office.
+
+Si je reviens en front aujourd'hui, et c'est le cas pour l'applicative float.com, j'aimerais que la séquence d'édition, quand je clique sur un élément du déjà posé dans un parcours de mise à jour (cliquer ou peut-être double cliquer, trigger à définir), ouvre une popine qui me permettra d'hériter facilement les informations, en tout cas du projet.
+
+Ce que je vois à l'écran, c'est une représentation visuelle d'une plage horaire mais je dois pouvoir très facilement changer en indiquant que ce n'est plus projet A ou tâche A, mais projet B par exemple, tout ça bien entendu connecté au référentiel qui est derrière. Il en va de même pour la création d'une nouvelle tâche.
+
+Aujourd'hui je ne sais même pas comment on peut faire. En tout cas l'interface ne présente pas ça. Ce n'est pas un bouton accessible. C'est le fait de cliquer dans une zone blanche, on va dire non affectée, qui va me créer un bloc que je vais saisir comme je peux, un peu en mode temporaire. Ensuite en éditant ce bloc, je vais pouvoir venir poser dessus, sélectionner un projet, une personne ou plusieurs personnes, etc. 
+Si je reprends également la logique de float.com, quand je pose un créneau, peu importe la plage de dates que va occuper ce créneau, ça peut être une allocation sur un projet ou la définition d'une absence ou d'un congé dans float. Tout ça se paramètrerait dans la fameuse pop-in d'édition du bloc d'allocation.
+
+Le premier onglet par défaut, c'était l'onglet « Orienter projet tâche » et le deuxième onglet, c'était une table de congé pour pouvoir justement dire que c'est une allocation visuelle de congé off qui a un impact sur le capacitaire et l'location de la personne.
+
+Autre point, pendant que j'y pense, dans les propriétés d'une tâche ou d'un projet (donc bref, ce qu'on pose à l'écran associé à une personne), je dois pouvoir changer la couleur du projet. 
+
+
+D'un point de vue, je m'avance sur la partie solution technique, mais d'un point de vue framework (plutôt librairie que framework), je veux du Tailwind. 

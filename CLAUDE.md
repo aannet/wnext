@@ -42,7 +42,9 @@ Per dossier §3.3: React SPA with realtime (WebSocket/SSE; mutations must propag
 - Billing of the product itself (plans, seats, trial, Stripe; BR-15/16/17/34) is **excluded** (ADR-004). Do not model it. Project-level "billable" is kept for now (open).
 - Time off supports half-days (`timeoffs.start_half`/`end_half`, am|pm; a half deducts 50% of the day's hours). No time-of-day on allocations (ADR-004).
 
-## Current phase — P3/P4 built, P5 started, factory frozen
+## Current phase — P6 (experience and acceptance) in progress, P5 in background, factory frozen
+
+- **P6 « Expérience et recette »** (ADR-008, 2026-10-21) : avant le gate de release, rendre le MVP T1 utilisable par un humain (design system Tailwind + tokens, ADR-009 ; coque, écrans Projets / Personnes / Réglages ; éditeur de créneau). La recette est pilotée par les notes d'Alec : verbatim dans `docs/recette/notes/` (jamais modifiées), cadrage en retours atomiques `RT-NNN` dans `docs/recette/registre.md` (source de vérité), synthèse `cadrage-N.html` validée par Alec avant d'exécuter les lots, un test qui échouait avant chaque correctif. Suivi : `docs/avancement.html` (feuille de route, P6, recette). Aucune couleur en dur hors `apps/web/src/design/tokens.css` (garde-fou `no-raw-colors`).
 
 - P0 is closed as built: monorepo, `make check`/CI, guardrails, contract chain, kill-switch. Supervisor/introspection criteria are deferred. First P1 vertical: `packages/engine/src/capacity.ts` (TS mirror of `daily_capacity`, parity tests in `packages/engine/test/`). Phases in `docs/factory/strategy.md` §1.
 - Contract-first (ADR-003, status proposed): any change touching the API edits `packages/contracts` first, in a separate reviewed commit. `packages/contracts` depends on nothing; `packages/engine` (capacity + layout, pure TS) on `contracts`; `apps/api` and `apps/web` on `contracts` and `engine` only. `apps/web` and `apps/api` never import each other (boundary lint in CI). `packages/contracts` is under CODEOWNERS (human review).

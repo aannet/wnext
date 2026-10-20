@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WNEXT — Cadrage de la note n°1</title>
+<style>
+  :root { color-scheme: light; --bg:#f7f8fa; --card:#fff; --ink:#1c2330; --muted:#566074; --line:#e3e7ee; --accent:#2f5bea; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .layout { display:flex; align-items:flex-start; }
+  nav { position:sticky; top:0; width:230px; flex:none; height:100vh; overflow:auto; padding:24px 16px; border-right:1px solid var(--line); background:var(--card); }
+  nav h1 { font-size:17px; margin:0 0 4px; } nav .s { color:var(--muted); font-size:12px; margin:0 0 16px; }
+  nav a { display:block; padding:6px 10px; margin-bottom:2px; border-radius:6px; color:var(--muted); text-decoration:none; font-size:14px; }
+  nav a:hover { background:var(--bg); } nav a.active { background:#e8eefd; color:var(--accent); font-weight:600; }
+  main { flex:1; min-width:0; max-width:1000px; padding:32px 32px 80px; }
+  section { margin-bottom:44px; scroll-margin-top:16px; }
+  h2 { font-size:21px; margin:0 0 6px; } h3 { margin:0 0 6px; font-size:16px; }
+  .sub { color:var(--muted); font-weight:400; font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin-bottom:14px; }
+  .intent { border-left:4px solid var(--accent); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  .stats ul { list-style:none; margin:6px 0 0; padding:0; } .stats li { padding:2px 0; }
+  .stats .big { font-size:40px; font-weight:700; line-height:1; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; font-size:13.5px; }
+  th,td { text-align:left; vertical-align:top; padding:8px 10px; border-top:1px solid var(--line); }
+  th { background:#eef1f6; border-top:0; font-size:12.5px; }
+  .nw { white-space:nowrap; } .tw { overflow-x:auto; }
+  blockquote { margin:6px 0 0; padding:2px 0 2px 10px; border-left:3px solid var(--line); color:var(--muted); font-size:13px; }
+  .gb { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:1px 8px; border-radius:10px; border:1px solid; white-space:nowrap; }
+  .gb i { width:8px; height:8px; display:inline-block; }
+  .g1 { background:#fde8e8; color:#9b1c1c; border-color:#9b1c1c; } .g1 i { background:#9b1c1c; border-radius:0; }
+  .g2 { background:#fdf0dc; color:#8a4b00; border-color:#8a4b00; } .g2 i { background:#8a4b00; transform:rotate(45deg); }
+  .g3 { background:#fbf6d6; color:#6b5a00; border-color:#6b5a00; } .g3 i { background:#6b5a00; border-radius:50%; }
+  .g4 { background:#eef1f6; color:#445; border-color:#445; } .g4 i { border:2px solid #445; border-radius:50%; }
+  .g0 { background:#eef1f6; color:#445; border-color:#aab; font-weight:500; }
+  .reco { background:#eaf6ef; border:1px solid #1f7a4d; border-radius:8px; padding:8px 12px; }
+  .tagreco { display:inline-block; font-size:12px; font-weight:700; color:#17603c; margin-right:6px; text-transform:uppercase; }
+  .answer { border:1px dashed #98a2b3; border-radius:8px; padding:10px 12px; min-height:56px; color:var(--muted); margin:10px 0 0; }
+  .flow { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:10px 0 4px; }
+  .flow .chain { display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  .node { border:2px solid var(--accent); border-radius:8px; padding:4px 12px; font-weight:700; background:#e8eefd; }
+  .arrow { color:var(--muted); font-weight:700; }
+  ul.plain { margin:6px 0; padding-left:20px; }
+  @media (max-width:880px) { .layout { display:block; } nav { position:static; width:auto; height:auto; border-right:0; border-bottom:1px solid var(--line); padding:12px 16px; } nav a { display:inline-block; } main { padding:20px 16px 60px; } }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav id="nav">
+  <h1>Cadrage n°1</h1><p class="s">Note du 2026-10-21</p>
+  <a href="#resume">Résumé</a>
+  <a href="#retours">Ce que dit la note</a>
+  <a href="#lots">Lots proposés</a>
+  <a href="#questions">Questions à trancher</a>
+  <a href="#hors-cadrage">Hors cadrage / reporté</a>
+  <a href="#suite">Suite</a>
+</nav>
+<main>
+<section id="resume">
+  <h2>Résumé</h2>
+  <p class="sub">Cadrage de la note n°1 d'Alec (<code>docs/recette/notes/2026-10-21-note-1.txt</code>), pour validation. Source des chiffres : <code>docs/recette/registre.md</code>, vérifié dans le code de <code>main</code> à <code>11bc44d</code>.</p>
+  <div class="card intent"><b>Intention.</b> Ta note mêle du graphique et du fonctionnel. Je l'ai découpée en <b>19 retours atomiques</b>, chacun relié à sa citation et à la spec, puis regroupée en <b>6 lots</b> exécutables dans un ordre qui limite les reprises. Rien n'est rejeté. Il te reste <b>5 questions</b> à trancher, avec ma recommandation à chaque fois.</div>
+  <div class="stats">
+    <div class="card"><div class="big">19</div>retours, 6 lots, 5 questions</div>
+    <div class="card"><b>Par nature</b><ul><li><b>13</b> manque</li><li><b>3</b> ergonomie</li><li><b>1</b> graphique</li><li><b>1</b> décision</li><li><b>1</b> constat</li></ul></div>
+    <div class="card"><b>Par gravité</b><ul><li><span class="gb g1"><i></i>bloquante</span> <b>5</b></li><li><span class="gb g2"><i></i>majeure</span> <b>8</b></li><li><span class="gb g3"><i></i>mineure</span> <b>4</b></li><li><span class="gb g0">sans gravité</span> <b>2</b> (constat, décision)</li></ul></div>
+    <div class="card"><b>Par écran</b><ul><li><b>13</b> Schedule</li><li><b>3</b> Projets</li><li><b>2</b> Coque</li><li><b>1</b> Connexion</li><li><b>1</b> Personnes</li><li><b>1</b> Réglages</li><li><b>1</b> Toutes</li></ul><span class="sub">Un retour peut toucher plusieurs écrans (RT-009 : tous les dialogues, RT-012 : trois écrans, RT-018 : deux).</span></div>
+  </div>
+</section>
+
+<section id="retours">
+  <h2>Ce que dit la note</h2>
+  <p class="sub">Les 19 retours, avec la citation de ta note (numéro de ligne). La gravité est écrite en toutes lettres et marquée par une forme, pas seulement par la couleur.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Id</th><th>Retour et citation</th><th>Nature</th><th>Gravité</th><th>Écran</th><th>Lot</th></tr></thead>
+  <tbody>
+<tr id="rt-001"><td class="nw"><b>RT-001</b></td><td>Pas d'en-tête applicatif portant le nom de l'app ; la barre d'outils doit s'intégrer à un header ou un sous-header<blockquote>« il n'y a aucun header qui reprend le nom de l'app […] avec une toolbar intégrée à ce header ou sub-header » (l. 3)</blockquote></td><td>manque</td><td><span class="gb g2"><i></i>majeure</span></td><td>Coque</td><td class="nw">L-B</td></tr>
+<tr id="rt-002"><td class="nw"><b>RT-002</b></td><td>L'app s'ouvre sans authentification ; il faut un portail de connexion adossé à la base des utilisateurs<blockquote>« je ne devrais pas pouvoir accéder à ça de façon complètement libre. Je devrais passer par un portail d'authentification » (l. 3)</blockquote></td><td>manque</td><td><span class="gb g2"><i></i>majeure</span></td><td>Connexion</td><td class="nw">L-B</td></tr>
+<tr id="rt-003"><td class="nw"><b>RT-003</b></td><td>Afficher l'utilisateur connecté (« Bonjour Alec ») à droite de l'en-tête<blockquote>« j'ai « Bonjour Alec », qui est disponible traditionnellement plutôt à droite » (l. 5)</blockquote></td><td>manque</td><td><span class="gb g3"><i></i>mineure</span></td><td>Coque</td><td class="nw">L-B</td></tr>
+<tr id="rt-004"><td class="nw"><b>RT-004</b></td><td>Le canevas (grille) convient à ce stade<blockquote>« le canevas a l'air, ma foi, très bien » (l. 8)</blockquote></td><td>constat</td><td><span class="gb g0">sans gravité</span></td><td>Schedule</td><td class="nw">—</td></tr>
+<tr id="rt-005"><td class="nw"><b>RT-005</b></td><td>Réglage de densité d'affichage à 3 niveaux (aujourd'hui ~12 personnes visibles ; viser aussi ~8 et ~6)<blockquote>« régler trois tailles de densité […] passerait de 12 à 8 […] encore un autre niveau où on passerait à 6 » (l. 10-12)</blockquote></td><td>manque</td><td><span class="gb g2"><i></i>majeure</span></td><td>Schedule</td><td class="nw">L-C</td></tr>
+<tr id="rt-006"><td class="nw"><b>RT-006</b></td><td>En densité aérée, les éléments grossissent (blocs, textes) et occupent toute la hauteur<blockquote>« je vais pouvoir faire grossir les éléments pour rendre tout ça beaucoup plus aéré » (l. 14)</blockquote></td><td>graphique</td><td><span class="gb g3"><i></i>mineure</span></td><td>Schedule</td><td class="nw">L-C</td></tr>
+<tr id="rt-007"><td class="nw"><b>RT-007</b></td><td>Réglage de densité appliqué à la volée d'abord, puis sauvegardé et attaché au profil<blockquote>« dans un premier temps uniquement à la volée et, dans un deuxième temps, qui serait sauvegardée, peut-être attachée au profil » (l. 10)</blockquote></td><td>manque</td><td><span class="gb g3"><i></i>mineure</span></td><td>Schedule</td><td class="nw">L-C</td></tr>
+<tr id="rt-008"><td class="nw"><b>RT-008</b></td><td>Jauge d'allocation / surallocation par personne, sur une période à définir (recommandation demandée)<blockquote>« chaque personne devra avoir une petite barre de remplissage […] Est-ce que c'est juste la période du viewport ? » (l. 16)</blockquote></td><td>manque</td><td><span class="gb g2"><i></i>majeure</span></td><td>Schedule</td><td class="nw">L-C</td></tr>
+<tr id="rt-009"><td class="nw"><b>RT-009</b></td><td>Les formulaires (ex. nouveau congé) s'ouvrent dans un panneau inséré en bas de page au lieu d'une fenêtre superposée<blockquote>« vont ouvrir une sorte de panel docké en bas. C'est pas une pop-in. Tout ça, ça va pas » (l. 17)</blockquote></td><td>ergonomie</td><td><span class="gb g2"><i></i>majeure</span></td><td>Schedule (tous les dialogues)</td><td class="nw">L-D</td></tr>
+<tr id="rt-010"><td class="nw"><b>RT-010</b></td><td>Aucune interface pour éditer les propriétés d'un projet (et de ses tâches)<blockquote>« je ne sais pas comment on édite les propriétés afférentes à un projet » (l. 19)</blockquote></td><td>manque</td><td><span class="gb g1"><i></i>bloquante</span></td><td>Projets</td><td class="nw">L-F</td></tr>
+<tr id="rt-011"><td class="nw"><b>RT-011</b></td><td>Aucune interface pour modifier une allocation déjà posée (changer son projet, sa tâche…)<blockquote>« on manque d'un bout d'interface pour permettre de changer l'allocation qu'on pose » (l. 19) ; « je dois pouvoir très facilement changer […] projet B » (l. 25)</blockquote></td><td>manque</td><td><span class="gb g1"><i></i>bloquante</span></td><td>Schedule</td><td class="nw">L-E</td></tr>
+<tr id="rt-012"><td class="nw"><b>RT-012</b></td><td>Pas de back-office : listes et CRUD des projets, des personnes et des équipes<blockquote>« J'ai un CRUD avec la liste des projets, par exemple, ou la liste des équipes […] Idem pour la liste des personnes » (l. 21)</blockquote></td><td>manque</td><td><span class="gb g1"><i></i>bloquante</span></td><td>Projets, Personnes, Réglages</td><td class="nw">L-F</td></tr>
+<tr id="rt-013"><td class="nw"><b>RT-013</b></td><td>Clic (ou double-clic, à définir) sur un bloc posé : ouvre une pop-in d'édition qui reprend les informations du projet<blockquote>« quand je clique sur un élément du déjà posé […] (cliquer ou peut-être double cliquer, trigger à définir), ouvre une popine » (l. 23)</blockquote></td><td>ergonomie</td><td><span class="gb g2"><i></i>majeure</span></td><td>Schedule</td><td class="nw">L-E</td></tr>
+<tr id="rt-014"><td class="nw"><b>RT-014</b></td><td>Changer le projet ou la tâche d'un bloc depuis le référentiel (liste reliée aux données)<blockquote>« indiquant que ce n'est plus projet A ou tâche A, mais projet B […] connecté au référentiel » (l. 25)</blockquote></td><td>manque</td><td><span class="gb g1"><i></i>bloquante</span></td><td>Schedule</td><td class="nw">L-E</td></tr>
+<tr id="rt-015"><td class="nw"><b>RT-015</b></td><td>Créer une allocation sans passer par la saisie rapide : bouton visible et clic ou glisser dans une zone libre, qui crée un bloc provisoire puis ouvre l'édition<blockquote>« Ce n'est pas un bouton accessible. C'est le fait de cliquer dans une zone blanche […] qui va me créer un bloc » (l. 27) ; « Il en va de même pour la création » (l. 25)</blockquote></td><td>manque</td><td><span class="gb g1"><i></i>bloquante</span></td><td>Schedule</td><td class="nw">L-E</td></tr>
+<tr id="rt-016"><td class="nw"><b>RT-016</b></td><td>Dans la pop-in, choisir une ou plusieurs personnes<blockquote>« sélectionner un projet, une personne ou plusieurs personnes » (l. 27)</blockquote></td><td>manque</td><td><span class="gb g2"><i></i>majeure</span></td><td>Schedule</td><td class="nw">L-E</td></tr>
+<tr id="rt-017"><td class="nw"><b>RT-017</b></td><td>Une même pop-in pour un créneau : onglet « Projet / tâche » (par défaut) et onglet « Congé », car un créneau posé peut être une absence qui impacte la capacité<blockquote>« ça peut être une allocation sur un projet ou la définition d'une absence ou d'un congé […] Le premier onglet par défaut […] le deuxième onglet, c'était une table de congé » (l. 28-30)</blockquote></td><td>ergonomie</td><td><span class="gb g2"><i></i>majeure</span></td><td>Schedule</td><td class="nw">L-E</td></tr>
+<tr id="rt-018"><td class="nw"><b>RT-018</b></td><td>Changer la couleur du projet depuis les propriétés de ce qui est posé<blockquote>« je dois pouvoir changer la couleur du projet » (l. 32)</blockquote></td><td>manque</td><td><span class="gb g3"><i></i>mineure</span></td><td>Schedule, Projets</td><td class="nw">L-E, L-F</td></tr>
+<tr id="rt-019"><td class="nw"><b>RT-019</b></td><td>Utiliser Tailwind (bibliothèque CSS)<blockquote>« d'un point de vue framework (plutôt librairie que framework), je veux du Tailwind » (l. 35)</blockquote></td><td>décision</td><td><span class="gb g0">sans gravité</span></td><td>Toutes</td><td class="nw">L-A</td></tr>
+  </tbody></table></div>
+</section>
+
+<section id="lots">
+  <h2>Lots proposés</h2>
+  <p class="sub">Dans l'ordre d'exécution proposé : L-A, L-B, L-D, L-C, L-E, L-F.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Lot</th><th>Contenu</th><th>Retours</th><th>Dépend de</th><th>Modèle</th><th>Contrat</th></tr></thead>
+  <tbody>
+<tr><td class="nw"><b>L-A</b></td><td>Tailwind v4 et design tokens (socle sans changement visible, garde-fou anti-couleurs en dur)</td><td>RT-019</td><td>—</td><td>Sonnet</td><td>non</td></tr>
+<tr><td class="nw"><b>L-B</b></td><td>Coque applicative : en-tête WNEXT, navigation (Schedule, Projets, Personnes, Réglages), barre d'outils en sous-header, écran de connexion OIDC par défaut en recette, « Bonjour Alec »</td><td>RT-001, RT-002, RT-003</td><td>L-A</td><td>Sonnet</td><td>oui (`GET /me`)</td></tr>
+<tr><td class="nw"><b>L-D</b></td><td>Primitives de fenêtres (Modal, Popover, Drawer) et migration de tous les dialogues vers des fenêtres superposées (Fermer + Échap)</td><td>RT-009</td><td>L-A</td><td>Sonnet</td><td>non</td></tr>
+<tr><td class="nw"><b>L-C</b></td><td>Densité à 3 niveaux et jauge par personne dans la colonne de gauche</td><td>RT-005 à RT-008</td><td>L-A, L-D</td><td>Opus (grille)</td><td>non</td></tr>
+<tr><td class="nw"><b>L-E</b></td><td>Éditeur de créneau : création (bouton, clic ou glisser en zone libre), pop-in à onglets Projet / tâche et Congé, changement de projet / tâche / personnes, couleur du projet</td><td>RT-011, RT-013 à RT-018</td><td>L-D, L-C</td><td>Opus</td><td>à vérifier (aucun prévu)</td></tr>
+<tr><td class="nw"><b>L-F</b></td><td>Back-office : écrans Projets (liste, création, panneau propriétés et équipe), Personnes (liste, création, modification datée), Réglages (départements, rôles, clients, types de congé, fériés)</td><td>RT-010, RT-012, RT-018</td><td>L-B</td><td>Sonnet</td><td>si une route manque</td></tr>
+  </tbody></table></div>
+  <h3 style="margin-top:20px">Enchaînement</h3>
+  <div class="flow" role="img" aria-label="L-A puis L-B ; L-D puis L-C puis L-E ; L-B puis L-F">
+    <div class="chain"><span class="node">L-A</span><span class="arrow">→</span><span class="node">L-B</span><span class="arrow">→</span><span class="node">L-F</span></div>
+    <div class="chain"><span class="node">L-A</span><span class="arrow">→</span><span class="node">L-D</span><span class="arrow">→</span><span class="node">L-C</span><span class="arrow">→</span><span class="node">L-E</span></div>
+  </div>
+  <p class="sub">L-A (Tailwind et tokens) est le socle commun. L-B puis L-F forment la branche coque, puis back-office. L-D puis L-C puis L-E forment la branche Schedule : fenêtres superposées d'abord, car la densité et l'éditeur de créneau s'en servent. Deux lots sur Opus (L-C, grille, et L-E, éditeur), quatre sur Sonnet. Seul L-B touche le contrat (<code>GET /me</code>) ; L-F seulement si une route manque ; L-E à vérifier. Les lots qui touchent le contrat ne se font pas en même temps.</p>
+</section>
+
+<section id="questions">
+  <h2>Questions à trancher</h2>
+  <p class="sub">5 questions. Ma recommandation est en vert ; écris ta réponse dans l'encadré, ou dis simplement « OK pour toutes les recommandations ».</p>
+<div class="card q" id="q1"><h3>Q1 <span class="sub">(RT-005, RT-006)</span></h3><p>Densité : hauteurs fixes calibrées pour ~12 / ~8 / ~6 personnes sur ton écran actuel, ou ajustement à la fenêtre (N personnes remplissent toujours la hauteur) ?</p><p class="reco"><span class="tagreco">Recommandation</span> Hauteurs fixes calibrées : stables au redimensionnement, compatibles avec l'empilement des blocs ; la spec (32 / 40 / 48 px) est amendée en conséquence.</p><p class="answer">Ta réponse :</p></div>
+<div class="card q" id="q2"><h3>Q2 <span class="sub">(RT-007)</span></h3><p>Persistance de la densité : à la volée (navigateur) + dans les vues sauvegardées, puis profil utilisateur plus tard ?</p><p class="reco"><span class="tagreco">Recommandation</span> Oui : stockage local immédiat, la densité entre dans les vues sauvegardées (table existante) ; un profil utilisateur (préférences) en T2.</p><p class="answer">Ta réponse :</p></div>
+<div class="card q" id="q3"><h3>Q3 <span class="sub">(RT-008)</span></h3><p>Période de la jauge par personne</p><p class="reco"><span class="tagreco">Recommandation</span> La période visible à l'écran (comme la spec), libellée « du … au … » dans l'infobulle et mise à jour au défilement ; une période fixe (semaine en cours, mois) plus tard si besoin.</p><p class="answer">Ta réponse :</p></div>
+<div class="card q" id="q4"><h3>Q4 <span class="sub">(RT-012)</span></h3><p>« Équipes » : ce sont les départements (groupes de personnes, déjà dans le schéma) ?</p><p class="reco"><span class="tagreco">Recommandation</span> Oui : départements, libellés « Équipes » dans l'interface si tu préfères ce mot ; l'équipe d'un projet reste dans la fiche projet.</p><p class="answer">Ta réponse :</p></div>
+<div class="card q" id="q5"><h3>Q5 <span class="sub">(RT-013)</span></h3><p>Déclencheur de la pop-in d'édition</p><p class="reco"><span class="tagreco">Recommandation</span> Clic simple = sélection (poignées, clavier), double-clic ou Entrée = pop-in ; un clic sur un bloc déjà sélectionné ouvre aussi la pop-in.</p><p class="answer">Ta réponse :</p></div>
+</section>
+
+<section id="hors-cadrage">
+  <h2>Hors cadrage / reporté</h2>
+  <div class="card">
+    <p style="margin-top:0"><b>Rien n'est rejeté.</b> Les 19 retours sont tous retenus pour P6, avec une cible précise.</p>
+    <ul class="plain">
+      <li>RT-004 (le canevas convient) est un constat à préserver : aucun lot ne doit dégrader la grille ADR-005.</li>
+      <li>RT-007 : la densité est d'abord appliquée à la volée (P6). Le <b>profil utilisateur persistant</b> (préférences attachées à l'utilisateur) est envisagé en <b>T2</b>, selon ta réponse à Q2.</li>
+      <li>Le <b>mode sombre</b> reste hors P6 (« après stabilisation »), ainsi que le <b>mobile</b> sous 1024 px (T3).</li>
+      <li>Timesheets et rapports restent en T2.</li>
+      <li>RT-019 (Tailwind) est une décision, déjà consignée dans ADR-009.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="suite">
+  <h2>Suite</h2>
+  <div class="card">
+    <ol style="margin:0;padding-left:20px">
+      <li><b>Validation</b> : tu réponds à Q1-Q5 et valides (ou amendes) les lots ; les retours passent de « qualifié » à « validé ».</li>
+      <li><b>Lots</b> : injectés dans le plan puis exécutés dans l'ordre ci-dessus, tests d'abord (un retour est corrigé avec un test qui échouait avant).</li>
+      <li><b>Recette</b> : tu rejoues les scénarios (<code>docs/recette/scenarios.md</code>) ; un retour ne passe « vérifié » que sur ta confirmation. Le suivi est dans <code>docs/avancement.html</code>.</li>
+    </ol>
+  </div>
+</section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll("#nav a")];
+const secs=links.map(a=>document.querySelector(a.getAttribute("href")));
+const onScroll=()=>{let cur=0;secs.forEach((s,i)=>{if(s&&s.getBoundingClientRect().top<120)cur=i;});links.forEach((a,i)=>a.classList.toggle("active",i===cur));};
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+</script>
+</body>
+</html>
