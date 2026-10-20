@@ -1,0 +1,6 @@
+# Configuration OSV-Scanner (npm run scan). Format d'une exclusion justifiée :
+#   [[IgnoredVulns]]
+#   id = "GHSA-xxxx"
+#   ignoreUntil = 2026-12-31
+#   reason = "justification"
+# Aucune exclusion à ce jour.

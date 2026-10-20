@@ -1,0 +1,2 @@
+# Semgrep épinglé (npm run scan). Les règles p/typescript et p/nodejs viennent du registre Semgrep (non épinglées).
+semgrep==1.181.0

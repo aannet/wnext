@@ -28,3 +28,9 @@ reports/mutation/
 .venv-schemathesis/
 tests/schemathesis/out/
 .schemathesis/
+
+# Outils de sécurité et charge (npm run scan, npm run load:realtime) : binaires épinglés, venv, rapports
+.tools/
+.venv-scan/
+tests/security/out/
+tests/load/out/

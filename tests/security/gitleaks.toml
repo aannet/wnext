@@ -1,0 +1,25 @@
+# Configuration gitleaks (npm run scan) : règles par défaut + exclusions justifiées.
+# Toute exclusion documente sa raison ; voir aussi docs/review/scan-securite.md.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Dépendances : jamais du code du dépôt"
+paths = [
+  '''(^|/)node_modules/''',
+  '''package-lock\.json$''',
+]
+
+[[allowlists]]
+description = "Constantes de test et secret de développement public, sans valeur hors de la pile locale"
+regexes = [
+  # scripts/dev-stack.mjs : l'API refuse AUTH_MODE=dev en production et exige un WS_TICKET_SECRET fourni (apps/api/src/config.ts).
+  '''dev-only-secret-dev-only-secret-0123456789''',
+  # apps/api/test/tickets.test.ts, rate-limit.test.ts : séquence évidente 0123456789abcdef x2, aucun secret réel.
+  '''0123456789abcdef0123456789abcdef''',
+]
+
+[[allowlists]]
+description = "apps/api/test/auth-oidc.test.ts : identifiants de clés de test (kid p384), clés générées à l'exécution"
+targetRules = ["generic-api-key"]
+paths = ['''apps/api/test/auth-oidc\.test\.ts$''']
