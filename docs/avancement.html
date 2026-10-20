@@ -278,7 +278,7 @@ const PHASES = [
       { t: "Vues sauvegardées et filtres", s: "done", n: "migration 0003, RLS restrictive, barre des vues, ?view=" },
       { t: "Retrait d'équipe BR-10 : parcours complet", s: "done", n: "menu contextuel, récapitulatif, confirmation ; undo invalidé après retrait" },
       { t: "BR-14 : suppression retrouvée dans delete_log ≥ 72 h", s: "done", n: "T19, purge refusée sous 72 h" },
-      { t: "Notifications in-app", s: "done", n: "migration 0004, temps réel ciblé, cloche ; non relues, pas de job de purge" },
+      { t: "Notifications in-app", s: "done", n: "migrations 0004 et 0005 (relecture : 8 constats corrigés, SECURITY DEFINER, purge 30 j lues / 90 j) ; job quotidien à planifier" },
       { t: "Import CSV personnes / projets / clients", s: "done", n: "POST /imports/{kind}, dryRun, idempotent ; boîte de dialogue" },
     ] },
   { id: "p5", name: "P5 · Durcissement et release", weight: 45, status: "now",
