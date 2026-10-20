@@ -131,6 +131,41 @@ describe("ChangeHub avec notifier", () => {
   });
 });
 
+describe("ChangeHub : réveils par utilisateur (notifications in-app)", () => {
+  const M: RequestContext = { accountId: "1", userId: "3", role: "member" };
+  const O: RequestContext = { accountId: "2", userId: "3", role: "admin" }; // même id utilisateur, autre compte
+  it("seul l'utilisateur visé (compte + utilisateur) est réveillé ; un changement de compte ne réveille pas les abonnés utilisateur", async () => {
+    const { s, db } = fakeDb(); const { n, notifier } = fakeNotifier();
+    const hub = createChangeHub({ db, intervalMs: 60_000, notifier });
+    const log: string[] = [];
+    const offs = [hub.subscribeUser(A, () => log.push("A")), hub.subscribeUser(M, () => log.push("M")), hub.subscribeUser(O, () => log.push("O"))];
+    n.h!.onUp();
+    expect(log.sort()).toEqual(["A", "M", "O"]); // reconnexion : tout le monde relit son compteur
+    log.length = 0;
+    n.h!.onUserNotify!("1", "3");
+    n.h!.onUserNotify!("9", "9");
+    s.head = 1; n.h!.onNotify("1");
+    await wait(20);
+    expect(log).toEqual(["M"]);
+    offs[1]!();
+    n.h!.onUserNotify!("1", "3");
+    expect(log).toEqual(["M"]); // désabonné
+    offs.forEach((off) => off()); hub.close();
+  });
+  it("filet : au plus un réveil de tous les abonnés utilisateur par fallbackMs", async () => {
+    const { db } = fakeDb(); const { n, notifier } = fakeNotifier();
+    const hub = createChangeHub({ db, intervalMs: 10, fallbackMs: 60, notifier });
+    let wakes = 0;
+    const off = hub.subscribeUser(M, () => { wakes++; });
+    n.h!.onUp();
+    wakes = 0;
+    await wait(200);
+    expect(wakes).toBeGreaterThanOrEqual(2);
+    expect(wakes).toBeLessThanOrEqual(4);
+    off(); hub.close();
+  });
+});
+
 describe("pgNotifier", () => {
   function fakeClients(failConnects = 0) {
     const created: Array<{ client: ListenClient; q: string[]; emit: (e: string, a?: unknown) => void; ended: number }> = [];
@@ -149,14 +184,28 @@ describe("pgNotifier", () => {
     };
     return { created, createClient };
   }
-  const handlers = () => { const log: string[] = []; return { log, h: { onNotify: (a: string) => log.push(`n:${a}`), onUp: () => log.push("up"), onDown: () => log.push("down") } }; };
+  const handlers = () => { const log: string[] = []; return { log, h: { onNotify: (a: string) => log.push(`n:${a}`), onUserNotify: (a: string, u: string) => log.push(`u:${a}:${u}`), onUp: () => log.push("up"), onDown: () => log.push("down") } }; };
+
+  it("canal des notifications in-app : transmet compte et utilisateur, ignore toute autre forme", async () => {
+    const { created, createClient } = fakeClients();
+    const { log, h } = handlers();
+    const nf = pgNotifier({ createClient });
+    await nf.start(h);
+    created[0]!.emit("notification", { channel: "wnext_notifications", payload: "1:42" });
+    created[0]!.emit("notification", { channel: "wnext_notifications", payload: "42" });
+    created[0]!.emit("notification", { channel: "wnext_notifications", payload: "1:2:3" });
+    created[0]!.emit("notification", { channel: "wnext_changes", payload: "1:42" });
+    created[0]!.emit("notification", { channel: "wnext_notifications" });
+    expect(log).toEqual(["up", "u:1:42"]);
+    await nf.stop();
+  });
 
   it("écoute le canal, transmet le seul identifiant de compte, ignore le reste", async () => {
     const { created, createClient } = fakeClients();
     const { log, h } = handlers();
     const nf = pgNotifier({ createClient });
     await nf.start(h);
-    expect(created[0]!.q).toEqual(["LISTEN wnext_changes"]);
+    expect(created[0]!.q).toEqual(["LISTEN wnext_changes", "LISTEN wnext_notifications"]);
     created[0]!.emit("notification", { channel: "wnext_changes", payload: "42" });
     created[0]!.emit("notification", { channel: "autre", payload: "7" });
     created[0]!.emit("notification", { channel: "wnext_changes", payload: "1; DROP" });
@@ -175,7 +224,7 @@ describe("pgNotifier", () => {
     await wait(60);
     expect(log).toEqual(["up", "down", "up"]);
     expect(created).toHaveLength(2);
-    expect(created[1]!.q).toEqual(["LISTEN wnext_changes"]);
+    expect(created[1]!.q).toEqual(["LISTEN wnext_changes", "LISTEN wnext_notifications"]);
     expect(created[0]!.ended).toBeGreaterThan(0);
     await nf.stop();
   });

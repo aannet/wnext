@@ -1,8 +1,9 @@
 import { REALTIME_PROTOCOL_VERSION, RealtimeClientMessage, type RealtimeServerMessage } from "@wnext/contracts";
 import { readChanges } from "./changes";
 import type { ChangeHub } from "./change-hub";
-import type { Db, RequestContext } from "./db";
+import { withContext, type Db, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
+import { readUnreadCount } from "./notifications";
 
 // Session temps réel (contrat : packages/contracts/src/realtime.ts), indépendante du transport : elle reçoit des
 // messages texte et émet des messages via `send`. Le WebSocket/SSE n'est qu'un adaptateur par-dessus.
@@ -14,6 +15,8 @@ export interface RealtimeSession {
   receive(raw: string): Promise<void>;
   /** Émet les changements apparus depuis le dernier curseur (sans effet avant `ready`). */
   poll(): Promise<void>;
+  /** Relit le compteur de notifications non lues de l'utilisateur de la session et l'émet s'il a changé (sans effet avant `ready`). */
+  notify(): Promise<void>;
   close(): void;
 }
 
@@ -39,6 +42,8 @@ export function createRealtimeSession(opts: RealtimeOptions): RealtimeSession {
   let queue: Promise<void> = Promise.resolve();
   let timer: ReturnType<typeof setInterval> | undefined;
   let unsubscribe: (() => void) | undefined;
+  let unsubscribeUser: (() => void) | undefined;
+  let unread: number | null = null; // dernier compteur émis
 
   const send = (m: RealtimeServerMessage) => { if (!closed) opts.send(m); };
   const fail = (code: Extract<RealtimeServerMessage, { type: "error" }>["code"], params: Record<string, string | number | boolean> = {}) => send({ v, type: "error", code, params });
@@ -77,6 +82,7 @@ export function createRealtimeSession(opts: RealtimeOptions): RealtimeSession {
     opts.onEnd?.();
     if (timer) clearInterval(timer);
     unsubscribe?.();
+    unsubscribeUser?.();
   }
 
   async function subscribe(after: string) {
@@ -84,7 +90,10 @@ export function createRealtimeSession(opts: RealtimeOptions): RealtimeSession {
     if (!(await drain())) return;
     live = true;
     send({ v, type: "ready", cursor: cursor! });
-    if (opts.hub) unsubscribe = opts.hub.subscribe(opts.ctx, () => void session.poll());
+    if (opts.hub) {
+      unsubscribe = opts.hub.subscribe(opts.ctx, () => void session.poll());
+      unsubscribeUser = opts.hub.subscribeUser(opts.ctx, () => void session.notify());
+    }
     else if (opts.pollIntervalMs) timer = setInterval(() => void session.poll(), opts.pollIntervalMs);
   }
 
@@ -99,6 +108,16 @@ export function createRealtimeSession(opts: RealtimeOptions): RealtimeSession {
       await subscribe(msg.data.cursor);
     }),
     poll: () => serial(async () => { if (live && !closed) await drain(); }),
+    // Le compteur est lu sous le contexte de la session (RLS du destinataire) : un réveil mal adressé n'émettrait que le compteur de
+    // l'utilisateur connecté, jamais celui d'un autre. Un échec de lecture est silencieux : la lecture HTTP fait foi.
+    notify: () => serial(async () => {
+      if (!live || closed) return;
+      let n: number;
+      try { n = await withContext(opts.db, opts.ctx, (tx) => readUnreadCount(tx, opts.ctx)); } catch { return; }
+      if (n === unread || closed) return;
+      unread = n;
+      send({ v, type: "notifications", unreadCount: n });
+    }),
     close: () => { stop(); },
   };
   return session;

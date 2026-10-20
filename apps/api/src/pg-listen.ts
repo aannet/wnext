@@ -6,6 +6,8 @@ import type { ChangeNotifier } from "./change-hub";
 // croissante ; à chaque reconnexion le hub relit tout, car les notifications émises pendant la coupure sont perdues.
 
 export const CHANGES_CHANNEL = "wnext_changes";
+/** Canal des notifications in-app (migration 0004, trigger notification_wake) : payload `<account_id>:<user_id>` du seul destinataire. */
+export const NOTIFICATIONS_CHANNEL = "wnext_notifications";
 
 /** Le sous-ensemble de `pg.Client` utilisé ; permet d'injecter un faux client dans les tests. */
 export interface ListenClient {
@@ -50,10 +52,15 @@ export function pgNotifier(opts: PgNotifierOptions): ChangeNotifier {
         };
         c.on("error", lost);
         c.on("end", () => lost());
-        c.on("notification", (m) => { if (m.channel === CHANGES_CHANNEL && m.payload && /^\d{1,19}$/.test(m.payload)) h.onNotify(m.payload); });
+        c.on("notification", (m) => {
+          if (m.channel === CHANGES_CHANNEL && m.payload && /^\d{1,19}$/.test(m.payload)) h.onNotify(m.payload);
+          const u = m.channel === NOTIFICATIONS_CHANNEL && m.payload ? /^(\d{1,19}):(\d{1,19})$/.exec(m.payload) : null;
+          if (u) h.onUserNotify?.(u[1]!, u[2]!);
+        });
         try {
           await c.connect();
           await c.query(`LISTEN ${CHANGES_CHANNEL}`);
+          await c.query(`LISTEN ${NOTIFICATIONS_CHANNEL}`);
         } catch (err) {
           lost(err as Error);
           return;
