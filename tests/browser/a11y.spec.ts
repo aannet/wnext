@@ -36,4 +36,12 @@ test.describe("axe-core", () => {
     await settle(page);
     await scan(page, "fr-defile");
   });
+  test("FR, saisie rapide avec liste de candidats ouverte", async ({ page }) => {
+    await openDemo(page);
+    await page.getByRole("grid").focus();
+    await page.keyboard.press("/");
+    await page.getByRole("combobox", { name: "Allocation en langage simple" }).fill("Projet 4h lun");
+    await expect(page.getByRole("listbox")).toBeVisible();
+    await scan(page, "fr-saisie-rapide");
+  });
 });
