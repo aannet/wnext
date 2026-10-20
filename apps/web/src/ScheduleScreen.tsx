@@ -18,6 +18,7 @@
 //  * Vues sauvegardées (schedule/views-ui) si une source de vues est fournie : filtres (département, rôle, projet, personne, tri)
 //    appliqués côté client aux lignes (schedule/view-filters) ; seule la grille reçoit les données filtrées, les éditeurs gardent
 //    les données complètes.
+//  * Retrait d'un projet (BR-10, schedule/team-removal-ui) si la source le permet : menu contextuel d'un bloc.
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import { dayNumber, fromDayNumber, type HeaderCell, type Viewport, type Zoom } from "@wnext/engine";
@@ -37,6 +38,8 @@ import { useTimeoffEdits } from "./schedule/timeoff-ui";
 import { QuickEntry, type QuickEntryHandle } from "./schedule/quick-entry-ui";
 import { applyViewFilters, type ViewFilters } from "./schedule/view-filters";
 import { ViewsBar } from "./schedule/views-ui";
+import { useTeamRemoval } from "./schedule/team-removal-ui";
+import type { TeamRemovalEditor } from "./data/team-removal";
 
 export interface ScheduleScreenProps {
   i18n: I18n;
@@ -57,7 +60,7 @@ export interface ScheduleScreenProps {
   views?: ViewsSource;
   /** Écritures brutes de la source (congés, report assisté) ; absent : congés en lecture seule. */
   records?: Pick<ScheduleSource, "getState" | "updateAllocation" | "splitOccurrence" | "createTimeoff" | "updateTimeoff" | "deleteTimeoff"
-    | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "onProjectsChange">>;
+    | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "onProjectsChange" | "teamRemovalSummary" | "removeFromTeam">>;
 }
 
 const ZOOMS: readonly Zoom[] = ["day", "week", "month"];
@@ -179,6 +182,8 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     if (!row || x < origin) return;
     timeoffs.openAt(row.personId, fromDayNumber(dayNumber(m.from) + Math.floor((x - origin) / m.pxPerDay)));
   };
+  const removal = useTeamRemoval({ i18n, editor: records?.teamRemovalSummary && records.removeFromTeam ? records as TeamRemovalEditor : undefined, data: () => records?.getState().data ?? dataRef.current,
+    gridRef, blockAt: (t) => scroller.current?.host.blockAt(t) ?? null, announce: (text) => editsRef.current.announce(text) });
   const quickRef = useRef<QuickEntryHandle>(null);
   const editorRef = useRef(editor);
   editorRef.current = editor;
@@ -291,6 +296,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
         onDoubleClick={records ? onDoubleClick : undefined}
         className="wn-grid" />
       {timeoffs.element}
+      {removal.element}
       {edits.element}
     </div>
   );

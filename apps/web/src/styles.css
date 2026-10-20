@@ -53,6 +53,11 @@ body { box-sizing: border-box; height: 100dvh; padding: 16px; font: 13px system-
 .wn-dialog { margin: 8px 0; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
 .wn-dialog p { margin: 0 0 8px; }
 .wn-dialog-actions { display: flex; gap: 8px; }
+.wn-menu { z-index: 10; min-width: 200px; padding: 4px 0; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.16); }
+.wn-menu [role="menuitem"] { display: block; width: 100%; padding: 6px 12px; border: 0; background: none; text-align: left; font: inherit; cursor: pointer; }
+.wn-menu [role="menuitem"]:hover, .wn-menu [role="menuitem"]:focus-visible { background: #1d4ed8; color: #fff; outline: none; }
+.wn-removal-dialog h2 { margin: 0 0 8px; font-size: 14px; }
+.wn-removal-dialog ul { margin: 4px 0 8px; padding-left: 18px; }
 .wn-notice { min-height: 18px; margin-top: 6px; color: #374151; font-size: 12px; }
 
 /* Congés (BR-04) : fond derrière les blocs, sur la hauteur des blocs, teinte du type (texte sombre, contraste >= 4,5:1) et

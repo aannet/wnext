@@ -175,6 +175,22 @@ export const fr = {
   "views.error.NOT_FOUND": "Cette vue n’existe plus.",
   "views.error.other": "Opération impossible sur les vues. Réessayez.",
   "views.load.failed": "Vues indisponibles.",
+  "schedule.removal.menu.label": "Actions de l’allocation",
+  "schedule.removal.menu.item": "Retirer {person} du projet {project}…",
+  "schedule.removal.title": "Retirer {person} du projet {project} ?",
+  "schedule.removal.loading": "Calcul de ce qui sera supprimé…",
+  "schedule.removal.allocations": "{count, plural, =0 {Aucune allocation supprimée} one {# allocation supprimée (du {first} au {last})} other {# allocations supprimées (du {first} au {last})}}",
+  "schedule.removal.logs": "{count, plural, =0 {Aucun temps saisi supprimé} one {# temps saisi supprimé ({hours, number} h)} other {# temps saisis supprimés ({hours, number} h)}}",
+  "schedule.removal.irreversible": "Suppression définitive : elle ne s’annule pas avec Ctrl+Z.",
+  "schedule.removal.locked": "Retrait impossible : {count, plural, one {# temps saisi n’est plus un brouillon (soumis, approuvé ou verrouillé)} other {# temps saisis ne sont plus des brouillons (soumis, approuvés ou verrouillés)}}.",
+  "schedule.removal.stale": "La situation a changé depuis l’ouverture : voici le récapitulatif à jour. Confirmez à nouveau.",
+  "schedule.removal.confirm": "Retirer du projet",
+  "schedule.removal.cancel": "Annuler",
+  "schedule.removal.done": "{person} n’est plus sur le projet {project} : {allocations, plural, one {# allocation} other {# allocations}} et {logs, plural, one {# temps saisi} other {# temps saisis}} supprimés.",
+  "schedule.removal.error.FORBIDDEN": "Vous n’avez pas le droit de retirer cette personne de ce projet.",
+  "schedule.removal.error.NETWORK": "Retrait non effectué (connexion impossible).",
+  "schedule.removal.error.NOT_FOUND": "Cette personne ou ce projet n’existe plus.",
+  "schedule.removal.error.other": "Retrait refusé par le serveur.",
 } as const;
 
 export type MessageKey = keyof typeof fr;
