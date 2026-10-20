@@ -745,9 +745,11 @@ SELECT t.eq('T18c chaque table à account_id a la politique tenant_isolation (US
       AND NOT EXISTS (SELECT 1 FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = c.relname
                         AND p.policyname = 'tenant_isolation' AND p.cmd = 'ALL' AND p.permissive = 'PERMISSIVE'
                         AND p.qual = '(account_id = app_account_id())' AND p.with_check = '(account_id = app_account_id())')), 0);
+-- (migration 0003 : visible_saved_views, RESTRICTIVE, ajoutée en ET à tenant_isolation ; absente de la baseline seule)
 SELECT t.ok('T18d seule politique supplémentaire : own_memberships (lecture seule de ses appartenances)',
   (SELECT array_agg(tablename || '.' || policyname || ':' || cmd) FROM pg_policies
-    WHERE schemaname = 'public' AND policyname <> 'tenant_isolation') = ARRAY['account_members.own_memberships:SELECT', 'users.visible_users:SELECT']);
+    WHERE schemaname = 'public' AND policyname <> 'tenant_isolation' AND policyname <> 'visible_saved_views')
+    = ARRAY['account_members.own_memberships:SELECT', 'users.visible_users:SELECT']);
 SELECT t.ok('T18e une seule fonction SECURITY DEFINER, la résolution de connexion (elle contournerait la RLS)',
   (SELECT array_agg(p.proname::text) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.prosecdef)
     = ARRAY['user_id_for_subject']);
@@ -831,7 +833,8 @@ END $$;
 SELECT t.eq('T18g contexte A : aucune ligne d un autre compte visible, sur toutes les tables',
   (SELECT COALESCE(SUM(visible_other), 0) FROM t18_res), 0);
 SELECT t.ok('T18h contexte A : toutes les lignes de A visibles, table par table',
-  (SELECT bool_and(r.visible_own = x.own) FROM t18_res r JOIN t18 x USING (tbl)));
+  -- saved_views : avec la migration 0003, les vues PRIVEES d'un autre utilisateur du compte sont aussi masquees (couvert par apps/api/test/saved-views.test.ts).
+  (SELECT bool_and(r.visible_own = x.own OR (r.tbl = 'saved_views' AND r.visible_own <= x.own)) FROM t18_res r JOIN t18 x USING (tbl)));
 SELECT t.eq('T18i contexte A : UPDATE hors compte n atteint aucune ligne, sur toutes les tables',
   (SELECT COALESCE(SUM(upd), 0) FROM t18_res), 0);
 SELECT t.eq('T18j contexte A : DELETE hors compte n atteint aucune ligne, sur toutes les tables',

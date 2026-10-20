@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonHistoryQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT, type PersonHistoryQuery as PersonHistoryQueryT } from "@wnext/contracts";
+import { REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, SavedViewCreate, SavedViewListQuery, SavedViewPatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonHistoryQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT, type PersonHistoryQuery as PersonHistoryQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import type { RateLimiter } from "./rate-limit";
@@ -12,6 +12,7 @@ import {
   departmentReader, holidayReader, projectReader, roleReader, timeoffTypeReader,
   updateDepartment, updateHoliday, updateProject, updateRole, updateTimeoffType,
 } from "./reference";
+import { createSavedView, deleteSavedView, getSavedView, listSavedViews, updateSavedView } from "./saved-views";
 import { getSchedule } from "./schedule";
 import { addManyToTeam, addToTeam, getTeamRemovalSummary, listTeam, removeFromTeam } from "./team";
 import { createLoggedTime, deleteLoggedTime, listLoggedTime, prefillLoggedTime, submitLoggedTime, unlockLoggedTime, updateLoggedTime } from "./logged-time";
@@ -139,6 +140,8 @@ interface WriteResource {
   pattern: RegExp;
   /** Configuration du compte : owner et admin seulement (403 avant la validation du corps). */
   adminOnly?: boolean;
+  /** Ouverte à tout membre authentifié : le domaine contrôle les droits (ex. vues sauvegardées). */
+  open?: boolean;
   /** Données financières : la LECTURE exige aussi un rôle d'écriture (403 après l'authentification, avant la validation de la requête). */
   restricted?: boolean;
   create(db: Db, ctx: RequestContext, raw: string | undefined): Promise<unknown>;
@@ -149,7 +152,7 @@ interface WriteResource {
   remove?(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
 }
 function resource<C, P>(def: {
-  pattern: RegExp; adminOnly?: boolean; restricted?: boolean; read?: WriteResource["read"]; createSchema: Parser<C>; patchSchema: Parser<P>;
+  pattern: RegExp; adminOnly?: boolean; open?: boolean; restricted?: boolean; read?: WriteResource["read"]; createSchema: Parser<C>; patchSchema: Parser<P>;
   create(db: Db, ctx: RequestContext, body: C): Promise<unknown>;
   update(db: Db, ctx: RequestContext, id: string, version: number, patch: P): Promise<unknown>;
   remove?(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
@@ -157,6 +160,7 @@ function resource<C, P>(def: {
   return {
     pattern: def.pattern,
     adminOnly: def.adminOnly,
+    open: def.open,
     restricted: def.restricted,
     read: def.read,
     create: (db, ctx, raw) => def.create(db, ctx, parseJsonBody(def.createSchema, raw)),
@@ -174,6 +178,7 @@ const WRITE_RESOURCES: WriteResource[] = [
   resource({ adminOnly: true, pattern: /^\/api\/v1\/timeoff-types(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: timeoffTypeReader.list, get: timeoffTypeReader.get }, createSchema: TimeoffTypeCreate, patchSchema: TimeoffTypePatch, create: createTimeoffType, update: updateTimeoffType, remove: deleteTimeoffType }),
   resource({ adminOnly: true, pattern: /^\/api\/v1\/holidays(?:\/([^/]+))?$/, read: { querySchema: HolidayListQuery, list: holidayReader.list, get: holidayReader.get }, createSchema: HolidayCreate, patchSchema: HolidayPatch, create: createHoliday, update: updateHoliday, remove: deleteHoliday }),
   resource({ pattern: /^\/api\/v1\/projects(?:\/([^/]+))?$/, read: { querySchema: ProjectListQuery, list: projectReader.list, get: projectReader.get }, createSchema: ProjectCreate, patchSchema: ProjectPatch, create: createProject, update: updateProject }),
+  resource({ open: true, pattern: /^\/api\/v1\/saved-views(?:\/([^/]+))?$/, read: { querySchema: SavedViewListQuery, list: listSavedViews, get: getSavedView }, createSchema: SavedViewCreate, patchSchema: SavedViewPatch, create: createSavedView, update: updateSavedView, remove: deleteSavedView }),
   resource({ pattern: /^\/api\/v1\/clients(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: clientReader.list, get: clientReader.get }, createSchema: ClientCreate, patchSchema: ClientPatch, create: createClient, update: updateClient, remove: deleteClient }),
   resource({ pattern: /^\/api\/v1\/phases(?:\/([^/]+))?$/, read: { querySchema: PhaseListQuery, list: phaseReader.list, get: phaseReader.get }, createSchema: PhaseCreate, patchSchema: PhasePatch, create: createPhase, update: updatePhase, remove: deletePhase }),
   resource({ pattern: /^\/api\/v1\/project-tasks(?:\/([^/]+))?$/, read: { querySchema: ProjectTaskListQuery, list: projectTaskReader.list, get: projectTaskReader.get }, createSchema: ProjectTaskCreate, patchSchema: ProjectTaskPatch, create: createProjectTask, update: updateProjectTask, remove: deleteProjectTask }),
@@ -344,7 +349,7 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
         if (id !== undefined) return { status: 200, body: await read.get(deps.db, ctx, id) };
         return { status: 200, body: await read.list!(deps.db, ctx, parseQuery(read.querySchema!, url.searchParams) as never) };
       }
-      if (!(resource.adminOnly ? ADMINS : WRITERS).has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
+      if (!resource.open && !(resource.adminOnly ? ADMINS : WRITERS).has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
       if (id === undefined) return { status: 201, body: await resource.create(deps.db, ctx, req.body) };
       const version = expectedVersion(req.headers);
       if (req.method === "DELETE") {
