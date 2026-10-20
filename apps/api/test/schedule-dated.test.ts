@@ -7,7 +7,7 @@ import { citext } from "@electric-sql/pglite/contrib/citext";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ScheduleResponse } from "@wnext/contracts";
 import { scheduleUtilization } from "@wnext/engine";
-import { getSchedule, type Db, type RequestContext } from "../src/index";
+import { getSchedule, prefillLoggedTime, type Db, type RequestContext } from "../src/index";
 
 const FROM = "2026-03-02";
 const TO = "2026-03-20";
@@ -78,5 +78,17 @@ describe("GET /schedule : phases des projets renvoyés (@BR-37)", () => {
     ]);
     const b = await get(ctxB);
     expect(b.phases!.map((p) => p.name)).toEqual(["Phase B"]);
+  });
+});
+
+describe("POST /logged-time/prefill : horaire daté (@BR-11 @BR-19)", () => {
+  it("le miroir d'une semaine antérieure au passage à mi-temps reste à 8 h (et 4 h après), comme daily_planned_load", async () => {
+    const admin: RequestContext = { accountId: "1", userId: "1", role: "admin" };
+    const r = await prefillLoggedTime(db, admin, { personId: "1", from: "2026-03-05", to: "2026-03-10" });
+    expect(r.items.map((l) => [l.workDate, l.hours])).toEqual([["2026-03-05", 8], ["2026-03-06", 8], ["2026-03-09", 4], ["2026-03-10", 4]]);
+    const { rows } = await pg.query<{ d: string; h: string }>(
+      "SELECT day::text AS d, planned_hours::text AS h FROM daily_planned_load(1, '2026-03-05', '2026-03-10') WHERE person_id = 1 ORDER BY day",
+    );
+    expect(rows.map((x) => [x.d, Number(x.h)])).toEqual(r.items.map((l) => [l.workDate, l.hours]));
   });
 });

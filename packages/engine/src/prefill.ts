@@ -2,6 +2,7 @@
 // Pur : aucune lecture de congés ni de fériés (le miroir ne les retire pas, l'utilisateur ajuste) ; la persistance est dans l'API.
 import { allocationHoursOn, type AllocationInput } from "./load";
 import { DAY_MS, assertRange, toIso, toMs } from "./dates";
+import { workDaysHoursOn, type WorkScheduleEntry } from "./work-schedule";
 
 /** Plafond de saisie par personne et par jour (BR-28, CHECK de logged_time). */
 export const MAX_LOGGED_HOURS_PER_DAY = 24;
@@ -21,7 +22,10 @@ export interface PrefillExisting {
 }
 
 export interface PrefillInput {
+  /** Horaire de la période ouverte (people.work_days_hours) : repli hors de tout historique. */
   workDaysHours: readonly number[];
+  /** Horaire daté (people_history, BR-19) : chaque jour suit la période qui le couvre, comme daily_planned_load (0002). */
+  workSchedule?: readonly WorkScheduleEntry[];
   allocations: readonly PrefillAllocation[];
   existing: readonly PrefillExisting[];
   from: string;
@@ -61,9 +65,10 @@ export function planPrefill(input: PrefillInput): PrefillRow[] {
   const out: PrefillRow[] = [];
   for (let ms = toMs(from); ms <= toMs(to); ms += DAY_MS) {
     const workDate = toIso(ms);
+    const wdh = workDaysHoursOn(input, workDate);
     for (const a of mirrored) {
       if (taken.has(`${a.id}|${workDate}`)) continue;
-      const planned = cents(allocationHoursOn(a, input.workDaysHours, workDate));
+      const planned = cents(allocationHoursOn(a, wdh, workDate));
       if (planned <= 0) continue;
       const hours = cents(Math.min(planned, MAX_LOGGED_HOURS_PER_DAY - (used.get(workDate) ?? 0)));
       if (hours <= 0) continue;

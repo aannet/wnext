@@ -108,7 +108,7 @@ type WorkPeriod = NonNullable<SchedulePerson["workSchedule"]>[number];
  * Historique COMPLET de l'horaire des personnes (pas seulement la fenêtre) : à version égale, une personne est la même
  * d'une fenêtre à l'autre (le client fusionne les fenêtres par version). Une personne à période unique n'en reçoit pas.
  */
-async function workSchedules(db: Db, tx: Queryable, accountId: string, personIds: string[]): Promise<Map<string, WorkPeriod[]>> {
+export async function workSchedules(db: Db, tx: Queryable, accountId: string, personIds: string[]): Promise<Map<string, WorkPeriod[]>> {
   const out = new Map<string, WorkPeriod[]>();
   if (!personIds.length || !(await hasPeopleHistory(db, tx))) return out;
   const { rows } = await tx.query<Row>(

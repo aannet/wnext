@@ -77,3 +77,23 @@ describe("idempotence et plafond de 24 h", () => {
     expect(plan([alloc("1", "2026-03-02", "2026-03-02", 4)], { existing: [{ allocationId: null, workDate: "2026-03-02", hours: 24 }] })).toEqual([]);
   });
 });
+
+// @BR-19 @BR-11 : horaire daté, comme daily_planned_load (person_work_days_hours_on) et non la seule période ouverte.
+describe("horaire daté (workSchedule)", () => {
+  const halfFromMar9 = {
+    workDaysHours: [4, 4, 4, 4, 4, 0, 0], // période ouverte (future pour la semaine du 2 mars)
+    workSchedule: [
+      { validFrom: null, validTo: "2026-03-08", workDaysHours: WEEK },
+      { validFrom: "2026-03-09", validTo: null, workDaysHours: [4, 4, 4, 4, 4, 0, 0] },
+    ],
+  };
+  const full = alloc("1", "2026-03-02", "2026-03-13", 0, { mode: "percentage", hoursPerDay: null, percent: 100 });
+  it("un changement daté ultérieur ne modifie pas la semaine qui le précède (8 h, pas 4 h)", () => {
+    expect(plan([full], halfFromMar9).map((r) => r.hours)).toEqual([8, 8, 8, 8, 8]);
+  });
+  it("après la date d'effet, l'horaire de la nouvelle période s'applique", () => {
+    expect(plan([full], { ...halfFromMar9, from: "2026-03-06", to: "2026-03-10" }).map((r) => [r.workDate, r.hours])).toEqual([
+      ["2026-03-06", 8], ["2026-03-09", 4], ["2026-03-10", 4],
+    ]);
+  });
+});

@@ -2,7 +2,7 @@ import type { LoggedTime, LoggedTimeCreate, LoggedTimeList, LoggedTimeListQuery,
 import { planPrefill, type PrefillAllocation } from "@wnext/engine";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
-import { assertWindow, type Row } from "./schedule";
+import { assertWindow, workSchedules, type Row } from "./schedule";
 import { assertAdmin, assertProjectScope, assertWriter, day, invalid, isId, lockAndCheck, notFound } from "./write";
 
 // Temps saisis (logged_time) : pré-remplissage (BR-11), cycle de vie et verrouillage (BR-12, BR-28). Règles portées ici ; le reste
@@ -162,8 +162,10 @@ export async function prefillLoggedTime(db: Db, ctx: RequestContext, body: Logge
       projectTentative: a.project_status === "tentative", projectNonBillable: Boolean(a.project_non_billable), phaseNonBillable: Boolean(a.phase_non_billable),
       taskBillable: a.task_billable === null ? null : Boolean(a.task_billable),
     }));
+    // BR-19 : horaire daté de la personne (people_history), pas seulement la période ouverte, comme daily_planned_load (0002).
+    const workSchedule = (await workSchedules(db, tx, ctx.accountId, [body.personId])).get(body.personId);
     const plan = planPrefill({
-      workDaysHours: person.workDaysHours, allocations, from: body.from, to: body.to,
+      workDaysHours: person.workDaysHours, ...(workSchedule && { workSchedule }), allocations, from: body.from, to: body.to,
       existing: existing.map((r) => ({ allocationId: orNullId(r.allocation_id), workDate: day(r.work_date), hours: Number(r.hours) })),
     });
     // BR-33 : un project_manager ne pré-remplit que des projets qu'il gère. Tout ou rien, comme assertProjectScope : si une ligne
