@@ -44,4 +44,13 @@ describe("demoSchedule", () => {
     expect(weekly.some((a) => a.personId === "1")).toBe(false);
     expect(s.allocations.length).toBeLessThan(20_000); // ordre de grandeur du banc inchangé (12 000 auparavant)
   });
+
+  it("congés : la semaine prochaine, une demi-journée, un en attente, aucun pour la première personne ; rendus sur leur ligne", () => {
+    expect(s.timeoffs.map((t) => t.personId)).toEqual(["2", "4", "5"]);
+    expect(s.timeoffs.some((t) => t.startHalf === "pm" && t.startDate === t.endDate)).toBe(true);
+    expect(s.timeoffs.some((t) => t.approvalStatus === "pending")).toBe(true);
+    expect(s.timeoffs.every((t) => t.startDate > today && s.timeoffTypes.some((x) => x.id === t.typeId))).toBe(true);
+    expect(g.rows[1]!.timeoffs).toHaveLength(1);
+    expect(g.rows[0]!.timeoffs).toEqual([]);
+  });
 });

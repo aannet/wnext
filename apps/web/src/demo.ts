@@ -6,6 +6,9 @@
 //  * Un bloc sur trois environ est partagé entre deux projets en parallèle (empilés, somme <= la journée : pas de surcharge).
 //  * Une personne sur sept (dont la troisième, visible au chargement) a une série hebdomadaire d'une journée (2 h), fil
 //    plafonné à 6 h. La première n'en a pas et n'est jamais vide : Entrée sur la grille y focalise un bloc simple (tests).
+//  * Trois congés la semaine prochaine (types : congés payés et RTT déduits, formation non déduite) : la personne 2 toute la
+//    semaine (approuvé), la 4 un mercredi après-midi (demi-journée), la 5 jeudi et vendredi (en attente). La première n'en a
+//    aucun : les tests navigateur y posent le leur.
 import type { ScheduleResponse } from "@wnext/contracts";
 import { addDays } from "@wnext/engine";
 
@@ -60,6 +63,20 @@ export function demoSchedule(today: string, people = 300): ScheduleResponse {
       cursor = addDays(end, rnd(8) === 0 ? 2 + rnd(3) : 1);
     }
   }
+  const monday = addDays(today, 7 - ((new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7));
+  const off = (id: string, personId: string, typeId: string, startDate: string, endDate: string, over: Partial<ScheduleResponse["timeoffs"][number]> = {}) => ({
+    id, version: 1, personId, typeId, startDate, endDate, scope: "full_day" as const, startHalf: "am" as const, endHalf: "pm" as const,
+    hoursPerDay: null, approvalStatus: "approved" as const, ...over,
+  });
+  const timeoffs = [
+    off("1", "2", "1", monday, addDays(monday, 4)),
+    off("2", "4", "2", addDays(monday, 2), addDays(monday, 2), { startHalf: "pm" }),
+    off("3", "5", "1", addDays(monday, 3), addDays(monday, 4), { approvalStatus: "pending" }),
+  ];
+  const timeoffTypes = [
+    { id: "1", version: 1, name: "Congés payés", deducted: true }, { id: "2", version: 1, name: "RTT", deducted: true },
+    { id: "3", version: 1, name: "Formation", deducted: false },
+  ];
   return {
     window: { from, to }, changeCursor: "0", page: { nextCursor: null, total: people },
     account: { weekStart: 1, capacityThresholds: { underPercent: 80 }, timezone: "Europe/Paris" },
@@ -67,6 +84,6 @@ export function demoSchedule(today: string, people = 300): ScheduleResponse {
       id: String(i + 1), version: 1, name: `Personne ${i + 1}`, peopleType: "employee" as const, departmentId: null, roleId: null,
       country: null, workDaysHours: [8, 8, 8, 8, 8, 0, 0], tags: [], avatarUrl: null, active: true,
     })),
-    allocations, timeoffs: [], holidays: [], projects, timeoffTypes: [], departments: [], roles: [],
+    allocations, timeoffs, holidays: [], projects, timeoffTypes, departments: [], roles: [],
   };
 }
