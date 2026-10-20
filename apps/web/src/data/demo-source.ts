@@ -1,12 +1,13 @@
 // Source de démonstration (?demo=1) : mêmes interfaces que la source branchée sur l'API, sans aucun appel réseau. Les gestes
 // s'appliquent tout de suite au magasin local (version + 1), pour que l'écran et les futurs tests navigateur les exercent.
 // Congés et allocations (record-edits) aussi ; le chevauchement de congés est refusé comme par l'API (TIMEOFF_OVERLAP).
-// Aucun temps saisi en démo.
+// Aucun temps saisi en démo. Retrait d'un projet (BR-10) : récapitulatif et confirmation calculés localement (team-removal).
 import type { ScheduleResponse } from "@wnext/contracts";
 import { emptyStore, ingestSchedule, remove, snapshot, upsert, type ScheduleStore } from "../schedule/store";
 import { localSplit, patched, type EditOutcome } from "./allocation-edits";
 import { allocationFromCreate, overlapsTimeoff, patchedTimeoff, timeoffFromCreate } from "./record-edits";
 import type { ScheduleSource, ScheduleSourceState } from "./schedule-source";
+import { localRemoval } from "./team-removal";
 
 export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
   let store: ScheduleStore = ingestSchedule(emptyStore(), initial);
@@ -71,6 +72,17 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
       return changed();
     },
     loggedTime: async () => [],
+    // BR-10 : même règle que l'API (moteur), sur les allocations locales ; ni temps saisi ni équipe en démo.
+    async teamRemovalSummary(projectId, personId) {
+      return { ok: true, summary: localRemoval(store.tables.allocations.values(), projectId, personId).summary };
+    },
+    async removeFromTeam(projectId, personId, confirmation) {
+      const r = localRemoval(store.tables.allocations.values(), projectId, personId, confirmation);
+      if (!r.outcome.ok) return r.outcome;
+      for (const id of r.deleteIds) store = remove(store, "allocations", id);
+      changed();
+      return r.outcome;
+    },
     async splitOccurrence(id, index, patch) {
       const a = store.tables.allocations.get(id);
       if (!a) return { ok: false, error: "NOT_FOUND" };

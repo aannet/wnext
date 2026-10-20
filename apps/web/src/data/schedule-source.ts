@@ -29,11 +29,13 @@ import {
 } from "../schedule/store";
 import { localSplit, patched, toApiPatch, toSplitBody, type EditOutcome, type ScheduleEditor } from "./allocation-edits";
 import { allocationFromCreate, patchedTimeoff, timeoffFromCreate, type CreateOutcome, type RecordEditor } from "./record-edits";
+import { summaryFromParams, type TeamRemovalEditor } from "./team-removal";
 
 type Client = ReturnType<typeof createClient>;
 /** Lecture obligatoire ; écritures optionnelles (absentes : les gestes rendent UNSUPPORTED). */
 export type ScheduleApi = Pick<Client, "getSchedule" | "createRealtimeTicket"> & Partial<Pick<Client, "getAllocation" | "updateAllocation" | "splitAllocation">>
-  & Partial<Pick<Client, "createTimeoff" | "updateTimeoff" | "deleteTimeoff" | "createAllocation" | "deleteAllocation" | "listLoggedTime" | "listProjects">>;
+  & Partial<Pick<Client, "createTimeoff" | "updateTimeoff" | "deleteTimeoff" | "createAllocation" | "deleteAllocation" | "listLoggedTime" | "listProjects">>
+  & Partial<Pick<Client, "getTeamRemovalSummary" | "removeFromTeam">>;
 export type SourceErrorCode = ApiError["code"];
 
 export interface ScheduleSourceState {
@@ -60,7 +62,7 @@ export interface ScheduleSourceOptions {
 /** Projet proposé à la saisie rapide (liste complète du compte, pas seulement ceux de la fenêtre). */
 export interface ProjectRef { id: string; name: string }
 
-export interface ScheduleSource extends ScheduleEditor, RecordEditor {
+export interface ScheduleSource extends ScheduleEditor, RecordEditor, TeamRemovalEditor {
   /** Tous les projets du compte (GET /projects, paginé), gardés pour la session ; rafraîchis sur l'événement temps réel « projects ». */
   listProjects(): Promise<ProjectRef[]>;
   /** Avertit quand la liste des projets a changé (le cache est alors vidé : relire avec listProjects). */
@@ -442,8 +444,44 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     },
   };
 
+  // BR-10 : jamais optimiste (suppression irréversible, confirmée) ; succès : les allocations de la personne sur le projet
+  // quittent le magasin avec pierre tombale (l'écho temps réel des suppressions n'est donc pas un changement étranger).
+  const removal: TeamRemovalEditor = {
+    async teamRemovalSummary(projectId, personId) {
+      const api = opts.api.getTeamRemovalSummary;
+      if (!api) return fail("UNSUPPORTED");
+      try {
+        const res = await api({ path: { projectId, personId } });
+        return res.ok ? { ok: true, summary: res.data } : fail(errorCodeOf(res.status, res.error));
+      } catch {
+        return fail("NETWORK");
+      }
+    },
+    async removeFromTeam(projectId, personId, confirmation) {
+      const api = opts.api.removeFromTeam;
+      if (!api) return fail("UNSUPPORTED");
+      let res: Awaited<ReturnType<typeof api>>;
+      try {
+        res = await api({ path: { projectId, personId }, body: { confirmation } });
+      } catch {
+        return fail("NETWORK");
+      }
+      if (!res.ok) {
+        const summary = summaryFromParams((res.error as { params?: unknown } | null)?.params);
+        return { ...fail(errorCodeOf(res.status, res.error)), ...(summary && { summary }) };
+      }
+      for (const a of [...store.tables.allocations.values()]) {
+        if (a.projectId === projectId && a.personId === personId) store = remove(store, "allocations", a.id);
+      }
+      refresh();
+      const { removedAllocations, removedLogs, removedLogHours } = res.data;
+      return { ok: true, removedAllocations, removedLogs, removedLogHours };
+    },
+  };
+
   return {
     ...records,
+    ...removal,
     listProjects,
     onProjectsChange(l) {
       projectListeners.add(l);
