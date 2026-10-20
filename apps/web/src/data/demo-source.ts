@@ -25,6 +25,7 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
       return () => listeners.delete(l);
     },
     setViewport() {},
+    onForeignChange: () => () => {}, // aucune autre source en démo
     start() {},
     stop() {},
     async updateAllocation(id, patch) {

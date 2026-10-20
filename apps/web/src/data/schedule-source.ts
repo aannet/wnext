@@ -23,7 +23,7 @@ import { loadChunks, mergeChunks, neighborDays, type BlockPatch, type Viewport }
 import type { createClient } from "../api/client.gen";
 import { RealtimeAuthError, createRealtimeClient, ticketFrom, type RealtimeClient, type RealtimeClientOptions, type RealtimeStatus } from "../realtime/client";
 import {
-  applyChanges, applyOptimistic, confirmOptimistic, emptyStore, hasWindow, ingestSchedule, remove, rollbackOptimistic, snapshot, upsert,
+  applyChanges, applyOptimistic, confirmOptimistic, emptyStore, hasWindow, ingestSchedule, isKind, remove, rollbackOptimistic, snapshot, upsert,
   type Kind, type ScheduleStore, type Tables,
 } from "../schedule/store";
 import { localSplit, patched, toApiPatch, toSplitBody, type EditOutcome, type ScheduleEditor } from "./allocation-edits";
@@ -59,6 +59,12 @@ export interface ScheduleSource extends ScheduleEditor {
   subscribe(listener: () => void): () => void;
   /** Nouvelle vue (défilement, zoom, navigation) : charge les blocs manquants si la source est démarrée. */
   setViewport(v: Viewport): void;
+  /**
+   * Changements venus d'ailleurs (temps réel) : version plus récente que l'état local une fois ses propres écritures
+   * terminées, ou suppression d'une entité encore présente. Jamais pour l'écho de ses propres écritures (historique
+   * d'annulation : seules les actions qui touchent ces entités sont invalidées).
+   */
+  onForeignChange(listener: (kind: Kind, ids: string[]) => void): () => void;
   start(): void;
   stop(): void;
 }
@@ -224,7 +230,17 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     });
   }
 
+  const foreignListeners = new Set<(kind: Kind, ids: string[]) => void>();
+  function foreign(entries: Iterable<{ kind: Kind; id: string }>) {
+    const by = new Map<Kind, string[]>();
+    for (const e of entries) by.set(e.kind, [...(by.get(e.kind) ?? []), e.id]);
+    for (const [kind, ids] of by) for (const l of foreignListeners) l(kind, ids);
+  }
+
   function onChanges(changes: Parameters<RealtimeClientOptions["onChanges"]>[0]) {
+    // Suppression d'une entité sans pierre tombale : pas la nôtre (une suppression confirmée en laisse une).
+    foreign(changes.filter((c) => c.op === "delete" && isKind(c.entity) && !store.tombstones.has(`${c.entity}:${c.id}`))
+      .map((c) => ({ kind: c.entity as Kind, id: c.id })));
     const r = applyChanges(store, changes);
     store = r.store;
     for (const e of r.refetch) {
@@ -232,7 +248,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
       const k = `${e.kind}:${e.id}`;
       pendingStale.set(k, { ...e, version: Math.max(version, pendingStale.get(k)?.version ?? 0) });
     }
-    if (r.refetch.length && store.pending.size === 0) scheduleRefetch();
+    if (r.refetch.length && store.pending.size === 0) { foreign(r.refetch); scheduleRefetch(); }
     refresh();
   }
 
@@ -244,7 +260,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
       const cur = store.tables[e.kind].get(e.id);
       if (cur && cur.version >= e.version) pendingStale.delete(k);
     }
-    if (pendingStale.size) scheduleRefetch();
+    if (pendingStale.size) { foreign(pendingStale.values()); scheduleRefetch(); }
   }
 
   let seq = 0;
@@ -332,6 +348,10 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
   return {
     updateAllocation,
     splitOccurrence,
+    onForeignChange(l) {
+      foreignListeners.add(l);
+      return () => foreignListeners.delete(l);
+    },
     getState: () => state,
     subscribe(l) {
       listeners.add(l);

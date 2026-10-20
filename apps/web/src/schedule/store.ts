@@ -47,7 +47,7 @@ export const emptyStore = (): ScheduleStore => ({
   account: null, windows: new Set(), tombstones: new Set(), pending: new Map(),
 });
 
-const isKind = (e: ChangeEntity): e is Kind => (KINDS as readonly string[]).includes(e);
+export const isKind = (e: ChangeEntity): e is Kind => (KINDS as readonly string[]).includes(e);
 const tomb = (kind: Kind, id: string) => `${kind}:${id}`;
 
 function withTable<K extends Kind>(s: ScheduleStore, kind: K, f: (m: Map<string, EntityOf<K>>) => void): ScheduleStore {

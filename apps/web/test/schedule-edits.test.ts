@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { createClient, type FetchResponse } from "../src/api/client.gen";
 import { createScheduleSource } from "../src/data/schedule-source";
 import type { SocketLike } from "../src/realtime/client";
+import { historyForSource } from "../src/schedule/history";
 
 const flush = async () => { for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r)); };
 const VIEW = viewAt("2026-10-19", "day", 960);
@@ -186,5 +187,80 @@ describe("série : cette occurrence (découpe)", () => {
     const h = await harness([alloc("30", { startDate: "2026-10-19", endDate: "2026-10-28", repeatState: "weekly", repeatEndDate: "2026-12-01" })]);
     expect(await h.s.splitOccurrence("30", 1, { hoursPerDay: 6 })).toEqual({ ok: false, error: "SERIES_SPLIT_UNSUPPORTED", reason: "overlapping" });
     expect(h.writes).toHaveLength(0);
+  });
+});
+
+describe("historique branché sur la source (undo / redo)", () => {
+  const moved = alloc("10", { version: 4, startDate: "2026-10-22", endDate: "2026-10-23" });
+
+  async function withHistory(initial: ScheduleResponse["allocations"], realtime = false) {
+    const h = await harness(initial, realtime);
+    const { history, dispose } = historyForSource(h.s);
+    return { ...h, history, dispose };
+  }
+  async function move(h: Awaited<ReturnType<typeof withHistory>>) {
+    const p = h.history.editor.updateAllocation("10", { startDate: "2026-10-22", endDate: "2026-10-23" });
+    h.writes.at(-1)!.resolve(200, moved);
+    expect(await p).toEqual({ ok: true });
+  }
+
+  it("undo : PATCH optimiste avec la version courante du magasin (pas celle capturée), champs d'avant", async () => {
+    const h = await withHistory([alloc("10")]);
+    await move(h);
+    const p = h.history.undo();
+    await flush();
+    expect(h.shown()).toEqual(["10@4:2026-10-20..2026-10-21"]); // optimiste
+    const w = h.writes.at(-1)!;
+    expect([w.method, w.path, w.headers["If-Match"], w.body]).toEqual(["PATCH", "/api/v1/allocations/10", '"4"', { startDate: "2026-10-20", endDate: "2026-10-21" }]);
+    w.resolve(200, alloc("10", { version: 5 }));
+    expect(await p).toEqual({ ok: true, direction: "undo", label: "allocation.move" });
+    const r = h.history.redo();
+    await flush();
+    expect(h.writes.at(-1)!.headers["If-Match"]).toBe('"5"');
+    h.writes.at(-1)!.resolve(200, { ...moved, version: 6 });
+    expect(await r).toMatchObject({ ok: true, direction: "redo" });
+  });
+
+  it("VERSION_CONFLICT pendant l'undo : action abandonnée, retour arrière et relecture", async () => {
+    const h = await withHistory([alloc("10")]);
+    await move(h);
+    const p = h.history.undo();
+    await flush();
+    h.writes.at(-1)!.resolve(409, { code: "VERSION_CONFLICT", params: { currentVersion: 7 }, requestId: "r" });
+    await flush();
+    h.writes.at(-1)!.resolve(200, alloc("10", { version: 7, startDate: "2026-11-02", endDate: "2026-11-02" }));
+    expect(await p).toMatchObject({ ok: false, error: "VERSION_CONFLICT", dropped: true });
+    expect(h.history.getState()).toMatchObject({ canUndo: false, canRedo: false });
+    expect(h.shown()).toEqual(["10@7:2026-11-02..2026-11-02"]);
+  });
+
+  it("écho temps réel de sa propre écriture : la pile reste ; changement d'un autre : seule l'action touchée tombe", async () => {
+    const h = await withHistory([alloc("10"), alloc("11", { startDate: "2026-10-26", endDate: "2026-10-26" })], true);
+    await move(h);
+    const p = h.history.editor.updateAllocation("11", { hoursPerDay: 6 });
+    h.writes.at(-1)!.resolve(200, alloc("11", { version: 4, startDate: "2026-10-26", endDate: "2026-10-26", hoursPerDay: 6 }));
+    await p;
+    h.sockets[0]!.say(changes({ seq: "6", entity: "allocations", id: "10", op: "update", version: 4 }));
+    h.sockets[0]!.say(changes({ seq: "7", entity: "allocations", id: "11", op: "update", version: 4 }));
+    await flush();
+    expect(h.history.getState()).toMatchObject({ canUndo: true, undoLabel: "allocation.load" });
+    h.sockets[0]!.say(changes({ seq: "8", entity: "allocations", id: "11", op: "update", version: 5 }));
+    await flush();
+    expect(h.history.getState()).toMatchObject({ canUndo: true, undoLabel: "allocation.move" });
+    h.sockets[0]!.say(changes({ seq: "9", entity: "allocations", id: "10", op: "delete", version: null }));
+    await flush();
+    expect(h.history.getState().canUndo).toBe(false);
+    h.dispose();
+  });
+
+  it("écho de sa propre écriture arrivé avant la réponse : pas d'invalidation", async () => {
+    const h = await withHistory([alloc("10")], true);
+    const p = h.history.editor.updateAllocation("10", { startDate: "2026-10-22", endDate: "2026-10-23" });
+    h.sockets[0]!.say(changes({ seq: "6", entity: "allocations", id: "10", op: "update", version: 4 }));
+    await flush();
+    h.writes.at(-1)!.resolve(200, moved);
+    await p;
+    await flush();
+    expect(h.history.getState().canUndo).toBe(true);
   });
 });

@@ -21,6 +21,7 @@ import {
   type Action, type BlockPatch, type Op, type UndoState,
 } from "@wnext/engine";
 import { diffBlocks, gestureBlockOf, patched, type Allocation, type EditError, type EditOutcome, type ScheduleEditor } from "../data/allocation-edits";
+import type { ScheduleSource } from "../data/schedule-source";
 
 export type ExecOutcome = { ok: true; id?: string } | { ok: false; error: EditError; reason?: string };
 
@@ -169,3 +170,12 @@ export function createHistory(opts: HistoryOptions): History {
   };
 }
 
+/**
+ * Historique branché sur une source : lit l'état courant de son magasin (snapshot de la plage chargée) et invalide les
+ * actions touchées par ses changements étrangers. `dispose` coupe l'abonnement.
+ */
+export function historyForSource(source: ScheduleSource, opts: Omit<HistoryOptions, "editor" | "read"> = {}): { history: History; dispose(): void } {
+  const history = createHistory({ ...opts, editor: source, read: (id) => source.getState().data?.allocations.find((a) => a.id === id) });
+  const dispose = source.onForeignChange((kind, ids) => history.invalidate(kind, ids));
+  return { history, dispose };
+}
