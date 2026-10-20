@@ -12,7 +12,8 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "perf:scroll": "WNEXT_PERF=1 vitest run test/scroll-perf.test.ts --silent=false --reporter=verbose"
   },
   "dependencies": {
     "@lingui/core": "^6.10.0",

@@ -1,5 +1,6 @@
 // Données de démonstration locales (npm run dev) : 300 personnes, allocations pseudo-aléatoires à graine fixe, en attendant
-// le branchement sur GET /schedule (authentification OIDC requise). Jamais importé par les tests ni par l'API.
+// le branchement sur GET /schedule (authentification OIDC requise). Jamais importé par l'API ; côté tests, seulement par
+// la mesure de défilement (test/scroll-perf.test.ts, hors make check).
 import type { ScheduleResponse } from "@wnext/contracts";
 import { addDays } from "@wnext/engine";
 
