@@ -87,3 +87,13 @@ body { margin: 16px; font: 13px system-ui, sans-serif; color: #1f2937; backgroun
 .wn-block.wn-selected .wn-handle-start::after, .wn-block.wn-selected .wn-handle-end::after { top: 25%; bottom: 25%; width: 4px; left: 3px; }
 .wn-block.wn-selected .wn-handle-end::after { left: auto; right: 3px; }
 .wn-block.wn-selected .wn-handle-height::after { left: 25%; right: 25%; height: 4px; bottom: 3px; }
+/* Vues sauvegardées (schedule/views-ui) */
+.wn-views { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; font-size: 13px; }
+.wn-views-row, .wn-views-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.wn-views-modified { color: #92400e; }
+.wn-views-status { color: #374151; }
+.wn-views-error { color: #b91c1c; }
+.wn-filters summary { cursor: pointer; width: max-content; }
+.wn-filters-body { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-top: 6px; }
+.wn-filter { display: flex; flex-direction: column; gap: 2px; }
+.wn-filter select[multiple] { min-width: 160px; }

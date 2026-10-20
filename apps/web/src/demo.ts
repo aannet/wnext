@@ -9,6 +9,8 @@
 //  * Trois congés la semaine prochaine (types : congés payés et RTT déduits, formation non déduite) : la personne 2 toute la
 //    semaine (approuvé), la 4 un mercredi après-midi (demi-journée), la 5 jeudi et vendredi (en attente). La première n'en a
 //    aucun : les tests navigateur y posent le leur.
+//  * Trois départements (Produit, Design, Ingénierie : personne n modulo 3) et trois rôles (Senior, Confirmé, Junior : par blocs
+//    de trois), pour les filtres et les vues sauvegardées de la démo (data/views-source).
 import type { ScheduleResponse } from "@wnext/contracts";
 import { addDays } from "@wnext/engine";
 
@@ -81,9 +83,11 @@ export function demoSchedule(today: string, people = 300): ScheduleResponse {
     window: { from, to }, changeCursor: "0", page: { nextCursor: null, total: people },
     account: { weekStart: 1, capacityThresholds: { underPercent: 80 }, timezone: "Europe/Paris" },
     people: Array.from({ length: people }, (_, i) => ({
-      id: String(i + 1), version: 1, name: `Personne ${i + 1}`, peopleType: "employee" as const, departmentId: null, roleId: null,
+      id: String(i + 1), version: 1, name: `Personne ${i + 1}`, peopleType: "employee" as const, departmentId: String((i % 3) + 1), roleId: String((Math.floor(i / 3) % 3) + 1),
       country: null, workDaysHours: [8, 8, 8, 8, 8, 0, 0], tags: [], avatarUrl: null, active: true,
     })),
-    allocations, timeoffs, holidays: [], projects, timeoffTypes, departments: [], roles: [],
+    allocations, timeoffs, holidays: [], projects, timeoffTypes,
+    departments: ["Produit", "Design", "Ingénierie"].map((name, i) => ({ id: String(i + 1), version: 1, name })),
+    roles: ["Senior", "Confirmé", "Junior"].map((name, i) => ({ id: String(i + 1), version: 1, name })),
   };
 }
