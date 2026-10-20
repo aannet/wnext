@@ -19,6 +19,7 @@
     "test:fast": "vitest run --config vitest.check.config.ts",
     "lint:boundaries": "node scripts/lint-boundaries.mjs",
     "lint:ui-strings": "node scripts/lint-ui-strings.mjs",
+    "lint:raw-colors": "node scripts/lint-raw-colors.mjs",
     "test:boundaries": "vitest run tests/boundaries",
     "test:parity": "vitest run tests/parity",
     "test:e2e": "vitest run tests/e2e",

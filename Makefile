@@ -22,6 +22,7 @@ typecheck:
 lint:
 	npm run lint:boundaries
 	npm run lint:ui-strings
+	npm run lint:raw-colors
 
 # Tout sauf packages/engine (couvert par `coverage`) et tests/concurrency.
 test:
