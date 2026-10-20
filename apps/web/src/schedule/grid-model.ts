@@ -9,6 +9,9 @@
 //  * Bande de capacité (BR-01 signalée, BR-07 tentatif distinct) en pied de chaque ligne : une cellule par jour, semaine ou
 //    mois selon le zoom, calculée ici (par tranche, jamais au redessin) avec les heures du moteur ; le ratio n'est pas
 //    transporté, il est calculé à partir des heures. Hauteur de ligne = blocs + CAP_PX.
+//  * Congés : un fond par congé et par personne, sur toute la hauteur des blocs (les allocations restent visibles par-dessus :
+//    c'est le conflit BR-04). Demi-journée = demi-cellule (après-midi : commence au milieu du jour ; matin : finit au milieu).
+//    Couleur dérivée du type (le contrat n'en porte pas), statut « en attente » / « refusé » rendu par un motif (grid-dom).
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
   blockFraction, capacityCellsByPerson, dayNumber, expandOccurrences, layoutRow, scheduleToEngineInput, utilization,
@@ -65,8 +68,34 @@ export interface GridCap {
   overbookedDays: number;
 }
 
+export interface GridTimeoff {
+  key: string;
+  timeoffId: string;
+  x: number;
+  w: number;
+  /** Hauteur de la zone des blocs (le congé est derrière eux). */
+  h: number;
+  /** Index de couleur du type (palette de grid-dom), stable pour un même type. */
+  tone: number;
+  /** Nom du type (donnée) ; vide si le type n'est pas chargé. */
+  typeName: string;
+  status: "pending" | "approved" | "declined";
+  scope: "full_day" | "partial";
+  hoursPerDay: number | null;
+  startDate: string;
+  endDate: string;
+  startHalf: "am" | "pm";
+  endHalf: "am" | "pm";
+}
+
+/** Nombre de teintes de congé (palette de grid-dom). */
+export const TIMEOFF_TONES = 4;
+const toneOf = (typeId: string) => [...typeId].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % TIMEOFF_TONES;
+
 export interface GridRow {
   personId: string; name: string; top: number; heightPx: number; overflow: boolean; blocks: GridBlock[];
+  /** Congés de la personne qui touchent la tranche (fonds derrière les blocs). */
+  timeoffs: GridTimeoff[];
   /** Ordonnée de la bande de capacité dans la ligne (sous les blocs). */
   capY: number;
   cells: GridCap[];
@@ -75,6 +104,37 @@ export interface GridRow {
 export interface GridModel { from: string; to: string; pxPerDay: number; widthPx: number; heightPx: number; rows: GridRow[] }
 
 type Alloc = ScheduleResponse["allocations"][number];
+type Timeoff = ScheduleResponse["timeoffs"][number];
+const groupedTimeoffs = new WeakMap<ScheduleResponse, Map<string, Timeoff[]>>();
+function timeoffsByPersonOf(s: ScheduleResponse): Map<string, Timeoff[]> {
+  let m = groupedTimeoffs.get(s);
+  if (!m) {
+    m = new Map();
+    for (const t of s.timeoffs) (m.get(t.personId) ?? m.set(t.personId, []).get(t.personId)!).push(t);
+    groupedTimeoffs.set(s, m);
+  }
+  return m;
+}
+
+/** Congés d'une ligne : rognés à la tranche, demi-journées en demi-cellules. */
+function rowTimeoffs(list: readonly Timeoff[], types: ReadonlyMap<string, string>, range: { from: string; to: string }, pxPerDay: number, h: number): GridTimeoff[] {
+  const origin = dayNumber(range.from);
+  const out: GridTimeoff[] = [];
+  for (const t of list) {
+    if (t.startDate > range.to || t.endDate < range.from) continue;
+    const start = t.startDate < range.from ? range.from : t.startDate;
+    const end = t.endDate > range.to ? range.to : t.endDate;
+    const half = pxPerDay / 2;
+    const x = (dayNumber(start) - origin) * pxPerDay + (start === t.startDate && t.startHalf === "pm" ? half : 0);
+    const right = (dayNumber(end) - origin + 1) * pxPerDay - (end === t.endDate && t.endHalf === "am" ? half : 0);
+    out.push({
+      key: t.id, timeoffId: t.id, x, w: right - x, h, tone: toneOf(t.typeId), typeName: types.get(t.typeId) ?? "", status: t.approvalStatus,
+      scope: t.scope, hoursPerDay: t.hoursPerDay, startDate: t.startDate, endDate: t.endDate, startHalf: t.startHalf, endHalf: t.endHalf,
+    });
+  }
+  return out;
+}
+
 const grouped = new WeakMap<ScheduleResponse, Map<string, Alloc[]>>();
 function byPersonOf(s: ScheduleResponse): Map<string, Alloc[]> {
   let m = grouped.get(s);
@@ -138,6 +198,8 @@ function toCap(c: CapacityCell, kind: Zoom, x: number, w: number): GridCap {
 export function buildGrid(s: ScheduleResponse, range: { from: string; to: string }, pxPerDay: number, zoom: Zoom = "day"): GridModel {
   const projects = new Map(s.projects.map((p) => [p.id, p]));
   const byPerson = byPersonOf(s);
+  const timeoffsByPerson = timeoffsByPersonOf(s);
+  const typeNames = new Map(s.timeoffTypes.map((t) => [t.id, t.name]));
   const caps = capCells(s, range, zoom, pxPerDay);
   let top = 0;
   const rows = s.people.map((p): GridRow => {
@@ -155,6 +217,7 @@ export function buildGrid(s: ScheduleResponse, range: { from: string; to: string
     const blocksPx = lay.height * ROW_UNIT_PX;
     const row: GridRow = {
       personId: p.id, name: p.name, top, heightPx: blocksPx + CAP_PX, overflow: lay.overflow, capY: blocksPx, cells: caps.get(p.id) ?? [],
+      timeoffs: rowTimeoffs(timeoffsByPerson.get(p.id) ?? [], typeNames, range, pxPerDay, blocksPx),
       blocks: lay.placed.map((b) => {
         const { a, startDate, endDate } = source.get(b.id)!;
         const pr = projects.get(a.projectId);

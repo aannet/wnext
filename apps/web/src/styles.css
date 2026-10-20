@@ -47,3 +47,14 @@ body { margin: 16px; font: 13px system-ui, sans-serif; color: #1f2937; backgroun
 .wn-dialog p { margin: 0 0 8px; }
 .wn-dialog-actions { display: flex; gap: 8px; }
 .wn-notice { min-height: 18px; margin-top: 6px; color: #374151; font-size: 12px; }
+
+/* Congés (BR-04) : fond derrière les blocs, sur la hauteur des blocs, teinte du type (texte sombre, contraste >= 4,5:1) et
+   bord gauche marqué. En attente : hachures blanches et bord en tirets ; refusé : sans fond, barré. Demi-journée = demi-cellule. */
+.wn-timeoff { contain: strict; box-sizing: border-box; padding: 2px 4px; overflow: hidden; white-space: nowrap; font-size: 11px; color: #1f2937; border-left: 3px solid; cursor: pointer; }
+.wn-timeoff:focus-visible { outline: 2px solid #111827; outline-offset: -2px; }
+.wn-timeoff-tone-0 { background-color: #e0e7ff; border-color: #4338ca; }
+.wn-timeoff-tone-1 { background-color: #dcfce7; border-color: #15803d; }
+.wn-timeoff-tone-2 { background-color: #fef3c7; border-color: #b45309; }
+.wn-timeoff-tone-3 { background-color: #fce7f3; border-color: #be185d; }
+.wn-timeoff-pending { border-left-style: dashed; background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.75) 0 4px, transparent 4px 8px); }
+.wn-timeoff-declined { background-color: #f9fafb; border-left-style: dotted; color: #6b7280; text-decoration: line-through; }

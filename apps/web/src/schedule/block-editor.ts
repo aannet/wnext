@@ -16,7 +16,7 @@ import {
   applyGesture, dayNumber, expandOccurrences, keyGesture, pointerGesture, referenceHours, type BlockPatch, type Gesture, type GestureBlock,
 } from "@wnext/engine";
 import { diffBlocks, gestureBlockOf, type Allocation } from "../data/allocation-edits";
-import { ROW_UNIT_PX, type GridBlock, type GridModel, type GridRow } from "./grid-model";
+import { ROW_UNIT_PX, type GridBlock, type GridModel, type GridRow, type GridTimeoff } from "./grid-model";
 import { GUTTER_PX, HEADER_PX, type Clock } from "./scroller";
 
 /** Ce que l'éditeur lit du défilement et du rendu. */
@@ -30,6 +30,8 @@ export interface EditHost {
   /** Défilement horizontal en jours absolus. */
   scrollDay(): number;
   blockAt(target: EventTarget | null): { block: GridBlock; row: GridRow; el: HTMLElement } | null;
+  /** Congé affiché sous `target` (saisie des congés, hors gestes) ; absent : aucun congé. */
+  timeoffAt?(target: EventTarget | null): { timeoff: GridTimeoff; row: GridRow; el: HTMLElement } | null;
 }
 
 export interface EditRequest {

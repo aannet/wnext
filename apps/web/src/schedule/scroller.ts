@@ -19,7 +19,7 @@ import {
 import type { EditHost } from "./block-editor";
 import { createGridRenderer } from "./grid-dom";
 import { createHeaderRenderer, type HeaderItem } from "./grid-header";
-import { buildGrid, type GridBlock, type GridCap, type GridModel } from "./grid-model";
+import { buildGrid, type GridBlock, type GridCap, type GridModel, type GridTimeoff } from "./grid-model";
 
 /** Largeur de la colonne des noms de personnes (gouttière collée à gauche). */
 export const GUTTER_PX = 140;
@@ -61,6 +61,8 @@ export interface ScrollerOptions {
   capacityLabel?(period: string, c: GridCap): string;
   /** Libellé accessible d'un bloc (catalogue i18n). */
   blockLabel?(b: GridBlock): string;
+  /** Libellé accessible d'un congé (catalogue i18n). */
+  timeoffLabel?(t: GridTimeoff): string;
 }
 
 export interface Scroller {
@@ -70,7 +72,7 @@ export interface Scroller {
   /** Date du jour (fuseau du compte) : cible d'« Aujourd'hui » ; la vue ne bouge pas. */
   setToday(today: string): void;
   /** Libellés localisés (changement de locale) : tout est réécrit au prochain dessin, la vue ne bouge pas. */
-  setLabels(l: Pick<ScrollerOptions, "label" | "capacityLabel" | "blockLabel">): void;
+  setLabels(l: Pick<ScrollerOptions, "label" | "capacityLabel" | "blockLabel" | "timeoffLabel">): void;
   resize(widthPx: number, heightPx: number): void;
   today(): void;
   step(dir: -1 | 1): void;
@@ -110,6 +112,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
   const grid = createGridRenderer(root, {
     ...(o.capacityLabel ? { capLabel: (c: GridCap) => o.capacityLabel!(label(c), c) } : {}),
     ...(o.blockLabel ? { blockLabel: o.blockLabel } : {}),
+    ...(o.timeoffLabel ? { timeoffLabel: o.timeoffLabel } : {}),
   });
 
   let data = o.data;
@@ -298,6 +301,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
       grid.setLabels({
         ...(l.capacityLabel ? { capLabel: (c: GridCap) => l.capacityLabel!(label(c), c) } : {}),
         ...(l.blockLabel ? { blockLabel: l.blockLabel } : {}),
+        ...(l.timeoffLabel ? { timeoffLabel: l.timeoffLabel } : {}),
       });
       schedule();
     },
@@ -330,6 +334,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
       xOfDate: (d) => GUTTER_PX + (dayNumber(d) - dayNumber(track.first)) * pxPerDay,
       scrollDay: () => dayNumber(track.first) + root.scrollLeft / pxPerDay,
       blockAt: grid.blockAt,
+      timeoffAt: grid.timeoffAt,
     },
     stats: () => ({ builds, ...grid.stats(), ...header.stats(), nodes: root.getElementsByTagName("*").length }),
     destroy() {

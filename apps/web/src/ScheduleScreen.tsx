@@ -18,6 +18,7 @@ import type { ScheduleEditor } from "./data/allocation-edits";
 import type { MessageKey } from "./i18n";
 import { createBlockEditor } from "./schedule/block-editor";
 import { blockLabeler } from "./schedule/block-label";
+import { timeoffLabeler } from "./schedule/timeoff-label";
 import { capacityLabeler } from "./schedule/capacity-label";
 import { useScheduleEdits, type FocusTarget } from "./schedule/edits-ui";
 import type { History, HistoryDirection, HistoryResult, HistoryState } from "./schedule/history";
@@ -130,7 +131,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
 
   // Le scroller est créé une seule fois : la date du jour et la locale lui sont poussées (setToday, setLabels), sans perdre
   // la position.
-  const labelsFor = (i: I18n) => ({ label: headerFormatter(i.locale), capacityLabel: capacityLabeler(i), blockLabel: blockLabeler(i) });
+  const labelsFor = (i: I18n) => ({ label: headerFormatter(i.locale), capacityLabel: capacityLabeler(i), blockLabel: blockLabeler(i), timeoffLabel: timeoffLabeler(i) });
   const labelled = useRef(i18n);
   useEffect(() => {
     const s = createScroller({

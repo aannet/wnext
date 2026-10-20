@@ -7,7 +7,7 @@ import { createGridRenderer } from "../src/schedule/grid-dom";
 import { createHeaderRenderer } from "../src/schedule/grid-header";
 
 const U = 48;
-const row = (i: number, blocks: GridRow["blocks"] = [], heightPx = U): GridRow => ({ personId: String(i), name: `P${i}`, top: i * U, heightPx, overflow: heightPx > U, blocks, capY: heightPx - 14, cells: [] });
+const row = (i: number, blocks: GridRow["blocks"] = [], heightPx = U): GridRow => ({ personId: String(i), name: `P${i}`, top: i * U, heightPx, overflow: heightPx > U, blocks, capY: heightPx - 14, cells: [], timeoffs: [] });
 const model = (n: number, first: GridRow["blocks"] = []): GridModel => ({
   from: "2026-03-02", to: "2026-03-15", pxPerDay: 10, widthPx: 140, heightPx: n * U,
   rows: Array.from({ length: n }, (_, i) => row(i, i === 0 ? first : [])),

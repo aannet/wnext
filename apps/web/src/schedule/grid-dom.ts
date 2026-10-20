@@ -12,12 +12,19 @@
 //    semaines hors de la vue, et la colorait même là où rien n'était planifié).
 //  * Édition (block-editor) : un bloc est focalisable (tabindex -1, la grille garde un seul arrêt de tabulation) ; blockAt
 //    retrouve le bloc et la ligne d'un nœud (ou d'une poignée posée dedans par l'éditeur).
+//  * Congés : un nœud par congé visible (recyclé comme les blocs), derrière les blocs (z-index CSS), focalisable
+//    (tabindex -1) ; teinte du type (classe wn-timeoff-tone-N), motif pour « en attente » et « refusé » (classes de statut :
+//    l'information ne repose pas sur la couleur seule) ; libellé accessible de l'appelant. timeoffAt retrouve le congé d'un nœud.
 import { blockColors } from "./block-colors";
-import { CAP_PX, visibleRows, type GridBlock, type GridCap, type GridModel, type GridRow } from "./grid-model";
+import { CAP_PX, visibleRows, type GridBlock, type GridCap, type GridModel, type GridRow, type GridTimeoff } from "./grid-model";
 
 interface BlockEl { el: HTMLDivElement; text: Text; v: Partial<GridBlock>; g: GridBlock | null; row: RowEl | null }
 interface CapEl { el: HTMLDivElement; v: Partial<GridCap>; y: number }
-interface RowEl { el: HTMLDivElement; header: HTMLDivElement; index: number; model: GridModel | null; span: string; blocks: Map<string, BlockEl>; caps: Map<string, CapEl>; top: number; h: number }
+interface OffEl { el: HTMLDivElement; text: Text; v: Partial<GridTimeoff>; g: GridTimeoff | null; row: RowEl | null }
+interface RowEl {
+  el: HTMLDivElement; header: HTMLDivElement; index: number; model: GridModel | null; span: string; blocks: Map<string, BlockEl>; caps: Map<string, CapEl>;
+  offs: Map<string, OffEl>; top: number; h: number;
+}
 
 /** Placement horizontal, en pixels de surface. Absent : surface à la largeur du modèle, aucun tri horizontal. */
 export interface Horizontal { surfaceWidth: number; originX: number; left: number; right: number }
@@ -26,11 +33,13 @@ export interface GridRenderer {
   render(model: GridModel, scrollTop: number, viewHeight: number, h?: Horizontal): void;
   /** Bloc affiché qui contient `target` (ou l'une de ses poignées), avec sa ligne ; null hors bloc. */
   blockAt(target: EventTarget | null): { block: GridBlock; row: GridRow; el: HTMLElement } | null;
+  /** Congé affiché qui contient `target`, avec sa ligne ; null hors congé. */
+  timeoffAt(target: EventTarget | null): { timeoff: GridTimeoff; row: GridRow; el: HTMLElement } | null;
   /** Surface des lignes (repère des positions du modèle décalées de originX). */
   readonly surface: HTMLElement;
   stats(): { rowsCreated: number; blocksCreated: number; capsCreated: number };
   /** Nouveaux libellés (changement de locale) : chaque ligne affichée est réécrite au prochain render. */
-  setLabels(l: Pick<GridRendererOptions, "capLabel" | "blockLabel">): void;
+  setLabels(l: Pick<GridRendererOptions, "capLabel" | "blockLabel" | "timeoffLabel">): void;
   destroy(): void;
 }
 
@@ -46,6 +55,8 @@ export interface GridRendererOptions {
   capLabel?(c: GridCap): string;
   /** Libellé accessible d'un bloc (projet, dates, quantité) ; recalculé seulement si l'un d'eux change. */
   blockLabel?(b: GridBlock): string;
+  /** Libellé accessible d'un congé (type, dates, demi-journées, statut). */
+  timeoffLabel?(t: GridTimeoff): string;
 }
 
 /** Fond d'une cellule de capacité : confirmé (plein), tentatif (hachuré), zone de dépassement (hachures), ligne de capacité. */
@@ -69,6 +80,7 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
   const freeRows: RowEl[] = [];
   const freeBlocks: BlockEl[] = [];
   const freeCaps: CapEl[] = [];
+  const freeOffs: OffEl[] = [];
   let rowsCreated = 0;
   let blocksCreated = 0;
   let capsCreated = 0;
@@ -87,13 +99,15 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     header.setAttribute("role", "rowheader");
     el.appendChild(header);
     surface.appendChild(el);
-    return { el, header, index: -1, model: null, span: "", blocks: new Map(), caps: new Map(), top: NaN, h: NaN };
+    return { el, header, index: -1, model: null, span: "", blocks: new Map(), caps: new Map(), offs: new Map(), top: NaN, h: NaN };
   };
   const releaseRow = (r: RowEl) => {
     for (const b of r.blocks.values()) releaseBlock(b);
     r.blocks.clear();
     for (const c of r.caps.values()) releaseCap(c);
     r.caps.clear();
+    for (const o of r.offs.values()) releaseOff(o);
+    r.offs.clear();
     r.index = -1;
     r.model = null;
     r.span = "";
@@ -129,6 +143,53 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     b.g = null;
     b.row = null;
     freeBlocks.push(b);
+  };
+
+  const offByEl = new WeakMap<Element, OffEl>();
+  const takeOff = (parent: HTMLElement): OffEl => {
+    const o = freeOffs.pop() ?? (() => {
+      const el = div("wn-timeoff");
+      el.setAttribute("role", "gridcell");
+      el.tabIndex = -1;
+      el.style.position = "absolute";
+      el.style.top = "0";
+      el.style.left = "0";
+      const text = document.createTextNode("");
+      el.appendChild(text);
+      const made: OffEl = { el, text, v: {}, g: null, row: null };
+      offByEl.set(el, made);
+      return made;
+    })();
+    o.el.style.display = "";
+    // Avant les blocs : sous eux dans l'ordre du document comme à l'écran.
+    parent.insertBefore(o.el, parent.children[1] ?? null);
+    return o;
+  };
+  const releaseOff = (o: OffEl) => {
+    o.el.style.display = "none";
+    o.el.removeAttribute("data-timeoff");
+    o.v = {};
+    o.g = null;
+    o.row = null;
+    freeOffs.push(o);
+  };
+  const setOff = (o: OffEl, g: GridTimeoff, originX: number) => {
+    const v = o.v;
+    const s = o.el.style;
+    const x = g.x + originX;
+    if (v.key !== g.key) o.el.setAttribute("data-timeoff", g.key);
+    if (v.x !== x) s.transform = `translate(${x}px, 0px)`;
+    if (v.w !== g.w) s.width = `${g.w}px`;
+    if (v.h !== g.h) s.height = `${g.h}px`;
+    if (v.tone !== g.tone || v.status !== g.status) o.el.className = `wn-timeoff wn-timeoff-tone-${g.tone} wn-timeoff-${g.status}`;
+    if (v.typeName !== g.typeName) o.text.data = g.typeName;
+    if (opts.timeoffLabel && (v.typeName !== g.typeName || v.startDate !== g.startDate || v.endDate !== g.endDate || v.startHalf !== g.startHalf
+      || v.endHalf !== g.endHalf || v.status !== g.status || v.scope !== g.scope || v.hoursPerDay !== g.hoursPerDay)) {
+      const label = opts.timeoffLabel(g);
+      o.el.setAttribute("aria-label", label);
+      o.el.title = label;
+    }
+    o.v = { ...g, x };
   };
 
   const takeCap = (parent: HTMLElement): CapEl => {
@@ -213,6 +274,16 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
       b.g = g;
       b.row = r;
     }
+    const offsShown = row.timeoffs.filter((t) => t.x + h.originX + t.w >= h.left && t.x + h.originX <= h.right);
+    const offKeep = new Set(offsShown.map((t) => t.key));
+    for (const [k, o] of r.offs) if (!offKeep.has(k)) { releaseOff(o); r.offs.delete(k); }
+    for (const g of offsShown) {
+      let o = r.offs.get(g.key);
+      if (!o) { o = takeOff(r.el); r.offs.set(g.key, o); }
+      setOff(o, g, h.originX);
+      o.g = g;
+      o.row = r;
+    }
     const capsShown = row.cells.filter((c) => c.x + h.originX + c.w >= h.left && c.x + h.originX <= h.right);
     const capKeep = new Set(capsShown.map((c) => c.from));
     for (const [k, c] of r.caps) if (!capKeep.has(k)) { releaseCap(c); r.caps.delete(k); }
@@ -242,14 +313,22 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
       const row = b?.row?.model?.rows[b.row.index];
       return b && b.g && row ? { block: b.g, row, el: b.el } : null;
     },
+    timeoffAt(target) {
+      const el = target instanceof Element ? target.closest(".wn-timeoff") : null;
+      const o = el ? offByEl.get(el) : undefined;
+      const row = o?.row?.model?.rows[o.row.index];
+      return o && o.g && row ? { timeoff: o.g, row, el: o.el } : null;
+    },
     surface,
     stats: () => ({ rowsCreated, blocksCreated, capsCreated }),
     setLabels(l) {
       opts.capLabel = l.capLabel;
       opts.blockLabel = l.blockLabel;
+      opts.timeoffLabel = l.timeoffLabel;
       for (const r of active.values()) {
         r.model = null;
         for (const b of r.blocks.values()) b.v = {};
+        for (const o of r.offs.values()) o.v = {};
         for (const c of r.caps.values()) c.v = {};
       }
     },
@@ -259,6 +338,7 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
       freeRows.length = 0;
       freeBlocks.length = 0;
       freeCaps.length = 0;
+      freeOffs.length = 0;
     },
   };
 }

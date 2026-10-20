@@ -147,7 +147,7 @@ describe("rendu et recyclage", () => {
   it("le rendu pose aria-label et infobulle sur la cellule", () => {
     const root = document.createElement("div");
     const r = createGridRenderer(root, { capLabel: (c) => capacityLabeler(createI18n("fr"))("mar. 3", c) });
-    const row = { personId: "1", name: "P1", top: 0, heightPx: 62, overflow: false, blocks: [], capY: 48, cells: [cell()] };
+    const row = { personId: "1", name: "P1", top: 0, heightPx: 62, overflow: false, blocks: [], timeoffs: [], capY: 48, cells: [cell()] };
     r.render({ from: "2026-03-02", to: "2026-03-15", pxPerDay: 96, widthPx: 1344, heightPx: 62, rows: [row] }, 0, 400);
     const el = root.querySelector(".wn-cap") as HTMLElement;
     expect(el.getAttribute("role")).toBe("gridcell");
