@@ -709,6 +709,15 @@ export const routes: RouteContract[] = [
     },
   },
   {
+    method: "get", path: "/api/v1/saved-views/{id}", operationId: "getSavedView", summary: "Lire une vue visible (la mienne ou partagee ; sert a relire la version apres un VERSION_CONFLICT)", params: SavedViewPathParams,
+    responses: {
+      200: { description: "Vue (avec sa version courante)", schema: SavedView },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      404: { description: "Vue inconnue, hors compte ou privee d'un autre (NOT_FOUND)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
     method: "post", path: "/api/v1/saved-views", operationId: "createSavedView", summary: "Creer une vue (privee ; partagee : owner, admin ou project_manager)", body: SavedViewCreate,
     responses: {
       201: { description: "Vue creee", schema: SavedView },

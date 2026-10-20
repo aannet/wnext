@@ -2123,6 +2123,18 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as SavedView }
         : { ok: false, status: res.status, error: body as ApiError };
     },
+    /** Lire une vue visible (la mienne ou partagee ; sert a relire la version apres un VERSION_CONFLICT) (GET /api/v1/saved-views/{id}) */
+    async getSavedView(input: {
+      path: {
+        id: Id;
+      };
+    }): Promise<ApiResult<SavedView, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/saved-views/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as SavedView }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
     /** Modifier une vue (verrou optimiste If-Match ; proprietaire, ou owner/admin pour une vue partagee) (PATCH /api/v1/saved-views/{id}) */
     async updateSavedView(input: {
       path: {

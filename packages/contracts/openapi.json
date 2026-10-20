@@ -12922,6 +12922,63 @@
       }
     },
     "/api/v1/saved-views/{id}": {
+      "get": {
+        "operationId": "getSavedView",
+        "summary": "Lire une vue visible (la mienne ou partagee ; sert a relire la version apres un VERSION_CONFLICT)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vue (avec sa version courante)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Vue inconnue, hors compte ou privee d'un autre (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "operationId": "updateSavedView",
         "summary": "Modifier une vue (verrou optimiste If-Match ; proprietaire, ou owner/admin pour une vue partagee)",
