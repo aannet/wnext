@@ -49,12 +49,25 @@ export function expandOccurrences(a: RepeatInput, from: string, to: string): Occ
   return out;
 }
 
+/** Refus de découpe, code stable (traduit en code du contrat par l'API et par le client). Message préfixé du code, inchangé. */
+export type SeriesSplitCode = "NOT_A_SERIES" | "OCCURRENCE_NOT_FOUND" | "SERIES_OVERLAPPING" | "SERIES_MONTHLY_CLAMPED";
+export class SeriesSplitError extends Error {
+  constructor(readonly code: SeriesSplitCode, detail: string) {
+    super(`${code}: ${detail}`);
+    this.name = "SeriesSplitError";
+  }
+}
+
 export interface SeriesSplit<T extends RepeatInput> {
   /** Occurrences 0..index-1, série bornée à la veille de l'occurrence ; null si index = 0. */
   before: T | null;
   /** L'occurrence seule, sans répétition (tronquée à la fin de série comme à l'affichage). */
   occurrence: T;
-  /** Occurrences index+1.., nouvelle origine, même fin de série ; null s'il n'y en a pas. */
+  /**
+   * Occurrences index+1.., nouvelle origine, même fin de série ; null s'il n'y en a pas. Si elle se réduit à une seule
+   * occurrence tronquée par la fin de série, c'est une allocation non répétée aux dates tronquées (chk_alloc_repeat exige
+   * repeatEndDate >= endDate, qu'un bloc entier dépasserait).
+   */
   after: T | null;
 }
 
@@ -65,21 +78,23 @@ export interface SeriesSplit<T extends RepeatInput> {
  * origine serait ramenée en fin de mois (le 31 deviendrait le 28 pour toute la suite).
  */
 export function splitSeries<T extends RepeatInput>(a: T, index: number): SeriesSplit<T> {
-  if (a.repeatState === "none") throw new Error("NOT_A_SERIES: allocation non répétée");
+  if (a.repeatState === "none") throw new SeriesSplitError("NOT_A_SERIES", "allocation non répétée");
   const lengthDays = (toMs(a.endDate) - toMs(a.startDate)) / DAY_MS + 1;
   const step = a.repeatState === "daily" ? 1 : a.repeatState === "weekly" ? 7 : 28;
-  if (lengthDays > step) throw new Error(`SERIES_OVERLAPPING: bloc de ${lengthDays} j pour un pas ${a.repeatState}`);
+  if (lengthDays > step) throw new SeriesSplitError("SERIES_OVERLAPPING", `bloc de ${lengthDays} j pour un pas ${a.repeatState}`);
   const last = seriesEnd(a);
   const occ = occurrence(a, index);
-  if (!Number.isInteger(index) || index < 0 || occ.startDate > last) throw new Error(`OCCURRENCE_NOT_FOUND: ${index}`);
+  if (!Number.isInteger(index) || index < 0 || occ.startDate > last) throw new SeriesSplitError("OCCURRENCE_NOT_FOUND", String(index));
   const next = occurrence(a, index + 1);
   if (next.startDate <= last && a.repeatState === "monthly"
       && (next.startDate.slice(8) !== a.startDate.slice(8) || next.endDate.slice(8) !== a.endDate.slice(8))) {
-    throw new Error(`SERIES_MONTHLY_CLAMPED: l'occurrence ${index + 1} (${next.startDate}) ne peut pas servir d'origine`);
+    throw new SeriesSplitError("SERIES_MONTHLY_CLAMPED", `l'occurrence ${index + 1} (${next.startDate}) ne peut pas servir d'origine`);
   }
   return {
     before: index === 0 ? null : { ...a, repeatEndDate: addDays(occ.startDate, -1) },
     occurrence: { ...a, startDate: occ.startDate, endDate: occ.endDate > last ? last : occ.endDate, repeatState: "none", repeatEndDate: null },
-    after: next.startDate > last ? null : { ...a, startDate: next.startDate, endDate: next.endDate },
+    after: next.startDate > last ? null
+      : next.endDate > last ? { ...a, startDate: next.startDate, endDate: last, repeatState: "none", repeatEndDate: null }
+      : { ...a, startDate: next.startDate, endDate: next.endDate },
   };
 }

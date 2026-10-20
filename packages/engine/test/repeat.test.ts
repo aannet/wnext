@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { addDays, toIso, toMs, DAY_MS } from "../src/dates";
 import { allocationCoversDay } from "../src/load";
-import { expandOccurrences, seriesEnd, splitSeries, type RepeatInput } from "../src/repeat";
+import { SeriesSplitError, expandOccurrences, seriesEnd, splitSeries, type RepeatInput } from "../src/repeat";
 
 const a = (startDate: string, endDate: string, repeatState: RepeatInput["repeatState"], repeatEndDate: string | null = null): RepeatInput =>
   ({ startDate, endDate, repeatState, repeatEndDate });
@@ -105,6 +105,26 @@ describe("splitSeries", () => {
     expect(splitSeries(s, 2)).toMatchObject({ after: null, occurrence: { startDate: "2026-03-16", endDate: "2026-03-17" } });
   });
 
+  it("avant-dernière occurrence d'une série qui finit au milieu d'un bloc : « après » est l'occurrence tronquée, non répétée", () => {
+    // Lundi-mercredi hebdomadaire, fin de série un mardi : la dernière occurrence (16-17/03) est tronquée.
+    const s = a("2026-03-02", "2026-03-04", "weekly", "2026-03-17");
+    expect(splitSeries(s, 1).after).toEqual({ ...s, startDate: "2026-03-16", endDate: "2026-03-17", repeatState: "none", repeatEndDate: null });
+    // Fin de série un mardi plus loin : « après » reste une série, sa dernière occurrence tronquée par repeatEndDate.
+    const longer = a("2026-03-02", "2026-03-04", "weekly", "2026-03-24");
+    expect(splitSeries(longer, 1).after).toEqual({ ...longer, startDate: "2026-03-16", endDate: "2026-03-18" });
+  });
+
+  it("refus typés : SeriesSplitError porte le code, le message garde le préfixe", () => {
+    const codeOf = (f: () => unknown) => {
+      try { f(); } catch (e) { expect(e).toBeInstanceOf(SeriesSplitError); expect(e).toBeInstanceOf(Error); return [(e as SeriesSplitError).code, (e as Error).message.split(":")[0]]; }
+      return null;
+    };
+    expect(codeOf(() => splitSeries(a("2026-03-02", "2026-03-04", "none"), 0))).toEqual(["NOT_A_SERIES", "NOT_A_SERIES"]);
+    expect(codeOf(() => splitSeries(a("2026-03-02", "2026-03-04", "weekly", "2026-03-17"), 3))).toEqual(["OCCURRENCE_NOT_FOUND", "OCCURRENCE_NOT_FOUND"]);
+    expect(codeOf(() => splitSeries(a("2026-03-02", "2026-03-04", "daily", "2026-03-31"), 1))).toEqual(["SERIES_OVERLAPPING", "SERIES_OVERLAPPING"]);
+    expect(codeOf(() => splitSeries(a("2026-01-31", "2026-01-31", "monthly", "2026-06-30"), 0))).toEqual(["SERIES_MONTHLY_CLAMPED", "SERIES_MONTHLY_CLAMPED"]);
+  });
+
   it("refus : occurrence hors série, série non répétée, blocs qui se chevauchent, origine mensuelle ramenée", () => {
     expect(() => splitSeries(a("2026-03-02", "2026-03-04", "weekly", "2026-03-17"), 3)).toThrow(/OCCURRENCE_NOT_FOUND/);
     expect(() => splitSeries(a("2026-03-02", "2026-03-04", "none"), 0)).toThrow(/NOT_A_SERIES/);
@@ -126,8 +146,17 @@ describe("splitSeries", () => {
       const al = a(start, end, kind, addDays(end, int(0, 300)));
       const occ = expandOccurrences(al, al.startDate, seriesEnd(al));
       let parts;
-      try { parts = splitSeries(al, int(0, occ.length - 1)); } catch (e) { expect(String(e)).toMatch(/SERIES_MONTHLY_CLAMPED/); continue; }
+      try { parts = splitSeries(al, int(0, occ.length - 1)); } catch (e) { expect((e as SeriesSplitError).code).toBe("SERIES_MONTHLY_CLAMPED"); continue; }
       checked++;
+      // Chaque morceau respecte chk_alloc_repeat (schema.sql) et ne dépasse pas la série d'origine.
+      for (const x of [parts.before, parts.occurrence, parts.after]) {
+        if (!x) continue;
+        const ctx = JSON.stringify({ al, x });
+        expect(x.endDate >= x.startDate, ctx).toBe(true);
+        expect(x.endDate <= seriesEnd(al), ctx).toBe(true);
+        if (x.repeatState === "none") expect(x.repeatEndDate, ctx).toBeNull();
+        else expect(x.repeatEndDate !== null && x.repeatEndDate >= x.endDate, ctx).toBe(true);
+      }
       for (let ms = toMs(al.startDate); ms <= toMs(seriesEnd(al)); ms += DAY_MS) {
         const d = toIso(ms);
         const hits = [parts.before, parts.occurrence, parts.after].filter((x) => cov(x, d)).length;
