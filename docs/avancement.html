@@ -162,10 +162,10 @@ const RECETTE = {
     { id: "RT-016", t: "Dans la pop-in, choisir une ou plusieurs personnes", nature: "manque", gravite: "majeure", lot: "L-E", statut: "qualifié" },
     { id: "RT-017", t: "Une même pop-in pour un créneau : onglet « Projet / tâche » (par défaut) et onglet « Congé », car un créneau posé peut être une absence qui impacte la capacité", nature: "ergonomie", gravite: "majeure", lot: "L-E", statut: "qualifié" },
     { id: "RT-018", t: "Changer la couleur du projet depuis les propriétés de ce qui est posé", nature: "manque", gravite: "mineure", lot: "L-E, L-F", statut: "qualifié" },
-    { id: "RT-019", t: "Utiliser Tailwind (bibliothèque CSS)", nature: "décision", gravite: "—", lot: "L-A", statut: "planifié" },
+    { id: "RT-019", t: "Utiliser Tailwind (bibliothèque CSS)", nature: "décision", gravite: "—", lot: "L-A", statut: "corrigé" },
   ],
   lots: [
-    { id: "L-A", t: "Tailwind v4 et design tokens (socle sans changement visible, garde-fou anti-couleurs en dur)", statut: "en cours" },
+    { id: "L-A", t: "Tailwind v4 et design tokens (socle sans changement visible, garde-fou anti-couleurs en dur)", statut: "fait" },
     { id: "L-B", t: "Coque applicative : en-tête WNEXT, navigation (Schedule, Projets, Personnes, Réglages), barre d'outils en sous-header, écran de connexion OIDC par défaut en recette, « Bonjour Alec »", statut: "proposé" },
     { id: "L-D", t: "Primitives de fenêtres (Modal, Popover, Drawer) et migration de tous les dialogues vers des fenêtres superposées (Fermer + Échap)", statut: "proposé" },
     { id: "L-C", t: "Densité à 3 niveaux et jauge par personne dans la colonne de gauche", statut: "proposé" },
@@ -296,7 +296,7 @@ const PHASES = [
     items: [
       { t: "Cadre P6 : ADR-008, ligne P6 dans strategy.md, registre de recette", s: "done" },
       { t: "Cadrage de la note n°1 (19 retours, 6 lots)", s: "part", n: "en attente de la validation d'Alec : docs/recette/cadrage-1.html" },
-      { t: "L-A Tailwind et design tokens, garde-fou anti-couleurs en dur", s: "part", n: "en cours" },
+      { t: "L-A Tailwind et design tokens, garde-fou anti-couleurs en dur", s: "done", n: "Tailwind 4.3.3 sans preflight, tokens.css, lint:raw-colors (3 exceptions motivées)" },
       { t: "Direction visuelle et choix de l'accent (Q-09), sur images de référence", s: "todo" },
       { t: "L-D Fenêtres superposées (Modal, Popover, Drawer)", s: "todo" },
       { t: "L-B Coque : en-tête, navigation, connexion, utilisateur connecté", s: "todo" },

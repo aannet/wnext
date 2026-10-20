@@ -32,7 +32,7 @@ Reproduction : vérifiée dans le code de `main` à `11bc44d` (écran Schedule, 
 | RT-016 | Dans la pop-in, choisir une ou plusieurs personnes | « sélectionner un projet, une personne ou plusieurs personnes » (l. 27) | manque | US-3.3, BR-26 (création de groupe déjà dans l'API) | écart | Schedule | majeure | P6 | L-E | qualifié |
 | RT-017 | Une même pop-in pour un créneau : onglet « Projet / tâche » (par défaut) et onglet « Congé », car un créneau posé peut être une absence qui impacte la capacité | « ça peut être une allocation sur un projet ou la définition d'une absence ou d'un congé […] Le premier onglet par défaut […] le deuxième onglet, c'était une table de congé » (l. 28-30) | ergonomie | ux-ui §3.4 (`TimeoffRequestForm` séparé) ; parcours congé existant (BR-04) | hors spec (évolution alignée sur Float, proposée en P6) | Schedule | majeure | P6 | L-E | qualifié |
 | RT-018 | Changer la couleur du projet depuis les propriétés de ce qui est posé | « je dois pouvoir changer la couleur du projet » (l. 32) | manque | US-2.1 (`ProjectColorPicker`, contraste ≥ 4,5:1) ; palette OKLCH (ux-ui §3.1) | écart | Schedule, Projets | mineure | P6 | L-E, L-F | qualifié |
-| RT-019 | Utiliser Tailwind (bibliothèque CSS) | « d'un point de vue framework (plutôt librairie que framework), je veux du Tailwind » (l. 35) | décision | aucune contrainte contraire (ADR-003, ADR-005) ; consignée dans ADR-009 | — | Toutes | — | P6 | L-A | planifié |
+| RT-019 | Utiliser Tailwind (bibliothèque CSS) | « d'un point de vue framework (plutôt librairie que framework), je veux du Tailwind » (l. 35) | décision | aucune contrainte contraire (ADR-003, ADR-005) ; consignée dans ADR-009 | — | Toutes | — | P6 | L-A | corrigé (`b741064`, `ff16a5d`) |
 
 ## Lots proposés (cadrage n°1)
 
