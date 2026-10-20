@@ -277,8 +277,10 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
 
   function onChanges(changes: Parameters<RealtimeClientOptions["onChanges"]>[0]) {
     if (changes.some((c) => c.entity === "projects")) projectsChanged();
-    // Suppression d'une entité sans pierre tombale : pas la nôtre (une suppression confirmée en laisse une).
-    foreign(changes.filter((c) => c.op === "delete" && isKind(c.entity) && !store.tombstones.has(`${c.entity}:${c.id}`))
+    // Suppression étrangère : ni pierre tombale (suppression confirmée), ni suppression en attente sur la même entité (l'écho
+    // NOTIFY de notre DELETE peut devancer la réponse HTTP ; le prendre pour étranger purgerait l'historique d'annulation).
+    const ourDelete = (kind: string, id: string) => [...store.pending.values()].some((p) => p.kind === kind && p.id === id && p.after === null);
+    foreign(changes.filter((c) => c.op === "delete" && isKind(c.entity) && !store.tombstones.has(`${c.entity}:${c.id}`) && !ourDelete(c.entity, c.id))
       .map((c) => ({ kind: c.entity as Kind, id: c.id })));
     const r = applyChanges(store, changes);
     store = r.store;

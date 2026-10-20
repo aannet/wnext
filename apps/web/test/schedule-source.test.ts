@@ -32,14 +32,15 @@ function pageOf(q: URLSearchParams, over: Partial<ScheduleResponse> = {}): Sched
 
 interface Call { url: string; query: URLSearchParams; resolve(status: number, body: unknown): void }
 
-/** Fetch simulé : chaque appel attend qu'on le résolve (ou `auto` répond tout de suite). */
-function fakeApi(auto?: (q: URLSearchParams, path: string) => { status: number; body: unknown }) {
+/** Fetch simulé : chaque appel attend qu'on le résolve (ou `auto` répond tout de suite ; null = laissé en attente). */
+function fakeApi(auto?: (q: URLSearchParams, path: string, method: string) => { status: number; body: unknown } | null) {
   const calls: Call[] = [];
-  const fetch = (url: string) => new Promise<FetchResponse>((res) => {
+  const fetch = (url: string, init?: { method?: string }) => new Promise<FetchResponse>((res) => {
     const u = new URL(url, "http://x");
     const call: Call = { url, query: u.searchParams, resolve: (status, body) => res({ status, json: async () => body }) };
     calls.push(call);
-    if (auto) { const r = auto(u.searchParams, u.pathname); call.resolve(r.status, r.body); }
+    const r = auto?.(u.searchParams, u.pathname, init?.method ?? "GET");
+    if (r) call.resolve(r.status, r.body);
   });
   const api = createClient({ baseUrl: "", fetch });
   const schedule = () => calls.filter((c) => c.url.startsWith("/api/v1/schedule"));
@@ -173,11 +174,11 @@ class FakeSocket implements SocketLike {
   say(m: unknown) { this.onmessage?.({ data: JSON.stringify(m) }); }
 }
 
-function live(auto: (q: URLSearchParams, path: string, n: number) => { status: number; body: unknown }) {
+function live(auto: (q: URLSearchParams, path: string, n: number, method: string) => { status: number; body: unknown } | null) {
   let n = 0;
-  const f = fakeApi((q, path) => (path.endsWith("/realtime/ticket")
+  const f = fakeApi((q, path, method) => (path.endsWith("/realtime/ticket")
     ? { status: 201, body: { ticket: "t-AAAAAAAAAAAAAAAA", expiresInSeconds: 30 } }
-    : auto(q, path, n++)));
+    : auto(q, path, n++, method)));
   const sockets: FakeSocket[] = [];
   const timers: (() => void)[] = [];
   const s = source(f, {
@@ -233,6 +234,29 @@ describe("temps réel", () => {
     h.sockets[0]!.say(changes({ seq: "7", entity: "allocations", id: "10", op: "update", version: 2 }));
     await flush();
     expect(h.s.getState().data!.allocations).toEqual([]);
+  });
+
+  it("écho NOTIFY de sa propre suppression arrivé AVANT la réponse HTTP : pas pris pour un changement étranger", async () => {
+    const h = live((q, _p, _n, method) => (method === "DELETE" ? null : { status: 200, body: pageOf(q, { allocations: [alloc("10", "1", "2026-10-20")] }) }));
+    h.s.start();
+    await flush();
+    await h.goLive();
+    const foreign: Array<[string, string[]]> = [];
+    h.s.onForeignChange((kind, ids) => { foreign.push([kind, ids]); });
+    const d = h.s.deleteAllocation("10");
+    await flush();
+    expect(h.s.getState().data!.allocations).toEqual([]);
+    h.sockets[0]!.say(changes({ seq: "6", entity: "allocations", id: "10", op: "delete", version: null })); // l'écho devance la réponse
+    await flush();
+    expect(foreign).toEqual([]); // sinon l'historique purgerait l'action (redo perdu)
+    h.f.calls.find((c) => c.url === "/api/v1/allocations/10")!.resolve(204, undefined);
+    expect(await d).toEqual({ ok: true });
+    expect(h.s.getState().data!.allocations).toEqual([]);
+    expect(foreign).toEqual([]);
+    // une suppression étrangère (sans mutation en attente) reste signalée
+    h.sockets[0]!.say(changes({ seq: "7", entity: "allocations", id: "11", op: "delete", version: null }));
+    await flush();
+    expect(foreign).toEqual([["allocations", ["11"]]]);
   });
 
   it("resync : magasin neuf, visible rechargé, affichage conservé pendant le rechargement ; réponse périmée ignorée", async () => {
