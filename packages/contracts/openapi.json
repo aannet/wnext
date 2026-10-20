@@ -4122,6 +4122,256 @@
             "description": "Montant décimal en chaîne, 2 décimales au plus : \"1250.50\""
           }
         }
+      },
+      "SavedViewList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SavedView"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/SchedulePage"
+          }
+        },
+        "required": [
+          "items",
+          "page"
+        ]
+      },
+      "SavedView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SavedViewKind"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "\\S"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ScheduleViewFilters"
+          },
+          "shared": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32767
+          },
+          "ownerId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Utilisateur propriétaire"
+          },
+          "canManage": {
+            "type": "boolean",
+            "description": "L'appelant peut modifier et supprimer cette vue"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "kind",
+          "name",
+          "filters",
+          "shared",
+          "position",
+          "ownerId",
+          "canManage"
+        ]
+      },
+      "SavedViewKind": {
+        "type": "string",
+        "enum": [
+          "schedule"
+        ]
+      },
+      "ScheduleViewFilters": {
+        "type": "object",
+        "properties": {
+          "departmentIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "maxItems": 200
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "maxItems": 200
+          },
+          "projectIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "maxItems": 200,
+            "description": "Personnes allouées à l'un de ces projets (dans la fenêtre affichée)"
+          },
+          "personIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "maxItems": 200
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 50
+            },
+            "maxItems": 50,
+            "description": "Personnes portant l'un de ces tags"
+          },
+          "zoom": {
+            "$ref": "#/components/schemas/SavedViewZoom"
+          },
+          "peopleSort": {
+            "type": "string",
+            "enum": [
+              "name",
+              "department",
+              "role"
+            ],
+            "description": "Tri des lignes de personnes (défaut name)"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SavedViewZoom": {
+        "type": "string",
+        "enum": [
+          "day",
+          "week",
+          "month"
+        ]
+      },
+      "SavedViewCreate": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "schedule"
+            ],
+            "description": "Défaut schedule"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "\\S"
+          },
+          "filters": {
+            "type": "object",
+            "properties": {
+              "departmentIds": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Id"
+                },
+                "maxItems": 200
+              },
+              "roleIds": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Id"
+                },
+                "maxItems": 200
+              },
+              "projectIds": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Id"
+                },
+                "maxItems": 200,
+                "description": "Personnes allouées à l'un de ces projets (dans la fenêtre affichée)"
+              },
+              "personIds": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Id"
+                },
+                "maxItems": 200
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 50
+                },
+                "maxItems": 50,
+                "description": "Personnes portant l'un de ces tags"
+              },
+              "zoom": {
+                "$ref": "#/components/schemas/SavedViewZoom"
+              },
+              "peopleSort": {
+                "type": "string",
+                "enum": [
+                  "name",
+                  "department",
+                  "role"
+                ],
+                "description": "Tri des lignes de personnes (défaut name)"
+              }
+            },
+            "additionalProperties": false,
+            "description": "Défaut {}"
+          },
+          "shared": {
+            "type": "boolean",
+            "description": "Défaut false"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32767
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "SavedViewPatch": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "\\S"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ScheduleViewFilters"
+          },
+          "shared": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32767
+          }
+        }
       }
     },
     "parameters": {}
@@ -12483,6 +12733,384 @@
           },
           "409": {
             "description": "Version perimee (VERSION_CONFLICT, params.currentVersion) ou encore referencee (REFERENCE_IN_USE, params = nombre de lignes liees)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match absent (PRECONDITION_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/saved-views": {
+      "get": {
+        "operationId": "listSavedViews",
+        "summary": "Lister mes vues et les vues partagees du compte (pagine, tri par id ; tout membre authentifie)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Entités par page (défaut 200)"
+            },
+            "required": false,
+            "description": "Entités par page (défaut 200)",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Curseur de page renvoyé par page.nextCursor"
+            },
+            "required": false,
+            "description": "Curseur de page renvoyé par page.nextCursor",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/SavedViewKind"
+            },
+            "required": false,
+            "name": "kind",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de vues (items, page.nextCursor, page.total)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSavedView",
+        "summary": "Creer une vue (privee ; partagee : owner, admin ou project_manager)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedViewCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Vue creee",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Partage reserve a owner, admin et project_manager (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Nom deja pris par une de vos vues (ALREADY_EXISTS, params.field = name)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/saved-views/{id}": {
+      "patch": {
+        "operationId": "updateSavedView",
+        "summary": "Modifier une vue (verrou optimiste If-Match ; proprietaire, ou owner/admin pour une vue partagee)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\"\\d+\"$",
+              "description": "Version lue dans le Schedule, entre guillemets : \"3\""
+            },
+            "required": true,
+            "description": "Version lue dans le Schedule, entre guillemets : \"3\"",
+            "name": "If-Match",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedViewPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vue modifiee (nouvelle version)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps ou en-tete invalide (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Vue d'un autre sans droit de gestion, ou partage non autorise (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Vue inconnue, hors compte ou privee d'un autre (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version perimee (VERSION_CONFLICT, params.currentVersion) ou nom deja pris (ALREADY_EXISTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match absent (PRECONDITION_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteSavedView",
+        "summary": "Supprimer une vue (verrou optimiste If-Match ; memes droits que la modification)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\"\\d+\"$",
+              "description": "Version lue dans le Schedule, entre guillemets : \"3\""
+            },
+            "required": true,
+            "description": "Version lue dans le Schedule, entre guillemets : \"3\"",
+            "name": "If-Match",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Supprimee"
+          },
+          "400": {
+            "description": "En-tete invalide (VALIDATION_FAILED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Vue d'un autre sans droit de gestion (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Vue inconnue, hors compte ou privee d'un autre (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version perimee (VERSION_CONFLICT, params.currentVersion)",
             "content": {
               "application/json": {
                 "schema": {

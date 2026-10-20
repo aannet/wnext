@@ -24,6 +24,7 @@ import {
   LoggedTimeSubmitResult, LoggedTimeWindow,
 } from "./logged-time";
 import { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
+import { SavedView, SavedViewCreate, SavedViewList, SavedViewListQuery, SavedViewPatch, SavedViewPathParams } from "./saved-views";
 
 // Table des routes : donnees pures (zod uniquement). La spec OpenAPI en est derivee
 // hors serveur par packages/contracts-tools.
@@ -697,4 +698,53 @@ export const routes: RouteContract[] = [
   ...referenceRoutes({ path: "/api/v1/milestones", name: "Milestone", listQuery: MilestoneListQuery, list: MilestoneList, label: "jalon", create: MilestoneCreate, patch: MilestonePatch, response: Milestone, admin: false, remove: true, refs: "project, phase (du meme projet)" }),
   ...referenceRoutes({ path: "/api/v1/project-expenses", name: "ProjectExpense", listQuery: ProjectExpenseListQuery, list: ProjectExpenseList, label: "depense de projet", create: ProjectExpenseCreate, patch: ProjectExpensePatch, response: ProjectExpense, admin: false, remove: true, refs: "project", restricted: true }),
   ...referenceRoutes({ path: "/api/v1/project-budget-lines", name: "ProjectBudgetLine", listQuery: ProjectBudgetLineListQuery, list: ProjectBudgetLineList, label: "ligne de budget", create: ProjectBudgetLineCreate, patch: ProjectBudgetLinePatch, response: ProjectBudgetLine, admin: false, remove: true, unique: "une ligne par cible (tache ou personne) et par projet (params.entity = budget_line)", refs: "project, project_task (du meme projet), person", restricted: true }),
+  // Vues sauvegardees (FR-10) : voir saved-views.ts pour les regles de visibilite et de droits.
+  {
+    method: "get", path: "/api/v1/saved-views", operationId: "listSavedViews", summary: "Lister mes vues et les vues partagees du compte (pagine, tri par id ; tout membre authentifie)", query: SavedViewListQuery,
+    responses: {
+      200: { description: "Page de vues (items, page.nextCursor, page.total)", schema: SavedViewList },
+      400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "post", path: "/api/v1/saved-views", operationId: "createSavedView", summary: "Creer une vue (privee ; partagee : owner, admin ou project_manager)", body: SavedViewCreate,
+    responses: {
+      201: { description: "Vue creee", schema: SavedView },
+      400: { description: "Corps invalide (VALIDATION_FAILED)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Partage reserve a owner, admin et project_manager (FORBIDDEN)", schema: ApiError },
+      409: { description: "Nom deja pris par une de vos vues (ALREADY_EXISTS, params.field = name)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "patch", path: "/api/v1/saved-views/{id}", operationId: "updateSavedView", summary: "Modifier une vue (verrou optimiste If-Match ; proprietaire, ou owner/admin pour une vue partagee)",
+    params: SavedViewPathParams, headers: IfMatchHeader, body: SavedViewPatch,
+    responses: {
+      200: { description: "Vue modifiee (nouvelle version)", schema: SavedView },
+      400: { description: "Corps ou en-tete invalide (VALIDATION_FAILED)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Vue d'un autre sans droit de gestion, ou partage non autorise (FORBIDDEN)", schema: ApiError },
+      404: { description: "Vue inconnue, hors compte ou privee d'un autre (NOT_FOUND)", schema: ApiError },
+      409: { description: "Version perimee (VERSION_CONFLICT, params.currentVersion) ou nom deja pris (ALREADY_EXISTS)", schema: ApiError },
+      428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "delete", path: "/api/v1/saved-views/{id}", operationId: "deleteSavedView", summary: "Supprimer une vue (verrou optimiste If-Match ; memes droits que la modification)",
+    params: SavedViewPathParams, headers: IfMatchHeader,
+    responses: {
+      204: { description: "Supprimee" },
+      400: { description: "En-tete invalide (VALIDATION_FAILED)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Vue d'un autre sans droit de gestion (FORBIDDEN)", schema: ApiError },
+      404: { description: "Vue inconnue, hors compte ou privee d'un autre (NOT_FOUND)", schema: ApiError },
+      409: { description: "Version perimee (VERSION_CONFLICT, params.currentVersion)", schema: ApiError },
+      428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
 ];

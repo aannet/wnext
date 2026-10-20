@@ -33,3 +33,4 @@ export {
   Money, ProjectBudgetLine, ProjectBudgetLineCreate, ProjectBudgetLineList, ProjectBudgetLineListQuery, ProjectBudgetLinePatch,
   ProjectExpense, ProjectExpenseCreate, ProjectExpenseList, ProjectExpenseListQuery, ProjectExpensePatch,
 } from "./budget";
+export { SavedView, SavedViewCreate, SavedViewKind, SavedViewList, SavedViewListQuery, SavedViewPatch, SavedViewPathParams, SavedViewPeopleSort, SavedViewZoom, ScheduleViewFilters } from "./saved-views";

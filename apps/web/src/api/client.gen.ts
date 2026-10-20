@@ -823,6 +823,60 @@ export interface ProjectBudgetLinePatch {
   amount?: string | null;
 }
 
+export interface SavedViewList {
+  items: Array<SavedView>;
+  page: SchedulePage;
+}
+
+export interface SavedView {
+  id: Id;
+  version: Version;
+  kind: SavedViewKind;
+  name: string;
+  filters: ScheduleViewFilters;
+  shared: boolean;
+  position: number;
+  ownerId: string;
+  canManage: boolean;
+}
+
+export type SavedViewKind = "schedule";
+
+export interface ScheduleViewFilters {
+  departmentIds?: Array<Id>;
+  roleIds?: Array<Id>;
+  projectIds?: Array<Id>;
+  personIds?: Array<Id>;
+  tags?: Array<string>;
+  zoom?: SavedViewZoom;
+  peopleSort?: "name" | "department" | "role";
+}
+
+export type SavedViewZoom = "day" | "week" | "month";
+
+export interface SavedViewCreate {
+  kind?: "schedule";
+  name: string;
+  filters?: {
+    departmentIds?: Array<Id>;
+    roleIds?: Array<Id>;
+    projectIds?: Array<Id>;
+    personIds?: Array<Id>;
+    tags?: Array<string>;
+    zoom?: SavedViewZoom;
+    peopleSort?: "name" | "department" | "role";
+  };
+  shared?: boolean;
+  position?: number;
+}
+
+export interface SavedViewPatch {
+  name?: string;
+  filters?: ScheduleViewFilters;
+  shared?: boolean;
+  position?: number;
+}
+
 export interface FetchResponse {
   status: number;
   json(): Promise<unknown>;
@@ -2042,6 +2096,59 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       };
     }): Promise<ApiResult<void, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/project-budget-lines/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as void }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Lister mes vues et les vues partagees du compte (pagine, tri par id ; tout membre authentifie) (GET /api/v1/saved-views) */
+    async listSavedViews(query: {
+      limit?: number;
+      cursor?: string;
+      kind?: SavedViewKind;
+    } = {}): Promise<ApiResult<SavedViewList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/saved-views" + toQueryString(query), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as SavedViewList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Creer une vue (privee ; partagee : owner, admin ou project_manager) (POST /api/v1/saved-views) */
+    async createSavedView(input: {
+      body: SavedViewCreate;
+    }): Promise<ApiResult<SavedView, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/saved-views", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as SavedView }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier une vue (verrou optimiste If-Match ; proprietaire, ou owner/admin pour une vue partagee) (PATCH /api/v1/saved-views/{id}) */
+    async updateSavedView(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+      body: SavedViewPatch;
+    }): Promise<ApiResult<SavedView, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/saved-views/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as SavedView }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Supprimer une vue (verrou optimiste If-Match ; memes droits que la modification) (DELETE /api/v1/saved-views/{id}) */
+    async deleteSavedView(input: {
+      path: {
+        id: Id;
+      };
+      headers: {
+        "If-Match": string;
+      };
+    }): Promise<ApiResult<void, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/saved-views/" + encodeURIComponent(String(input.path.id)), { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as void }
