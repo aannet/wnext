@@ -6,7 +6,9 @@
 // dans <main>, titré par un <h1> visuellement masqué (traduit).
 import type { I18n } from "@lingui/core";
 import { todayIn, viewAt } from "@wnext/engine";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import type { ImportSource } from "./data/import-source";
+import { ImportDialog } from "./imports/import-dialog";
 import type { ScheduleSource, ScheduleSourceState, SourceErrorCode } from "./data/schedule-source";
 import type { ViewsSource } from "./data/views-source";
 import type { MessageKey } from "./i18n";
@@ -25,6 +27,8 @@ export interface ScheduleContainerProps {
   heightPx: number;
   /** Session OIDC : affiche « Se déconnecter » (absent en mode dev, sans session à fermer). */
   onLogout?: () => void;
+  /** Import CSV (US-1.2) : bouton « Importer » dans la barre d'état ; absent (rôle sans droit d'import) : pas de bouton. */
+  imports?: ImportSource;
 }
 
 const SHOWN_ERRORS = new Set<SourceErrorCode>(["UNAUTHENTICATED", "FORBIDDEN", "RATE_LIMITED"]);
@@ -36,7 +40,7 @@ const realtimeKey = (s: ScheduleSourceState["realtime"]): MessageKey =>
 const TODAY_CHECK_MS = 60_000;
 const systemNow = () => new Date();
 
-export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onLogout }: ScheduleContainerProps) {
+export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onLogout, imports }: ScheduleContainerProps) {
   const t = (k: MessageKey) => i18n._(k);
   const state = useSyncExternalStore(source.subscribe, source.getState);
   const timezone = state.data?.account.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -67,6 +71,9 @@ export function ScheduleContainer({ i18n, source, views, now = systemNow, widthP
 
   const title = <h1 className="wn-visually-hidden">{t("app.title")}</h1>;
   const logout = onLogout && <button type="button" className="wn-logout" onClick={onLogout}>{t("auth.logout")}</button>;
+  const [importing, setImporting] = useState(false);
+  const importButton = useRef<HTMLButtonElement>(null);
+  const closeImport = () => { setImporting(false); importButton.current?.focus(); };
 
   if (!state.data) {
     return (
@@ -84,9 +91,11 @@ export function ScheduleContainer({ i18n, source, views, now = systemNow, widthP
       <div className="wn-statusbar">
         {status}
         {state.loading && <span className="wn-loading">{t("schedule.loading")}</span>}
+        {imports && <button ref={importButton} type="button" className="wn-import-open" aria-haspopup="dialog" onClick={() => setImporting(true)}>{t("import.open")}</button>}
         {logout}
       </div>
       {error}
+      {imports && importing && <ImportDialog i18n={i18n} source={imports} onClose={closeImport} />}
       <ScheduleScreen i18n={i18n} data={state.data} today={today} widthPx={widthPx} heightPx={heightPx} onViewChange={source.setViewport}
         editor={undo.history.editor} history={undo.history} records={source} {...(views ? { views } : {})} />
     </main>

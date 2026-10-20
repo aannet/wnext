@@ -109,3 +109,14 @@ body { box-sizing: border-box; height: 100dvh; padding: 16px; font: 13px system-
 .wn-filters-body { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-top: 6px; }
 .wn-filter { display: flex; flex-direction: column; gap: 2px; }
 .wn-filter select[multiple] { min-width: 160px; }
+/* Import CSV (US-1.2) : bouton de la barre d'état, boîte de dialogue, tableau des erreurs par ligne. */
+.wn-import-open { margin-left: auto; font-size: 12px; }
+.wn-import-open + .wn-logout { margin-left: 0; }
+.wn-import-dialog { max-width: 960px; }
+.wn-import-dialog h2, .wn-import-dialog h3 { margin: 0 0 8px; font-size: 14px; }
+.wn-import-dialog form { display: grid; gap: 8px; }
+.wn-import-help { color: #374151; font-size: 12px; }
+.wn-import-counters { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 8px; padding: 0; list-style: none; }
+.wn-import-errors { margin: 0 0 8px; border-collapse: collapse; font-size: 12px; }
+.wn-import-errors caption { text-align: left; font-weight: 600; }
+.wn-import-errors th, .wn-import-errors td { padding: 2px 8px; border: 1px solid #e5e7eb; text-align: left; vertical-align: top; }

@@ -18,6 +18,7 @@ Ouvrir l'URL affichée par Vite. `npm run dev:stack -- --reset` repart d'une bas
 - `?demo=1` : démo locale sans API (`src/demo.ts`).
 - `?lang=en` : interface en anglais (français par défaut).
 - Touche `T` : retour à aujourd'hui.
+- Bouton « Importer » (barre d'état) : import CSV de personnes, projets ou clients (US-1.2, `src/imports/import-dialog.tsx`), aperçu dryRun puis confirmation. Affiché pour `VITE_DEV_ROLE` owner ou admin en mode dev, toujours en OIDC (le rôle n'est pas encore connu de l'écran : un refus 403 est traduit) et en démo (import local, `src/data/import-source.ts`).
 
 ## Connexion OIDC locale
 
