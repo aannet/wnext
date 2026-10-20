@@ -52,7 +52,7 @@ export function Dialog({ variant, title, onClose, onEscape, closeLabel, children
           trap.onKeyDown(e);
         }}
       >
-        <header className="flex items-start justify-between gap-3 border-b border-solid border-border px-4 py-3">
+        <div className="flex items-start justify-between gap-3 border-b border-solid border-border px-4 py-3">
           <h2 id={titleId} className="m-0 text-heading font-semibold">{title}</h2>
           <button
             type="button" {...{ [CLOSE_ATTR]: "" }} aria-label={closeLabel} title={closeLabel} onClick={onClose}
@@ -60,9 +60,9 @@ export function Dialog({ variant, title, onClose, onEscape, closeLabel, children
           >
             <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13" /></svg>
           </button>
-        </header>
+        </div>
         <div className="min-h-0 flex-1 overflow-auto px-4 py-3 [&_p]:mt-0 [&_p]:mb-2">{children}</div>
-        {footer && <footer className="flex flex-wrap justify-end gap-2 border-t border-solid border-border px-4 py-3">{footer}</footer>}
+        {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-solid border-border px-4 py-3">{footer}</div>}
       </div>
     </div>,
     document.body,
