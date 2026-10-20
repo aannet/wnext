@@ -125,3 +125,16 @@ describe("écritures en une action d'annulation", () => {
     expect(h.history.getState().undoLabel).toBe("timeoff.reschedule");
   });
 });
+
+// @BR-19
+describe("plan du report et horaire daté", () => {
+  it("les pourcentages sont convertis avec l'horaire en vigueur chaque jour (4 h avant jeudi, 8 h ensuite)", () => {
+    const d = data([alloc("a", MON, FRI, 0, { mode: "percentage", hoursPerDay: null, percent: 50 })]);
+    d.people[0] = { ...d.people[0]!, workDaysHours: [8, 8, 8, 8, 8, 0, 0], workSchedule: [
+      { validFrom: null, validTo: WED, workDaysHours: [4, 4, 4, 4, 4, 0, 0] }, { validFrom: THU, validTo: null, workDaysHours: [8, 8, 8, 8, 8, 0, 0] },
+    ] } as typeof d.people[number];
+    const resolutions = [{ day: WED, reduce: [{ allocationId: "a", toHours: 0 }], moves: [], unplacedHours: 0 }];
+    // mercredi : 50 % de 4 h = 2 h retirées (et non 4 h avec l'horaire de la période ouverte).
+    expect(planResolution(d, "1", resolutions, { a: "reduce" })[0]!.removedHours).toBe(2);
+  });
+});

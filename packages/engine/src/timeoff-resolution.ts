@@ -11,6 +11,7 @@
 //  * Séries (répétition) : non traitées (null) ; l'écran les laisse telles quelles (garder), à ajuster à la main.
 import { addDays, workHours } from "./dates";
 import { allocationHoursOn } from "./load";
+import { workDaysHoursOn, type WorkScheduleEntry } from "./work-schedule";
 import type { DayResolution, IdentifiedAllocation } from "./timeoff-conflicts";
 
 export type ResolutionChoice = "move" | "reduce";
@@ -36,6 +37,8 @@ export interface ResolutionWrites {
 export interface ResolutionWritesInput {
   allocation: IdentifiedAllocation;
   workDaysHours: readonly number[];
+  /** Historique daté (BR-19) : l'horaire de chaque jour est celui en vigueur ce jour-là ; absent = workDaysHours partout. */
+  workSchedule?: readonly WorkScheduleEntry[];
   resolutions: readonly DayResolution[];
   choice: ResolutionChoice;
 }
@@ -43,13 +46,14 @@ export interface ResolutionWritesInput {
 type Amount = number | "origin";
 
 export function resolutionWrites(input: ResolutionWritesInput): ResolutionWrites | null {
-  const { allocation: a, workDaysHours: wdh, choice } = input;
+  const { allocation: a, choice } = input;
+  const wdhOn = (day: string) => workDaysHoursOn({ workDaysHours: input.workDaysHours, ...(input.workSchedule && { workSchedule: input.workSchedule }) }, day);
   if (a.repeatState !== "none") return null;
   const amounts = new Map<string, number>();
   let movedHours = 0;
   let removedHours = 0;
   for (const r of input.resolutions) {
-    const h = allocationHoursOn(a, wdh, r.day);
+    const h = allocationHoursOn(a, wdhOn(r.day), r.day);
     if (h <= 0) continue;
     if (choice === "move") {
       const moves = r.moves.filter((m) => m.allocationId === a.id);
@@ -58,7 +62,7 @@ export function resolutionWrites(input: ResolutionWritesInput): ResolutionWrites
       amounts.set(r.day, h - moved);
       movedHours += moved;
       for (const m of moves) {
-        amounts.set(m.toDay, (amounts.get(m.toDay) ?? allocationHoursOn(a, wdh, m.toDay)) + m.hours);
+        amounts.set(m.toDay, (amounts.get(m.toDay) ?? allocationHoursOn(a, wdhOn(m.toDay), m.toDay)) + m.hours);
       }
     } else {
       const red = r.reduce.find((x) => x.allocationId === a.id);
@@ -83,7 +87,7 @@ export function resolutionWrites(input: ResolutionWritesInput): ResolutionWrites
   const slices: ResolutionSlice[] = [];
   let open = false;
   for (let d = from; d <= to; d = addDays(d, 1)) {
-    if (workHours(wdh, d) <= 0) continue; // jour non ouvré : ne coupe pas
+    if (workHours(wdhOn(d), d) <= 0) continue; // jour non ouvré : ne coupe pas
     const v = amountOn(d);
     if (v === 0) { open = false; continue; }
     const hours = v === "origin" ? null : v;

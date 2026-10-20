@@ -58,7 +58,7 @@ export function planResolution(s: ScheduleResponse, personId: string, resolution
   for (const a of input.allocations) {
     const choice = choices[a.id];
     if (!choice || choice === "keep") continue;
-    const w = resolutionWrites({ allocation: a, workDaysHours: person.workDaysHours, resolutions, choice });
+    const w = resolutionWrites({ allocation: a, workDaysHours: person.workDaysHours, ...(person.workSchedule && { workSchedule: person.workSchedule }), resolutions, choice });
     if (w) out.push(w);
   }
   return out;

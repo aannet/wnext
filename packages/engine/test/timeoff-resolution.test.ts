@@ -85,3 +85,19 @@ describe("écritures du report assisté", () => {
     expect(writes(off(WED), all, "b", "move")).toMatchObject({ update: { startDate: THU, endDate: THU }, movedHours: 4 });
   });
 });
+
+// @BR-19
+describe("report assisté et horaire daté", () => {
+  it("les heures d'un jour suivent l'horaire en vigueur à ce jour, pas celui de la période ouverte", () => {
+    const four = [4, 4, 4, 4, 4, 0, 0];
+    const workSchedule = [
+      { validFrom: null, validTo: WED, workDaysHours: [8, 8, 8, 8, 8, 0, 0] },
+      { validFrom: THU, validTo: null, workDaysHours: four },
+    ];
+    const resolutions = [{ day: WED, reduce: [{ allocationId: "a", toHours: 0 }], moves: [], unplacedHours: 0 }];
+    const w = resolutionWrites({ allocation: pct("a", MON, FRI, 100), workDaysHours: four, workSchedule, resolutions, choice: "reduce" });
+    expect(w?.removedHours).toBe(8); // mercredi : encore l'ancien horaire (8 h), alors que la période ouverte dit 4 h
+    const flat = resolutionWrites({ allocation: pct("a", MON, FRI, 100), workDaysHours: [8, 8, 8, 8, 8, 0, 0], resolutions, choice: "reduce" });
+    expect(flat?.removedHours).toBe(8);
+  });
+});
