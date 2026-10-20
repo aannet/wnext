@@ -27,3 +27,4 @@ reports/mutation/
 # Schemathesis (npm run test:schemathesis) : venv et rapports
 .venv-schemathesis/
 tests/schemathesis/out/
+.schemathesis/
