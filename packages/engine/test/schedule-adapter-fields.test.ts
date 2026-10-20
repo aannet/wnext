@@ -31,7 +31,8 @@ const rich: ScheduleResponse = {
 };
 
 describe("conversion fidèle : chaque champ du contrat arrive au moteur", () => {
-  const out = scheduleToEngineInput(rich);
+  // Appel dans chaque test (pas à la collecte) : sinon la couverture par test de Stryker ne l'attribue à aucun test.
+  const out = new Proxy({} as ReturnType<typeof scheduleToEngineInput>, { get: (_t, k) => scheduleToEngineInput(rich)[k as keyof ReturnType<typeof scheduleToEngineInput>] });
 
   it("fenêtre et seuil du compte", () => {
     expect(out.from).toBe("2026-05-04");
