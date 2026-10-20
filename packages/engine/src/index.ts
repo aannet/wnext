@@ -4,6 +4,7 @@ export * from "./capacity";
 export * from "./load";
 export * from "./utilization";
 export * from "./timeoff-conflicts";
+export * from "./timeoff-resolution";
 export * from "./percent";
 export * from "./capacity-state";
 export * from "./team-removal";
