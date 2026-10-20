@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { ImportPathParams, ImportQuery, ImportRequest, type ImportQuery as ImportQueryT, REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, SavedViewCreate, SavedViewListQuery, SavedViewPatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonHistoryQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT, type PersonHistoryQuery as PersonHistoryQueryT } from "@wnext/contracts";
+import { NotificationListQuery, NotificationPreferencesUpdate, type NotificationEntity, ImportPathParams, ImportQuery, ImportRequest, type ImportQuery as ImportQueryT, REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, SavedViewCreate, SavedViewListQuery, SavedViewPatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonHistoryQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT, type PersonHistoryQuery as PersonHistoryQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import type { RateLimiter } from "./rate-limit";
@@ -13,6 +13,7 @@ import {
   updateDepartment, updateHoliday, updateProject, updateRole, updateTimeoffType,
 } from "./reference";
 import { runImport } from "./imports";
+import { getNotificationPreferences, listNotifications, markAllNotificationsRead, markNotificationRead, recordConflict, updateNotificationPreferences } from "./notifications";
 import { createSavedView, deleteSavedView, getSavedView, listSavedViews, updateSavedView } from "./saved-views";
 import { getSchedule } from "./schedule";
 import { addManyToTeam, addToTeam, getTeamRemovalSummary, listTeam, removeFromTeam } from "./team";
@@ -96,7 +97,7 @@ function parseQuery<T>(schema: QuerySchema, search: URLSearchParams): T {
     if (values.length > 1 || !(key in schema.shape)) throw new ApiFailure("VALIDATION_FAILED", { field: key });
     const v = values[0]!;
     if (hasNul(v)) throw new ApiFailure("VALIDATION_FAILED", { field: key });
-    if (key === "includeInactive" || key === "dryRun") {
+    if (key === "includeInactive" || key === "dryRun" || key === "unread") {
       if (v !== "true" && v !== "false") throw new ApiFailure("VALIDATION_FAILED", { field: key });
       raw[key] = v === "true";
     } else if (key === "limit") {
@@ -112,6 +113,19 @@ function parseQuery<T>(schema: QuerySchema, search: URLSearchParams): T {
 }
 
 const MAX_BODY_BYTES = 1_000_000;
+
+/**
+ * BR-36 / US-3.5 : un 409 VERSION_CONFLICT sur une écriture à verrou optimiste notifie l'appelant (edit_conflict, auteur et version de la
+ * ligne gagnante). La notification ne change jamais la réponse : son échec est journalisé (onError) et le 409 part tel quel.
+ */
+async function onConflictNotify<T>(deps: HttpDeps, ctx: RequestContext, requestId: string, entity: NotificationEntity, id: string, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (err) {
+    if (err instanceof ApiFailure && err.code === "VERSION_CONFLICT") await recordConflict(deps.db, ctx, entity, id).catch((e: unknown) => deps.onError?.(e, requestId));
+    throw err;
+  }
+}
 const WRITERS = new Set(["owner", "admin", "project_manager"]);
 const ADMINS = new Set(["owner", "admin"]);
 
@@ -141,6 +155,8 @@ function expectedVersion(headers: HttpRequest["headers"]): number {
 type Parser<T> = Parameters<typeof parseJsonBody<T>>[0];
 interface WriteResource {
   pattern: RegExp;
+  /** Table de la ressource : un 409 VERSION_CONFLICT sur PATCH/DELETE notifie l'appelant (BR-36), voir recordConflict. */
+  entity: NotificationEntity;
   /** Configuration du compte : owner et admin seulement (403 avant la validation du corps). */
   adminOnly?: boolean;
   /** Ouverte à tout membre authentifié : le domaine contrôle les droits (ex. vues sauvegardées). */
@@ -155,13 +171,14 @@ interface WriteResource {
   remove?(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
 }
 function resource<C, P>(def: {
-  pattern: RegExp; adminOnly?: boolean; open?: boolean; restricted?: boolean; read?: WriteResource["read"]; createSchema: Parser<C>; patchSchema: Parser<P>;
+  pattern: RegExp; entity: NotificationEntity; adminOnly?: boolean; open?: boolean; restricted?: boolean; read?: WriteResource["read"]; createSchema: Parser<C>; patchSchema: Parser<P>;
   create(db: Db, ctx: RequestContext, body: C): Promise<unknown>;
   update(db: Db, ctx: RequestContext, id: string, version: number, patch: P): Promise<unknown>;
   remove?(db: Db, ctx: RequestContext, id: string, version: number): Promise<void>;
 }): WriteResource {
   return {
     pattern: def.pattern,
+    entity: def.entity,
     adminOnly: def.adminOnly,
     open: def.open,
     restricted: def.restricted,
@@ -172,22 +189,22 @@ function resource<C, P>(def: {
   };
 }
 const WRITE_RESOURCES: WriteResource[] = [
-  resource({ pattern: /^\/api\/v1\/allocations(?:\/([^/]+))?$/, read: { get: allocationReader.get }, createSchema: AllocationCreate, patchSchema: AllocationPatch, create: createAllocation, update: updateAllocation, remove: deleteAllocation }),
-  resource({ pattern: /^\/api\/v1\/people(?:\/([^/]+))?$/, read: { querySchema: PersonListQuery, list: personReader.list, get: personReader.get }, createSchema: PersonCreate, patchSchema: PersonPatch, create: createPerson, update: updatePerson }),
-  resource({ pattern: /^\/api\/v1\/logged-time(?:\/([^/]+))?$/, createSchema: LoggedTimeCreate, patchSchema: LoggedTimePatch, create: createLoggedTime, update: updateLoggedTime, remove: deleteLoggedTime }),
-  resource({ pattern: /^\/api\/v1\/timeoffs(?:\/([^/]+))?$/, createSchema: TimeoffCreate, patchSchema: TimeoffPatch, create: createTimeoff, update: updateTimeoff, remove: deleteTimeoff }),
-  resource({ adminOnly: true, pattern: /^\/api\/v1\/departments(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: departmentReader.list, get: departmentReader.get }, createSchema: DepartmentCreate, patchSchema: DepartmentPatch, create: createDepartment, update: updateDepartment, remove: deleteDepartment }),
-  resource({ adminOnly: true, pattern: /^\/api\/v1\/roles(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: roleReader.list, get: roleReader.get }, createSchema: RoleCreate, patchSchema: RolePatch, create: createRole, update: updateRole, remove: deleteRole }),
-  resource({ adminOnly: true, pattern: /^\/api\/v1\/timeoff-types(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: timeoffTypeReader.list, get: timeoffTypeReader.get }, createSchema: TimeoffTypeCreate, patchSchema: TimeoffTypePatch, create: createTimeoffType, update: updateTimeoffType, remove: deleteTimeoffType }),
-  resource({ adminOnly: true, pattern: /^\/api\/v1\/holidays(?:\/([^/]+))?$/, read: { querySchema: HolidayListQuery, list: holidayReader.list, get: holidayReader.get }, createSchema: HolidayCreate, patchSchema: HolidayPatch, create: createHoliday, update: updateHoliday, remove: deleteHoliday }),
-  resource({ pattern: /^\/api\/v1\/projects(?:\/([^/]+))?$/, read: { querySchema: ProjectListQuery, list: projectReader.list, get: projectReader.get }, createSchema: ProjectCreate, patchSchema: ProjectPatch, create: createProject, update: updateProject }),
-  resource({ open: true, pattern: /^\/api\/v1\/saved-views(?:\/([^/]+))?$/, read: { querySchema: SavedViewListQuery, list: listSavedViews, get: getSavedView }, createSchema: SavedViewCreate, patchSchema: SavedViewPatch, create: createSavedView, update: updateSavedView, remove: deleteSavedView }),
-  resource({ pattern: /^\/api\/v1\/clients(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: clientReader.list, get: clientReader.get }, createSchema: ClientCreate, patchSchema: ClientPatch, create: createClient, update: updateClient, remove: deleteClient }),
-  resource({ pattern: /^\/api\/v1\/phases(?:\/([^/]+))?$/, read: { querySchema: PhaseListQuery, list: phaseReader.list, get: phaseReader.get }, createSchema: PhaseCreate, patchSchema: PhasePatch, create: createPhase, update: updatePhase, remove: deletePhase }),
-  resource({ pattern: /^\/api\/v1\/project-tasks(?:\/([^/]+))?$/, read: { querySchema: ProjectTaskListQuery, list: projectTaskReader.list, get: projectTaskReader.get }, createSchema: ProjectTaskCreate, patchSchema: ProjectTaskPatch, create: createProjectTask, update: updateProjectTask, remove: deleteProjectTask }),
-  resource({ pattern: /^\/api\/v1\/milestones(?:\/([^/]+))?$/, read: { querySchema: MilestoneListQuery, list: milestoneReader.list, get: milestoneReader.get }, createSchema: MilestoneCreate, patchSchema: MilestonePatch, create: createMilestone, update: updateMilestone, remove: deleteMilestone }),
-  resource({ restricted: true, pattern: /^\/api\/v1\/project-expenses(?:\/([^/]+))?$/, read: { querySchema: ProjectExpenseListQuery, list: expenseReader.list, get: expenseReader.get }, createSchema: ProjectExpenseCreate, patchSchema: ProjectExpensePatch, create: createExpense, update: updateExpense, remove: deleteExpense }),
-  resource({ restricted: true, pattern: /^\/api\/v1\/project-budget-lines(?:\/([^/]+))?$/, read: { querySchema: ProjectBudgetLineListQuery, list: budgetLineReader.list, get: budgetLineReader.get }, createSchema: ProjectBudgetLineCreate, patchSchema: ProjectBudgetLinePatch, create: createBudgetLine, update: updateBudgetLine, remove: deleteBudgetLine }),
+  resource({ entity: "allocations", pattern: /^\/api\/v1\/allocations(?:\/([^/]+))?$/, read: { get: allocationReader.get }, createSchema: AllocationCreate, patchSchema: AllocationPatch, create: createAllocation, update: updateAllocation, remove: deleteAllocation }),
+  resource({ entity: "people", pattern: /^\/api\/v1\/people(?:\/([^/]+))?$/, read: { querySchema: PersonListQuery, list: personReader.list, get: personReader.get }, createSchema: PersonCreate, patchSchema: PersonPatch, create: createPerson, update: updatePerson }),
+  resource({ entity: "logged_time", pattern: /^\/api\/v1\/logged-time(?:\/([^/]+))?$/, createSchema: LoggedTimeCreate, patchSchema: LoggedTimePatch, create: createLoggedTime, update: updateLoggedTime, remove: deleteLoggedTime }),
+  resource({ entity: "timeoffs", pattern: /^\/api\/v1\/timeoffs(?:\/([^/]+))?$/, createSchema: TimeoffCreate, patchSchema: TimeoffPatch, create: createTimeoff, update: updateTimeoff, remove: deleteTimeoff }),
+  resource({ adminOnly: true, entity: "departments", pattern: /^\/api\/v1\/departments(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: departmentReader.list, get: departmentReader.get }, createSchema: DepartmentCreate, patchSchema: DepartmentPatch, create: createDepartment, update: updateDepartment, remove: deleteDepartment }),
+  resource({ adminOnly: true, entity: "roles", pattern: /^\/api\/v1\/roles(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: roleReader.list, get: roleReader.get }, createSchema: RoleCreate, patchSchema: RolePatch, create: createRole, update: updateRole, remove: deleteRole }),
+  resource({ adminOnly: true, entity: "timeoff_types", pattern: /^\/api\/v1\/timeoff-types(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: timeoffTypeReader.list, get: timeoffTypeReader.get }, createSchema: TimeoffTypeCreate, patchSchema: TimeoffTypePatch, create: createTimeoffType, update: updateTimeoffType, remove: deleteTimeoffType }),
+  resource({ adminOnly: true, entity: "holidays", pattern: /^\/api\/v1\/holidays(?:\/([^/]+))?$/, read: { querySchema: HolidayListQuery, list: holidayReader.list, get: holidayReader.get }, createSchema: HolidayCreate, patchSchema: HolidayPatch, create: createHoliday, update: updateHoliday, remove: deleteHoliday }),
+  resource({ entity: "projects", pattern: /^\/api\/v1\/projects(?:\/([^/]+))?$/, read: { querySchema: ProjectListQuery, list: projectReader.list, get: projectReader.get }, createSchema: ProjectCreate, patchSchema: ProjectPatch, create: createProject, update: updateProject }),
+  resource({ open: true, entity: "saved_views", pattern: /^\/api\/v1\/saved-views(?:\/([^/]+))?$/, read: { querySchema: SavedViewListQuery, list: listSavedViews, get: getSavedView }, createSchema: SavedViewCreate, patchSchema: SavedViewPatch, create: createSavedView, update: updateSavedView, remove: deleteSavedView }),
+  resource({ entity: "clients", pattern: /^\/api\/v1\/clients(?:\/([^/]+))?$/, read: { querySchema: ReferenceListQuery, list: clientReader.list, get: clientReader.get }, createSchema: ClientCreate, patchSchema: ClientPatch, create: createClient, update: updateClient, remove: deleteClient }),
+  resource({ entity: "phases", pattern: /^\/api\/v1\/phases(?:\/([^/]+))?$/, read: { querySchema: PhaseListQuery, list: phaseReader.list, get: phaseReader.get }, createSchema: PhaseCreate, patchSchema: PhasePatch, create: createPhase, update: updatePhase, remove: deletePhase }),
+  resource({ entity: "project_tasks", pattern: /^\/api\/v1\/project-tasks(?:\/([^/]+))?$/, read: { querySchema: ProjectTaskListQuery, list: projectTaskReader.list, get: projectTaskReader.get }, createSchema: ProjectTaskCreate, patchSchema: ProjectTaskPatch, create: createProjectTask, update: updateProjectTask, remove: deleteProjectTask }),
+  resource({ entity: "milestones", pattern: /^\/api\/v1\/milestones(?:\/([^/]+))?$/, read: { querySchema: MilestoneListQuery, list: milestoneReader.list, get: milestoneReader.get }, createSchema: MilestoneCreate, patchSchema: MilestonePatch, create: createMilestone, update: updateMilestone, remove: deleteMilestone }),
+  resource({ restricted: true, entity: "project_expenses", pattern: /^\/api\/v1\/project-expenses(?:\/([^/]+))?$/, read: { querySchema: ProjectExpenseListQuery, list: expenseReader.list, get: expenseReader.get }, createSchema: ProjectExpenseCreate, patchSchema: ProjectExpensePatch, create: createExpense, update: updateExpense, remove: deleteExpense }),
+  resource({ restricted: true, entity: "project_budget_lines", pattern: /^\/api\/v1\/project-budget-lines(?:\/([^/]+))?$/, read: { querySchema: ProjectBudgetLineListQuery, list: budgetLineReader.list, get: budgetLineReader.get }, createSchema: ProjectBudgetLineCreate, patchSchema: ProjectBudgetLinePatch, create: createBudgetLine, update: updateBudgetLine, remove: deleteBudgetLine }),
 ];
 
 export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpReply> {
@@ -275,10 +292,11 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       try { id = decodeURIComponent(allocationGroup[1]!); } catch { id = "%"; }
       const version = expectedVersion(req.headers);
       if (req.method === "DELETE") {
-        await deleteAllocationGroup(deps.db, ctx, id, version);
+        await onConflictNotify(deps, ctx, requestId, "allocations", id, () => deleteAllocationGroup(deps.db, ctx, id, version));
         return { status: 204, body: undefined };
       }
-      return { status: 200, body: await updateAllocationGroup(deps.db, ctx, id, version, parseJsonBody(AllocationGroupPatch, req.body)) };
+      const patch = parseJsonBody(AllocationGroupPatch, req.body);
+      return { status: 200, body: await onConflictNotify(deps, ctx, requestId, "allocations", id, () => updateAllocationGroup(deps.db, ctx, id, version, patch)) };
     }
     const allocationSplit = /^\/api\/v1\/allocations\/([^/]+)\/split$/.exec(url.pathname);
     if (allocationSplit && req.method === "POST") {
@@ -288,7 +306,8 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       let id: string;
       try { id = decodeURIComponent(allocationSplit[1]!); } catch { id = "%"; }
       const version = expectedVersion(req.headers);
-      return { status: 200, body: await splitAllocation(deps.db, ctx, id, version, parseJsonBody(AllocationSplit, req.body)) };
+      const split = parseJsonBody(AllocationSplit, req.body);
+      return { status: 200, body: await onConflictNotify(deps, ctx, requestId, "allocations", id, () => splitAllocation(deps.db, ctx, id, version, split)) };
     }
     const teamList = /^\/api\/v1\/projects\/([^/]+)\/team$/.exec(url.pathname);
     if (teamList && req.method === "POST") {
@@ -342,7 +361,29 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       if (!ADMINS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
       let id: string;
       try { id = decodeURIComponent(unlock[1]!); } catch { id = "%"; }
-      return { status: 200, body: await unlockLoggedTime(deps.db, ctx, id, expectedVersion(req.headers)) };
+      const version = expectedVersion(req.headers);
+      return { status: 200, body: await onConflictNotify(deps, ctx, requestId, "logged_time", id, () => unlockLoggedTime(deps.db, ctx, id, version)) };
+    }
+    // Notifications in-app (FR-10, US-7.3) : tout membre authentifié, sur ses seules notifications (le domaine filtre par utilisateur).
+    if (url.pathname === "/api/v1/notifications" && req.method === "GET") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      return { status: 200, body: await listNotifications(deps.db, ctx, parseQuery(NotificationListQuery, url.searchParams)) };
+    }
+    const notificationRead = /^\/api\/v1\/notifications\/([^/]+)\/read$/.exec(url.pathname);
+    if ((url.pathname === "/api/v1/notifications/read-all" || notificationRead) && req.method === "POST") {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (url.pathname === "/api/v1/notifications/read-all") return { status: 200, body: await markAllNotificationsRead(deps.db, ctx) };
+      let id: string;
+      try { id = decodeURIComponent(notificationRead![1]!); } catch { id = "%"; }
+      return { status: 200, body: await markNotificationRead(deps.db, ctx, id) };
+    }
+    if (url.pathname === "/api/v1/notification-preferences" && (req.method === "GET" || req.method === "PUT")) {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (req.method === "GET") return { status: 200, body: await getNotificationPreferences(deps.db, ctx) };
+      return { status: 200, body: await updateNotificationPreferences(deps.db, ctx, parseJsonBody(NotificationPreferencesUpdate, req.body)) };
     }
     for (const resource of WRITE_RESOURCES) {
       const m = resource.pattern.exec(url.pathname);
@@ -365,11 +406,12 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       if (!resource.open && !(resource.adminOnly ? ADMINS : WRITERS).has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role });
       if (id === undefined) return { status: 201, body: await resource.create(deps.db, ctx, req.body) };
       const version = expectedVersion(req.headers);
+      const target = id;
       if (req.method === "DELETE") {
-        await resource.remove!(deps.db, ctx, id, version);
+        await onConflictNotify(deps, ctx, requestId, resource.entity, target, () => resource.remove!(deps.db, ctx, target, version));
         return { status: 204, body: undefined };
       }
-      return { status: 200, body: await resource.update(deps.db, ctx, id, version, req.body) };
+      return { status: 200, body: await onConflictNotify(deps, ctx, requestId, resource.entity, target, () => resource.update(deps.db, ctx, target, version, req.body)) };
     }
     return fail("NOT_FOUND", requestId, { entity: "route" });
   } catch (err) {
