@@ -18,7 +18,7 @@ import {
 } from "@wnext/engine";
 import { createGridRenderer } from "./grid-dom";
 import { createHeaderRenderer, type HeaderItem } from "./grid-header";
-import { buildGrid, type GridModel } from "./grid-model";
+import { buildGrid, type GridCap, type GridModel } from "./grid-model";
 
 /** Largeur de la colonne des noms de personnes (gouttière collée à gauche). */
 export const GUTTER_PX = 140;
@@ -56,6 +56,8 @@ export interface ScrollerOptions {
   trackDays?: number;
   bounds?: Bounds;
   build?: typeof buildGrid;
+  /** Libellé accessible d'une cellule de capacité, avec la période déjà formatée (catalogue i18n). */
+  capacityLabel?(period: string, c: GridCap): string;
 }
 
 export interface Scroller {
@@ -68,7 +70,7 @@ export interface Scroller {
   setZoom(z: Zoom): void;
   /** Flèches gauche / droite. */
   nudge(dir: -1 | 1): void;
-  stats(): { builds: number; rowsCreated: number; blocksCreated: number; cellsCreated: number; nodes: number };
+  stats(): { builds: number; rowsCreated: number; blocksCreated: number; capsCreated: number; cellsCreated: number; nodes: number };
   destroy(): void;
 }
 
@@ -96,7 +98,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
   const smoothMs = o.smoothMs ?? 300;
   const reduced = o.reducedMotion ?? prefersReducedMotion;
   const header = createHeaderRenderer(root, { heightPx: HEADER_PX, gutterPx: GUTTER_PX });
-  const grid = createGridRenderer(root);
+  const grid = createGridRenderer(root, o.capacityLabel ? { capLabel: (c) => o.capacityLabel!(label(c), c) } : {});
 
   let data = o.data;
   let zoom: Zoom = o.zoom ?? "day";
@@ -123,7 +125,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
 
   function rebuild(v: Viewport) {
     const range = chunkCover(v, weekStart(), neighborDays(v));
-    model = build(data, range, pxPerDay);
+    model = build(data, range, pxPerDay, zoom);
     modelKey = `${range.from}..${range.to}`;
     builds++;
   }

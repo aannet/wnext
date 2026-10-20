@@ -17,3 +17,15 @@ body { margin: 16px; font: 13px system-ui, sans-serif; color: #1f2937; backgroun
 .wn-error { margin: 8px 0; padding: 8px 12px; border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; border-radius: 4px; }
 .wn-loading { color: #6b7280; }
 .wn-block.wn-tentative { opacity: 0.55; background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgba(255,255,255,.35) 4px 8px); }
+
+/* Bande de capacité en pied de ligne (BR-01, BR-07). Contrastes >= 3:1 sur le fond (WCAG 1.4.11) ; l'information ne repose
+   jamais sur la couleur seule : tentatif = hachures bleues, dépassement = hachures rouges + ligne de capacité + cadre. */
+:root {
+  --wn-cap-confirmed: #1d4ed8;
+  --wn-cap-tentative-hatch: repeating-linear-gradient(45deg, #1d4ed8 0 2px, #bfdbfe 2px 5px);
+  --wn-cap-over-hatch: repeating-linear-gradient(-45deg, #b91c1c 0 2px, #fecaca 2px 5px);
+  --wn-cap-line: #111827;
+}
+.wn-cap { contain: strict; box-sizing: border-box; border-left: 1px solid #fff; background-color: #e5e7eb; }
+.wn-cap.wn-cap-none { background-color: #f9fafb; }
+.wn-cap.wn-cap-over { box-shadow: inset 0 0 0 1px #b91c1c; }

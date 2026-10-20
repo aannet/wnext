@@ -6,17 +6,20 @@
 //  * Horizontal (défilement continu) : la surface a la largeur de la piste ; les blocs du modèle sont décalés de `originX`
 //    (position du début du modèle sur la piste) et seuls ceux qui touchent [left, right] ont un nœud. Une ligne n'est
 //    revisitée que si son modèle, sa fenêtre horizontale ou son origine changent (l'appelant quantifie la fenêtre).
-import { visibleRows, type GridBlock, type GridModel } from "./grid-model";
+//  * Bande de capacité : une cellule (un nœud, motif en dégradés CSS) par période du zoom, recyclée comme les blocs ; son
+//    libellé (aria-label et infobulle) vient de l'appelant, recalculé seulement si les heures changent.
+import { CAP_PX, visibleRows, type GridBlock, type GridCap, type GridModel } from "./grid-model";
 
 interface BlockEl { el: HTMLDivElement; text: Text; v: Partial<GridBlock> }
-interface RowEl { el: HTMLDivElement; header: HTMLDivElement; index: number; model: GridModel | null; span: string; blocks: Map<string, BlockEl>; top: number; h: number; overflow: boolean }
+interface CapEl { el: HTMLDivElement; v: Partial<GridCap>; y: number }
+interface RowEl { el: HTMLDivElement; header: HTMLDivElement; index: number; model: GridModel | null; span: string; blocks: Map<string, BlockEl>; caps: Map<string, CapEl>; top: number; h: number; overflow: boolean }
 
 /** Placement horizontal, en pixels de surface. Absent : surface à la largeur du modèle, aucun tri horizontal. */
 export interface Horizontal { surfaceWidth: number; originX: number; left: number; right: number }
 
 export interface GridRenderer {
   render(model: GridModel, scrollTop: number, viewHeight: number, h?: Horizontal): void;
-  stats(): { rowsCreated: number; blocksCreated: number };
+  stats(): { rowsCreated: number; blocksCreated: number; capsCreated: number };
   destroy(): void;
 }
 
@@ -26,7 +29,24 @@ const div = (className: string) => {
   return d;
 };
 
-export function createGridRenderer(root: HTMLElement, opts: { overscan?: number } = {}): GridRenderer {
+export interface GridRendererOptions {
+  overscan?: number;
+  /** Libellé accessible (aria-label et infobulle) d'une cellule de capacité ; absent : aucun libellé. */
+  capLabel?(c: GridCap): string;
+}
+
+/** Fond d'une cellule de capacité : confirmé (plein), tentatif (hachuré), zone de dépassement (hachures), ligne de capacité. */
+export function capBackground(c: GridCap): string {
+  const layers: string[] = [];
+  const bar = (img: string, y: number, h: number) => `${img} 0 ${y}px / 100% ${h}px no-repeat`;
+  if (c.overPx > 0) layers.push(bar("var(--wn-cap-over-hatch)", 0, c.overPx));
+  if (c.state !== "none") layers.push(bar("linear-gradient(var(--wn-cap-line), var(--wn-cap-line))", c.lineY, 2));
+  if (c.tentativePx > 0) layers.push(bar("var(--wn-cap-tentative-hatch)", CAP_PX - c.confirmedPx - c.tentativePx, c.tentativePx));
+  if (c.confirmedPx > 0) layers.push(bar("linear-gradient(var(--wn-cap-confirmed), var(--wn-cap-confirmed))", CAP_PX - c.confirmedPx, c.confirmedPx));
+  return layers.join(", ");
+}
+
+export function createGridRenderer(root: HTMLElement, opts: GridRendererOptions = {}): GridRenderer {
   const overscan = opts.overscan ?? 3;
   const surface = div("wn-surface");
   surface.style.position = "relative";
@@ -34,8 +54,10 @@ export function createGridRenderer(root: HTMLElement, opts: { overscan?: number 
   const active = new Map<number, RowEl>();
   const freeRows: RowEl[] = [];
   const freeBlocks: BlockEl[] = [];
+  const freeCaps: CapEl[] = [];
   let rowsCreated = 0;
   let blocksCreated = 0;
+  let capsCreated = 0;
   let size = "";
 
   const takeRow = (): RowEl => {
@@ -51,11 +73,13 @@ export function createGridRenderer(root: HTMLElement, opts: { overscan?: number 
     header.setAttribute("role", "rowheader");
     el.appendChild(header);
     surface.appendChild(el);
-    return { el, header, index: -1, model: null, span: "", blocks: new Map(), top: NaN, h: NaN, overflow: false };
+    return { el, header, index: -1, model: null, span: "", blocks: new Map(), caps: new Map(), top: NaN, h: NaN, overflow: false };
   };
   const releaseRow = (r: RowEl) => {
     for (const b of r.blocks.values()) releaseBlock(b);
     r.blocks.clear();
+    for (const c of r.caps.values()) releaseCap(c);
+    r.caps.clear();
     r.index = -1;
     r.model = null;
     r.span = "";
@@ -82,6 +106,46 @@ export function createGridRenderer(root: HTMLElement, opts: { overscan?: number 
     b.el.removeAttribute("data-key");
     b.v = {};
     freeBlocks.push(b);
+  };
+
+  const takeCap = (parent: HTMLElement): CapEl => {
+    const c = freeCaps.pop() ?? (() => {
+      capsCreated++;
+      const el = div("wn-cap");
+      el.setAttribute("role", "gridcell");
+      el.style.position = "absolute";
+      el.style.top = "0";
+      el.style.height = `${CAP_PX}px`;
+      return { el, v: {}, y: NaN };
+    })();
+    c.el.style.display = "";
+    parent.appendChild(c.el);
+    return c;
+  };
+  const releaseCap = (c: CapEl) => {
+    c.el.style.display = "none";
+    c.el.removeAttribute("data-from");
+    c.v = {};
+    c.y = NaN;
+    freeCaps.push(c);
+  };
+
+  const setCap = (c: CapEl, g: GridCap, y: number, originX: number) => {
+    const v = c.v;
+    const s = c.el.style;
+    const x = g.x + originX;
+    if (v.from !== g.from) c.el.setAttribute("data-from", g.from);
+    if (v.x !== x || c.y !== y) { s.transform = `translate(${x}px, ${y}px)`; c.y = y; }
+    if (v.w !== g.w) s.width = `${g.w}px`;
+    if (v.state !== g.state) c.el.className = `wn-cap wn-cap-${g.state}`;
+    if (v.confirmedPx !== g.confirmedPx || v.tentativePx !== g.tentativePx || v.overPx !== g.overPx || v.lineY !== g.lineY || v.state !== g.state) s.background = capBackground(g);
+    if (opts.capLabel && (v.from !== g.from || v.kind !== g.kind || v.plannedHours !== g.plannedHours || v.capacityHours !== g.capacityHours
+      || v.tentativeHours !== g.tentativeHours || v.overtimeHours !== g.overtimeHours || v.overbookedDays !== g.overbookedDays)) {
+      const label = opts.capLabel(g);
+      c.el.setAttribute("aria-label", label);
+      c.el.title = label;
+    }
+    c.v = { ...g, x };
   };
 
   const setBlock = (b: BlockEl, g: GridBlock, originX: number) => {
@@ -117,6 +181,14 @@ export function createGridRenderer(root: HTMLElement, opts: { overscan?: number 
       if (!b) { b = takeBlock(r.el); r.blocks.set(g.key, b); }
       setBlock(b, g, h.originX);
     }
+    const capsShown = row.cells.filter((c) => c.x + h.originX + c.w >= h.left && c.x + h.originX <= h.right);
+    const capKeep = new Set(capsShown.map((c) => c.from));
+    for (const [k, c] of r.caps) if (!capKeep.has(k)) { releaseCap(c); r.caps.delete(k); }
+    for (const g of capsShown) {
+      let c = r.caps.get(g.from);
+      if (!c) { c = takeCap(r.el); r.caps.set(g.from, c); }
+      setCap(c, g, row.capY, h.originX);
+    }
   };
 
   return {
@@ -132,12 +204,13 @@ export function createGridRenderer(root: HTMLElement, opts: { overscan?: number 
         bindRow(r, model, i, h);
       }
     },
-    stats: () => ({ rowsCreated, blocksCreated }),
+    stats: () => ({ rowsCreated, blocksCreated, capsCreated }),
     destroy() {
       root.removeChild(surface);
       active.clear();
       freeRows.length = 0;
       freeBlocks.length = 0;
+      freeCaps.length = 0;
     },
   };
 }

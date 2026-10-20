@@ -10,7 +10,8 @@ import type { ScheduleResponse } from "@wnext/contracts";
 import type { HeaderCell, Viewport, Zoom } from "@wnext/engine";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { MessageKey } from "./i18n";
-import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
+import { capacityLabeler } from "./schedule/capacity-label";
+import { createScroller,type Clock, type Scroller } from "./schedule/scroller";
 
 export interface ScheduleScreenProps {
   i18n: I18n;
@@ -50,6 +51,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx, heightPx, onViewCha
     const s = createScroller({
       root: gridRef.current!, data, today, widthPx, heightPx, clock, zoom: zoomRef.current, label: headerFormatter(i18n.locale),
       onViewChange: (v) => viewChange.current?.(v),
+      capacityLabel: capacityLabeler(i18n),
     });
     scroller.current = s;
     return () => { s.destroy(); scroller.current = null; };

@@ -6,11 +6,19 @@
 //  * Le texte d'un bloc est une donnée (nom du projet), pas une chaîne d'interface.
 //  * Construit par tranches au défilement continu : regroupement par personne mis en cache par snapshot, allocations
 //    simples hors fenêtre écartées avant tout calcul de dates.
+//  * Bande de capacité (BR-01 signalée, BR-07 tentatif distinct) en pied de chaque ligne : une cellule par jour, semaine ou
+//    mois selon le zoom, calculée ici (par tranche, jamais au redessin) avec les heures du moteur ; le ratio n'est pas
+//    transporté, il est calculé à partir des heures. Hauteur de ligne = blocs + CAP_PX.
 import type { ScheduleResponse } from "@wnext/contracts";
-import { blockFraction, expandOccurrences, layoutRow, type LayoutBlock } from "@wnext/engine";
+import {
+  blockFraction, capacityCellsByPerson, dayNumber, expandOccurrences, layoutRow, scheduleToEngineInput, utilization,
+  type CapacityCell, type LayoutBlock, type ScheduleEngineInput, type Zoom,
+} from "@wnext/engine";
 
 /** Hauteur d'une ligne à 100 % de la journée de référence. Valeur provisoire, à régler à l'écran. */
 export const ROW_UNIT_PX = 48;
+/** Hauteur de la bande de capacité en pied de ligne. */
+export const CAP_PX = 14;
 
 export interface GridBlock {
   key: string;
@@ -27,7 +35,36 @@ export interface GridBlock {
   clippedEnd: boolean;
 }
 
-export interface GridRow { personId: string; name: string; top: number; heightPx: number; overflow: boolean; blocks: GridBlock[] }
+/**
+ * Cellule de capacité (une période du zoom). Hauteurs en pixels entiers dans la bande de CAP_PX : confirmé puis tentatif
+ * empilés depuis le bas, `overPx` = zone de dépassement tout en haut (au-dessus de la ligne de capacité), `lineY` = position
+ * de la ligne (depuis le haut). Heures arrondies au dixième (libellés).
+ */
+export interface GridCap {
+  from: string;
+  to: string;
+  kind: Zoom;
+  x: number;
+  w: number;
+  /** none : aucune capacité ni charge (neutre) ; over : au moins un jour en surcharge ; ok : sinon. */
+  state: "none" | "ok" | "over";
+  confirmedPx: number;
+  tentativePx: number;
+  overPx: number;
+  lineY: number;
+  plannedHours: number;
+  capacityHours: number;
+  tentativeHours: number;
+  overtimeHours: number;
+  overbookedDays: number;
+}
+
+export interface GridRow {
+  personId: string; name: string; top: number; heightPx: number; overflow: boolean; blocks: GridBlock[];
+  /** Ordonnée de la bande de capacité dans la ligne (sous les blocs). */
+  capY: number;
+  cells: GridCap[];
+}
 
 export interface GridModel { from: string; to: string; pxPerDay: number; widthPx: number; heightPx: number; rows: GridRow[] }
 
@@ -43,9 +80,59 @@ function byPersonOf(s: ScheduleResponse): Map<string, Alloc[]> {
   return m;
 }
 
-export function buildGrid(s: ScheduleResponse, range: { from: string; to: string }, pxPerDay: number): GridModel {
+// Entrée du moteur par snapshot (sans allocations de projet inconnu ni congés de type inconnu : le modèle ne lève jamais),
+// mise en cache comme le regroupement par personne.
+const engineInputs = new WeakMap<ScheduleResponse, ScheduleEngineInput>();
+function engineInputOf(s: ScheduleResponse): ScheduleEngineInput {
+  let e = engineInputs.get(s);
+  if (!e) {
+    const projects = new Set(s.projects.map((p) => p.id));
+    const types = new Set(s.timeoffTypes.map((t) => t.id));
+    e = scheduleToEngineInput({ ...s, allocations: s.allocations.filter((a) => projects.has(a.projectId)), timeoffs: s.timeoffs.filter((t) => types.has(t.typeId)) });
+    engineInputs.set(s, e);
+  }
+  return e;
+}
+
+const round1 = (h: number) => Math.round(h * 10) / 10;
+
+/** Cellules par personne : seules les périodes entièrement dans la fenêtre du snapshot (une période partielle serait trompeuse). */
+function capCells(s: ScheduleResponse, range: { from: string; to: string }, zoom: Zoom, pxPerDay: number): Map<string, GridCap[]> {
+  const r = { from: range.from > s.window.from ? range.from : s.window.from, to: range.to < s.window.to ? range.to : s.window.to };
+  if (r.from > r.to) return new Map();
+  const input = engineInputOf(s);
+  // Seules les allocations qui recoupent la tranche (ou les séries) entrent dans le calcul : le coût suit la tranche, pas le snapshot.
+  const allocations = input.allocations.filter((a) => a.repeatState !== "none" || (a.startDate <= r.to && a.endDate >= r.from));
+  const rows = utilization({ ...input, allocations, from: r.from, to: r.to });
+  const origin = dayNumber(range.from);
+  const out = new Map<string, GridCap[]>();
+  for (const [id, cells] of capacityCellsByPerson(rows, r, zoom, s.account.weekStart, input.thresholds)) {
+    out.set(id, cells.filter((c) => c.from >= r.from && c.to <= r.to)
+      .map((c) => toCap(c, zoom, (dayNumber(c.from) - origin) * pxPerDay, (dayNumber(c.to) - dayNumber(c.from) + 1) * pxPerDay)));
+  }
+  return out;
+}
+
+function toCap(c: CapacityCell, kind: Zoom, x: number, w: number): GridCap {
+  const a = c.aggregate;
+  const b = c.bar;
+  const over = a.overbookedDays > 0 || a.state === "over";
+  const tentativePx = b.tentative > 0 ? Math.max(1, Math.round(b.tentative * CAP_PX)) : 0;
+  const confirmedPx = Math.min(CAP_PX - tentativePx, b.confirmed > 0 ? Math.max(1, Math.round(b.confirmed * CAP_PX)) : 0);
+  return {
+    from: c.from, to: c.to, kind, x, w,
+    state: over ? "over" : a.capacityHours <= 0 && a.plannedHours <= 0 ? "none" : "ok",
+    confirmedPx, tentativePx, overPx: b.over > 0 ? Math.max(1, Math.round(b.over * CAP_PX)) : 0,
+    lineY: Math.min(CAP_PX - 2, Math.max(0, CAP_PX - Math.round(b.capacityLine * CAP_PX))),
+    plannedHours: round1(a.plannedHours), capacityHours: round1(a.capacityHours), tentativeHours: round1(a.tentativeHours),
+    overtimeHours: round1(a.overtimeHours), overbookedDays: a.overbookedDays,
+  };
+}
+
+export function buildGrid(s: ScheduleResponse, range: { from: string; to: string }, pxPerDay: number, zoom: Zoom = "day"): GridModel {
   const projects = new Map(s.projects.map((p) => [p.id, p]));
   const byPerson = byPersonOf(s);
+  const caps = capCells(s, range, zoom, pxPerDay);
   let top = 0;
   const rows = s.people.map((p): GridRow => {
     const source = new Map<string, Alloc>();
@@ -59,8 +146,9 @@ export function buildGrid(s: ScheduleResponse, range: { from: string; to: string
       }
     }
     const lay = layoutRow(blocks, range.from, range.to);
+    const blocksPx = lay.height * ROW_UNIT_PX;
     const row: GridRow = {
-      personId: p.id, name: p.name, top, heightPx: lay.height * ROW_UNIT_PX, overflow: lay.overflow,
+      personId: p.id, name: p.name, top, heightPx: blocksPx + CAP_PX, overflow: lay.overflow, capY: blocksPx, cells: caps.get(p.id) ?? [],
       blocks: lay.placed.map((b) => {
         const a = source.get(b.id)!;
         const pr = projects.get(a.projectId);

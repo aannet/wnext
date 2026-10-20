@@ -13,6 +13,8 @@ export const en: Record<MessageKey, string> = {
   "schedule.zoom.week": "Week",
   "schedule.zoom.month": "Month",
   "schedule.people.count": "{count, plural, one {# person} other {# people}}",
+  "schedule.capacity.none": "{period}: no capacity, nothing planned",
+  "schedule.capacity.cell": "{period}: {planned, number} h planned of {capacity, number} h capacity{tentative, plural, =0 {} other {, of which # h tentative}}{over, plural, =0 {} other {, overload of # h}}{days, plural, =0 {} =1 {} other { over # days}}",
   "schedule.loading": "Loading…",
   "schedule.error.UNAUTHENTICATED": "Your session has expired or is missing: please sign in again.",
   "schedule.error.FORBIDDEN": "You do not have access to this schedule.",

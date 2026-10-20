@@ -12,6 +12,8 @@ export const fr = {
   "schedule.zoom.week": "Semaine",
   "schedule.zoom.month": "Mois",
   "schedule.people.count": "{count, plural, one {# personne} other {# personnes}}",
+  "schedule.capacity.none": "{period} : aucune capacité, rien de planifié",
+  "schedule.capacity.cell": "{period} : {planned, number} h planifiées sur {capacity, number} h de capacité{tentative, plural, =0 {} other {, dont # h tentatives}}{over, plural, =0 {} other {, surcharge de # h}}{days, plural, =0 {} =1 {} other { sur # jours}}",
   "schedule.loading": "Chargement…",
   "schedule.error.UNAUTHENTICATED": "Session expirée ou absente : reconnectez-vous.",
   "schedule.error.FORBIDDEN": "Vous n’avez pas accès à ce planning.",
