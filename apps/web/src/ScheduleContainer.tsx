@@ -9,6 +9,8 @@ import { todayIn, viewAt } from "@wnext/engine";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ImportSource } from "./data/import-source";
 import { ImportDialog } from "./imports/import-dialog";
+import type { NotificationsSource } from "./data/notifications-source";
+import { NotificationBell, NotificationsPanel } from "./notifications/notifications-ui";
 import type { ScheduleSource, ScheduleSourceState, SourceErrorCode } from "./data/schedule-source";
 import type { ViewsSource } from "./data/views-source";
 import type { MessageKey } from "./i18n";
@@ -29,6 +31,8 @@ export interface ScheduleContainerProps {
   onLogout?: () => void;
   /** Import CSV (US-1.2) : bouton « Importer » dans la barre d'état ; absent (rôle sans droit d'import) : pas de bouton. */
   imports?: ImportSource;
+  /** Notifications in-app (US-7.3) : cloche dans la barre d'état ; absent : pas de cloche. */
+  notifications?: NotificationsSource;
 }
 
 const SHOWN_ERRORS = new Set<SourceErrorCode>(["UNAUTHENTICATED", "FORBIDDEN", "RATE_LIMITED"]);
@@ -40,7 +44,7 @@ const realtimeKey = (s: ScheduleSourceState["realtime"]): MessageKey =>
 const TODAY_CHECK_MS = 60_000;
 const systemNow = () => new Date();
 
-export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onLogout, imports }: ScheduleContainerProps) {
+export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onLogout, imports, notifications }: ScheduleContainerProps) {
   const t = (k: MessageKey) => i18n._(k);
   const state = useSyncExternalStore(source.subscribe, source.getState);
   const timezone = state.data?.account.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -74,6 +78,9 @@ export function ScheduleContainer({ i18n, source, views, now = systemNow, widthP
   const [importing, setImporting] = useState(false);
   const importButton = useRef<HTMLButtonElement>(null);
   const closeImport = () => { setImporting(false); importButton.current?.focus(); };
+  const [notifying, setNotifying] = useState(false);
+  const bell = useRef<HTMLButtonElement>(null);
+  const closeNotifications = () => { setNotifying(false); bell.current?.focus(); };
 
   if (!state.data) {
     return (
@@ -91,10 +98,12 @@ export function ScheduleContainer({ i18n, source, views, now = systemNow, widthP
       <div className="wn-statusbar">
         {status}
         {state.loading && <span className="wn-loading">{t("schedule.loading")}</span>}
+        {notifications && <NotificationBell i18n={i18n} source={notifications} open={notifying} buttonRef={bell} onToggle={() => (notifying ? closeNotifications() : setNotifying(true))} />}
         {imports && <button ref={importButton} type="button" className="wn-import-open" aria-haspopup="dialog" onClick={() => setImporting(true)}>{t("import.open")}</button>}
         {logout}
       </div>
       {error}
+      {notifications && notifying && <NotificationsPanel i18n={i18n} source={notifications} onClose={closeNotifications} />}
       {imports && importing && <ImportDialog i18n={i18n} source={imports} onClose={closeImport} />}
       <ScheduleScreen i18n={i18n} data={state.data} today={today} widthPx={widthPx} heightPx={heightPx} onViewChange={source.setViewport}
         editor={undo.history.editor} history={undo.history} records={source} {...(views ? { views } : {})} />

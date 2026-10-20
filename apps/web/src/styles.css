@@ -110,6 +110,18 @@ body { box-sizing: border-box; height: 100dvh; padding: 16px; font: 13px system-
 .wn-filter { display: flex; flex-direction: column; gap: 2px; }
 .wn-filter select[multiple] { min-width: 160px; }
 /* Import CSV (US-1.2) : bouton de la barre d'état, boîte de dialogue, tableau des erreurs par ligne. */
+.wn-notifications-open { margin-left: auto; font-size: 12px; display: inline-flex; gap: 4px; align-items: center; }
+.wn-notifications-open + .wn-visually-hidden + .wn-import-open, .wn-notifications-open + .wn-visually-hidden + .wn-logout { margin-left: 0; }
+.wn-badge { min-width: 16px; padding: 0 4px; border-radius: 8px; background: #b91c1c; color: #fff; font-size: 11px; line-height: 16px; text-align: center; }
+.wn-notifications { max-width: 520px; margin-left: auto; }
+.wn-notifications h2 { margin: 0 0 8px; font-size: 14px; }
+.wn-notification-list { list-style: none; margin: 0 0 8px; padding: 0; max-height: 50vh; overflow: auto; }
+.wn-notification { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+.wn-notification-unread { border-left: 3px solid #1d4ed8; background: #eff6ff; }
+.wn-notification p { margin: 0 0 2px; }
+.wn-notification-details, .wn-notification-time { color: #4b5563; font-size: 12px; }
+.wn-notification-flag { margin-left: 6px; font-weight: 600; color: #1d4ed8; }
+.wn-notification-prefs { margin: 8px 0 0; display: grid; gap: 4px; font-size: 13px; }
 .wn-import-open { margin-left: auto; font-size: 12px; }
 .wn-import-open + .wn-logout { margin-left: 0; }
 .wn-import-dialog { max-width: 960px; }

@@ -1,13 +1,15 @@
 // Point d'entrée de l'écran. Langue : ?lang=en|pseudo, français par défaut.
 //  * Par défaut : branché sur l'API (proxy Vite /api) avec temps réel. Identité selon VITE_AUTH_MODE (src/data/auth-fetch.ts) :
 //    `dev` (défaut) en-têtes x-dev-* ; `oidc` connexion OIDC PKCE (src/data/oidc.ts) avant le premier rendu de l'écran.
-//  * ?demo=1 : démo locale sans API (src/demo.ts) ; les gestes s'y appliquent localement (src/data/demo-source.ts).
+//  * ?demo=1 : démo locale sans API (src/demo.ts) ; les gestes s'y appliquent localement (src/data/demo-source.ts), quelques
+//    notifications locales (src/data/notifications-source.ts).
 import { todayIn } from "@wnext/engine";
 import { createRoot } from "react-dom/client";
 import { createClient } from "./api/client.gen";
 import { createAuthFetch, devAuthProvider, oidcAuthProvider, type AuthProvider } from "./data/auth-fetch";
 import { createDemoSource } from "./data/demo-source";
 import { createApiImportSource, createDemoImportSource, demoImportSnapshot } from "./data/import-source";
+import { createApiNotificationsSource, createDemoNotificationsSource, demoNotifications } from "./data/notifications-source";
 import { createApiViewsSource, createDemoViewsSource, demoSeedViews } from "./data/views-source";
 import { browserOidcDeps, createOidcSession, oidcConfigFromEnv } from "./data/oidc";
 import { createScheduleSource } from "./data/schedule-source";
@@ -32,8 +34,9 @@ const canImport = import.meta.env.VITE_AUTH_MODE === "oidc" || ["owner", "admin"
 function renderApi(auth: AuthProvider, onLogout?: () => void) {
   const api = createClient({ baseUrl: "", fetch: createAuthFetch(auth) });
   const wsBase = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
-  const source = createScheduleSource({ api, realtime: { wsBase, onError: (err) => console.warn(err) } });
-  root.render(<ScheduleContainer i18n={i18n} source={source} views={createApiViewsSource(api)} widthPx={widthPx} heightPx={heightPx} {...(onLogout ? { onLogout } : {})}
+  const notifications = createApiNotificationsSource(api);
+  const source = createScheduleSource({ api, realtime: { wsBase, onError: (err) => console.warn(err), onNotifications: (n) => notifications.pushUnread(n) } });
+  root.render(<ScheduleContainer i18n={i18n} source={source} views={createApiViewsSource(api)} widthPx={widthPx} heightPx={heightPx} {...(onLogout ? { onLogout } : {})} notifications={notifications}
     {...(canImport ? { imports: createApiImportSource(api) } : {})} />);
 }
 
@@ -42,7 +45,7 @@ if (params.get("demo") === "1") {
   const demo = demoSchedule(today);
   const source = createDemoSource(demo);
   root.render(<ScheduleContainer i18n={i18n} source={source} views={createDemoViewsSource(demoSeedViews())} widthPx={widthPx} heightPx={heightPx}
-    imports={createDemoImportSource(demoImportSnapshot(demo, today))} />);
+    imports={createDemoImportSource(demoImportSnapshot(demo, today))} notifications={createDemoNotificationsSource(demoNotifications(today))} />);
 } else if (import.meta.env.VITE_AUTH_MODE === "oidc") {
   const session = createOidcSession(oidcConfigFromEnv(import.meta.env, location.origin), browserOidcDeps());
   session.start().then(
