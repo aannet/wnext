@@ -51,6 +51,17 @@ describe("ScheduleContainer", () => {
     expect(host.querySelector("[role=status]")!.textContent).toBe("Temps réel : hors ligne");
   });
 
+  it("repères de page : un <main> qui contient tout (barre d'outils comprise), un seul <h1> traduit", async () => {
+    mount(async (q) => ({ status: 200, body: body(q) }));
+    expect(host.querySelector("main h1")!.textContent).toBe("Planning");
+    await flush();
+    const main = host.querySelector("main")!;
+    expect(host.firstElementChild).toBe(main);
+    expect([host.querySelectorAll("main").length, host.querySelectorAll("h1").length]).toEqual([1, 1]);
+    expect(main.querySelector("h1")!.textContent).toBe("Planning");
+    for (const role of ["toolbar", "grid", "status"]) expect(main.querySelector(`[role=${role}]`), role).not.toBeNull();
+  });
+
   it("401 : message UNAUTHENTICATED traduit, pas de grille", async () => {
     mount(async () => ({ status: 401, body: { code: "UNAUTHENTICATED", params: {}, requestId: "r" } }));
     await flush();

@@ -15,6 +15,7 @@ const params = new URLSearchParams(location.search);
 const lang = params.get("lang");
 const locale: UiLocale = lang === "en" || lang === "pseudo" ? lang : "fr";
 const i18n = createI18n(locale);
+document.documentElement.lang = locale === "en" ? "en" : "fr";
 const widthPx = window.innerWidth - 32;
 const heightPx = window.innerHeight - 120;
 const root = createRoot(document.getElementById("root")!);

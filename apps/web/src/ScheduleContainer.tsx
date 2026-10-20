@@ -1,6 +1,8 @@
 // Conteneur du Schedule branché sur l'API : abonne l'écran à la source de données (schedule-source), affiche le
 // chargement, les erreurs (codes stables de @wnext/contracts, traduits ici) et un statut discret du temps réel.
 // La source est créée par l'appelant (main.tsx) : le conteneur la démarre au montage et l'arrête au démontage.
+// Repères de page (axe landmark-one-main, page-has-heading-one, region) : tout le contenu, barre d'outils comprise, est
+// dans <main>, titré par un <h1> visuellement masqué (traduit).
 import type { I18n } from "@lingui/core";
 import { todayIn, viewAt } from "@wnext/engine";
 import { useEffect, useSyncExternalStore } from "react";
@@ -42,22 +44,26 @@ export function ScheduleContainer({ i18n, source, now, widthPx, heightPx }: Sche
   );
   const error = state.error && <div role="alert" className="wn-error">{t(errorKey(state.error))}</div>;
 
+  const title = <h1 className="wn-visually-hidden">{t("app.title")}</h1>;
+
   if (!state.data) {
     return (
-      <div className="wn-schedule-container" aria-busy={state.loading}>
+      <main className="wn-schedule-container" aria-busy={state.loading}>
+        {title}
         {error ?? <div className="wn-loading">{t("schedule.loading")}</div>}
         {status}
-      </div>
+      </main>
     );
   }
   return (
-    <div className="wn-schedule-container" aria-busy={state.loading}>
+    <main className="wn-schedule-container" aria-busy={state.loading}>
+      {title}
       <div className="wn-statusbar">
         {status}
         {state.loading && <span className="wn-loading">{t("schedule.loading")}</span>}
       </div>
       {error}
       <ScheduleScreen i18n={i18n} data={state.data} today={today} widthPx={widthPx} heightPx={heightPx} onViewChange={source.setViewport} editor={source} />
-    </div>
+    </main>
   );
 }

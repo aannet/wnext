@@ -1,5 +1,6 @@
 /* Styles provisoires de la démo ; contain:strict sur lignes et blocs, comme le spike A2. */
 body { margin: 16px; font: 13px system-ui, sans-serif; color: #1f2937; background: #fff; }
+.wn-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .wn-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .wn-toolbar button[aria-pressed="true"] { font-weight: 600; }
 .wn-header { background: #fff; border-bottom: 1px solid #e5e7eb; }
