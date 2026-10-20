@@ -8,7 +8,7 @@ import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
 import { REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket } from "./realtime";
 import { TeamBatchAdd, TeamBatchResult, TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
-import { PersonDeactivationQuery, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonCreate, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProjectList, PersonProjectListQuery } from "./people";
+import { PersonDeactivationQuery, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonCreate, PersonHistoryList, PersonHistoryQuery, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProjectList, PersonProjectListQuery } from "./people";
 import { ScheduleDepartment, ScheduleHoliday, SchedulePerson, ScheduleAllocation, ScheduleRole, ScheduleTimeoffType, ScheduleQuery, ScheduleResponse, ScheduleTimeoff } from "./schedule";
 import {
   DepartmentCreate, DepartmentList, DepartmentPatch, HolidayCreate, HolidayList, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectDetail,
@@ -513,6 +513,21 @@ export const routes: RouteContract[] = [
   },
   {
     method: "get",
+    path: "/api/v1/people/{id}/history",
+    operationId: "listPersonHistory",
+    summary: "Historique date d'une personne : periodes de l'horaire, du departement et du role (BR-19 ; pagine, tri par id ; tout membre authentifie)",
+    params: PersonPathParams,
+    query: PersonHistoryQuery,
+    responses: {
+      200: { description: "Page de periodes (items, page.nextCursor, page.total)", schema: PersonHistoryList },
+      400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      404: { description: "Personne inconnue ou hors compte (NOT_FOUND)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "get",
     path: "/api/v1/people/{id}/deactivation-summary",
     operationId: "getPersonDeactivationSummary",
     summary: "Recapitulatif de la desactivation d'une personne (BR-31) : ses allocations futures, sans rien ecrire (owner, admin ou project_manager)",
@@ -579,7 +594,7 @@ export const routes: RouteContract[] = [
     method: "patch",
     path: "/api/v1/people/{id}",
     operationId: "updatePerson",
-    summary: "Modifier ou desactiver une personne (verrou optimiste If-Match ; pas de suppression)",
+    summary: "Modifier ou desactiver une personne (verrou optimiste If-Match ; pas de suppression ; horaire, departement et role a effet date via effectiveFrom, BR-19)",
     params: PersonPathParams,
     headers: IfMatchHeader,
     body: PersonPatch,
@@ -589,7 +604,7 @@ export const routes: RouteContract[] = [
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
       403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
       404: { description: "Personne, departement ou role inconnu (NOT_FOUND)", schema: ApiError },
-      409: { description: "Version perimee (VERSION_CONFLICT, params.currentVersion)", schema: ApiError },
+      409: { description: "Version perimee (VERSION_CONFLICT, params.currentVersion) ou date d'effet dans une periode verrouillee (PERSON_HISTORY_LOCKED, params.lockedThrough, BR-19)", schema: ApiError },
       428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },

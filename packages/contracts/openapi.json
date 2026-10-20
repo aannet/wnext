@@ -64,7 +64,8 @@
           "RATE_LIMITED",
           "NOT_A_SERIES",
           "OCCURRENCE_NOT_FOUND",
-          "SERIES_SPLIT_UNSUPPORTED"
+          "SERIES_SPLIT_UNSUPPORTED",
+          "PERSON_HISTORY_LOCKED"
         ]
       },
       "HealthResponse": {
@@ -1993,6 +1994,186 @@
           "allocationCount"
         ]
       },
+      "PersonHistoryList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonHistoryEntry"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/SchedulePage"
+          }
+        },
+        "required": [
+          "items",
+          "page"
+        ]
+      },
+      "PersonHistoryEntry": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "validFrom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/IsoDate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Premier jour de la période (inclus) ; null = depuis toujours"
+              },
+              "validTo": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/IsoDate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Dernier jour de la période (inclus) ; null = sans fin"
+              },
+              "attribute": {
+                "type": "string",
+                "enum": [
+                  "workDaysHours"
+                ]
+              },
+              "workDaysHours": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 24
+                },
+                "description": "Index 0 = lundi"
+              }
+            },
+            "required": [
+              "id",
+              "validFrom",
+              "validTo",
+              "attribute",
+              "workDaysHours"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "validFrom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/IsoDate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Premier jour de la période (inclus) ; null = depuis toujours"
+              },
+              "validTo": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/IsoDate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Dernier jour de la période (inclus) ; null = sans fin"
+              },
+              "attribute": {
+                "type": "string",
+                "enum": [
+                  "departmentId"
+                ]
+              },
+              "departmentId": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "validFrom",
+              "validTo",
+              "attribute",
+              "departmentId"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "validFrom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/IsoDate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Premier jour de la période (inclus) ; null = depuis toujours"
+              },
+              "validTo": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/IsoDate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Dernier jour de la période (inclus) ; null = sans fin"
+              },
+              "attribute": {
+                "type": "string",
+                "enum": [
+                  "roleId"
+                ]
+              },
+              "roleId": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "validFrom",
+              "validTo",
+              "attribute",
+              "roleId"
+            ]
+          }
+        ]
+      },
       "PersonDeactivationSummary": {
         "type": "object",
         "properties": {
@@ -2341,6 +2522,11 @@
           },
           "active": {
             "type": "boolean"
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'effet des attributs historisés (horaire, département, rôle) ; défaut : aujourd'hui (fuseau du compte)"
           }
         }
       },
@@ -6324,7 +6510,7 @@
       },
       "patch": {
         "operationId": "updatePerson",
-        "summary": "Modifier ou desactiver une personne (verrou optimiste If-Match ; pas de suppression)",
+        "summary": "Modifier ou desactiver une personne (verrou optimiste If-Match ; pas de suppression ; horaire, departement et role a effet date via effectiveFrom, BR-19)",
         "parameters": [
           {
             "schema": {
@@ -6409,7 +6595,7 @@
             }
           },
           "409": {
-            "description": "Version perimee (VERSION_CONFLICT, params.currentVersion)",
+            "description": "Version perimee (VERSION_CONFLICT, params.currentVersion) ou date d'effet dans une periode verrouillee (PERSON_HISTORY_LOCKED, params.lockedThrough, BR-19)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6504,6 +6690,113 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PersonProjectList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (VALIDATION_FAILED, SCHEDULE_CURSOR_INVALID)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Personne inconnue ou hors compte (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{id}/history": {
+      "get": {
+        "operationId": "listPersonHistory",
+        "summary": "Historique date d'une personne : periodes de l'horaire, du departement et du role (BR-19 ; pagine, tri par id ; tout membre authentifie)",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": true,
+            "description": "Identifiant opaque (chaîne)",
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Entités par page (défaut 200)"
+            },
+            "required": false,
+            "description": "Entités par page (défaut 200)",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Curseur de page renvoyé par page.nextCursor"
+            },
+            "required": false,
+            "description": "Curseur de page renvoyé par page.nextCursor",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "workDaysHours",
+                "departmentId",
+                "roleId"
+              ],
+              "description": "Seulement les périodes de cet attribut"
+            },
+            "required": false,
+            "description": "Seulement les périodes de cet attribut",
+            "name": "attribute",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de periodes (items, page.nextCursor, page.total)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonHistoryList"
                 }
               }
             }

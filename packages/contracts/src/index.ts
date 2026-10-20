@@ -18,7 +18,7 @@ export {
   LoggedTimeStatus, LoggedTimeSubmitResult, LoggedTimeWindow,
 } from "./logged-time";
 export { TimeoffCreate, TimeoffPatch, TimeoffPathParams } from "./timeoffs";
-export { PersonDeactivationDisposition, PersonDeactivationQuery, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonCreate, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProject, PersonProjectList, PersonProjectListQuery } from "./people";
+export { PersonDeactivationDisposition, PersonDeactivationQuery, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonCreate, PersonHistoryAttribute, PersonHistoryEntry, PersonHistoryList, PersonHistoryQuery, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProject, PersonProjectList, PersonProjectListQuery } from "./people";
 export { TEAM_BATCH_MAX, TeamBatchAdd, TeamBatchResult, TeamMember, TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalConfirmation, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
 export {
   DepartmentCreate, DepartmentList, DepartmentPatch, HolidayCreate, HolidayList, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectDetail,

@@ -47,10 +47,23 @@ export const PersonCreate = z.object(fields).meta({ id: "PersonCreate" });
 export type PersonCreate = z.infer<typeof PersonCreate>;
 
 // Champs absents = inchangés ; null efface département, rôle, pays ou avatar.
+// Historisation datée (BR-19) : horaire (`workDaysHours`), département et rôle sont à effet daté. Une modification de l'un
+// d'eux s'applique « à partir de » `effectiveFrom` (défaut : aujourd'hui dans le fuseau du compte) : la valeur en vigueur
+// avant cette date est conservée dans l'historique (GET /people/{id}/history), les changements déjà prévus à cette date
+// ou après sont remplacés. Les champs lus (`workDaysHours`, `departmentId`, `roleId` de SchedulePerson) portent la valeur
+// de la dernière période (celle qui court sans fin), donc la nouvelle valeur même si `effectiveFrom` est futur.
+// `effectiveFrom` est sans effet sur les autres champs, et sans effet si aucun attribut historisé ne change de valeur.
+// Période verrouillée : si la personne a des temps saisis soumis, approuvés ou clos (BR-12) à `effectiveFrom` ou après,
+// la modification changerait des jours verrouillés : 409 PERSON_HISTORY_LOCKED, params.lockedThrough = dernier jour
+// verrouillé (rien n'est écrit). Choisir une date postérieure, ou faire déverrouiller les temps par un Owner/Admin.
+// `effectiveFrom` seul (sans autre champ) : 400 VALIDATION_FAILED, comme un corps vide.
 export const PersonPatch = z
-  .object(fields)
+  .object({
+    ...fields,
+    effectiveFrom: IsoDate.optional().describe("Date d'effet des attributs historisés (horaire, département, rôle) ; défaut : aujourd'hui (fuseau du compte)"),
+  })
   .partial()
-  .refine((p) => Object.keys(p).length > 0, { message: "corps vide" })
+  .refine((p) => Object.keys(p).some((k) => k !== "effectiveFrom"), { message: "corps vide" })
   .meta({ id: "PersonPatch" });
 export type PersonPatch = z.infer<typeof PersonPatch>;
 
@@ -141,3 +154,34 @@ export const PersonDeactivationResult = z
   })
   .meta({ id: "PersonDeactivationResult" });
 export type PersonDeactivationResult = z.infer<typeof PersonDeactivationResult>;
+
+// --- Historique daté (BR-19) ---
+// GET /people/{id}/history : les périodes des attributs historisés d'une personne (tout membre authentifié, comme la lecture
+// de la personne). Une période = un attribut, une valeur, des bornes INCLUSES ; `validFrom` null = depuis toujours, `validTo`
+// null = sans fin. Pour un attribut donné, les périodes se suivent sans trou ni recouvrement ; la dernière (validTo null) porte
+// la valeur lue sur la personne. Le taux de coût est historisé en base mais n'est PAS exposé ici (zéro fuite, comme la lecture).
+// Pagination comme les autres listes : curseur sur l'identifiant de période, tri par id (`page.total`, limit 1..500, défaut
+// 200) ; le client trie par attribut puis par date. Filtre `attribute`. Personne inconnue ou hors compte : 404 NOT_FOUND.
+export const PersonHistoryAttribute = z.enum(["workDaysHours", "departmentId", "roleId"]).meta({ id: "PersonHistoryAttribute" });
+export type PersonHistoryAttribute = z.infer<typeof PersonHistoryAttribute>;
+
+const period = {
+  id: Id,
+  validFrom: orNull(IsoDate).describe("Premier jour de la période (inclus) ; null = depuis toujours"),
+  validTo: orNull(IsoDate).describe("Dernier jour de la période (inclus) ; null = sans fin"),
+};
+export const PersonHistoryEntry = z
+  .discriminatedUnion("attribute", [
+    z.object({ ...period, attribute: z.literal("workDaysHours"), workDaysHours: z.array(z.number().min(0).max(24)).length(7).describe("Index 0 = lundi") }),
+    z.object({ ...period, attribute: z.literal("departmentId"), departmentId: orNull(Id) }),
+    z.object({ ...period, attribute: z.literal("roleId"), roleId: orNull(Id) }),
+  ])
+  .meta({ id: "PersonHistoryEntry" });
+export type PersonHistoryEntry = z.infer<typeof PersonHistoryEntry>;
+
+export const PersonHistoryQuery = ReferenceListQuery.extend({
+  attribute: PersonHistoryAttribute.optional().describe("Seulement les périodes de cet attribut"),
+});
+export type PersonHistoryQuery = z.infer<typeof PersonHistoryQuery>;
+export const PersonHistoryList = z.object({ items: z.array(PersonHistoryEntry), page: SchedulePage }).meta({ id: "PersonHistoryList" });
+export type PersonHistoryList = z.infer<typeof PersonHistoryList>;

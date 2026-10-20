@@ -26,6 +26,7 @@ export const ErrorCode = z.enum([
   "NOT_A_SERIES",
   "OCCURRENCE_NOT_FOUND",
   "SERIES_SPLIT_UNSUPPORTED",
+  "PERSON_HISTORY_LOCKED",
 ]).meta({ id: "ErrorCode" });
 
 export const ApiError = z

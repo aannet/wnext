@@ -9,7 +9,7 @@ export interface ApiError {
   requestId: string;
 }
 
-export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "ALREADY_EXISTS" | "REFERENCE_IN_USE" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS" | "PERSON_DEACTIVATION_CONFIRMATION_REQUIRED" | "PERSON_DEACTIVATION_STALE_CONFIRMATION" | "PERSON_DEACTIVATION_INVALID_REPLACEMENT" | "LOGGED_TIME_LOCKED" | "LOGGED_TIME_DAY_LIMIT" | "RATE_LIMITED" | "NOT_A_SERIES" | "OCCURRENCE_NOT_FOUND" | "SERIES_SPLIT_UNSUPPORTED";
+export type ErrorCode = "INTERNAL_ERROR" | "VALIDATION_FAILED" | "UNAUTHENTICATED" | "SCHEDULE_RANGE_INVALID" | "SCHEDULE_CURSOR_INVALID" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "PRECONDITION_REQUIRED" | "TIMEOFF_OVERLAP" | "ALREADY_EXISTS" | "REFERENCE_IN_USE" | "TEAM_REMOVAL_CONFIRMATION_REQUIRED" | "TEAM_REMOVAL_STALE_CONFIRMATION" | "TEAM_REMOVAL_LOCKED_LOGS" | "PERSON_DEACTIVATION_CONFIRMATION_REQUIRED" | "PERSON_DEACTIVATION_STALE_CONFIRMATION" | "PERSON_DEACTIVATION_INVALID_REPLACEMENT" | "LOGGED_TIME_LOCKED" | "LOGGED_TIME_DAY_LIMIT" | "RATE_LIMITED" | "NOT_A_SERIES" | "OCCURRENCE_NOT_FOUND" | "SERIES_SPLIT_UNSUPPORTED" | "PERSON_HISTORY_LOCKED";
 
 export interface HealthResponse {
   status: "ok" | "degraded";
@@ -393,6 +393,31 @@ export interface PersonProject {
   allocationCount: number;
 }
 
+export interface PersonHistoryList {
+  items: Array<PersonHistoryEntry>;
+  page: SchedulePage;
+}
+
+export type PersonHistoryEntry = {
+  id: Id;
+  validFrom: IsoDate | null;
+  validTo: IsoDate | null;
+  attribute: "workDaysHours";
+  workDaysHours: Array<number>;
+} | {
+  id: Id;
+  validFrom: IsoDate | null;
+  validTo: IsoDate | null;
+  attribute: "departmentId";
+  departmentId: Id | null;
+} | {
+  id: Id;
+  validFrom: IsoDate | null;
+  validTo: IsoDate | null;
+  attribute: "roleId";
+  roleId: Id | null;
+};
+
 export interface PersonDeactivationSummary {
   alreadyInactive: boolean;
   asOf: IsoDate;
@@ -456,6 +481,7 @@ export interface PersonPatch {
   tags?: Array<string>;
   avatarUrl?: string | null;
   active?: boolean;
+  effectiveFrom?: string;
 }
 
 export interface TeamRemovalSummary {
@@ -1149,7 +1175,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as SchedulePerson }
         : { ok: false, status: res.status, error: body as ApiError };
     },
-    /** Modifier ou desactiver une personne (verrou optimiste If-Match ; pas de suppression) (PATCH /api/v1/people/{id}) */
+    /** Modifier ou desactiver une personne (verrou optimiste If-Match ; pas de suppression ; horaire, departement et role a effet date via effectiveFrom, BR-19) (PATCH /api/v1/people/{id}) */
     async updatePerson(input: {
       path: {
         id: Id;
@@ -1180,6 +1206,23 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as PersonProjectList }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Historique date d'une personne : periodes de l'horaire, du departement et du role (BR-19 ; pagine, tri par id ; tout membre authentifie) (GET /api/v1/people/{id}/history) */
+    async listPersonHistory(input: {
+      path: {
+        id: Id;
+      };
+      query?: {
+        limit?: number;
+        cursor?: string;
+        attribute?: "workDaysHours" | "departmentId" | "roleId";
+      };
+    }): Promise<ApiResult<PersonHistoryList, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/people/" + encodeURIComponent(String(input.path.id)) + "/history" + toQueryString(input.query ?? {}), { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as PersonHistoryList }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Recapitulatif de la desactivation d'une personne (BR-31) : ses allocations futures, sans rien ecrire (owner, admin ou project_manager) (GET /api/v1/people/{id}/deactivation-summary) */
