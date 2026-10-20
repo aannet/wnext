@@ -19,7 +19,7 @@ export function buildSpec(): Record<string, unknown> {
             ...(r.params && { params: r.params }),
             ...(r.query && { query: r.query }),
             ...(r.headers && { headers: r.headers }),
-            ...(r.body && { body: { required: true, content: { "application/json": { schema: r.body } } } }),
+            ...(r.body && { body: { required: !r.bodyOptional, content: { "application/json": { schema: r.body } } } }),
           }
         : undefined,
       responses: Object.fromEntries(

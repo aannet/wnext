@@ -29,6 +29,15 @@ export type ScheduleQuery = z.infer<typeof ScheduleQuery>;
 
 export const SchedulePeopleType = z.enum(["employee", "contractor", "placeholder"]).meta({ id: "SchedulePeopleType" });
 
+// Horaire daté (BR-19, migration 0002_people_history) : une période de people_history (attribut work_days_hours).
+export const ScheduleWorkPeriod = z
+  .object({
+    validFrom: orNull(IsoDate).describe("Premier jour de la période (inclus) ; null = depuis toujours"),
+    validTo: orNull(IsoDate).describe("Dernier jour de la période (inclus) ; null = sans fin"),
+    workDaysHours: z.array(z.number().min(0).max(24)).length(7).describe("Heures ouvrées par jour, index 0 = lundi ... 6 = dimanche"),
+  })
+  .meta({ id: "ScheduleWorkPeriod" });
+
 export const SchedulePerson = z
   .object({
     id: Id,
@@ -39,6 +48,14 @@ export const SchedulePerson = z
     roleId: orNull(Id),
     country: z.string().regex(/^[A-Z]{2}$/).nullable().describe("ISO 3166-1 alpha-2 ; null = aucun férié de pays"),
     workDaysHours: z.array(z.number().min(0).max(24)).length(7).describe("Heures ouvrées par jour, index 0 = lundi ... 6 = dimanche"),
+    workSchedule: z
+      .array(ScheduleWorkPeriod)
+      .optional()
+      .describe(
+        "Historique COMPLET de l'horaire (BR-19), périodes sans recouvrement triées par date ; absent = horaire constant (workDaysHours). " +
+          "Complet et non limité à la fenêtre : la personne reste identique d'une fenêtre à l'autre à version égale. " +
+          "Le moteur lit l'horaire en vigueur à chaque date (PersonInput.workSchedule).",
+      ),
     tags: z.array(z.string()),
     avatarUrl: z.string().nullable(),
     active: z.boolean(),
@@ -119,6 +136,19 @@ export const ScheduleProject = z
   })
   .meta({ id: "ScheduleProject" });
 
+// Phase d'un projet renvoyé (BR-37 : le client avertit d'une allocation hors des dates de sa phase, sans bloquer).
+export const SchedulePhase = z
+  .object({
+    id: Id,
+    version: Version,
+    projectId: Id,
+    name: z.string(),
+    startDate: orNull(IsoDate).describe("null = non bornée au début"),
+    endDate: orNull(IsoDate).describe("null = non bornée à la fin"),
+    color: z.string().nullable().describe("Couleur propre de la phase ; null = celle du projet"),
+  })
+  .meta({ id: "SchedulePhase" });
+
 export const ScheduleDepartment = z.object({ id: Id, version: Version, name: z.string() }).meta({ id: "ScheduleDepartment" });
 export const ScheduleRole = z.object({ id: Id, version: Version, name: z.string() }).meta({ id: "ScheduleRole" });
 
@@ -148,6 +178,7 @@ export const ScheduleResponse = z
     timeoffs: z.array(ScheduleTimeoff),
     holidays: z.array(ScheduleHoliday).describe("Tous les fériés du compte dans la fenêtre ; le moteur applique pays et département"),
     projects: z.array(ScheduleProject).describe("Projets référencés par les allocations renvoyées"),
+    phases: z.array(SchedulePhase).optional().describe("Phases des projets renvoyés (BR-37) ; absent = non transportées (client plus ancien que le serveur)"),
     timeoffTypes: z.array(ScheduleTimeoffType),
     departments: z.array(ScheduleDepartment),
     roles: z.array(ScheduleRole),

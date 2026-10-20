@@ -39,8 +39,10 @@ export interface RouteContract {
   params?: z.ZodObject;
   /** En-tetes de requete ; la cle est le nom exact de l'en-tete (ex. "If-Match"). */
   headers?: z.ZodObject;
-  /** Corps JSON de la requete (toujours requis). */
+  /** Corps JSON de la requete (requis, sauf `bodyOptional`). */
   body?: z.ZodType;
+  /** Corps facultatif : son absence vaut `{}` (tous les champs du schema sont alors optionnels). */
+  bodyOptional?: boolean;
   /** `schema` absent = reponse sans corps (204). */
   responses: Record<number, { description: string; schema?: z.ZodType }>;
 }
@@ -367,6 +369,7 @@ export const routes: RouteContract[] = [
       200: { description: "Temps saisis de la fenetre", schema: LoggedTimeList },
       400: { description: "Requete invalide (VALIDATION_FAILED, SCHEDULE_RANGE_INVALID)", schema: ApiError },
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      404: { description: "Personne inconnue ou hors compte (NOT_FOUND, params.entity = person)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },
@@ -550,6 +553,7 @@ export const routes: RouteContract[] = [
     summary: "Desactiver une personne et reaffecter ou supprimer ses allocations futures, apres confirmation (BR-31)",
     params: PersonPathParams,
     body: PersonDeactivationRequest,
+    bodyOptional: true,
     responses: {
       200: { description: "Personne desactivee ; comptes des allocations reaffectees et supprimees", schema: PersonDeactivationResult },
       400: { description: "Corps invalide (VALIDATION_FAILED)", schema: ApiError },
@@ -631,6 +635,7 @@ export const routes: RouteContract[] = [
     summary: "Retirer une personne d'un projet : supprime ses allocations et ses temps saisis sur ce projet, apres confirmation (BR-10)",
     params: TeamPathParams,
     body: TeamRemovalRequest,
+    bodyOptional: true,
     responses: {
       200: { description: "Retrait execute ; compte de ce qui a ete supprime", schema: TeamRemovalResult },
       400: { description: "Corps invalide (VALIDATION_FAILED)", schema: ApiError },

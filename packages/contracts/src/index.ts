@@ -7,7 +7,8 @@ export { Id, IsoDate, Version } from "./common";
 export { AllocationCreate, AllocationGroup, AllocationGroupCreate, AllocationGroupMax, AllocationGroupPatch, AllocationLoad, AllocationPatch, AllocationPathParams, AllocationSplit, AllocationSplitResult, IfMatchHeader, OccurrencePatch, PersonAllocationList, PersonAllocationListQuery, ProjectAllocationList, ProjectAllocationListQuery, ProjectPathParams } from "./allocations";
 export {
   ScheduleAccount, ScheduleAllocation, ScheduleDepartment, ScheduleHoliday, SchedulePage, SchedulePeopleType,
-  SchedulePerson, ScheduleProject, ScheduleQuery, ScheduleResponse, ScheduleRole, ScheduleTimeoff, ScheduleTimeoffType,
+  SchedulePerson, SchedulePhase, ScheduleProject, ScheduleQuery, ScheduleResponse, ScheduleRole, ScheduleTimeoff, ScheduleTimeoffType,
+  ScheduleWorkPeriod,
 } from "./schedule";
 export {
   Change, ChangeEntity, REALTIME_PATH, REALTIME_PROTOCOL_VERSION, REALTIME_RETRY_AFTER_SECONDS, REALTIME_TICKET_PARAM, REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, REALTIME_UPGRADE_STATUS, RealtimeChanges, RealtimeClientMessage, RealtimeError,

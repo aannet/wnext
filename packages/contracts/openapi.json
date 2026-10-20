@@ -165,6 +165,13 @@
             },
             "description": "Projets référencés par les allocations renvoyées"
           },
+          "phases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SchedulePhase"
+            },
+            "description": "Phases des projets renvoyés (BR-37) ; absent = non transportées (client plus ancien que le serveur)"
+          },
           "timeoffTypes": {
             "type": "array",
             "items": {
@@ -312,6 +319,13 @@
             },
             "description": "Heures ouvrées par jour, index 0 = lundi ... 6 = dimanche"
           },
+          "workSchedule": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleWorkPeriod"
+            },
+            "description": "Historique COMPLET de l'horaire (BR-19), périodes sans recouvrement triées par date ; absent = horaire constant (workDaysHours). Complet et non limité à la fenêtre : la personne reste identique d'une fenêtre à l'autre à version égale. Le moteur lit l'horaire en vigueur à chaque date (PersonInput.workSchedule)."
+          },
           "tags": {
             "type": "array",
             "items": {
@@ -358,6 +372,47 @@
           "employee",
           "contractor",
           "placeholder"
+        ]
+      },
+      "ScheduleWorkPeriod": {
+        "type": "object",
+        "properties": {
+          "validFrom": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Premier jour de la période (inclus) ; null = depuis toujours"
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Dernier jour de la période (inclus) ; null = sans fin"
+          },
+          "workDaysHours": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 24
+            },
+            "description": "Heures ouvrées par jour, index 0 = lundi ... 6 = dimanche"
+          }
+        },
+        "required": [
+          "validFrom",
+          "validTo",
+          "workDaysHours"
         ]
       },
       "ScheduleAllocation": {
@@ -827,6 +882,61 @@
           "nonBillable",
           "startDate",
           "endDate"
+        ]
+      },
+      "SchedulePhase": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "startDate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = non bornée au début"
+          },
+          "endDate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDate"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = non bornée à la fin"
+          },
+          "color": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Couleur propre de la phase ; null = celle du projet"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "projectId",
+          "name",
+          "startDate",
+          "endDate",
+          "color"
         ]
       },
       "ScheduleTimeoffType": {
@@ -2279,6 +2389,13 @@
                   "maximum": 24
                 },
                 "description": "Heures ouvrées par jour, index 0 = lundi ... 6 = dimanche"
+              },
+              "workSchedule": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ScheduleWorkPeriod"
+                },
+                "description": "Historique COMPLET de l'horaire (BR-19), périodes sans recouvrement triées par date ; absent = horaire constant (workDaysHours). Complet et non limité à la fenêtre : la personne reste identique d'une fenêtre à l'autre à version égale. Le moteur lit l'horaire en vigueur à chaque date (PersonInput.workSchedule)."
               },
               "tags": {
                 "type": "array",
@@ -5909,6 +6026,16 @@
               }
             }
           },
+          "404": {
+            "description": "Personne inconnue ou hors compte (NOT_FOUND, params.entity = person)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Erreur interne",
             "content": {
@@ -7200,7 +7327,7 @@
           }
         ],
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -7535,7 +7662,7 @@
           }
         ],
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {

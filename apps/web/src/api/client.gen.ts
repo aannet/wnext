@@ -34,6 +34,7 @@ export interface ScheduleResponse {
   timeoffs: Array<ScheduleTimeoff>;
   holidays: Array<ScheduleHoliday>;
   projects: Array<ScheduleProject>;
+  phases?: Array<SchedulePhase>;
   timeoffTypes: Array<ScheduleTimeoffType>;
   departments: Array<ScheduleDepartment>;
   roles: Array<ScheduleRole>;
@@ -63,6 +64,7 @@ export interface SchedulePerson {
   roleId: Id | null;
   country: string | null;
   workDaysHours: Array<number>;
+  workSchedule?: Array<ScheduleWorkPeriod>;
   tags: Array<string>;
   avatarUrl: string | null;
   active: boolean;
@@ -73,6 +75,12 @@ export type Id = string;
 export type Version = number;
 
 export type SchedulePeopleType = "employee" | "contractor" | "placeholder";
+
+export interface ScheduleWorkPeriod {
+  validFrom: IsoDate | null;
+  validTo: IsoDate | null;
+  workDaysHours: Array<number>;
+}
 
 export type ScheduleAllocation = {
   id: Id;
@@ -150,6 +158,16 @@ export interface ScheduleProject {
   nonBillable: boolean;
   startDate: IsoDate | null;
   endDate: IsoDate | null;
+}
+
+export interface SchedulePhase {
+  id: Id;
+  version: Version;
+  projectId: Id;
+  name: string;
+  startDate: IsoDate | null;
+  endDate: IsoDate | null;
+  color: string | null;
 }
 
 export interface ScheduleTimeoffType {
@@ -437,6 +455,7 @@ export interface PersonDeactivationResult {
     roleId: Id | null;
     country: string | null;
     workDaysHours: Array<number>;
+    workSchedule?: Array<ScheduleWorkPeriod>;
     tags: Array<string>;
     avatarUrl: string | null;
     active: boolean;
@@ -1299,7 +1318,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       path: {
         id: Id;
       };
-      body: PersonDeactivationRequest;
+      body?: PersonDeactivationRequest;
     }): Promise<ApiResult<PersonDeactivationResult, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/people/" + encodeURIComponent(String(input.path.id)) + "/deactivation", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
       const body = res.status === 204 ? undefined : await res.json();
@@ -1346,7 +1365,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         projectId: Id;
         personId: Id;
       };
-      body: TeamRemovalRequest;
+      body?: TeamRemovalRequest;
     }): Promise<ApiResult<TeamRemovalResult, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/projects/" + encodeURIComponent(String(input.path.projectId)) + "/team/" + encodeURIComponent(String(input.path.personId)) + "/removal", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
       const body = res.status === 204 ? undefined : await res.json();
