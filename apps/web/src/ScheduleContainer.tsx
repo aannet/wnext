@@ -7,6 +7,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import type { ScheduleSource, ScheduleSourceState, SourceErrorCode } from "./data/schedule-source";
 import type { MessageKey } from "./i18n";
 import { ScheduleScreen } from "./ScheduleScreen";
+import { GUTTER_PX } from "./schedule/scroller";
 
 export interface ScheduleContainerProps {
   i18n: I18n;
@@ -29,8 +30,9 @@ export function ScheduleContainer({ i18n, source, now, widthPx, heightPx }: Sche
   const today = todayIn(timezone, now);
 
   useEffect(() => {
-    // Vue initiale identique à celle de l'écran (jour, centrée sur aujourd'hui) : le premier chargement n'attend pas le rendu.
-    source.setViewport(viewAt(today, "day", widthPx));
+    // Vue initiale identique à celle de l'écran (jour, centrée sur aujourd'hui, zone de dates après la colonne des noms) :
+    // le premier chargement n'attend pas le rendu.
+    source.setViewport(viewAt(today, "day", widthPx - GUTTER_PX));
     source.start();
     return () => source.stop();
   }, [source]);

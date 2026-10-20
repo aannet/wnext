@@ -2,8 +2,9 @@
 body { margin: 16px; font: 13px system-ui, sans-serif; color: #1f2937; background: #fff; }
 .wn-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .wn-toolbar button[aria-pressed="true"] { font-weight: 600; }
-.wn-header { border-bottom: 1px solid #e5e7eb; overflow: hidden; }
-.wn-colheader { padding: 4px; white-space: nowrap; color: #6b7280; }
+.wn-header { background: #fff; border-bottom: 1px solid #e5e7eb; }
+.wn-corner { background: #fff; }
+.wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; overflow: hidden; white-space: nowrap; color: #6b7280; border-left: 1px solid #f3f4f6; }
 .wn-grid { position: relative; border: 1px solid #e5e7eb; }
 .wn-row { contain: strict; border-bottom: 1px solid #f3f4f6; }
 .wn-row.wn-overflow { background: #fef2f2; }

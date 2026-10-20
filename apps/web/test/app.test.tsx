@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Écran Schedule (coquille React) : barre d'outils traduite, zooms, « Aujourd'hui », grille montée.
+// Écran Schedule (coquille React) : barre d'outils traduite, zooms, « Aujourd'hui », clavier, grille montée.
 import type { ScheduleResponse } from "@wnext/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -21,15 +21,23 @@ const data: ScheduleResponse = {
 
 let root: Root | null = null;
 let host: HTMLElement;
+let frames: (() => void)[] = [];
+let now = 0;
+const clock = { raf: (cb: () => void) => frames.push(cb), caf: () => {}, now: () => now, idle: (cb: () => void) => cb() };
+/** Laisse passer `n` images (défilement doux). */
+const run = (n = 30) => act(() => { for (let i = 0; i < n; i++) { now += 16; for (const f of frames.splice(0)) f(); } });
 function mount(locale: UiLocale) {
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
-  act(() => root!.render(<ScheduleScreen i18n={createI18n(locale)} data={data} today="2026-10-19" widthPx={960} heightPx={480} />));
+  frames = [];
+  act(() => root!.render(<ScheduleScreen i18n={createI18n(locale)} data={data} today="2026-10-19" widthPx={960} heightPx={480} clock={clock} />));
 }
 afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; });
 const button = (name: string) => [...host.querySelectorAll("button")].find((b) => b.textContent === name)!;
 const headers = () => [...host.querySelectorAll("[role=columnheader]")];
+const grid = () => host.querySelector("[role=grid]") as HTMLElement;
+const key = (k: string) => act(() => grid().dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })));
 
 describe("ScheduleScreen", () => {
   it("pseudo-locale : tout le texte de l'interface passe par le catalogue (seuls les noms restent)", () => {
@@ -43,6 +51,7 @@ describe("ScheduleScreen", () => {
   it("grille montée : une ligne par personne, compteur au pluriel", () => {
     mount("fr");
     expect([...host.querySelectorAll("[role=rowheader]")].map((e) => e.textContent)).toEqual(["Alice", "Bruno"]);
+    expect(grid().querySelector("[role=row]")!.querySelectorAll("[role=columnheader]").length).toBeGreaterThan(7); // en-tête dans la grille
     expect(host.textContent).toContain("2 personnes");
   });
 
@@ -53,17 +62,29 @@ describe("ScheduleScreen", () => {
     expect(button("Semaine").getAttribute("aria-pressed")).toBe("true");
     expect(headers().length).toBeLessThan(days);
     const centered = headers().map((h) => h.getAttribute("data-from"));
+    const left = grid().scrollLeft;
     act(() => button("Période précédente").click());
-    expect(headers().map((h) => h.getAttribute("data-from"))).not.toEqual(centered);
+    run();
+    expect(left - grid().scrollLeft).toBe(7 * 28); // une semaine au zoom semaine
     act(() => button("Aujourd’hui").click());
+    run();
+    expect(grid().scrollLeft).toBe(left);
     expect(headers().map((h) => h.getAttribute("data-from"))).toEqual(centered);
   });
 
-  it("raccourci T : Aujourd'hui", () => {
+  it("clavier : flèches gauche / droite défilent d'un jour, T revient à aujourd'hui", () => {
     mount("en");
+    const left = grid().scrollLeft;
+    key("ArrowRight");
+    key("ArrowRight");
+    run(1);
+    expect(grid().scrollLeft - left).toBe(2 * 96);
+    key("ArrowLeft");
+    expect(grid().scrollLeft - left).toBe(96);
     act(() => button("Next period").click());
-    const moved = headers()[0]!.getAttribute("data-from");
-    act(() => host.querySelector("[role=grid]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "t", bubbles: true })));
-    expect(headers()[0]!.getAttribute("data-from")).not.toBe(moved);
+    run();
+    key("t");
+    run();
+    expect(grid().scrollLeft).toBe(left);
   });
 });
