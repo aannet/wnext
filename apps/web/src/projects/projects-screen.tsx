@@ -7,6 +7,7 @@ import type { Client, ProjectDetail } from "@wnext/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectsSource } from "../data/projects-source";
 import type { TeamRemovalEditor } from "../data/team-removal";
+import { Drawer } from "../design";
 import { suggestColor } from "../design/project-palette";
 import type { MessageKey } from "../i18n";
 import { ClientsSection } from "./clients-section";
@@ -46,9 +47,10 @@ export function ProjectsScreen({ i18n, source, canEdit, editor }: ProjectsScreen
     trigger.current = el;
     setSide(next);
   }
+  // Le focus est rendu au déclencheur par le Drawer commun ; seul le cas où le déclencheur a changé (création -> fiche) passe ici.
   function close() {
     setSide({ kind: "none" });
-    requestAnimationFrame(() => trigger.current?.isConnected && trigger.current.focus());
+    requestAnimationFrame(() => { if (document.activeElement === document.body && trigger.current?.isConnected) trigger.current.focus(); });
   }
   // Un projet disparu (autre session) ferme son panneau.
   useEffect(() => { if (side.kind === "project" && ready && !selected) setSide({ kind: "none" }); }, [side, ready, selected]);
@@ -83,7 +85,7 @@ export function ProjectsScreen({ i18n, source, canEdit, editor }: ProjectsScreen
       )}
 
       {ready && (
-        <div className={side.kind === "none" ? "wn-projects-body" : "wn-projects-body wn-with-panel"}>
+        <div className="wn-projects-body">
           <div className="wn-projects-main">
             <div role="tabpanel" id="wn-tabpanel-projects" aria-labelledby="wn-tab-projects" hidden={tab !== "projects"}>
               <Filters i18n={i18n} filters={filters} clients={clientList} onChange={setFilters} />
@@ -202,7 +204,6 @@ interface CreatePanelProps {
 /** Création réduite d'un projet (US-2.1) : client choisi ou créé à la volée, couleur proposée dans la palette, code unique. */
 function CreatePanel({ i18n, source, clients, others, onClose, onClientCreated, onCreated }: CreatePanelProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
-  const heading = useRef<HTMLHeadingElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
@@ -211,7 +212,6 @@ function CreatePanel({ i18n, source, clients, others, onClose, onClientCreated, 
   const initial: FormValues = useMemo(() => draft ?? ({
     name: "", clientId: "", newClientName: "", projectCode: "", color: suggestColor(others.map((p) => p.color)), startDate: "", endDate: "", status: "planned",
   }), [draft, others]);
-  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
 
   async function create(v: FormValues) {
     setBusy(true); setError(null); setFieldErrors({});
@@ -232,13 +232,9 @@ function CreatePanel({ i18n, source, clients, others, onClose, onClientCreated, 
   }
 
   return (
-    <section className="wn-project-panel" aria-labelledby="wn-create-title" onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
-      <header className="wn-panel-header">
-        <h2 id="wn-create-title" ref={heading} tabIndex={-1} className="wn-panel-title">{t("projects.create.title")}</h2>
-        <button type="button" onClick={onClose}>{t("projects.panel.close")}</button>
-      </header>
+    <Drawer title={t("projects.create.title")} closeLabel={t("dialog.close")} onClose={onClose} busy={busy} className="wn-project-panel">
       <ProjectForm key={formKey} i18n={i18n} mode="create" initial={initial} clients={clients} others={others} busy={busy} submitError={error}
         serverFieldErrors={fieldErrors} onSubmit={(v) => void create(v)} onCancel={onClose} />
-    </section>
+    </Drawer>
   );
 }

@@ -1,10 +1,11 @@
 // Panneau latéral d'un projet (dossier §4.1 principe 1 : le détail s'ouvre à côté de la liste, sans quitter l'écran) : propriétés
 // éditables avec le verrou optimiste (If-Match = version lue ; 409 VERSION_CONFLICT proposé en rechargement), tâches, phases et
-// jalons (lecture), équipe. Composant local `ProjectPanel` : il sera rebranché sur le Drawer commun (design/) quand il existera.
+// jalons (lecture), équipe. Posé dans le Drawer commun (design/) : focus piégé puis rendu au déclencheur, Échap, bouton ×.
 // Lecture seule pour member et guest : champs désactivés, aucune action d'écriture.
 import type { I18n } from "@lingui/core";
 import type { Client, ProjectDetail } from "@wnext/contracts";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { Drawer } from "../design";
 import type { ProjectsSource } from "../data/projects-source";
 import type { TeamRemovalEditor } from "../data/team-removal";
 import type { MessageKey } from "../i18n";
@@ -31,8 +32,6 @@ export interface ProjectPanelProps {
 
 export function ProjectPanel(p: ProjectPanelProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => p.i18n._(k, v);
-  const titleId = useId();
-  const heading = useRef<HTMLHeadingElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
@@ -42,7 +41,7 @@ export function ProjectPanel(p: ProjectPanelProps) {
   const [notice, setNotice] = useState("");
   const { project, source } = p;
 
-  useEffect(() => { heading.current?.focus({ preventScroll: true }); setError(null); setConflict(false); setFieldErrors({}); setDraft(null); setNotice(""); }, [project.id]);
+  useEffect(() => { setError(null); setConflict(false); setFieldErrors({}); setDraft(null); setNotice(""); }, [project.id]);
 
   async function save(v: FormValues) {
     setBusy(true);
@@ -80,14 +79,7 @@ export function ProjectPanel(p: ProjectPanelProps) {
   }
 
   return (
-    <section className="wn-project-panel" aria-labelledby={titleId} onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); p.onClose(); } }}>
-      <header className="wn-panel-header">
-        <h2 id={titleId} ref={heading} tabIndex={-1} className="wn-panel-title">
-          <span className="wn-dot" aria-hidden="true" style={{ background: project.color }} />
-          {project.name}
-        </h2>
-        <button type="button" onClick={p.onClose}>{t("projects.panel.close")}</button>
-      </header>
+    <Drawer title={project.name} closeLabel={t("dialog.close")} onClose={p.onClose} busy={busy} className="wn-project-panel">
       {!p.canEdit && <p className="wn-muted">{t("projects.panel.readonly")}</p>}
       <p role="status" className={notice ? "wn-panel-notice" : "wn-visually-hidden"}>{notice}</p>
       {conflict && (
@@ -104,6 +96,6 @@ export function ProjectPanel(p: ProjectPanelProps) {
       <ProjectTasks i18n={p.i18n} source={source} projectId={project.id} canEdit={p.canEdit} />
       <StructureLists i18n={p.i18n} source={source} projectId={project.id} />
       <ProjectTeam i18n={p.i18n} source={source} projectId={project.id} projectName={project.name} canEdit={p.canEdit} editor={p.editor} />
-    </section>
+    </Drawer>
   );
 }

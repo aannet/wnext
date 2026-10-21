@@ -1,14 +1,14 @@
-// Équipe d'un projet : liste, ajout de personnes, retrait. Le retrait suit le parcours BR-10 du planning (team-removal-ui, que ce
-// fichier n'appelle pas : il est attaché au menu contextuel de la grille) avec les mêmes règles et les mêmes textes : récapitulatif
-// de ce qui sera supprimé, confirmation explicite de ce qui a été vu, refus si des temps saisis sont verrouillés, récapitulatif
-// à jour si la situation a changé. Même `TeamRemovalEditor` que le planning (source du planning), donc même moteur de règles.
+// Équipe d'un projet : liste, ajout de personnes, retrait. Le retrait suit le parcours BR-10 du planning (team-removal-ui, attaché
+// au menu contextuel de la grille) : même dialogue partagé (team/team-removal-dialog), mêmes règles et mêmes textes. Même
+// `TeamRemovalEditor` que le planning (source du planning), donc même moteur de règles.
 import type { I18n } from "@lingui/core";
 import type { TeamMember } from "@wnext/contracts";
-import { useId, useMemo, useState } from "react";
+import { useId, useState } from "react";
 import type { EditError } from "../data/allocation-edits";
 import type { PersonRef, ProjectsSource } from "../data/projects-source";
 import { confirmationOf, type RemovalSummary, type TeamRemovalEditor } from "../data/team-removal";
 import type { MessageKey } from "../i18n";
+import { TeamRemovalDialog } from "../team/team-removal-dialog";
 import { errorKey } from "./projects-model";
 import { useLoad } from "./use-load";
 
@@ -36,8 +36,6 @@ export function ProjectTeam({ i18n, source, projectId, projectName, canEdit, edi
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [removal, setRemoval] = useState<Removal | null>(null);
-  const fmt = useMemo(() => new Intl.DateTimeFormat(i18n.locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }), [i18n.locale]);
-  const day = (iso: string | null) => (iso ? fmt.format(new Date(`${iso}T00:00:00Z`)) : "");
 
   const members = team.state.status === "ready" ? team.state.data : [];
   const candidates = people.state.status === "ready" ? people.state.data.filter((x) => !members.some((m) => m.personId === x.id)) : [];
@@ -101,27 +99,8 @@ export function ProjectTeam({ i18n, source, projectId, projectName, canEdit, edi
           </ul>
         ))}
       {removal && (
-        <div role="group" aria-labelledby={`${id}-rm`} className="wn-removal" aria-busy={removal.busy || undefined}>
-          <h4 id={`${id}-rm`}>{t("schedule.removal.title", { person: removal.member.name, project: projectName })}</h4>
-          {removal.stale && <p role="alert">{t("schedule.removal.stale")}</p>}
-          {removal.error && <p role="alert" className="wn-dialog-error">{removal.error}</p>}
-          {!removal.summary && !removal.error && <p>{t("schedule.removal.loading")}</p>}
-          {removal.summary && (
-            <>
-              <ul>
-                <li>{t("schedule.removal.allocations", { count: removal.summary.allocationCount, first: day(removal.summary.firstAllocation), last: day(removal.summary.lastAllocation) })}</li>
-                <li>{t("schedule.removal.logs", { count: removal.summary.logCount, hours: removal.summary.logHours })}</li>
-              </ul>
-              {removal.summary.canRemove
-                ? <p>{t("schedule.removal.irreversible")}</p>
-                : <p role="alert" className="wn-dialog-error">{t("schedule.removal.locked", { count: removal.summary.lockedLogCount })}</p>}
-            </>
-          )}
-          <div className="wn-dialog-actions">
-            {removal.summary?.canRemove && <button type="button" disabled={removal.busy} onClick={() => void confirmRemoval()}>{t("schedule.removal.confirm")}</button>}
-            <button type="button" onClick={() => setRemoval(null)}>{t("schedule.removal.cancel")}</button>
-          </div>
-        </div>
+        <TeamRemovalDialog i18n={i18n} person={removal.member.name} project={projectName} summary={removal.summary} error={removal.error}
+          stale={removal.stale} busy={removal.busy} onConfirm={() => void confirmRemoval()} onCancel={() => setRemoval(null)} />
       )}
       {canEdit && (
         <form className="wn-inline-form" onSubmit={(e) => void add(e)}>

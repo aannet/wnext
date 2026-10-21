@@ -36,10 +36,13 @@ const emptySource = (): ProjectsSource => {
   return { ...s, listProjects: async () => ({ ok: true, value: [] }) };
 };
 
-const q = <T extends Element = HTMLElement>(sel: string) => host.querySelector<T>(sel);
-const byText = (sel: string, text: string | RegExp) => [...host.querySelectorAll<HTMLElement>(sel)].find((e) => (typeof text === "string" ? e.textContent === text : text.test(e.textContent ?? "")));
+// Les fiches sont des fenêtres (Drawer, Modal) montées dans document.body : toutes les recherches partent de là.
+const q = <T extends Element = HTMLElement>(sel: string) => document.body.querySelector<T>(sel);
+const byText = (sel: string, text: string | RegExp) => [...document.body.querySelectorAll<HTMLElement>(sel)].find((e) => (typeof text === "string" ? e.textContent === text : text.test(e.textContent ?? "")));
 // Quand un panneau est ouvert, boutons et champs se cherchent dans le panneau (la liste porte des libellés homonymes : filtre « Client »).
-const scope = (): Element => host.querySelector("section.wn-project-panel") ?? host;
+// La fiche est un Drawer (portail dans document.body) ; le dialogue de retrait BR-10, un Modal posé par-dessus : on cherche dans la fenêtre du dessus.
+const dialogs = () => [...document.body.querySelectorAll<HTMLElement>("[role=dialog]")];
+const scope = (): Element => dialogs().at(-1) ?? host;
 const button = (text: string | RegExp) => [...scope().querySelectorAll<HTMLButtonElement>("button")].find((e) => (typeof text === "string" ? e.textContent === text : text.test(e.textContent ?? "")));
 const field = (label: string) => {
   const l = [...scope().querySelectorAll("label")].find((x) => x.textContent === label);
@@ -55,9 +58,9 @@ async function type(el: HTMLInputElement, value: string) {
 async function choose(el: HTMLSelectElement, value: string) {
   await act(async () => { el.value = value; el.dispatchEvent(new Event("change", { bubbles: true })); });
 }
-const rowNames = () => [...host.querySelectorAll("tbody th button")].map((b) => b.textContent);
-const alerts = () => [...host.querySelectorAll("[role=alert]")].map((e) => e.textContent);
-const panel = () => q("section.wn-project-panel");
+const rowNames = () => [...document.body.querySelectorAll("tbody th button")].map((b) => b.textContent);
+const alerts = () => [...document.body.querySelectorAll("[role=alert]")].map((e) => e.textContent);
+const panel = () => document.body.querySelector<HTMLElement>("[role=dialog].wn-project-panel");
 
 describe("liste", () => {
   it("affiche les projets du compte avec leur client et leur statut, et filtre", async () => {
@@ -73,13 +76,13 @@ describe("liste", () => {
 
   it("état vide : action « Nouveau projet » ; filtre sans résultat : effacer les filtres", async () => {
     await mount(emptySource());
-    expect(host.textContent).toContain("Aucun projet pour l’instant");
+    expect(document.body.textContent).toContain("Aucun projet pour l’instant");
     expect(button("Nouveau projet")).toBeTruthy();
     act(() => root!.unmount());
     host.remove();
     await mount(demo());
     await type(field("Rechercher (nom ou code)"), "zzz");
-    expect(host.textContent).toContain("Aucun projet ne correspond");
+    expect(document.body.textContent).toContain("Aucun projet ne correspond");
     await click(button("Effacer les filtres"));
     expect(rowNames()).toHaveLength(6);
   });
@@ -100,7 +103,8 @@ describe("création réduite (US-2.1)", () => {
     const onProject = vi.fn();
     await mount(demo({ onProject }));
     await click(button("Nouveau projet"));
-    expect(panel()!.getAttribute("aria-labelledby")).toBe("wn-create-title");
+    expect(panel()!.getAttribute("aria-labelledby")).toBe(panel()!.querySelector("h2")!.id);
+    expect(panel()!.querySelector("h2")!.textContent).toBe("Nouveau projet");
     const proposed = (field("Autre couleur (#RRGGBB)").value);
     expect(PROJECT_PALETTE.map((p) => p.hex)).toContain(proposed);
     await type(field("Nom du projet"), "Portail RH");
@@ -111,7 +115,7 @@ describe("création réduite (US-2.1)", () => {
     await click(button("Créer le projet"));
     expect(rowNames()).toContain("Portail RH");
     expect(onProject).toHaveBeenCalledWith(expect.objectContaining({ name: "Portail RH", projectCode: "RH-1", color: PROJECT_PALETTE[3]!.hex }));
-    expect(q("#wn-create-title")).toBeNull();
+    expect(panel()!.querySelector("h2")!.textContent).toBe("Portail RH");
     expect(panel()!.textContent).toContain("Portail RH");
     expect(field("Client").selectedOptions[0]!.textContent).toBe("Initech");
   });
@@ -124,7 +128,7 @@ describe("création réduite (US-2.1)", () => {
     await type(field("Nom du projet"), "Doublon");
     await type(field("Code projet"), "J-1");
     await click(button("Créer le projet"));
-    expect(host.textContent).toContain("Ce code est déjà utilisé par un autre projet.");
+    expect(document.body.textContent).toContain("Ce code est déjà utilisé par un autre projet.");
     expect(field("Code projet").getAttribute("aria-invalid")).toBe("true");
     expect(rowNames()).not.toContain("Doublon");
   });
@@ -135,12 +139,12 @@ describe("création réduite (US-2.1)", () => {
     await mount(source);
     await click(button("Nouveau projet"));
     await click(button("Créer le projet"));
-    expect(host.textContent).toContain("Le nom est obligatoire.");
+    expect(document.body.textContent).toContain("Le nom est obligatoire.");
     await type(field("Nom du projet"), "Dates");
     await type(field("Début"), "2026-05-10");
     await type(field("Fin"), "2026-05-09");
     await click(button("Créer le projet"));
-    expect(host.textContent).toContain("La fin ne peut pas précéder le début.");
+    expect(document.body.textContent).toContain("La fin ne peut pas précéder le début.");
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -157,7 +161,7 @@ describe("création réduite (US-2.1)", () => {
     await mount(demo());
     const opener = button("Nouveau projet")!;
     await click(opener);
-    await act(async () => { q("#wn-create-title")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    await act(async () => { panel()!.querySelector("h2")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
     await act(async () => { await new Promise((r) => requestAnimationFrame(() => r(null))); });
     expect(panel()).toBeNull();
     expect(document.activeElement).toBe(opener);
@@ -239,7 +243,7 @@ describe("panneau d'un projet", () => {
     };
     await mount(demo(), { editor });
     await open("Projet A");
-    const members = () => [...host.querySelectorAll(".wn-panel-block .wn-rows li .wn-row-name")].map((e) => e.textContent);
+    const members = () => [...document.body.querySelectorAll(".wn-panel-block .wn-rows li .wn-row-name")].map((e) => e.textContent);
     const before = members().length;
     expect(button(/^Retirer /)).toBeTruthy();
     const pick = field("Personne à ajouter à l’équipe") as HTMLSelectElement;
@@ -251,7 +255,7 @@ describe("panneau d'un projet", () => {
 
     await click(button(new RegExp(`^Retirer ${candidate.textContent}…`)));
     expect(editor.teamRemovalSummary).toHaveBeenCalled();
-    expect(host.textContent).toContain("3 allocations supprimées");
+    expect(document.body.textContent).toContain("3 allocations supprimées");
     expect(editor.removeFromTeam).not.toHaveBeenCalled(); // jamais sans confirmation explicite
     await click(button("Retirer du projet"));
     expect(editor.removeFromTeam).toHaveBeenCalledWith("1", candidate.value, { allocationCount: 3, logCount: 0, logHours: 0 });
@@ -273,7 +277,7 @@ describe("clients", () => {
   it("liste, crée et renomme un client", async () => {
     await mount(demo());
     await click(byText("[role=tab]", "Clients"));
-    const names = () => [...host.querySelectorAll("#wn-tabpanel-clients .wn-row-name")].map((e) => e.textContent);
+    const names = () => [...document.body.querySelectorAll("#wn-tabpanel-clients .wn-row-name")].map((e) => e.textContent);
     expect(names()).toEqual(["Acme", "Globex"]);
     await type(field("Nouveau client"), "Initech");
     await click(byText("#wn-tabpanel-clients button[type=submit]", "Ajouter"));
@@ -304,7 +308,7 @@ describe("droits (member, guest : lecture seule)", () => {
 
   it("vide : pas d'action de création pour un lecteur", async () => {
     await mount(emptySource(), { canEdit: false });
-    expect(host.textContent).toContain("Aucun projet pour l’instant");
+    expect(document.body.textContent).toContain("Aucun projet pour l’instant");
     expect(button("Nouveau projet")).toBeUndefined();
   });
 });
@@ -313,7 +317,7 @@ describe("EN", () => {
   it("l'écran s'affiche en anglais", async () => {
     await mount(demo(), { locale: "en" });
     expect(button("New project")).toBeTruthy();
-    expect(host.textContent).toContain("Project");
+    expect(document.body.textContent).toContain("Project");
     expect(byText("th", "Status")).toBeTruthy();
   });
 });

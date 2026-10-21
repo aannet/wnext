@@ -9,11 +9,11 @@
 // pendant un glisser au toucher, defaultPrevented est alors déjà posé et le menu ne s'ouvre pas).
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { EditError } from "../data/allocation-edits";
 import { confirmationOf, type RemovalSummary, type TeamRemovalEditor } from "../data/team-removal";
-import { Button, Modal } from "../design";
 import type { MessageKey } from "../i18n";
+import { TeamRemovalDialog } from "../team/team-removal-dialog";
 import type { EditHost } from "./block-editor";
 
 interface Target { personId: string; projectId: string; key: string }
@@ -40,8 +40,6 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
   const [step, setStep] = useState<Step | null>(null);
   const deps = useRef({ editor, data, blockAt, onRemoved });
   deps.current = { editor, data, blockAt, onRemoved };
-  const fmt = useMemo(() => new Intl.DateTimeFormat(i18n.locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }), [i18n.locale]);
-  const day = (iso: string | null) => (iso ? fmt.format(new Date(`${iso}T00:00:00Z`)) : "");
 
   useEffect(() => {
     if (!editor) return;
@@ -137,28 +135,8 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
   } else if (step?.kind === "dialog") {
     const { target, summary } = step;
     element = (
-      <Modal title={t("schedule.removal.title", names(target))} closeLabel={t("dialog.close")} onClose={() => close(target.key)} busy={step.busy} className="wn-removal-dialog"
-        footer={
-          <>
-            <Button onClick={() => close(target.key)}>{t("schedule.removal.cancel")}</Button>
-            {summary?.canRemove && <Button variant="danger" autoFocus disabled={step.busy} onClick={() => void confirm()}>{t("schedule.removal.confirm")}</Button>}
-          </>
-        }>
-        {step.stale && <p role="alert">{t("schedule.removal.stale")}</p>}
-        {step.error && <p role="alert" className="wn-dialog-error">{step.error}</p>}
-        {!summary && !step.error && <p>{t("schedule.removal.loading")}</p>}
-        {summary && (
-          <>
-            <ul>
-              <li>{t("schedule.removal.allocations", { count: summary.allocationCount, first: day(summary.firstAllocation), last: day(summary.lastAllocation) })}</li>
-              <li>{t("schedule.removal.logs", { count: summary.logCount, hours: summary.logHours })}</li>
-            </ul>
-            {summary.canRemove
-              ? <p>{t("schedule.removal.irreversible")}</p>
-              : <p role="alert" className="wn-dialog-error">{t("schedule.removal.locked", { count: summary.lockedLogCount })}</p>}
-          </>
-        )}
-      </Modal>
+      <TeamRemovalDialog i18n={i18n} {...names(target)} summary={summary} error={step.error} stale={step.stale} busy={step.busy}
+        onConfirm={() => void confirm()} onCancel={() => close(target.key)} />
     );
   }
   return { element };
