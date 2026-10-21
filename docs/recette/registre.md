@@ -99,10 +99,10 @@ Tri PM : les retours sont réordonnés par dépendance (kit et retrait d'abord, 
 | Lot | Contenu | Retours | Modèle | Dépend de | Contrat |
 |---|---|---|---|---|---|
 | L-H | **Livré** (`ce25e1f`, `4cdbb66`). Retrait du statut « en attente » : un congé posé est approuvé par défaut (API et écran), option `pending` retirée du formulaire, données de démo et tests alignés ; l'enum SQL reste (schéma gelé) | RT-022 | Sonnet | — | oui (défaut et description de `approvalStatus`, commit séparé, CODEOWNERS) |
-| L-G | **En cours** (G1 `c387f4f`, G2 `4da5727`). Socle shadcn/ui : Base UI (Q13), preflight Tailwind, variables shadcn dans `tokens.css`, migration des primitives derrière la même API (`design/index.ts`) : Button, Dialog et AlertDialog, Popover, Sheet, Command ; règle de fermeture des drawers (RT-023) | RT-020, RT-021, RT-023 | Opus | — | non |
+| L-G | **En cours** (G1 `c387f4f`, G2 `4da5727` ; rendu à revoir par Alec avant la suite). Socle shadcn/ui : Base UI (Q13), variables shadcn dans `tokens.css`, Button, Dialog et AlertDialog, Sheet ; règle de fermeture des drawers (RT-023). Reste : boutons natifs, champs, puis preflight Tailwind avec captures avant / après. Popover et Combobox déplacés en L-J et L-K (Alec, 2026-10-21) | RT-020, RT-021, RT-023 | Opus | — | non |
 | L-I | Grille : séparateurs de colonnes, période courante en en-tête, jours non ouvrés hachurés ; écart d'affichage du % s'il est reproduit | RT-026 à RT-029 | Opus (grille) | L-G | non |
-| L-K | Éditeur de créneau en drawer (Sheet) : édition, et création selon Q8 ; onglets Projet / Congé conservés | RT-024 | Opus | L-G | non |
-| L-J | Header et filtres : barre en deux niveaux, bouton Filtres et puces, menu Affichage (densité, toggle de charge), libellé du temps réel | RT-025, RT-030, RT-032 | Sonnet | L-G | non |
+| L-K | Éditeur de créneau en drawer (Sheet) : édition, et création selon Q8 ; onglets Projet / Congé conservés ; Combobox sur Base UI (déplacée de L-G) | RT-024 | Opus | L-G | non |
+| L-J | Header et filtres : barre en deux niveaux, bouton Filtres et puces, menu Affichage (densité, toggle de charge), indicateur temps réel (Q12) ; Popover sur Base UI, dont le panneau des notifications (déplacé de L-G) | RT-025, RT-030, RT-032 | Sonnet | L-G | non |
 | L-L | Personnes : tri (nom, département, rôle ; ASC / DESC) et regroupement par département, côté client, sur la Table shadcn | RT-031 | Sonnet | L-G | non |
 
 ## Questions à Alec (cadrage n°2)
