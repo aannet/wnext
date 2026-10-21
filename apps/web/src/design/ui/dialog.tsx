@@ -19,10 +19,9 @@ export function DialogOverlay({ className, ...props }: ComponentProps<typeof Dia
   return <DialogPrimitive.Backdrop data-slot="dialog-overlay" className={cn("wn-anim-fade fixed inset-0 z-(--z-modal) bg-scrim", className as string)} {...props} />;
 }
 
-/** Panneau : centré (modal), latéral droit de 420 px (sheet), ou positionné par l'appelant (ancré). */
+/** Panneau : centré (modal) ou latéral droit de 420 px (sheet). */
 export const POPUP_CLASS = {
   modal: "wn-anim-pop fixed top-1/2 left-1/2 max-h-[calc(100%-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 rounded-lg shadow-popover",
-  anchored: "wn-anim-pop rounded-lg shadow-popover",
   sheet: "wn-anim-slide fixed inset-y-0 right-0 h-full w-[420px] max-w-full shadow-drawer",
 } as const;
 

@@ -1,6 +1,6 @@
-// Pop-in du créneau (RT-011, RT-013 à RT-018) : une fenêtre modale ANCRÉE au bloc, au bloc provisoire ou au bouton qui
-// l'ouvre (placée comme un Popover, ux-ui §3.4, pour garder le contexte), avec voile, piège du focus, Fermer (×) et Échap
-// comme toutes les fenêtres (RT-009) : un formulaire en cours ne se perd pas sur un clic à côté. Titrée, à deux onglets.
+// Éditeur du créneau (RT-011, RT-013 à RT-018) dans un drawer latéral, en création comme en édition (RT-024, Q8) : voile,
+// piège du focus, Fermer (×), Échap et clic sur le voile comme tous les drawers (RT-023). Formulaire modifié (allocation,
+// couleur en cours ou congé) : fermer demande « Abandonner les modifications ? » (Q7). Titré, à deux onglets.
 //  * « Projet / tâche » (par défaut) : personnes (création : une ou plusieurs, groupe BR-26 ; édition : une, déplacement
 //    vers une autre ligne par PATCH personId), projet et tâche par Combobox avec recherche dans le référentiel (projets
 //    autorisés, BR-33), couleur du projet (RT-018, droits d'écriture du projet), dates, heures par jour ou pourcentage,
@@ -10,7 +10,8 @@
 //    avec la personne et la plage du créneau. Ouvert directement (touche C, bouton, congé cliqué), la pop-in s'y place.
 //  * Onglets APG : role tablist, flèches gauche / droite (activation automatique), Début / Fin. Pas d'onglets pour un congé
 //    existant ni pendant l'avertissement BR-04.
-//  * Échap ou Annuler : rien n'est écrit ; l'appelant retire le bloc provisoire et rend le focus (onClosed).
+//  * Échap, clic sur le voile ou Annuler : rien n'est écrit ; l'appelant retire le bloc provisoire et rend le focus
+//    (onClosed). Dans l'avertissement ou l'assistant BR-04, Échap revient d'une étape sans question.
 import type { I18n } from "@lingui/core";
 import type { Me, ProjectDetail, ProjectTask, ScheduleResponse } from "@wnext/contracts";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
@@ -19,7 +20,7 @@ import type { Allocation, ScheduleEditor } from "../data/allocation-edits";
 import type { ProjectsResult, ProjectPatchInput } from "../data/projects-source";
 import { groupMembers } from "../data/record-edits";
 import type { GroupOutcome, ScheduleSource } from "../data/schedule-source";
-import { Button, Modal, type PopoverAnchor } from "../design";
+import { Button, Drawer } from "../design";
 import type { MessageKey } from "../i18n";
 import { scheduleProjectOf } from "../projects/projects-model";
 import type { FocusTarget } from "./edits-ui";
@@ -56,13 +57,14 @@ export interface SlotEditorOptions {
 }
 
 type Tab = "allocation" | "timeoff";
-interface State { anchor: PopoverAnchor; tab: Tab; draft: SlotDraft; key: string | null; draftId: number | null; error: string | null; tried: boolean; color: string | null }
+/** `initial` : brouillon à l'ouverture, repère du formulaire modifié (Q7). */
+interface State { tab: Tab; draft: SlotDraft; initial: SlotDraft; key: string | null; draftId: number | null; error: string | null; tried: boolean; color: string | null }
 
 export interface SlotEditor {
-  openEdit(r: { key: string; allocationId: string }, anchor: PopoverAnchor): void;
-  openCreate(r: { personId: string | null; startDate: string; endDate: string; draft: number | null }, anchor: PopoverAnchor): void;
-  openTimeoffAt(personId: string, date: string, anchor: PopoverAnchor): void;
-  openTimeoffEdit(id: string, anchor: PopoverAnchor): void;
+  openEdit(r: { key: string; allocationId: string }): void;
+  openCreate(r: { personId: string | null; startDate: string; endDate: string; draft: number | null }): void;
+  openTimeoffAt(personId: string, date: string): void;
+  openTimeoffEdit(id: string): void;
   isOpen(): boolean;
   element: ReactNode;
 }
@@ -238,8 +240,10 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
     const tabs = state.tab === "allocation" || off?.creating === true;
     const panel = `${ids}-panel`;
     const content = off?.body ?? alloc?.body;
+    const dirty = state.color !== null || JSON.stringify(state.draft) !== JSON.stringify(state.initial) || off?.dirty === true;
     element = (
-      <Modal anchor={state.anchor} title={title} closeLabel={t("dialog.close")} onClose={() => finish()} onEscape={() => (off ? off.back() : finish())}
+      <Drawer title={title} closeLabel={t("dialog.close")} onClose={() => finish()} {...(off?.nested ? { onEscape: off.back } : {})}
+        unsaved={{ dirty, title: t("dialog.discard.title"), keep: t("dialog.discard.keep"), discard: t("dialog.discard.discard") }}
         className="wn-slot wn-timeoff-dialog" footer={off?.footer ?? alloc?.footer} {...(off?.describedBy ? { describedBy: off.describedBy } : {})}>
         {tabs && (
           <div role="tablist" aria-label={t("schedule.slot.tabs.label")} className="wn-tabs" onKeyDown={onTabKey}>
@@ -253,34 +257,34 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
           </div>
         )}
         {tabs ? <div role="tabpanel" id={panel} aria-labelledby={`${ids}-tab-${state.tab}`}>{content}</div> : content}
-      </Modal>
+      </Drawer>
     );
   }
 
-  const base = (anchor: PopoverAnchor, draft: SlotDraft, tab: Tab, key: string | null, draftId: number | null): State =>
-    ({ anchor, tab, draft, key, draftId, error: null, tried: false, color: null });
+  const base = (draft: SlotDraft, tab: Tab, key: string | null, draftId: number | null): State =>
+    ({ tab, draft, initial: draft, key, draftId, error: null, tried: false, color: null });
   return {
-    openEdit(r, anchor) {
+    openEdit(r) {
       const a = records && data.allocations.find((x) => x.id === r.allocationId);
       if (!a || stateRef.current?.key === r.key) return;
       timeoffs.reset();
-      show(base(anchor, editDraft(a), "allocation", r.key, null));
+      show(base(editDraft(a), "allocation", r.key, null));
     },
-    openCreate(r, anchor) {
+    openCreate(r) {
       if (!records) { if (r.draft !== null) optsRef.current.onDraftDone(r.draft); return; }
       timeoffs.reset();
-      show(base(anchor, createDraft(r.personId, r.startDate, r.endDate), "allocation", null, r.draft));
+      show(base(createDraft(r.personId, r.startDate, r.endDate), "allocation", null, r.draft));
     },
-    openTimeoffAt(personId, date, anchor) {
+    openTimeoffAt(personId, date) {
       if (!records) return;
       const prev = stateRef.current;
-      show(base(anchor, createDraft(personId, date, date), "timeoff", null, prev?.draftId ?? null));
+      show(base(createDraft(personId, date, date), "timeoff", null, prev?.draftId ?? null));
       timeoffs.openAt(personId, date);
     },
-    openTimeoffEdit(id, anchor) {
+    openTimeoffEdit(id) {
       const x = records && data.timeoffs.find((y) => y.id === id);
       if (!x) return;
-      show(base(anchor, createDraft(x.personId, x.startDate, x.endDate), "timeoff", null, stateRef.current?.draftId ?? null));
+      show(base(createDraft(x.personId, x.startDate, x.endDate), "timeoff", null, stateRef.current?.draftId ?? null));
       timeoffs.openEdit(id);
     },
     isOpen: () => stateRef.current !== null,

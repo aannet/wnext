@@ -38,6 +38,10 @@ export interface TimeoffView {
   creating: boolean;
   /** Échap : revient d'une étape (assistant, avertissement), puis ferme. */
   back(): void;
+  /** Avertissement ou assistant BR-04 : Échap revient d'une étape (back) au lieu de fermer. */
+  nested: boolean;
+  /** Formulaire modifié depuis l'ouverture, ou avertissement / assistant en cours : fermer demande confirmation (Q7). */
+  dirty: boolean;
 }
 
 export interface TimeoffEdits {
@@ -64,6 +68,9 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
   const dataRef = useRef(data);
   dataRef.current = data;
   const busy = useRef(false);
+  /** Champs à l'ouverture du formulaire : repère du formulaire modifié (Q7). */
+  const initial = useRef<Fields | null>(null);
+  const openForm = (id: string | null, fields: Fields) => { initial.current = fields; setStep({ kind: "form", id, error: null, fields }); };
   const fmt = useMemo(() => new Intl.DateTimeFormat(i18n.locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }), [i18n.locale]);
   const date = (d: string) => fmt.format(new Date(`${d}T00:00:00Z`));
   const personName = (id: string) => dataRef.current.people.find((p) => p.id === id)?.name ?? "";
@@ -81,12 +88,12 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
   function openCreate(personId: string, day: string, endDate = day) {
     const types = dataRef.current.timeoffTypes;
     const typeId = (types.find((x) => x.deducted) ?? types[0])?.id ?? "";
-    setStep({ kind: "form", id: null, error: null, fields: { personId, typeId, startDate: day, endDate, startHalf: "am", endHalf: "pm", approvalStatus: "approved" } });
+    openForm(null, { personId, typeId, startDate: day, endDate, startHalf: "am", endHalf: "pm", approvalStatus: "approved" });
   }
   function openEdit(id: string) {
     const x = dataRef.current.timeoffs.find((o) => o.id === id);
     if (!x) return;
-    setStep({ kind: "form", id, error: null, fields: Object.fromEntries(FIELDS.map((k) => [k, x[k]])) as Fields });
+    openForm(id, Object.fromEntries(FIELDS.map((k) => [k, x[k]])) as Fields);
   }
 
   async function run(s: Extract<Step, { kind: "form" | "warn" | "assist" }>, withWrites: boolean) {
@@ -156,6 +163,8 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
   // Une seule vue pour les trois étapes, affichée par la pop-in du créneau.
   const modal = (title: string, body: ReactNode, footer: ReactNode, describedBy?: string): TimeoffView => ({
     title, body, footer, back, creating: step?.kind === "form" && step.id === null, ...(describedBy ? { describedBy } : {}),
+    nested: step !== null && step.kind !== "form",
+    dirty: step !== null && (step.kind !== "form" || FIELDS.some((k) => step.fields[k] !== initial.current?.[k])),
   });
 
   let view: TimeoffView | null = null;

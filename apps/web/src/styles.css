@@ -121,7 +121,6 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 
 /* Pop-in du créneau (RT-011 à RT-018) : Popover large, onglets, formulaire en grille (repris du congé), Combobox avec recherche,
    personnes à cocher, pied d'actions. */
-.wn-slot { width: 560px; }
 .wn-slot .wn-tabs { margin: 0 0 var(--space-2); border-bottom: 1px solid var(--border); }
 .wn-slot-wide { grid-column: 1 / -1; }
 .wn-slot-overload { color: var(--color-danger-text); }
@@ -129,7 +128,8 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-slot-people { margin: 0; padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .wn-slot-people input[type="search"] { margin-right: var(--space-2); }
 .wn-slot-people-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px var(--space-2); max-height: 120px; margin-top: var(--space-1); overflow: auto; }
-.wn-slot-people-list label { display: flex; flex-direction: row; gap: var(--space-1); align-items: center; }
+/* Plus précis que .wn-timeoff-dialog form label (champs en colonne) : case et nom sur une ligne. */
+.wn-slot-people .wn-slot-people-list label { display: flex; flex-direction: row; gap: var(--space-1); align-items: center; }
 .wn-slot-color { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: flex-start; }
 .wn-combobox { display: flex; flex-direction: column; gap: 2px; }
 .wn-combobox-field { position: relative; }

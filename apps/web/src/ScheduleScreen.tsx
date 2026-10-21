@@ -199,27 +199,23 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   });
   const slotRef = useRef(slot);
   slotRef.current = slot;
-  /** Ancre de la pop-in ouverte depuis la barre d'outils : le bloc focalisé s'il y en a un, sinon le bouton. */
-  const anchorFor = (target: EventTarget | null, fallback: HTMLElement | null): HTMLElement =>
-    scroller.current?.host.timeoffAt?.(target)?.el ?? scroller.current?.host.blockAt(target)?.el ?? fallback ?? gridRef.current!;
   /** Personne et jour visés par une touche C (bloc focalisé, sinon première ligne au centre de la vue). */
-  const openTimeoffAt = (target: EventTarget | null, fallback: HTMLElement | null = null) => {
+  const openTimeoffAt = (target: EventTarget | null) => {
     const s = scroller.current;
     if (!s) return;
-    const anchor = anchorFor(target, fallback);
     const off = s.host.timeoffAt?.(target);
-    if (off) { slot.openTimeoffEdit(off.timeoff.timeoffId, anchor); return; }
+    if (off) { slot.openTimeoffEdit(off.timeoff.timeoffId); return; }
     const hit = s.host.blockAt(target);
     const personId = hit?.row.personId ?? s.host.model()?.rows[0]?.personId;
-    if (personId) slot.openTimeoffAt(personId, hit?.block.startDate ?? fromDayNumber(Math.floor(s.view().center)), anchor);
+    if (personId) slot.openTimeoffAt(personId, hit?.block.startDate ?? fromDayNumber(Math.floor(s.view().center)));
   };
   /** « + Allocation » : personne du bloc focalisé (sinon à choisir), jour au centre de la vue (ou celui du bloc). */
-  const openCreate = (button: HTMLElement) => {
+  const openCreate = () => {
     const s = scroller.current;
     if (!s) return;
     const hit = s.host.blockAt(document.activeElement);
     const day = hit?.block.startDate ?? fromDayNumber(Math.floor(s.view().center));
-    slot.openCreate({ personId: hit?.row.personId ?? null, startDate: day, endDate: day, draft: null }, button);
+    slot.openCreate({ personId: hit?.row.personId ?? null, startDate: day, endDate: day, draft: null });
   };
   /** Double clic sur une case vide : personne de la ligne, jour de la colonne. */
   const onDoubleClick = (e: { target: EventTarget; clientX: number; clientY: number }) => {
@@ -233,7 +229,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     const row = m.rows.find((w) => y >= w.top && y < w.top + w.heightPx);
     const origin = s.host.xOfDate(m.from);
     if (!row || x < origin) return;
-    slot.openTimeoffAt(row.personId, fromDayNumber(dayNumber(m.from) + Math.floor((x - origin) / m.pxPerDay)), { left: e.clientX, top: e.clientY, width: 1, height: 1 });
+    slot.openTimeoffAt(row.personId, fromDayNumber(dayNumber(m.from) + Math.floor((x - origin) / m.pxPerDay)));
   };
   const removal = useTeamRemoval({ i18n, editor: records?.teamRemovalSummary && records.removeFromTeam ? records as TeamRemovalEditor : undefined, data: () => records?.getState().data ?? dataRef.current,
     gridRef, blockAt: (t) => scroller.current?.host.blockAt(t) ?? null, announce: (text) => editsRef.current.announce(text),
@@ -264,8 +260,8 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     const blocks = createBlockEditor({
       root: gridRef.current!, host: s.host, clock, enabled: () => editorRef.current !== undefined,
       onCommit: (r) => editsRef.current.onCommit(r), onPreview: (p) => editsRef.current.onPreview(p),
-      onOpen: (r) => slotRef.current.openEdit(r, blockRect(r.key) ?? r.el),
-      onCreate: (r) => slotRef.current.openCreate(r, r.rect.width > 0 ? r.rect : { left: r.rect.left, top: r.rect.top, width: 1, height: 1 }),
+      onOpen: (r) => slotRef.current.openEdit(r),
+      onCreate: (r) => slotRef.current.openCreate(r),
     });
     blocksRef.current = blocks;
     return () => { blocks.destroy(); s.destroy(); scroller.current = null; blocksRef.current = null; };
@@ -373,8 +369,8 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
         )}
         {records && (
           <>
-            <Button type="button" variant="primary" aria-haspopup="dialog" onClick={(e) => openCreate(e.currentTarget)}>{t("schedule.slot.add")}</Button>
-            <Button type="button" aria-keyshortcuts="C" aria-haspopup="dialog" onClick={(e) => openTimeoffAt(document.activeElement, e.currentTarget)}>{t("schedule.timeoff.new")}</Button>
+            <Button type="button" variant="primary" aria-haspopup="dialog" onClick={openCreate}>{t("schedule.slot.add")}</Button>
+            <Button type="button" aria-keyshortcuts="C" aria-haspopup="dialog" onClick={() => openTimeoffAt(document.activeElement)}>{t("schedule.timeoff.new")}</Button>
           </>
         )}
         <span>{t("schedule.people.count", { count: shown.people.length })}</span>
@@ -387,7 +383,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
           announce={(text) => editsRef.current.announce(text)} onExit={() => gridRef.current?.focus({ preventScroll: true })} />
       )}
       <div ref={gridRef} role="grid" aria-label={t("schedule.grid.label")} tabIndex={0} onKeyDown={onKeyDown}
-        onClick={(e) => { const off = records && scroller.current?.host.timeoffAt?.(e.target); if (off) slot.openTimeoffEdit(off.timeoff.timeoffId, off.el); }}
+        onClick={(e) => { const off = records && scroller.current?.host.timeoffAt?.(e.target); if (off) slot.openTimeoffEdit(off.timeoff.timeoffId); }}
         onDoubleClick={records ? onDoubleClick : undefined}
         className="wn-grid" />
       {slot.element}

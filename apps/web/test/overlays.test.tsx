@@ -114,16 +114,26 @@ describe("Modal", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("onEscape (retour d'une étape) passe outre « Abandonner les modifications ? » ; × la demande toujours", () => {
+    const onClose = vi.fn(), onEscape = vi.fn();
+    render(<Modal title="T" closeLabel="X" onClose={onClose} onEscape={onEscape}
+      unsaved={{ dirty: true, title: "Abandonner les modifications ?", keep: "Continuer", discard: "Abandonner" }}><input aria-label="a" /></Modal>);
+    press(document.activeElement!, { key: "Escape" });
+    expect([onEscape.mock.calls.length, document.querySelector("[role=alertdialog]")]).toEqual([1, null]);
+    click(document.querySelector("[aria-label='X']")!);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.querySelector("[role=alertdialog]")).not.toBeNull();
+  });
+
   it("sans champ ni action, le focus initial va au bouton Fermer", () => {
     render(<Modal title="T" closeLabel="X" onClose={() => {}}><p>texte</p></Modal>);
     expect(document.activeElement?.getAttribute("aria-label")).toBe("X");
   });
 
-  it("ancrée (pop-in du créneau) : voile et rôle modal gardés, panneau placé sous l'ancre comme un popover", () => {
-    render(<Modal title="T" closeLabel="X" onClose={() => {}} anchor={{ left: 100, top: 50, width: 80, height: 20 }}><input aria-label="a" /></Modal>);
+  it("variante exposée (data-variant) ; plus de modale ancrée depuis l'éditeur en drawer (RT-024, Q8) : panneau centré, sans position calculée", () => {
+    render(<Modal title="T" closeLabel="X" onClose={() => {}}><input aria-label="a" /></Modal>);
     const panel = dialog()!;
-    expect(panel.getAttribute("aria-modal")).toBe("true");
-    expect([panel.style.position, panel.style.left, panel.style.top]).toEqual(["fixed", "100px", "74px"]);
+    expect([panel.getAttribute("aria-modal"), panel.dataset.variant, panel.style.position]).toEqual(["true", "modal", ""]);
     expect(document.body.style.overflow).toBe("hidden");
   });
 });
@@ -142,6 +152,7 @@ describe("Drawer", () => {
   it("panneau latéral de 420 px", () => {
     render(<Drawer title="T" closeLabel="X" onClose={() => {}}><p>texte</p></Drawer>);
     expect(dialog()!.className).toContain("w-[420px]");
+    expect(dialog()!.dataset.variant).toBe("drawer");
   });
 
   it("RT-023 : un clic sur le voile ferme le drawer ; un clic dans le panneau ne le ferme pas", () => {

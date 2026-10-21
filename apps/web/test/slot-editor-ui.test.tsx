@@ -245,3 +245,71 @@ describe("onglet Congé (RT-017) et couleur (RT-018)", () => {
     expect(block("c:0").style.backgroundColor).toBe(before);
   });
 });
+
+describe("éditeur en drawer (RT-024, Q8) et formulaire modifié (Q7)", () => {
+  const alert = () => document.body.querySelector<HTMLElement>("[role=alertdialog]");
+
+  it("édition et création s'ouvrent dans le même drawer latéral, jamais dans une modale ancrée", async () => {
+    mount([alloc("a")]);
+    await dblclick(block("a:0"));
+    expect(dialog()!.dataset.variant).toBe("drawer");
+    expect(dialog()!.style.position).toBe("");
+    await click("Annuler");
+    await click("+ Allocation");
+    expect(title()).toBe("Nouvelle allocation");
+    expect(dialog()!.dataset.variant).toBe("drawer");
+  });
+
+  it("formulaire intact : Échap ferme sans question ; modifié : Échap demande « Abandonner les modifications ? »", async () => {
+    const { src } = mount([alloc("a")]);
+    await dblclick(block("a:0"));
+    type(field("Heures par jour"), "6");
+    key(dialog()!, "Escape");
+    await flush();
+    expect(alert()?.querySelector("h2")?.textContent).toBe("Abandonner les modifications ?");
+    expect(dialog()).not.toBeNull();
+    await click("Continuer");
+    expect(alert()).toBeNull();
+    expect(field("Heures par jour").value).toBe("6");
+    key(dialog()!, "Escape");
+    await flush();
+    await click("Abandonner");
+    expect(document.body.querySelector("[role=dialog]")).toBeNull();
+    expect(src.getState().data!.allocations[0]).toMatchObject({ hoursPerDay: 8, version: 1 });
+  });
+
+  it("revenir à la valeur d'origine rend le formulaire intact ; × sur un formulaire modifié demande aussi", async () => {
+    mount([alloc("a")]);
+    await dblclick(block("a:0"));
+    type(field("Heures par jour"), "6");
+    type(field("Heures par jour"), "8");
+    key(dialog()!, "Escape");
+    await flush();
+    expect(alert()).toBeNull();
+    expect(dialog()).toBeNull();
+    await dblclick(block("a:0"));
+    type(field("Au"), "2026-10-23");
+    act(() => dialog()!.querySelector<HTMLButtonElement>("button[aria-label='Fermer la fenêtre']")!.click());
+    await flush();
+    expect(alert()).not.toBeNull();
+  });
+
+  it("onglet Congé modifié : Échap demande ; avertissement BR-04 : Échap revient au formulaire sans question", async () => {
+    mount([alloc("a")]);
+    await dblclick(block("a:0"));
+    act(() => dialog()!.querySelector<HTMLButtonElement>("[role=tab]:not([aria-selected=true])")!.click());
+    await flush();
+    expect(title()).toBe("Nouveau congé");
+    type(field("Au"), "2026-10-22");
+    key(dialog()!, "Escape");
+    await flush();
+    expect(alert()).not.toBeNull();
+    await click("Continuer");
+    await click("Enregistrer");
+    expect(title()).toBe("Ce congé recouvre des allocations de Alice");
+    key(dialog()!, "Escape");
+    await flush();
+    expect(alert()).toBeNull();
+    expect(title()).toBe("Nouveau congé");
+  });
+});

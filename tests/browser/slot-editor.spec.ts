@@ -1,4 +1,4 @@
-// Pop-in du créneau (lot L-E : RT-011, RT-013 à RT-018) dans un vrai navigateur, sur la démo (?demo=1, écritures locales) :
+// Éditeur du créneau (lot L-E : RT-011, RT-013 à RT-018 ; drawer depuis L-K : RT-024, Q7, Q8) dans un vrai navigateur, sur la démo (?demo=1, écritures locales) :
 // double clic -> passer au projet suivant -> bloc mis à jour, Ctrl+Z le rend ; glisser en zone libre -> bloc provisoire ->
 // création pour deux personnes -> deux blocs ; Échap sur un bloc provisoire -> rien ; onglet Congé -> avertissement BR-04 ;
 // couleur du projet depuis un bloc -> tous ses blocs changent ; axe-core sans violation sur les deux onglets.
@@ -59,7 +59,7 @@ const axe = async (page: Page) => {
   expect(r.violations.map((v) => `${v.impact} ${v.id}: ${v.help}`)).toEqual([]);
 };
 
-test("double clic sur un bloc : pop-in ancrée, passer au projet suivant, bloc mis à jour ; Ctrl+Z le rend ; axe propre sur les deux onglets", async ({ page }) => {
+test("double clic sur un bloc : drawer à droite, passer au projet suivant, bloc mis à jour ; Ctrl+Z le rend ; axe propre sur les deux onglets", async ({ page }) => {
   await openDemo(page);
   const b = await plainBlock(page);
   const from = /^Projet ([A-F])/.exec(b.label)![1]!;
@@ -67,9 +67,10 @@ test("double clic sur un bloc : pop-in ancrée, passer au projet suivant, bloc m
   await page.locator(`.wn-block[data-key="${b.key}"]`).dblclick();
   await expect(dialog(page).getByRole("heading")).toHaveText("Modifier l’allocation");
   await expect(dialog(page).getByRole("combobox", { name: "Projet" })).toBeFocused();
-  // Ancrée : le panneau commence sous le bloc (ou au-dessus), aligné sur lui.
-  const panel = (await dialog(page).boundingBox())!;
-  expect(Math.abs(panel.x - b.x) < 2 || panel.x + panel.width <= b.x + b.w + 2).toBe(true);
+  // Drawer (RT-024, Q8) : collé au bord droit, sur toute la hauteur de la fenêtre.
+  const vp = page.viewportSize()!;
+  await expect.poll(async () => { const p = (await dialog(page).boundingBox())!; return [Math.round(p.x + p.width), Math.round(p.y), Math.round(p.height)]; })
+    .toEqual([vp.width, 0, vp.height]); // après l'animation d'entrée
   await axe(page);
   await dialog(page).getByRole("tab", { name: "Congé" }).click();
   await expect(dialog(page).getByRole("heading")).toHaveText("Nouveau congé");
@@ -159,4 +160,25 @@ test("couleur du projet depuis un bloc : tous les blocs du projet changent", asy
   await dialog(page).getByRole("button", { name: "Annuler" }).click();
   await expect.poll(colors).not.toEqual(before);
   expect(await colors()).toHaveLength(1);
+});
+
+test("clic sur le voile : formulaire intact, le drawer se ferme ; modifié, « Abandonner les modifications ? » (Q7)", async ({ page }) => {
+  await openDemo(page);
+  const b = await plainBlock(page);
+  await page.locator(`.wn-block[data-key="${b.key}"]`).dblclick();
+  await expect(dialog(page).getByRole("heading")).toHaveText("Modifier l’allocation");
+  await page.mouse.click(40, 450);
+  await expect(dialog(page)).toHaveCount(0);
+
+  await page.locator(`.wn-block[data-key="${b.key}"]`).dblclick();
+  await dialog(page).getByRole("spinbutton", { name: "Heures par jour" }).fill("3");
+  await page.mouse.click(40, 450);
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm.getByRole("heading")).toHaveText("Abandonner les modifications ?");
+  await confirm.getByRole("button", { name: "Continuer" }).click();
+  await expect(dialog(page).getByRole("spinbutton", { name: "Heures par jour" })).toHaveValue("3");
+  await page.keyboard.press("Escape");
+  await page.getByRole("alertdialog").getByRole("button", { name: "Abandonner" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect.poll(async () => (await rowBlocks(page)).find((x) => x.key === b.key)?.label).toBe(b.label);
 });
