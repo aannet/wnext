@@ -21,6 +21,7 @@ export function normalizeFilters(f: ViewFilters): ViewFilters {
   const list = (k: "departmentIds" | "roleIds" | "projectIds" | "personIds" | "tags") => { const v = f[k]; if (v && v.length) out[k] = [...new Set(v)].sort(); };
   list("departmentIds"); list("roleIds"); list("projectIds"); list("personIds"); list("tags");
   if (f.zoom) out.zoom = f.zoom;
+  if (f.density) out.density = f.density;
   if (f.peopleSort && f.peopleSort !== "name") out.peopleSort = f.peopleSort;
   return out;
 }

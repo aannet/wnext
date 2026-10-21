@@ -2,12 +2,14 @@
 // (département, rôle, projet, personne, tri), enregistrer la vue courante (nom, partagée ou non), la mettre à jour, la
 // renommer, la supprimer. L'état courant se reflète dans l'URL (?view=<id>, remplacé sans empiler l'historique).
 //  * Les filtres sont portés par l'écran (lignes filtrées côté client, schedule/view-filters) ; la barre les édite et les lit.
-//  * Une vue enregistre les filtres ET le zoom au moment de l'enregistrement ; l'appliquer remet les deux.
+//  * Une vue enregistre les filtres, le zoom ET la densité au moment de l'enregistrement ; l'appliquer remet les trois (une
+//    vue enregistrée sans zoom ni densité ne les change pas).
 //  * Seules les vues que l'appelant peut gérer (`canManage`) offrent mise à jour, renommage et suppression.
 //  * Erreurs : codes stables de l'API, traduits ici ; sur VERSION_CONFLICT la vue est relue. Annonces dans une région role=status.
 import type { I18n } from "@lingui/core";
 import type { SavedView, ScheduleResponse } from "@wnext/contracts";
 import type { Zoom } from "@wnext/engine";
+import type { Density } from "./density";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { ViewsErrorCode, ViewsResult, ViewsSource } from "../data/views-source";
 import { Button, Modal } from "../design";
@@ -23,8 +25,11 @@ export interface ViewsBarProps {
   source: ViewsSource;
   filters: ViewFilters;
   zoom: Zoom;
+  /** Densité courante (absente : la barre ne l'enregistre pas) et son application par une vue. */
+  density?: Density;
   onFilters(f: ViewFilters): void;
   onZoom(z: Zoom): void;
+  onDensity?(d: Density): void;
   /** Reflète la vue courante dans l'URL (défaut : oui). */
   urlSync?: boolean;
 }
@@ -45,16 +50,16 @@ function writeViewParam(id: string | null) {
   } catch { /* URL non modifiable (contexte sans historique) : sans effet */ }
 }
 
-/** Le zoom ne compte dans la comparaison que si la vue en porte un (une vue sans zoom ne le force pas). */
+/** Le zoom et la densité ne comptent dans la comparaison que si la vue en porte (une vue sans zoom ne le force pas). */
 const modifiedFrom = (view: SavedView, now: ViewFilters) =>
-  !sameFilters(view.filters.zoom ? view.filters : { ...view.filters, zoom: now.zoom }, now);
+  !sameFilters({ ...view.filters, zoom: view.filters.zoom ?? now.zoom, density: view.filters.density ?? now.density }, now);
 
-/** Filtres portés par l'écran : ceux d'une vue sans le zoom (état à part). */
-const screenFilters = (f: ViewFilters): ViewFilters => { const { zoom: _zoom, ...rest } = f; return rest; };
+/** Filtres portés par l'écran : ceux d'une vue sans le zoom ni la densité (états à part). */
+const screenFilters = (f: ViewFilters): ViewFilters => { const { zoom: _zoom, density: _density, ...rest } = f; return rest; };
 
 const byPosition = (a: SavedView, b: SavedView) => a.position - b.position || a.name.localeCompare(b.name);
 
-export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, onFilters, onZoom, urlSync = true }: ViewsBarProps) {
+export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, density, onFilters, onZoom, onDensity, urlSync = true }: ViewsBarProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [views, setViews] = useState<SavedView[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -68,7 +73,7 @@ export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, onFilt
   const applied = useRef(false);
 
   const current = views.find((v) => v.id === currentId) ?? null;
-  const effective: ViewFilters = { ...filters, zoom };
+  const effective: ViewFilters = { ...filters, zoom, ...(density ? { density } : {}) };
   const modified = current !== null && modifiedFrom(current, effective);
   const count = activeFilterCount(filters);
 
@@ -81,6 +86,7 @@ export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, onFilt
     if (!view) { onFilters({}); say(t("views.status.all")); return; }
     onFilters(screenFilters(view.filters));
     if (view.filters.zoom) onZoom(view.filters.zoom);
+    if (view.filters.density) onDensity?.(view.filters.density);
     setForm(null);
   };
 
@@ -93,7 +99,12 @@ export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, onFilt
       const wanted = urlSync && !applied.current ? readViewParam() : null;
       applied.current = true;
       const view = wanted ? r.value.find((v) => v.id === wanted) : undefined;
-      if (view) { setCurrentId(view.id); onFilters(screenFilters(view.filters)); if (view.filters.zoom) onZoom(view.filters.zoom); }
+      if (view) {
+        setCurrentId(view.id);
+        onFilters(screenFilters(view.filters));
+        if (view.filters.zoom) onZoom(view.filters.zoom);
+        if (view.filters.density) onDensity?.(view.filters.density);
+      }
     });
     return () => { live = false; };
   }, [source]);

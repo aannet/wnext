@@ -19,10 +19,16 @@
 //    appliqués côté client aux lignes (schedule/view-filters) ; seule la grille reçoit les données filtrées, les éditeurs gardent
 //    les données complètes.
 //  * Retrait d'un projet (BR-10, schedule/team-removal-ui) si la source le permet : menu contextuel d'un bloc.
+//  * Densité (RT-005 à RT-007, schedule/density) : contrôle segmenté (groupe de boutons radio, flèches gauche / droite) dans
+//    la barre d'outils, appliquée à la volée (hauteurs du modèle, tailles CSS par data-density), mémorisée dans ce navigateur
+//    et portée par les vues sauvegardées. Colonne de gauche : avatar, nom, rôle, département et jauge de la période visible.
+//  * Mémoire de l'écran (PO-02) : `memory`, tenu par l'appelant au-dessus du démontage, reçoit au démontage le zoom, le jour
+//    au centre et le défilement vertical, et les rend au montage suivant. La pile d'annulation n'y est pas : la source est
+//    arrêtée hors du Planning, les changements des autres n'y sont pas suivis et l'historique ne pourrait plus les invalider.
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import { dayNumber, fromDayNumber, type HeaderCell, type Viewport, type Zoom } from "@wnext/engine";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import type { ScheduleEditor } from "./data/allocation-edits";
 import type { ScheduleSource } from "./data/schedule-source";
 import type { ViewsSource } from "./data/views-source";
@@ -37,6 +43,8 @@ import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
 import { useTimeoffEdits } from "./schedule/timeoff-ui";
 import { QuickEntry, type QuickEntryHandle } from "./schedule/quick-entry-ui";
 import { applyViewFilters, type ViewFilters } from "./schedule/view-filters";
+import { DENSITIES, readStoredDensity, storeDensity, type Density } from "./schedule/density";
+import { gaugeLabeler } from "./schedule/gauge-label";
 import { ViewsBar } from "./schedule/views-ui";
 import { useTeamRemoval } from "./schedule/team-removal-ui";
 import type { TeamRemovalEditor } from "./data/team-removal";
@@ -65,7 +73,12 @@ export interface ScheduleScreenProps {
   /** Écritures brutes de la source (congés, report assisté) ; absent : congés en lecture seule. */
   records?: Pick<ScheduleSource, "getState" | "updateAllocation" | "splitOccurrence" | "createTimeoff" | "updateTimeoff" | "deleteTimeoff"
     | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "onProjectsChange" | "teamRemovalSummary" | "removeFromTeam">>;
+  /** État gardé d'un montage à l'autre (PO-02) ; absent : l'écran repart d'aujourd'hui, zoom jour. */
+  memory?: ScheduleMemory;
 }
+
+/** Ce que l'écran rend au montage suivant (objet mutable tenu par l'appelant). */
+export interface ScheduleMemory { zoom?: Zoom; center?: number; scrollTop?: number }
 
 const ZOOMS: readonly Zoom[] = ["day", "week", "month"];
 const NO_HISTORY: HistoryState = { canUndo: false, canRedo: false, undoLabel: null, redoLabel: null };
@@ -96,9 +109,12 @@ function headerFormatter(locale: string) {
   return (c: HeaderCell) => fmt[c.kind].format(new Date(`${c.from}T00:00:00Z`));
 }
 
-export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, heightPx: initialHeightPx, onViewChange, clock, editor, history, records, views, heading, actions }: ScheduleScreenProps) {
+export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, heightPx: initialHeightPx, onViewChange, clock, editor, history, records, views, heading, actions, memory }: ScheduleScreenProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
-  const [zoom, setZoom] = useState<Zoom>("day");
+  const [zoom, setZoom] = useState<Zoom>(memory?.zoom ?? "day");
+  const [density, setDensityState] = useState<Density>(() => readStoredDensity());
+  const densityRef = useRef(density);
+  densityRef.current = density;
   const [filters, setFilters] = useState<ViewFilters>({});
   // Lignes affichées : personnes filtrées (et triées) ; `data` reste la référence des éditeurs et des listes de choix.
   const shown = useMemo(() => applyViewFilters(data, filters), [data, filters]);
@@ -199,7 +215,9 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
 
   // Le scroller est créé une seule fois : la date du jour et la locale lui sont poussées (setToday, setLabels), sans perdre
   // la position.
-  const labelsFor = (i: I18n) => ({ label: headerFormatter(i.locale), capacityLabel: capacityLabeler(i), blockLabel: blockLabeler(i), timeoffLabel: timeoffLabeler(i) });
+  const labelsFor = (i: I18n) => ({
+    label: headerFormatter(i.locale), capacityLabel: capacityLabeler(i), blockLabel: blockLabeler(i), timeoffLabel: timeoffLabeler(i), gaugeLabel: gaugeLabeler(i),
+  });
   const labelled = useRef(i18n);
   // widthPx/heightPx ne sont que la taille initiale : ensuite la grille remplit l'espace restant (CSS flex) et un
   // ResizeObserver pousse sa taille au scroller (fenêtre redimensionnée, barres ou filtres dépliés). Sans ResizeObserver
@@ -208,8 +226,9 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   const { widthPx, heightPx } = size;
   useEffect(() => {
     const s = createScroller({
-      root: gridRef.current!, data: shown, today, widthPx, heightPx, clock, zoom: zoomRef.current, ...labelsFor(i18n),
+      root: gridRef.current!, data: shown, today, widthPx, heightPx, clock, zoom: zoomRef.current, density: densityRef.current, ...labelsFor(i18n),
       onViewChange: (v) => viewChange.current?.(v),
+      ...(memory?.center !== undefined ? { center: memory.center } : {}), ...(memory?.scrollTop !== undefined ? { scrollTop: memory.scrollTop } : {}),
     });
     labelled.current = i18n;
     scroller.current = s;
@@ -218,6 +237,13 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
       onCommit: (r) => editsRef.current.onCommit(r), onPreview: (p) => editsRef.current.onPreview(p),
     });
     return () => { blocks.destroy(); s.destroy(); scroller.current = null; };
+  }, []);
+  // Mémoire (PO-02) relevée dans le nettoyage d'un effet de mise en page : il passe avant le retrait du DOM, quand la
+  // grille porte encore son défilement (le nettoyage d'un useEffect arrive après : élément détaché, scrollLeft à 0).
+  useLayoutEffect(() => () => {
+    const s = scroller.current;
+    const root = gridRef.current;
+    if (memory && s && root) { memory.zoom = s.zoom(); memory.center = s.view().center; memory.scrollTop = root.scrollTop; }
   }, []);
   useEffect(() => { scroller.current?.setToday(today); }, [today]);
   useEffect(() => {
@@ -246,6 +272,19 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   }, []);
 
   const zoomTo = (z: Zoom) => { scroller.current?.setZoom(z); setZoom(z); };
+  const densityTo = (d: Density) => { scroller.current?.setDensity(d); setDensityState(d); storeDensity(d); };
+  const densityRefs = useRef<Partial<Record<Density, HTMLButtonElement | null>>>({});
+  /** Groupe radio (APG) : flèches pour passer d'un niveau à l'autre, Début / Fin pour les extrêmes ; le focus suit le choix. */
+  const onDensityKey = (e: KeyboardEvent) => {
+    const i = DENSITIES.indexOf(density);
+    const next = e.key === "ArrowLeft" || e.key === "ArrowUp" ? DENSITIES[(i + DENSITIES.length - 1) % DENSITIES.length]
+      : e.key === "ArrowRight" || e.key === "ArrowDown" ? DENSITIES[(i + 1) % DENSITIES.length]
+      : e.key === "Home" ? DENSITIES[0] : e.key === "End" ? DENSITIES[DENSITIES.length - 1] : undefined;
+    if (!next) return;
+    e.preventDefault();
+    densityTo(next);
+    densityRefs.current[next]?.focus();
+  };
   const onKeyDown = (e: KeyboardEvent) => {
     const s = scroller.current;
     if (!s) return;
@@ -269,7 +308,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   };
 
   return (
-    <div className="wn-schedule">
+    <div className="wn-schedule" data-density={density}>
       <div className="wn-subheader">
       {heading}
       <div role="toolbar" aria-label={t("schedule.toolbar.label")} className="wn-toolbar">
@@ -282,6 +321,14 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
             {t(`schedule.zoom.${z}`)}
           </button>
         ))}
+        <div role="radiogroup" aria-label={t("schedule.density.label")} className="wn-segmented" onKeyDown={onDensityKey}>
+          {DENSITIES.map((d) => (
+            <button key={d} ref={(el) => { densityRefs.current[d] = el; }} type="button" role="radio" aria-checked={density === d} tabIndex={density === d ? 0 : -1}
+              onClick={() => densityTo(d)}>
+              {t(`schedule.density.${d}`)}
+            </button>
+          ))}
+        </div>
         {history && (
           <>
             <button type="button" disabled={!stack.canUndo} aria-keyshortcuts="Control+Z Meta+Z" onClick={() => stepRef.current("undo")}>
@@ -299,7 +346,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
       </div>
       {actions}
       </div>
-      {views && <ViewsBar i18n={i18n} data={data} shownCount={shown.people.length} source={views} filters={filters} zoom={zoom} onFilters={setFilters} onZoom={zoomTo} />}
+      {views && <ViewsBar i18n={i18n} data={data} shownCount={shown.people.length} source={views} filters={filters} zoom={zoom} density={density} onFilters={setFilters} onZoom={zoomTo} onDensity={densityTo} />}
       {records && (
         <QuickEntry ref={quickRef} i18n={i18n} data={data} today={today} createAllocation={records.createAllocation} listProjects={records.listProjects} onProjectsChange={records.onProjectsChange} record={history?.record}
           announce={(text) => editsRef.current.announce(text)} onExit={() => gridRef.current?.focus({ preventScroll: true })} />

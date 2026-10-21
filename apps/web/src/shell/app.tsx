@@ -1,8 +1,8 @@
 // Coque applicative : en-tête commun, puis la page de la route courante. Planning est fourni par l'appelant (renderPlanning,
 // qui détient la source de données) ; Projets, Personnes et Réglages sont fournis de même (une page absente : « bientôt »). Les droits d'affichage
 // viennent de GET /me (état `me`) : Réglages n'apparaît que pour owner et admin.
-// La page Planning est démontée quand on la quitte (sa source se rearrête et redémarre) : le défilement, le zoom et l'historique
-// d'annulation repartent de zéro au retour.
+// La page Planning est démontée quand on la quitte (sa source s'arrête et redémarre) : le zoom et la position sont gardés par
+// l'appelant (main.tsx, PO-02), la pile d'annulation repart de zéro au retour (ScheduleScreen dit pourquoi).
 import type { I18n } from "@lingui/core";
 import type { Me } from "@wnext/contracts";
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";

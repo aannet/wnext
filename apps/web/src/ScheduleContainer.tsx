@@ -13,7 +13,7 @@ import { ImportDialog } from "./imports/import-dialog";
 import type { ScheduleSource, ScheduleSourceState, SourceErrorCode } from "./data/schedule-source";
 import type { ViewsSource } from "./data/views-source";
 import type { MessageKey } from "./i18n";
-import { ScheduleScreen } from "./ScheduleScreen";
+import { ScheduleScreen, type ScheduleMemory } from "./ScheduleScreen";
 import { historyForSource } from "./schedule/history";
 import { GUTTER_PX } from "./schedule/scroller";
 
@@ -32,6 +32,8 @@ export interface ScheduleContainerProps {
   imports?: ImportSource;
   /** Lecture seule (member, guest : GET /me) : ni gestes, ni annulation, ni congés, ni saisie rapide. */
   readOnly?: boolean;
+  /** Zoom et position gardés quand on quitte le Planning (PO-02), tenus par l'appelant ; absent : rien n'est gardé. */
+  memory?: ScheduleMemory;
 }
 
 const SHOWN_ERRORS = new Set<SourceErrorCode>(["UNAUTHENTICATED", "FORBIDDEN", "RATE_LIMITED"]);
@@ -43,7 +45,7 @@ const realtimeKey = (s: ScheduleSourceState["realtime"]): MessageKey =>
 const TODAY_CHECK_MS = 60_000;
 const systemNow = () => new Date();
 
-export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onReconnect, imports, readOnly = false }: ScheduleContainerProps) {
+export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onReconnect, imports, readOnly = false, memory }: ScheduleContainerProps) {
   const t = (k: MessageKey) => i18n._(k);
   const state = useSyncExternalStore(source.subscribe, source.getState);
   const timezone = state.data?.account.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -94,7 +96,7 @@ export function ScheduleContainer({ i18n, source, views, now = systemNow, widthP
       {reconnect}
       {imports && importing && <ImportDialog i18n={i18n} source={imports} onClose={closeImport} />}
       <ScheduleScreen i18n={i18n} data={state.data} today={today} widthPx={widthPx} heightPx={heightPx} onViewChange={source.setViewport}
-        {...(readOnly ? {} : { editor: undo.history.editor, history: undo.history, records: source })} {...(views ? { views } : {})}
+        {...(readOnly ? {} : { editor: undo.history.editor, history: undo.history, records: source })} {...(views ? { views } : {})} {...(memory ? { memory } : {})}
         heading={title}
         actions={(
           <div className="wn-statusbar">
