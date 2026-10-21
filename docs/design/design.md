@@ -6,6 +6,12 @@ Statut : vivant. Ce document consigne les principes d'interface décidés par Al
 
 - **shadcn/ui** (ADR-010), sur Tailwind v4 (ADR-009). Le code vit dans `apps/web/src/design/ui/` et reste modifiable.
 - Les couleurs passent uniquement par `apps/web/src/design/tokens.css`. Aucune couleur en dur ailleurs (`npm run lint:raw-colors`).
+- Les noms sémantiques de shadcn (`bg-primary`, `border-input`, `ring-ring`…) sont des alias de nos tokens, sans valeur propre.
+- Boutons : toujours le composant `Button` (`design/`), variantes `primary`, `secondary`, `danger`, taille `sm` pour les actions de ligne. Jamais de `<button>` stylé à la main.
+- Champs (texte, liste, zone de texte) : style shadcn posé une fois dans la couche `base` de `styles.css`. Un écran n'ajoute que sa mise en page (largeur, grille).
+- Reset Tailwind (preflight) actif depuis L-G : aucun style par défaut du navigateur n'est garanti (marges, listes, titres).
+- Encore natifs, à remplacer dans leur lot : onglets, groupes radio (densité, couleur), menus, cloche et liens de tableau (L-J, L-K, L-L) ; `Popover` (L-J) et `Combobox` (L-K) gardent leur moteur maison d'ici là.
+- Contrôle visuel d'un changement de CSS global : `node scripts/captures-ecrans.mjs <dossier>` (démo, serveur Vite lancé), avant et après.
 
 ## Fenêtres superposées
 

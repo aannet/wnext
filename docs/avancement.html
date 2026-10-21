@@ -167,7 +167,7 @@ const RECETTE = {
     { id: "RT-018", t: "Changer la couleur du projet depuis les propriétés de ce qui est posé", nature: "manque", gravite: "mineure", lot: "L-E, L-F", statut: "corrigé" },
     { id: "RT-019", t: "Utiliser Tailwind (bibliothèque CSS)", nature: "décision", gravite: "—", lot: "L-A", statut: "corrigé" },
     { id: "RT-020", t: "Design system : choisir entre DaisyUI et TailGrids (décidé : shadcn/ui, ADR-010)", nature: "décision", gravite: "—", lot: "L-G", statut: "validé" },
-    { id: "RT-021", t: "Reprendre l'intégralité des composants existants avec ce kit", nature: "évolution", gravite: "majeure", lot: "L-G", statut: "validé" },
+    { id: "RT-021", t: "Reprendre l'intégralité des composants existants avec ce kit", nature: "évolution", gravite: "majeure", lot: "L-G", statut: "corrigé" },
     { id: "RT-022", t: "Retirer la demande de congé par un collaborateur (PO-01)", nature: "décision", gravite: "majeure", lot: "L-H", statut: "corrigé" },
     { id: "RT-023", t: "Un clic hors du drawer le ferme (consigné dans docs/design/design.md)", nature: "ergonomie", gravite: "majeure", lot: "L-G", statut: "corrigé" },
     { id: "RT-024", t: "Éditer une allocation dans un drawer latéral, plus dans une pop-in", nature: "ergonomie", gravite: "majeure", lot: "L-K", statut: "validé" },
@@ -190,7 +190,7 @@ const RECETTE = {
     { id: "L-E", t: "Éditeur de créneau : création (bouton, clic ou glisser en zone libre), pop-in à onglets Projet / tâche et Congé, changement de projet / tâche / personnes, couleur du projet", statut: "livré" },
     { id: "L-F", t: "Back-office : écrans Projets (liste, création, panneau propriétés et équipe), Personnes (liste, création, modification datée), Réglages (départements, rôles, clients, types de congé, fériés)", statut: "livré (Projets L-F1, Personnes et Réglages L-F2 ; reste l'accès et le compte, PO-04 et PO-05)" },
     { id: "L-H", t: "Retrait du statut « en attente » : un congé posé est approuvé par défaut (API, écran, démo, tests) ; enum SQL conservé", statut: "livré" },
-    { id: "L-G", t: "Socle shadcn/ui (Base UI, preflight, variables dans tokens.css) et migration des primitives ; fermeture des drawers au clic extérieur", statut: "en cours" },
+    { id: "L-G", t: "Socle shadcn/ui (Base UI, preflight, variables dans tokens.css) et migration des primitives ; fermeture des drawers au clic extérieur", statut: "livré" },
     { id: "L-I", t: "Grille : séparateurs de colonnes, période courante en en-tête, jours non ouvrés hachurés, non-régression du %", statut: "planifié" },
     { id: "L-K", t: "Éditeur de créneau en drawer (Sheet)", statut: "planifié" },
     { id: "L-J", t: "Header en deux niveaux : filtres, menu Affichage (densité, toggle de charge), statut temps réel lisible", statut: "planifié" },
@@ -330,7 +330,7 @@ const PHASES = [
       { t: "Cadrage de la note n°2 (15 retours, 6 lots, 8 questions)", s: "done", n: "workflow PM → Architecte, Designer, Product → CPTO ; validé par Alec le 2026-10-21 (Q12 amendée : indicateur temps réel minimaliste)" },
       { t: "Choix du kit UI : shadcn/ui (ADR-010)", s: "done", n: "décision d'Alec le 2026-10-21 ; socle Base UI (Q13) ; principes d'UX dans docs/design/design.md" },
       { t: "L-H Retrait du statut « en attente » des congés", s: "done", n: "contrat ce25e1f (défaut approved, pending gardé pour l'existant), correctif 4cdbb66 ; un congé posé notifie la personne" },
-      { t: "L-G Socle shadcn et migration des primitives (catalogue)", s: "part", n: "fait : Base UI, alias de tokens, Button, Modal et Drawer sur Base UI, fermeture au clic extérieur et confirmation (RT-023) ; reste : boutons natifs, champs, preflight, Popover et Combobox" },
+      { t: "L-G Socle shadcn et migration des primitives (catalogue)", s: "done", n: "Base UI, alias de tokens, Button, Modal, Drawer et confirmation (RT-023), 66 boutons, champs, preflight (captures avant / après) ; Popover et Combobox déplacés en L-J et L-K" },
       { t: "L-I Grille : séparateurs, période courante, jours non ouvrés", s: "todo" },
       { t: "L-K Éditeur de créneau en drawer", s: "todo" },
       { t: "L-J Header, filtres et toggle de charge", s: "todo" },
@@ -346,7 +346,7 @@ const PHASES = [
 
 const NEXT = [
   "<b>Relire le commit de contrat de L-H</b> (<code>ce25e1f</code>, CODEOWNERS) : défaut <code>approved</code> des congés.",
-  "<b>L-G en cours</b> (G1 et G2 faits) : socle shadcn/ui sur Base UI et migration des primitives ; les lots d'écran (L-I, L-K, L-J, L-L) suivent, un agent à la fois.",
+  "<b>L-G livré</b> : rendu à revoir en recette ; prochains lots : L-I (grille), L-K (éditeur en drawer), L-J (header), L-L (personnes), un à la fois.",
   "<b>Points ouverts du cadrage n°1</b> : PO-04 (accès des personnes), PO-05 (écriture du compte), PO-06 (co-gestion), PO-07 (création au toucher), PO-08 (portée série, à reprendre dans L-K).",
   "<b>Relectures en attente</b> : CODEOWNERS (<code>/db/migrations/</code> et <code>/db/rls/</code> n'existent pas) et tests SQL avec <code>docs/review/relecture-tests-sql.md</code>.",
   "<b>P5 en tâche de fond</b> : profiler le PATCH (227 ms sous 500 clients), rejouer PITR et <code>pg_dump</code>, job nocturne de charge."
