@@ -22,6 +22,16 @@ test.describe("axe-core", () => {
     await openDemo(page);
     await scan(page, "fr-jour");
   });
+  test("boutons survolés (primaire, secondaire) : contraste AA, le survol fonce le fond au lieu de l'éclaircir", async ({ page }) => {
+    await openDemo(page);
+    for (const name of ["+ Allocation", "Aujourd’hui"]) {
+      const button = page.getByRole("button", { name, exact: true });
+      await button.hover();
+      await page.waitForTimeout(200); // fin de la transition de couleur
+      const r = await new AxeBuilder({ page }).include("[role=toolbar], .wn-subheader").withRules(["color-contrast"]).analyze();
+      expect(r.violations.flatMap((v) => v.nodes.map((n) => n.any[0]?.message ?? "")), `survol de « ${name} »`).toEqual([]);
+    }
+  });
   test("FR, zoom semaine", async ({ page }) => {
     await openDemo(page);
     await page.getByRole("button", { name: "Semaine", exact: true }).click();

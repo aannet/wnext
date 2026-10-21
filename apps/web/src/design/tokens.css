@@ -31,6 +31,7 @@
   /* Accent de marque : pétrole, décidé par Alec le 2026-10-21 (Q-09, docs/design/comparatif-accents.html). 5,4:1 sur blanc,
      à 75° de teinte de --cap-ok, loin du bleu de Float. Texte blanc dessus. */
   --color-accent: #0e7490;
+  --color-accent-hover: #0b5c72; /* survol du bouton primaire : plus foncé (le /90 éclaircissait, 4,42:1 sous WCAG AA) */
   --color-accent-fg: #ffffff;
   --color-scrim: rgb(17 24 39 / 0.45); /* fond voilé derrière une fenêtre modale ou un panneau */
 
@@ -79,6 +80,8 @@
   --color-popover-foreground: var(--color-text);
   --color-destructive: var(--color-cap-over);
   --color-destructive-foreground: var(--color-accent-fg);
+  --color-primary-hover: var(--color-accent-hover);
+  --color-destructive-hover: var(--color-danger-text);
   --color-input: var(--color-border-strong);
   --color-ring: var(--color-focus);
 
