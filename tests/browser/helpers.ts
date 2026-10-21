@@ -17,7 +17,7 @@ export async function visibleHeaders(page: Page): Promise<{ from: string; text: 
     const out: { from: string; text: string; left: number }[] = [];
     for (const el of grid.querySelectorAll('[role="columnheader"][data-from]')) {
       const r = el.getBoundingClientRect();
-      if (r.right > g.left + 140 && r.left < g.right) out.push({ from: el.getAttribute("data-from")!, text: el.textContent ?? "", left: r.left });
+      if (r.right > g.left + 240 && r.left < g.right) out.push({ from: el.getAttribute("data-from")!, text: el.textContent ?? "", left: r.left });
     }
     return out.sort((a, b) => a.left - b.left).map(({ from, text }) => ({ from, text }));
   });

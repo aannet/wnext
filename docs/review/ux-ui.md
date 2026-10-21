@@ -41,7 +41,7 @@ Observations liées au modèle (impact UX) :
 - Panneau projet latéral (budget, équipe, phases), ouvert sur clic du nom de projet, sans quitter le Schedule. **[CONFORT]**
 
 ### 2.2 Dimensions & densité
-- Ligne personne : 40 px par défaut (cf. dossier), « compact » 32 px, « confortable » 48 px. Ligne s'agrandit en hauteur si blocs empilés (chevauchement de plusieurs projets le même jour : empilement vertical, hauteur de bloc ∝ heures/capacité du jour en vue Jour, fixe en vues Semaine/Mois).
+- Ligne personne : ~~40 px par défaut (cf. dossier), « compact » 32 px, « confortable » 48 px~~. *Amendé le 2026-10-21 (recette P6, RT-005 à RT-007, cadrage n°1 Q1 : hauteurs fixes, pas d'ajustement à la fenêtre) : trois densités, ligne sans empilement = blocs à 100 % de la journée + bande de capacité : **Compacte** 62 px (48 + 14), **Standard** 92 px (72 + 20, défaut), **Aérée** 120 px (96 + 24), soit 12 / 8 / 6 personnes entières sur l'écran de référence 1920 × 1080 (zone de lignes mesurée à 787 px). En Aérée, avatar, textes (échelle des tokens), jauge et blocs grossissent aussi. Contrôle segmenté dans la barre d'outils, mémorisé dans le navigateur et porté par les vues sauvegardées (`filters.density`). Code : `apps/web/src/schedule/density.ts`.* Ligne s'agrandit en hauteur si blocs empilés (chevauchement de plusieurs projets le même jour : empilement vertical, hauteur de bloc ∝ heures/capacité du jour en vue Jour, fixe en vues Semaine/Mois).
 - Colonne jour : 64 px (Jour), 120 px/semaine (Semaine, 5 sous-colonnes de 24 px), mois = agrégat en barres de charge. Largeur min. d'un bloc cliquable : 24 px.
 - Week-ends et jours non ouvrés (`work_days_hours` = 0) : fond hachuré léger, non cibles de drop (BR-01).
 

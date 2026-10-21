@@ -14,7 +14,7 @@ const blocks = (page: Page): Promise<Box[]> => page.evaluate(() =>
 const byKey = async (page: Page, key: string) => (await blocks(page)).find((b) => b.key === key)!;
 const pickBlock = async (page: Page, room: number): Promise<Box> => {
   const g = (await page.getByRole("grid").boundingBox())!;
-  const b = (await blocks(page)).find((x) => x.x >= g.x + 160 && x.x + x.w + room <= g.x + g.width - 80 && x.y >= g.y + 48 && x.y + x.h <= g.y + g.height - 80
+  const b = (await blocks(page)).find((x) => x.x >= g.x + 260 && x.x + x.w + room <= g.x + g.width - 80 && x.y >= g.y + 48 && x.y + x.h <= g.y + g.height - 80
     && x.h >= 30 && x.w >= 60 && !x.label.includes("chaque") && !x.label.includes("tentatif"));
   expect(b, "un bloc visible convenable").toBeTruthy();
   return b!;

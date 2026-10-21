@@ -22,7 +22,7 @@ test("filtre de département, enregistrement, rechargement, axe", async ({ page 
   await expect(people(page)).toHaveText("100 personnes");
   await expect(page.getByText("Filtres (1)")).toBeVisible();
   // Les lignes affichées sont bien celles du département Design (personnes 2, 5, 8... : n modulo 3 = 2).
-  await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('[role="rowheader"]')].map((e) => e.textContent).filter(Boolean).slice(0, 3))).toEqual(["Personne 2", "Personne 5", "Personne 8"]);
+  await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('[role="rowheader"] .wn-person-name')].map((e) => e.textContent).filter(Boolean).slice(0, 3))).toEqual(["Personne 2", "Personne 5", "Personne 8"]);
   await axe(page, "filtre ouvert");
 
   await page.getByRole("button", { name: "Enregistrer la vue…" }).click();

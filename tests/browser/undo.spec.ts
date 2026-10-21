@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { openDemo } from "./helpers";
 
 interface Box { key: string; label: string; x: number; y: number; w: number; h: number }
-const GUTTER_PX = 140;
+const GUTTER_PX = 240; // colonne des personnes (ux-ui §2.1, lot L-C)
 const HEADER_PX = 32;
 
 const allBlocks = (page: Page): Promise<Box[]> => page.evaluate(() =>

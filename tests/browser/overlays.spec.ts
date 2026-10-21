@@ -5,7 +5,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openDemo } from "./helpers";
 
-const GUTTER_PX = 140;
+const GUTTER_PX = 240; // colonne des personnes (ux-ui §2.1, lot L-C)
 
 const firstRowBlock = (page: Page): Promise<string> => page.evaluate((gutter) => {
   const grid = document.querySelector('[role="grid"]')!.getBoundingClientRect();
