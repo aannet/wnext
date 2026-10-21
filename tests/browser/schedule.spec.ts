@@ -53,17 +53,22 @@ test.describe("écran Schedule (démo 300 personnes)", () => {
     await openDemo(page);
     mkdirSync(shots, { recursive: true });
     const seen: Record<string, { from: string; text: string }[]> = {};
+    const widest: Record<string, number> = {};
     for (const [name, key] of [["Jour", "day"], ["Semaine", "week"], ["Mois", "month"]] as const) {
       await zoomButton(page, name).click();
       await expect(zoomButton(page, name)).toHaveAttribute("aria-pressed", "true");
       await settle(page);
       seen[key] = await visibleHeaders(page);
+      widest[key] = await page.evaluate(() => Math.max(...[...document.querySelectorAll('[role="columnheader"][data-from]')].map((e) => e.getBoundingClientRect().width)));
       expect(seen[key].length).toBeGreaterThan(2);
       await page.screenshot({ path: `${shots}zoom-${key}.png` });
     }
     const gap = (a: string, b: string) => (Date.parse(b) - Date.parse(a)) / 86_400_000;
     expect(seen.day.length).toBeGreaterThan(seen.week.length);
-    expect(seen.week.length).toBeGreaterThan(seen.month.length);
+    // Semaine contre mois : à 1600 px, 7 en-têtes visibles de chaque côté certains jours (selon la date au centre). La largeur
+    // d'une cellule, elle, croît toujours strictement (96, 196, 224 à 248 px).
+    expect(widest.day!).toBeLessThan(widest.week!);
+    expect(widest.week!).toBeLessThan(widest.month!);
     expect(gap(seen.day[0]!.from, seen.day[1]!.from)).toBe(1);
     expect(gap(seen.week[0]!.from, seen.week[1]!.from)).toBe(7);
     expect(gap(seen.month[0]!.from, seen.month[1]!.from)).toBeGreaterThanOrEqual(28);
