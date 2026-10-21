@@ -1,9 +1,25 @@
-/* Tailwind v4 : thème et utilitaires seulement, SANS preflight (le reset changerait les boutons natifs ; il viendra avec
-   les primitives). Les tokens de design vivent dans design/tokens.css. */
+/* Tailwind v4 complet : thème, reset (preflight, couche base, introduit avec les primitives shadcn, L-G) et utilitaires.
+   Les tokens de design vivent dans design/tokens.css. Les règles d'écran ci-dessous sont hors couche, donc prioritaires. */
 @import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "./design/tokens.css";
 @import "./design/overlay.css";
+
+/* Champs de saisie au style shadcn/ui (Input, NativeSelect, Textarea ; ADR-010), posés une fois pour toute l'application
+   dans la couche base : les règles propres à un écran, hors couche, restent prioritaires. Cases et boutons radio exclus. */
+@layer base {
+  input:where(:not([type="checkbox"], [type="radio"], [type="color"], [type="range"], [type="file"], [type="hidden"])), select, textarea {
+    box-sizing: border-box; min-height: var(--control-default); padding: 0 var(--space-2);
+    border: 1px solid var(--color-input); border-radius: var(--radius-md);
+    background: var(--color-background); color: var(--color-foreground); font: inherit;
+  }
+  textarea { padding: var(--space-1) var(--space-2); }
+  select[multiple] { padding: var(--space-1); }
+  :where(input, select, textarea):focus-visible { outline: 2px solid var(--color-ring); outline-offset: 1px; }
+  :where(input, select, textarea):disabled { cursor: default; opacity: 0.6; }
+  :where(input, select, textarea)[aria-invalid="true"] { border-color: var(--color-destructive); }
+}
 
 /* Styles provisoires de la démo ; contain:strict sur lignes et blocs, comme le spike A2. */
 /* Page sur 100dvh qui ne défile jamais : barres en hauteur naturelle, la grille prend le reste (flex 1, min-height 0). */
@@ -251,7 +267,7 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-panel-block { margin-top: var(--space-4); padding-top: var(--space-2); border-top: 1px solid var(--color-border-subtle); }
 .wn-panel-notice { margin: 0 0 var(--space-2); color: var(--color-text-soft); }
 .wn-rows { margin: 0 0 var(--space-3); padding: 0; list-style: none; }
-.wn-rows li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-1) 0; }
+.wn-rows li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-3); padding: var(--space-1) 0; }
 .wn-row-actions { display: flex; gap: var(--space-2); }
 .wn-inline-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
 .wn-inline-form input { flex: 1; min-width: 120px; }
@@ -290,7 +306,7 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-facts { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-4); margin: 0 0 var(--space-3); }
 .wn-facts dt { color: var(--text-muted); }
 .wn-facts dd { margin: 0; }
-.wn-row-name { flex: 1; min-width: 0; }
+.wn-row-name { flex: 1 1 8rem; min-width: 0; overflow-wrap: anywhere; }
 .wn-holiday-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); margin-bottom: var(--space-3); }
 .wn-holiday-form .wn-field { margin-bottom: 0; }
 .wn-filter-inline { max-width: 320px; }
