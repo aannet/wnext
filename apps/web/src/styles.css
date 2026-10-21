@@ -100,6 +100,28 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-timeoff-dialog form label { display: flex; flex-direction: column; gap: 2px; }
 .wn-timeoff-dialog form > p { grid-column: 1 / -1; }
 .wn-timeoff-dialog ul { margin: 4px 0 8px; padding-left: 18px; }
+
+/* Pop-in du créneau (RT-011 à RT-018) : Popover large, onglets, formulaire en grille (repris du congé), Combobox avec recherche,
+   personnes à cocher, pied d'actions. */
+.wn-slot { width: 560px; }
+.wn-slot .wn-tabs { margin: 0 0 var(--space-2); border-bottom: 1px solid var(--border); }
+.wn-slot-wide { grid-column: 1 / -1; }
+.wn-slot-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-3); }
+.wn-slot-overload { color: var(--color-danger-text); }
+.wn-slot-swatch { display: inline-block; width: 10px; height: 10px; margin-right: var(--space-2); border-radius: 2px; vertical-align: baseline; }
+.wn-slot-people { margin: 0; padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.wn-slot-people input[type="search"] { margin-right: var(--space-2); }
+.wn-slot-people-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px var(--space-2); max-height: 120px; margin-top: var(--space-1); overflow: auto; }
+.wn-slot-people-list label { display: flex; flex-direction: row; gap: var(--space-1); align-items: center; }
+.wn-slot-color { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: flex-start; }
+.wn-combobox { display: flex; flex-direction: column; gap: 2px; }
+.wn-combobox-field { position: relative; }
+.wn-combobox-field input { box-sizing: border-box; width: 100%; }
+.wn-combobox-list { position: absolute; z-index: 5; left: 0; right: 0; max-height: 200px; margin: 2px 0 0; padding: 0; overflow: auto; list-style: none; background: var(--surface); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-popover); }
+.wn-combobox-list li { padding: 4px 8px; cursor: pointer; }
+.wn-combobox-list li[data-active] { background: var(--focus); color: var(--color-on-focus); }
+.wn-combobox-list li[aria-selected="true"] { font-weight: var(--font-weight-semibold); }
+.wn-combobox-empty { position: absolute; z-index: 5; left: 0; right: 0; margin-top: 2px; padding: 4px 8px; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); }
 .wn-timeoff-choice { margin: 0 0 8px; border: 1px solid var(--border); border-radius: 4px; }
 .wn-timeoff-choice label { margin-right: 12px; }
 .wn-dialog-error { color: var(--color-danger-text); }

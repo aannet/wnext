@@ -15,7 +15,8 @@
 //    capacité nulle (et la charge planifiée y devient une surcharge signalée, BR-01).
 //  * Phases (BR-37) : le projet A a deux phases contiguës (Conception jusqu'à J+13, Réalisation ensuite) ; ses allocations
 //    sont rattachées à la phase de leur début : déplacer un bloc au-delà de la frontière donne l'avertissement de phase.
-import type { ScheduleResponse } from "@wnext/contracts";
+//  * Tâches (demoTasks) : deux par projet, proposées par la pop-in du créneau.
+import type { ProjectTask, ScheduleResponse } from "@wnext/contracts";
 import { addDays } from "@wnext/engine";
 
 type Alloc = ScheduleResponse["allocations"][number];
@@ -105,4 +106,11 @@ export function demoSchedule(today: string, people = 300): ScheduleResponse {
     departments: ["Produit", "Design", "Ingénierie"].map((name, i) => ({ id: String(i + 1), version: 1, name })),
     roles: ["Senior", "Confirmé", "Junior"].map((name, i) => ({ id: String(i + 1), version: 1, name })),
   };
+}
+
+/** Tâches de démonstration (pop-in du créneau, RT-014) : deux tâches par projet, ids « t<projet>-<n> ». */
+export function demoTasks(schedule: ScheduleResponse): ProjectTask[] {
+  return schedule.projects.flatMap((p) => ["Conception", "Réalisation"].map((name, i) => ({
+    id: `t${p.id}-${i + 1}`, version: 1, projectId: p.id, phaseId: null, name, billable: true, position: i,
+  })));
 }

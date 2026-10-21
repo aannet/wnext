@@ -128,7 +128,8 @@ export interface DemoProjectsHooks {
   onProject(project: ProjectDetail): void;
 }
 
-export function createDemoProjectsSource(schedule: ScheduleResponse, hooks: DemoProjectsHooks): ProjectsSource {
+/** `seedTasks` : tâches de départ (démo du planning : la pop-in du créneau en propose). */
+export function createDemoProjectsSource(schedule: ScheduleResponse, hooks: DemoProjectsHooks, seedTasks: readonly ProjectTask[] = []): ProjectsSource {
   let seq = 0;
   const nextId = () => `demo-${++seq}`;
   const clients: Client[] = [
@@ -138,7 +139,7 @@ export function createDemoProjectsSource(schedule: ScheduleResponse, hooks: Demo
   const projects: ProjectDetail[] = schedule.projects.map((p, i) => ({
     ...p, projectManagerId: null, clientId: i % 3 === 0 ? clients[0]!.id : i % 3 === 1 ? clients[1]!.id : null, tags: [], notes: null,
   }));
-  const tasks: ProjectTask[] = [];
+  const tasks: ProjectTask[] = seedTasks.map((t) => ({ ...t }));
   const phases: Phase[] = (schedule.phases ?? []).map((ph, i) => ({
     id: ph.id, version: ph.version, projectId: ph.projectId, name: ph.name, startDate: ph.startDate, endDate: ph.endDate, status: "in_progress",
     color: ph.color, nonBillable: false, notes: null, position: i,

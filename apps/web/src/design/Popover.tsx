@@ -35,6 +35,8 @@ const rectOf = (a: PopoverAnchor): Rect => {
 export interface PopoverProps {
   anchor: PopoverAnchor;
   onClose(): void;
+  /** Échap seul (ex. revenir d'une étape) ; absent : onClose. */
+  onEscape?(): void;
   children: ReactNode;
   /** Nom accessible : un identifiant d'élément du contenu, ou un libellé. */
   labelledBy?: string;
@@ -45,12 +47,12 @@ export interface PopoverProps {
   className?: string;
 }
 
-export function Popover({ anchor, onClose, children, labelledBy, label, describedBy, id, busy, className }: PopoverProps) {
+export function Popover({ anchor, onClose, onEscape, children, labelledBy, label, describedBy, id, busy, className }: PopoverProps) {
   const root = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; side: "bottom" | "top" } | null>(null);
   useReturnFocus();
   useInitialFocus(root);
-  useEscapeOutside(root, onClose);
+  useEscapeOutside(root, onEscape ?? onClose);
 
   const anchorRef = useRef(anchor);
   anchorRef.current = anchor;
@@ -86,7 +88,7 @@ export function Popover({ anchor, onClose, children, labelledBy, label, describe
       data-side={pos?.side}
       style={{ left: pos?.left ?? 0, top: pos?.top ?? 0 }}
       className={`wn-anim-pop fixed z-(--z-popover) box-border max-h-[calc(100vh-16px)] max-w-[calc(100vw-16px)] overflow-auto rounded-lg border border-solid border-border-strong bg-surface p-3 text-body text-text shadow-popover${className ? ` ${className}` : ""}`}
-      onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onClose(); } }}
+      onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); (onEscape ?? onClose)(); } }}
     >
       {children}
     </div>,
