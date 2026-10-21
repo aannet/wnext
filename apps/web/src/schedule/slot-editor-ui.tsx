@@ -1,5 +1,6 @@
-// Pop-in du créneau (RT-011, RT-013 à RT-018) : un Popover ancré au bloc, au bloc provisoire ou au bouton qui l'ouvre
-// (ux-ui §3.4 ; la Modal reste le dernier recours : le Popover se borne à la fenêtre et défile), titré, à deux onglets.
+// Pop-in du créneau (RT-011, RT-013 à RT-018) : une fenêtre modale ANCRÉE au bloc, au bloc provisoire ou au bouton qui
+// l'ouvre (placée comme un Popover, ux-ui §3.4, pour garder le contexte), avec voile, piège du focus, Fermer (×) et Échap
+// comme toutes les fenêtres (RT-009) : un formulaire en cours ne se perd pas sur un clic à côté. Titrée, à deux onglets.
 //  * « Projet / tâche » (par défaut) : personnes (création : une ou plusieurs, groupe BR-26 ; édition : une, déplacement
 //    vers une autre ligne par PATCH personId), projet et tâche par Combobox avec recherche dans le référentiel (projets
 //    autorisés, BR-33), couleur du projet (RT-018, droits d'écriture du projet), dates, heures par jour ou pourcentage,
@@ -18,7 +19,7 @@ import type { Allocation, ScheduleEditor } from "../data/allocation-edits";
 import type { ProjectsResult, ProjectPatchInput } from "../data/projects-source";
 import { groupMembers } from "../data/record-edits";
 import type { GroupOutcome, ScheduleSource } from "../data/schedule-source";
-import { Button, Popover, type PopoverAnchor } from "../design";
+import { Button, Modal, type PopoverAnchor } from "../design";
 import type { MessageKey } from "../i18n";
 import { scheduleProjectOf } from "../projects/projects-model";
 import type { FocusTarget } from "./edits-ui";
@@ -238,9 +239,8 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
     const panel = `${ids}-panel`;
     const content = off?.body ?? alloc?.body;
     element = (
-      <Popover anchor={state.anchor} labelledBy={`${ids}-title`} onClose={() => finish()} onEscape={() => (off ? off.back() : finish())}
-        className="wn-slot wn-timeoff-dialog" {...(off?.describedBy ? { describedBy: off.describedBy } : {})}>
-        <h2 id={`${ids}-title`}>{title}</h2>
+      <Modal anchor={state.anchor} title={title} closeLabel={t("dialog.close")} onClose={() => finish()} onEscape={() => (off ? off.back() : finish())}
+        className="wn-slot wn-timeoff-dialog" footer={off?.footer ?? alloc?.footer} {...(off?.describedBy ? { describedBy: off.describedBy } : {})}>
         {tabs && (
           <div role="tablist" aria-label={t("schedule.slot.tabs.label")} className="wn-tabs" onKeyDown={onTabKey}>
             {TABS.map((tab) => (
@@ -253,8 +253,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
           </div>
         )}
         {tabs ? <div role="tabpanel" id={panel} aria-labelledby={`${ids}-tab-${state.tab}`}>{content}</div> : content}
-        <div className="wn-slot-footer">{off?.footer ?? alloc?.footer}</div>
-      </Popover>
+      </Modal>
     );
   }
 

@@ -118,6 +118,14 @@ describe("Modal", () => {
     render(<Modal title="T" closeLabel="X" onClose={() => {}}><p>texte</p></Modal>);
     expect(document.activeElement?.getAttribute("aria-label")).toBe("X");
   });
+
+  it("ancrée (pop-in du créneau) : voile et rôle modal gardés, panneau placé sous l'ancre comme un popover", () => {
+    render(<Modal title="T" closeLabel="X" onClose={() => {}} anchor={{ left: 100, top: 50, width: 80, height: 20 }}><input aria-label="a" /></Modal>);
+    const panel = dialog()!;
+    expect(panel.getAttribute("aria-modal")).toBe("true");
+    expect([panel.style.position, panel.style.left, panel.style.top]).toEqual(["absolute", "100px", "74px"]);
+    expect(document.body.style.overflow).toBe("hidden");
+  });
 });
 
 describe("Drawer", () => {

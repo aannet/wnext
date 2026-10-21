@@ -106,7 +106,6 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-slot { width: 560px; }
 .wn-slot .wn-tabs { margin: 0 0 var(--space-2); border-bottom: 1px solid var(--border); }
 .wn-slot-wide { grid-column: 1 / -1; }
-.wn-slot-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-3); }
 .wn-slot-overload { color: var(--color-danger-text); }
 .wn-slot-swatch { display: inline-block; width: 10px; height: 10px; margin-right: var(--space-2); border-radius: 2px; vertical-align: baseline; }
 .wn-slot-people { margin: 0; padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-md); }

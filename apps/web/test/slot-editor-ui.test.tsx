@@ -1,0 +1,247 @@
+// @vitest-environment jsdom
+// Pop-in du créneau dans l'écran Schedule (RT-011, RT-013 à RT-018) : ouverture au double clic, changement de projet et de
+// tâche par le référentiel puis annulation, création multi-personnes (groupe BR-26), contrôles, bloc provisoire annulé par
+// Échap, onglet Congé (BR-04), couleur du projet, droits BR-33, erreurs traduites, surcharge signalée, onglets au clavier.
+import type { Me, ScheduleResponse } from "@wnext/contracts";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, describe, expect, it } from "vitest";
+import { ScheduleScreen } from "../src/ScheduleScreen";
+import { createDemoProjectsSource } from "../src/data/projects-source";
+import { createDemoSource } from "../src/data/demo-source";
+import { demoTasks } from "../src/demo";
+import { createI18n } from "../src/i18n";
+import { scheduleProjectOf } from "../src/projects/projects-model";
+import { historyForSource } from "../src/schedule/history";
+import { GUTTER_PX, type Clock } from "../src/schedule/scroller";
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const TODAY = "2026-10-20";
+type Alloc = ScheduleResponse["allocations"][number];
+const alloc = (id: string, over: Partial<Alloc> = {}) => ({
+  id, version: 1, personId: "1", projectId: "1", phaseId: null, taskId: null, groupId: null, name: null, notes: null,
+  startDate: "2026-10-20", endDate: "2026-10-21", status: "confirmed" as const, billable: true, priority: 0,
+  repeatState: "none" as const, repeatEndDate: null, mode: "hours" as const, hoursPerDay: 8, percent: null, ...over,
+}) as Alloc;
+const data = (allocations: Alloc[]): ScheduleResponse => ({
+  window: { from: "2025-10-01", to: "2027-10-01" }, changeCursor: "0", page: { nextCursor: null, total: 2 },
+  account: { weekStart: 1, capacityThresholds: { underPercent: 80 }, timezone: "Europe/Paris" },
+  people: ["1", "2"].map((id) => ({ id, version: 1, name: id === "1" ? "Alice" : "Bruno", peopleType: "employee" as const, departmentId: null,
+    roleId: null, country: null, workDaysHours: [8, 8, 8, 8, 8, 0, 0], tags: [], avatarUrl: null, active: true })),
+  allocations, timeoffs: [], holidays: [], departments: [], roles: [],
+  timeoffTypes: [{ id: "t1", version: 1, name: "Congés payés", deducted: true }],
+  projects: [
+    { id: "1", version: 1, name: "Refonte", projectCode: null, color: "#3B82F6", status: "in_progress", nonBillable: false, startDate: null, endDate: null },
+    { id: "2", version: 1, name: "Audit", projectCode: null, color: "#16A34A", status: "in_progress", nonBillable: false, startDate: null, endDate: null },
+  ],
+});
+
+let root: Root | null = null;
+let host: HTMLElement;
+const clock: Partial<Clock> = { raf: () => 0, caf: () => {}, now: () => 0, idle: () => {}, setTimer: () => 0, clearTimer: () => {} };
+const flush = async () => { for (let i = 0; i < 6; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); }); };
+afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; document.body.innerHTML = ""; });
+
+function mount(allocations: Alloc[], opts: { me?: Pick<Me, "role" | "person">; managers?: Record<string, string>; failWith?: "FORBIDDEN" } = {}) {
+  const initial = data(allocations);
+  const src = createDemoSource(initial);
+  if (opts.failWith) src.updateAllocation = async () => ({ ok: false, error: opts.failWith! });
+  const catalog = createDemoProjectsSource(initial, { onProject: (p) => src.projectChanged?.(scheduleProjectOf(p)) }, demoTasks(initial));
+  if (opts.managers) {
+    const list = catalog.listProjects;
+    catalog.listProjects = async () => { const r = await list(); return r.ok ? { ok: true, value: r.value.map((p) => ({ ...p, projectManagerId: opts.managers![p.id] ?? null })) } : r; };
+  }
+  const { history } = historyForSource(src);
+  host = document.createElement("div");
+  document.body.appendChild(host);
+  root = createRoot(host);
+  const render = () => act(() => root!.render(
+    <ScheduleScreen i18n={createI18n("fr")} data={src.getState().data!} today={TODAY} widthPx={GUTTER_PX + 960} heightPx={480} clock={clock}
+      editor={history.editor} history={history} records={src} catalog={catalog} {...(opts.me ? { me: opts.me } : {})} />));
+  render();
+  src.subscribe(() => { queueMicrotask(render); });
+  return { src, history };
+}
+
+const dialog = () => document.body.querySelector<HTMLElement>("[role=dialog]");
+const title = () => dialog()?.querySelector("h2")?.textContent;
+const button = (label: string) => [...document.body.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === label);
+const click = async (label: string) => { act(() => button(label)!.click()); await flush(); };
+const notice = () => document.body.querySelector(".wn-notice")!.textContent;
+const block = (key: string) => host.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`)!;
+const combo = (label: string) => [...document.body.querySelectorAll<HTMLLabelElement>(".wn-combobox label")].find((l) => l.textContent === label)!
+  .parentElement!.querySelector<HTMLInputElement>("input")!;
+const field = (label: string) => [...document.body.querySelectorAll("label")].find((l) => l.firstChild?.textContent === label)!.querySelector<HTMLInputElement | HTMLSelectElement>("input, select, textarea")!;
+function type(el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, value: string) {
+  const proto = el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  act(() => {
+    Object.getOwnPropertyDescriptor(proto, "value")!.set!.call(el, value);
+    el.dispatchEvent(new Event(el instanceof HTMLSelectElement ? "change" : "input", { bubbles: true }));
+  });
+}
+const key = (target: Element, k: string) => act(() => { target.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true })); });
+/** Choisit `name` dans une Combobox : taper filtre, Entrée prend la première option. */
+async function choose(label: string, query: string) {
+  const input = combo(label);
+  act(() => input.focus());
+  type(input, query);
+  key(input, "Enter");
+  await flush();
+}
+const options = (label: string) => {
+  const input = combo(label);
+  act(() => input.click());
+  return [...document.body.querySelectorAll(`#${CSS.escape(input.getAttribute("aria-controls")!)} [role=option]`)].map((o) => o.textContent);
+};
+const dblclick = async (el: Element) => { act(() => { el.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })); }); await flush(); };
+const submit = async () => { act(() => { dialog()!.querySelector("form")!.requestSubmit(); }); await flush(); };
+
+describe("édition d'un bloc (RT-011, RT-013, RT-014)", () => {
+  it("double clic : pop-in ancrée, onglet Projet / tâche, champs du bloc", async () => {
+    mount([alloc("a")]);
+    await dblclick(block("a:0"));
+    expect(title()).toBe("Modifier l’allocation");
+    expect([...dialog()!.querySelectorAll("[role=tab]")].map((x) => [x.textContent, x.getAttribute("aria-selected")])).toEqual([["Projet / tâche", "true"], ["Congé", "false"]]);
+    expect([combo("Personne").value, combo("Projet").value, combo("Tâche").value, field("Du").value, field("Au").value, field("Heures par jour").value])
+      .toEqual(["Alice", "Refonte", "Sans tâche", "2026-10-20", "2026-10-21", "8"]);
+  });
+
+  it("passer au projet Audit et à sa tâche : bloc mis à jour, annoncé ; Ctrl+Z rend projet et tâche d'origine", async () => {
+    const { src, history } = mount([alloc("a")]);
+    await dblclick(block("a:0"));
+    await choose("Projet", "aud");
+    expect(combo("Projet").value).toBe("Audit");
+    expect(options("Tâche")).toEqual(["Sans tâche", "Conception", "Réalisation"]);
+    await choose("Tâche", "concep");
+    await submit();
+    expect(dialog()).toBeNull();
+    expect(src.getState().data!.allocations[0]).toMatchObject({ projectId: "2", taskId: "t2-1", version: 2 });
+    expect(notice()).toBe("Allocation modifiée. Ctrl+Z annule.");
+    await act(async () => { await history.undo(); });
+    expect(src.getState().data!.allocations[0]).toMatchObject({ projectId: "1", taskId: null });
+  });
+
+  it("refus de l'API : message traduit dans la pop-in, restée ouverte", async () => {
+    mount([alloc("a")], { failWith: "FORBIDDEN" });
+    await dblclick(block("a:0"));
+    type(field("Heures par jour") as HTMLInputElement, "6");
+    await submit();
+    expect(dialog()!.querySelector("[role=alert]")?.textContent).toBe("Vous n’avez pas le droit d’écrire sur ce projet.");
+  });
+
+  it("surcharge signalée, jamais bloquante (BR-01)", async () => {
+    const { src } = mount([alloc("a"), alloc("b", { projectId: "2", hoursPerDay: 4 })]);
+    await dblclick(block("a:0"));
+    expect(dialog()!.querySelector("[role=status]")?.textContent).toBe("Surcharge : Alice dépasse sa capacité sur cette période (signalé, permis).");
+    await submit();
+    expect(dialog()).toBeNull();
+    expect(src.getState().data!.allocations).toHaveLength(2);
+  });
+
+  it("BR-33 : un chef de projet ne voit que ses projets (et celui du bloc) ; pas de couleur sur un projet qu'il ne gère pas", async () => {
+    mount([alloc("a")], { me: { role: "project_manager", person: { id: "p9", name: "Moi" } }, managers: { "2": "p9" } });
+    await dblclick(block("a:0"));
+    await flush();
+    expect(options("Projet")).toEqual(["Audit", "Refonte"]);
+    expect(button("Couleur du projet…")).toBeUndefined();
+    await choose("Projet", "aud");
+    expect(button("Couleur du projet…")).toBeDefined();
+  });
+});
+
+describe("création (RT-015, RT-016)", () => {
+  it("« + Allocation » pour deux personnes : un groupe, deux blocs ; Ctrl+Z retire les deux", async () => {
+    const { src, history } = mount([]);
+    await click("+ Allocation");
+    expect(title()).toBe("Nouvelle allocation");
+    const boxes = [...dialog()!.querySelectorAll<HTMLInputElement>(".wn-slot-people input[type=checkbox]")];
+    act(() => { boxes[0]!.click(); });
+    act(() => { [...dialog()!.querySelectorAll<HTMLInputElement>(".wn-slot-people input[type=checkbox]")].find((b) => !b.checked)!.click(); });
+    expect(dialog()!.textContent).toContain("2 personnes sélectionnées");
+    await choose("Projet", "ref");
+    expect(field("Heures par jour").value).toBe("8");
+    await submit();
+    const rows = src.getState().data!.allocations;
+    expect(rows.map((a) => a.personId).sort()).toEqual(["1", "2"]);
+    expect(new Set(rows.map((a) => a.groupId)).size).toBe(1);
+    expect(notice()).toBe("2 allocations créées (groupe). Ctrl+Z annule.");
+    await act(async () => { await history.undo(); });
+    expect(src.getState().data!.allocations).toEqual([]);
+  });
+
+  it("sans personne ni projet : contrôles affichés, rien d'écrit", async () => {
+    const { src } = mount([]);
+    await click("+ Allocation");
+    await submit();
+    expect([...dialog()!.querySelectorAll("[role=alert] li")].map((l) => l.textContent)).toEqual(["Choisissez au moins une personne.", "Choisissez un projet."]);
+    expect(src.getState().data!.allocations).toEqual([]);
+  });
+
+  it("clic en zone libre : bloc provisoire et pop-in de création sur la ligne ; Échap retire tout, rien n'est créé", async () => {
+    const { src } = mount([]);
+    const row = host.querySelector(".wn-row")!;
+    // jsdom : la surface est en (0, 0) quel que soit le défilement ; l'en-tête de colonne du jour donne son abscisse.
+    const x = Number(/translateX\((\d+)px\)/.exec(host.querySelector<HTMLElement>(`.wn-colheader[data-from="${TODAY}"]`)!.style.transform)![1]) + 5;
+    const ptr = (type: string, target: EventTarget) => {
+      const e = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: 5, button: 0 });
+      Object.defineProperty(e, "pointerId", { value: 1 });
+      Object.defineProperty(e, "pointerType", { value: "mouse" });
+      target.dispatchEvent(e);
+    };
+    act(() => { ptr("pointerdown", row); ptr("pointerup", document); });
+    await flush();
+    expect(title()).toBe("Nouvelle allocation");
+    expect(host.querySelector<HTMLElement>(".wn-slot-draft")!.style.display).toBe("");
+    const checked = [...dialog()!.querySelectorAll<HTMLInputElement>(".wn-slot-people input:checked")].map((b) => b.parentElement!.textContent);
+    expect(checked).toEqual(["Alice"]);
+    expect([field("Du").value, field("Au").value]).toEqual([TODAY, TODAY]);
+    key(dialog()!, "Escape");
+    await flush();
+    expect(dialog()).toBeNull();
+    expect(host.querySelector<HTMLElement>(".wn-slot-draft")!.style.display).toBe("none");
+    expect(src.getState().data!.allocations).toEqual([]);
+    expect(document.activeElement).toBe(host.querySelector("[role=grid]"));
+  });
+});
+
+describe("onglet Congé (RT-017) et couleur (RT-018)", () => {
+  it("flèche droite sur les onglets : Congé, prérempli (personne, dates du bloc) ; BR-04 avertit, « Garder tel quel » pose le congé", async () => {
+    const { src } = mount([alloc("a")]);
+    await dblclick(block("a:0"));
+    const tab = dialog()!.querySelector<HTMLElement>("[role=tab][aria-selected=true]")!;
+    act(() => tab.focus());
+    key(tab, "ArrowRight");
+    await flush();
+    expect(document.activeElement?.textContent).toBe("Congé");
+    expect(title()).toBe("Nouveau congé");
+    expect([field("Personne").value, field("Du").value, field("Au").value]).toEqual(["1", "2026-10-20", "2026-10-21"]);
+    await submit();
+    expect(title()).toBe("Ce congé recouvre des allocations de Alice");
+    expect(dialog()!.querySelector("[role=tablist]")).toBeNull();
+    await click("Garder tel quel");
+    expect(dialog()).toBeNull();
+    expect(src.getState().data!.timeoffs).toHaveLength(1);
+    expect(src.getState().data!.allocations.map((a) => `${a.startDate}..${a.endDate}`)).toEqual(["2026-10-20..2026-10-21"]);
+  });
+
+  it("couleur du projet depuis un bloc : tous les blocs du projet changent", async () => {
+    const { src } = mount([alloc("a"), alloc("b", { personId: "2" }), alloc("c", { projectId: "2", startDate: "2026-10-22", endDate: "2026-10-22" })]);
+    await flush();
+    const before = block("c:0").style.backgroundColor;
+    const beforeA = block("a:0").style.backgroundColor;
+    await dblclick(block("a:0"));
+    await flush();
+    await click("Couleur du projet…");
+    act(() => { dialog()!.querySelector<HTMLButtonElement>(".wn-swatch:not([data-selected])")!.click(); });
+    const chosen = dialog()!.querySelector<HTMLButtonElement>(".wn-swatch[data-selected]")!.getAttribute("aria-label");
+    await click("Appliquer la couleur");
+    await flush();
+    const color = src.getState().data!.projects.find((p) => p.id === "1")!.color;
+    expect(chosen).toContain(color);
+    expect(notice()).toBe("Couleur du projet Refonte changée : tous ses blocs suivent.");
+    expect(block("a:0").style.backgroundColor).toBe(block("b:0").style.backgroundColor);
+    expect(block("a:0").style.backgroundColor).not.toBe(beforeA);
+    expect(block("c:0").style.backgroundColor).toBe(before);
+  });
+});
