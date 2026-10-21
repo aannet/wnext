@@ -177,7 +177,7 @@ const RECETTE = {
     { id: "RT-028", t: "Samedi et dimanche grisés et hachurés par défaut", nature: "évolution", gravite: "majeure", lot: "L-I", statut: "corrigé" },
     { id: "RT-029", t: "Les % d'allocation ne comptent pas les jours non ouvrés", nature: "décision", gravite: "majeure", lot: "L-I", statut: "corrigé" },
     { id: "RT-030", t: "Toggle général, non sauvegardé, qui affiche la charge d'une personne à la colonne", nature: "évolution", gravite: "majeure", lot: "L-J", statut: "corrigé" },
-    { id: "RT-031", t: "Personnes : tri ASC / DESC et regroupement par département", nature: "évolution", gravite: "majeure", lot: "L-L", statut: "validé" },
+    { id: "RT-031", t: "Personnes : tri ASC / DESC et regroupement par département", nature: "évolution", gravite: "majeure", lot: "L-L", statut: "corrigé" },
     { id: "RT-032", t: "Que signifie « Temps réel : connecté » ? (puce verte seule si connecté, orange ou rouge + texte en cas de problème)", nature: "texte", gravite: "cosmétique", lot: "L-J", statut: "corrigé" },
     { id: "RT-033", t: "Jours fériés nationaux paramétrables par un admin, grisés par défaut (V2)", nature: "évolution", gravite: "—", lot: "—", statut: "reporté (T2+)" },
     { id: "RT-034", t: "Poser un congé sur des créneaux existants propose de les scinder (V2)", nature: "évolution", gravite: "—", lot: "—", statut: "reporté (T2+)" },
@@ -195,7 +195,7 @@ const RECETTE = {
     { id: "L-I", t: "Grille : séparateurs de colonnes, période courante en en-tête, jours non ouvrés hachurés, non-régression du %", statut: "livré" },
     { id: "L-K", t: "Éditeur de créneau en drawer (Sheet)", statut: "livré" },
     { id: "L-J", t: "Header en deux niveaux : filtres, menu Affichage (densité, toggle de charge), statut temps réel lisible", statut: "livré" },
-    { id: "L-L", t: "Personnes : tri et regroupement par département", statut: "planifié" },
+    { id: "L-L", t: "Personnes : tri et regroupement par département", statut: "livré" },
   ],
 };
 
@@ -335,7 +335,7 @@ const PHASES = [
       { t: "L-I Grille : séparateurs, période courante, jours non ouvrés", s: "done", n: "53cec76 : hachures selon l'horaire daté de chaque personne, sam./dim. grisés en en-tête (vue jour), séparateurs gris clair, période courante (aria-current) ; RT-029 conforme, tests de non-régression" },
       { t: "L-K Éditeur de créneau en drawer", s: "done", n: "K1 65ac0cb : création et édition dans le drawer (RT-024, Q8), « Abandonner les modifications ? » (Q7) ; K2 f57c27b : Combobox sur Base UI, double clic qui ne referme plus le drawer" },
       { t: "L-J Header, filtres et toggle de charge", s: "done", n: "dfdf1de Popover Base UI ; 283e479 en-tête en deux niveaux, puces de filtres, menu Affichage, charge par colonne (Q11), puce temps réel (Q12) ; a16463f contraste du survol (cause de l'échec intermittent de projects.spec) ; recherche Ctrl+K en attente (PO-09)" },
-      { t: "L-L Personnes : tri et regroupement", s: "todo" },
+      { t: "L-L Personnes : tri et regroupement", s: "done", n: "6972de2 : tri par nom, rôle ou équipe (aria-sort), regroupement par équipe, côté client" },
       { t: "Assistant de première allocation et « Trouver quelqu'un de dispo »", s: "todo" },
       { t: "Approbation des congés", s: "defer", n: "retirée par Alec (RT-022, PO-01) : un congé posé est approuvé d'emblée (Q6)" },
       { t: "Aide des raccourcis et palette Ctrl+K", s: "todo" },
@@ -349,7 +349,7 @@ const PHASES = [
 const NEXT = [
   "<b>Recette avec connexion</b> : arrêter le Vite lancé seul et relancer par <code>npm run dev:recette</code> (RT-035 corrigé).",
   "<b>Relire le commit de contrat de L-H</b> (<code>ce25e1f</code>, CODEOWNERS) : défaut <code>approved</code> des congés.",
-  "<b>L-G, L-I, L-K et L-J livrés</b> : rendu à revoir en recette ; prochain lot : L-L (tri et regroupement des personnes). PO-09 (recherche Ctrl+K) à trancher.",
+  "<b>Recette n°2 exécutée</b> (L-G à L-L livrés) : recette n°3 par Alec avec <code>npm run dev:recette</code>. À trancher : PO-09 (recherche Ctrl+K), PO-10 (grille horaire de la fiche personne).",
   "<b>Points ouverts du cadrage n°1</b> : PO-04 (accès des personnes), PO-05 (écriture du compte), PO-06 (co-gestion), PO-07 (création au toucher), PO-08 (portée série, à reprendre dans L-K).",
   "<b>Relectures en attente</b> : CODEOWNERS (<code>/db/migrations/</code> et <code>/db/rls/</code> n'existent pas) et tests SQL avec <code>docs/review/relecture-tests-sql.md</code>.",
   "<b>P5 en tâche de fond</b> : profiler le PATCH (227 ms sous 500 clients), rejouer PITR et <code>pg_dump</code>, job nocturne de charge."
