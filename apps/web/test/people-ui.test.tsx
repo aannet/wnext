@@ -106,6 +106,41 @@ describe("liste", () => {
   });
 });
 
+describe("tri et regroupement de la liste (RT-031)", () => {
+  const header = (name: string) => [...document.body.querySelectorAll<HTMLElement>("thead th")].find((th) => th.textContent?.startsWith(name))!;
+  const sortButton = (name: string) => header(name).querySelector<HTMLButtonElement>("button")!;
+
+  it("en-têtes Nom, Rôle et Équipe triables : aria-sort sur la colonne triée, second clic inverse le sens", async () => {
+    const d = directory();
+    await mount(d.people, d.reference);
+    expect(header("Nom").getAttribute("aria-sort")).toBe("ascending");
+    expect(header("Équipe").getAttribute("aria-sort")).toBeNull();
+    const first = rowNames();
+    await click(sortButton("Nom"));
+    expect(header("Nom").getAttribute("aria-sort")).toBe("descending");
+    expect(rowNames()).toEqual([...first].reverse());
+    await click(sortButton("Équipe"));
+    expect([header("Équipe").getAttribute("aria-sort"), header("Nom").getAttribute("aria-sort")]).toEqual(["ascending", null]);
+    const teams = [...document.body.querySelectorAll("tbody tr")].map((tr) => tr.children[2]!.textContent);
+    expect(teams).toEqual([...teams].sort((a, b) => a!.localeCompare(b!)));
+  });
+
+  it("« Regrouper par équipe » : un groupe par équipe (en-tête de groupe avec le nombre), le tri s'applique dans chaque groupe", async () => {
+    const d = directory();
+    await mount(d.people, d.reference);
+    const toggle = [...document.body.querySelectorAll<HTMLButtonElement>("[role=switch]")].find((b) => b.textContent === "Regrouper par équipe")!;
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    await click(toggle);
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    const groups = [...document.body.querySelectorAll("tbody")];
+    expect(groups.map((g) => g.querySelector("th[scope=rowgroup]")!.textContent)).toEqual(["Design (4)", "Ingénierie (4)", "Produit (4)"]);
+    expect(rowNames().length).toBe(12);
+    await click(sortButton("Nom"));
+    const firstGroup = [...groups[0]!.querySelectorAll("th[scope=row] button")].map((b) => b.textContent);
+    expect(firstGroup).toEqual([...firstGroup].sort().reverse());
+  });
+});
+
 describe("création en trois champs (US-1.1)", () => {
   it("nom, type et horaire par défaut suffisent ; équipe, rôle et pays sont repliés ; la personne arrive dans la liste et sa fiche s'ouvre", async () => {
     const d = directory();

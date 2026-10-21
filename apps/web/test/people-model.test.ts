@@ -2,7 +2,7 @@ import type { Me } from "@wnext/contracts";
 import { describe, expect, it } from "vitest";
 import type { Person } from "../src/data/people-source";
 import {
-  canEditPeople, diffOf, errorOf, filterPeople, initialsOf, NONE, NO_PEOPLE_FILTERS, newPersonValues, parseHours, parseWeek, validatePerson, valuesOf, weekdayName,
+  canEditPeople, diffOf, errorOf, filterPeople, groupPeople, initialsOf, sortPeople, NONE, NO_PEOPLE_FILTERS, newPersonValues, parseHours, parseWeek, validatePerson, valuesOf, weekdayName,
   weekOrder, weeklySummary,
 } from "../src/people/people-model";
 import { countriesOf, holidayInputOf, holidaysOf, NO_COUNTRY, validateHoliday } from "../src/settings/settings-model";
@@ -71,6 +71,36 @@ describe("liste filtrée", () => {
     expect(names({ search: "elodie" })).toEqual(["Élodie Durand"]);
     expect(names({ search: "  PETIT " })).toEqual(["Bruno Petit"]);
     expect(names({ search: "zzz" })).toEqual([]);
+  });
+});
+
+describe("tri et regroupement (RT-031)", () => {
+  const depts = [{ id: "d1", name: "Produit" }, { id: "d2", name: "Design" }];
+  const roles = [{ id: "r1", name: "Senior" }, { id: "r2", name: "Junior" }];
+  const list = [
+    person({ id: "1", name: "Élodie Durand", departmentId: "d1", roleId: "r1" }),
+    person({ id: "2", name: "Bruno Petit", departmentId: null, roleId: "r2" }),
+    person({ id: "3", name: "Alice Roux", departmentId: "d2", roleId: null }),
+    person({ id: "4", name: "Chloé Bas", departmentId: "d1", roleId: "r2" }),
+  ];
+  const names = (key: "name" | "department" | "role", dir: "asc" | "desc") => sortPeople(list, { key, dir }, depts, roles).map((p) => p.name);
+
+  it("par nom, croissant ou décroissant (sans accent ni casse)", () => {
+    expect(names("name", "asc")).toEqual(["Alice Roux", "Bruno Petit", "Chloé Bas", "Élodie Durand"]);
+    expect(names("name", "desc")).toEqual(["Élodie Durand", "Chloé Bas", "Bruno Petit", "Alice Roux"]);
+  });
+
+  it("par équipe ou rôle (nom de la référence) ; sans valeur toujours en dernier ; à égalité, par nom croissant", () => {
+    expect(names("department", "asc")).toEqual(["Alice Roux", "Chloé Bas", "Élodie Durand", "Bruno Petit"]);
+    expect(names("department", "desc")).toEqual(["Chloé Bas", "Élodie Durand", "Alice Roux", "Bruno Petit"]);
+    expect(names("role", "asc")).toEqual(["Bruno Petit", "Chloé Bas", "Élodie Durand", "Alice Roux"]);
+  });
+
+  it("regroupement par équipe : groupes par nom d'équipe, « Sans équipe » en dernier, ordre de la liste gardé dans chaque groupe", () => {
+    const sorted = sortPeople(list, { key: "name", dir: "desc" }, depts, roles);
+    expect(groupPeople(sorted, depts).map((g) => [g.id, g.name, g.people.map((p) => p.id)])).toEqual([
+      ["d2", "Design", ["3"]], ["d1", "Produit", ["1", "4"]], [null, null, ["2"]],
+    ]);
   });
 });
 

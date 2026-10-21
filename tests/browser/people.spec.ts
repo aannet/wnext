@@ -143,3 +143,15 @@ test("EN : écrans traduits", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Teams" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Holidays" })).toBeVisible();
 });
+
+test("tri des colonnes et regroupement par équipe (RT-031), axe propre", async ({ page }) => {
+  await page.goto("/personnes?demo=1&lang=fr");
+  const name = page.getByRole("columnheader", { name: "Nom" });
+  await expect(name).toHaveAttribute("aria-sort", "ascending");
+  await name.getByRole("button").click();
+  await expect(name).toHaveAttribute("aria-sort", "descending");
+  await page.getByRole("switch", { name: "Regrouper par équipe" }).click();
+  await expect(page.getByRole("rowheader", { name: /^Design \(\d+\)$/ })).toBeVisible();
+  await expect(page.locator("tbody")).toHaveCount(3);
+  await noViolations(page, "personnes-groupees");
+});

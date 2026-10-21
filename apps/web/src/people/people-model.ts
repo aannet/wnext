@@ -24,6 +24,45 @@ export const NONE = "none";
 const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase();
 const matches = (filter: string, id: string | null) => !filter || (filter === NONE ? id === null : id === filter);
 
+/** Tri de la liste (RT-031) : colonne et sens, en mémoire de l'écran. */
+export type PeopleSortKey = "name" | "department" | "role";
+export interface PeopleSort { key: PeopleSortKey; dir: "asc" | "desc" }
+export const DEFAULT_PEOPLE_SORT: PeopleSort = { key: "name", dir: "asc" };
+
+const collator = new Intl.Collator(undefined, { sensitivity: "base" });
+type Ref = { id: string; name: string };
+
+/**
+ * Tri par nom, par équipe (département) ou par rôle, croissant ou décroissant (RT-031). Équipe et rôle : par le nom de la
+ * référence, les personnes sans valeur toujours en dernier ; à égalité, par nom croissant. Tri stable, liste copiée.
+ */
+export function sortPeople(people: readonly Person[], sort: PeopleSort, departments: readonly Ref[], roles: readonly Ref[]): Person[] {
+  const sign = sort.dir === "asc" ? 1 : -1;
+  const byName = (a: Person, b: Person) => collator.compare(a.name, b.name);
+  if (sort.key === "name") return [...people].sort((a, b) => sign * byName(a, b));
+  const names = new Map((sort.key === "department" ? departments : roles).map((r) => [r.id, r.name]));
+  const key = (p: Person) => names.get((sort.key === "department" ? p.departmentId : p.roleId) ?? "") ?? null;
+  return [...people].sort((a, b) => {
+    const ka = key(a), kb = key(b);
+    if (ka === kb) return byName(a, b);
+    if (ka === null) return 1;
+    if (kb === null) return -1;
+    return sign * collator.compare(ka, kb) || byName(a, b);
+  });
+}
+
+/** Groupes par équipe (RT-031) : par nom d'équipe, « sans équipe » (id et nom null) en dernier ; l'ordre de la liste est gardé dans chaque groupe. */
+export function groupPeople(people: readonly Person[], departments: readonly Ref[]): { id: string | null; name: string | null; people: Person[] }[] {
+  const names = new Map(departments.map((d) => [d.id, d.name]));
+  const groups = new Map<string | null, Person[]>();
+  for (const p of people) {
+    const id = p.departmentId !== null && names.has(p.departmentId) ? p.departmentId : null;
+    (groups.get(id) ?? groups.set(id, []).get(id)!).push(p);
+  }
+  return [...groups].map(([id, list]) => ({ id, name: id === null ? null : names.get(id)!, people: list }))
+    .sort((a, b) => (a.name === null ? 1 : b.name === null ? -1 : collator.compare(a.name, b.name)));
+}
+
 /** Liste filtrée et triée par nom (actives par défaut : les désactivées se demandent). */
 export function filterPeople(people: readonly Person[], f: PeopleFilters): Person[] {
   const q = fold(f.search.trim());

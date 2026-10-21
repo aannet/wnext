@@ -1,6 +1,8 @@
 // Écran Personnes (lot L-F2 : RT-012 partie Personnes, US-1.1, US-5.1, BR-19, BR-31). Une liste filtrable (recherche, équipe =
 // département, rôle, type, actives ou désactivées), une fiche dans le Drawer commun, la création réduite (nom, type, horaire par
 // défaut), et l'accès à l'import CSV pour owner et admin. Lecture seule pour member et guest (GET /me).
+// Tri et regroupement (RT-031), côté client et en mémoire : en-têtes Nom, Rôle et Équipe triables (aria-sort, second clic =
+// sens inverse), interrupteur « Regrouper par équipe » (un tbody par équipe, « Sans équipe » en dernier).
 // Colonne « accès » (ADR-002 §1 : users distincts de people) : le contrat ne dit pas quelle personne a un compte de connexion
 // (GET /people n'expose ni e-mail ni lien vers un utilisateur) ; elle sera ajoutée quand la route existera.
 import type { I18n } from "@lingui/core";
@@ -13,7 +15,7 @@ import { Button, Drawer } from "../design";
 import type { MessageKey } from "../i18n";
 import { ImportDialog } from "../imports/import-dialog";
 import { useLoad } from "../projects/use-load";
-import { filterPeople, initialsOf, NONE, NO_PEOPLE_FILTERS, PEOPLE_TYPES, refName, TYPE_KEY, errorOf, newPersonValues, parseWeek, weeklySummary, type PeopleFilters, type StateFilter } from "./people-model";
+import { DEFAULT_PEOPLE_SORT, filterPeople, groupPeople, initialsOf, sortPeople, type PeopleSort, type PeopleSortKey, NONE, NO_PEOPLE_FILTERS, PEOPLE_TYPES, refName, TYPE_KEY, errorOf, newPersonValues, parseWeek, weeklySummary, type PeopleFilters, type StateFilter } from "./people-model";
 import { PersonForm } from "./person-form";
 import { PersonPanel } from "./person-panel";
 
@@ -36,6 +38,8 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
   const departments = useLoad(() => reference.departments.list(), "departments");
   const roles = useLoad(() => reference.roles.list(), "roles");
   const [filters, setFilters] = useState<PeopleFilters>(NO_PEOPLE_FILTERS);
+  const [sort, setSort] = useState<PeopleSort>(DEFAULT_PEOPLE_SORT);
+  const [grouped, setGrouped] = useState(false);
   const [side, setSide] = useState<Side>({ kind: "none" });
   const [importing, setImporting] = useState(false);
   const trigger = useRef<HTMLElement | null>(null);
@@ -45,7 +49,14 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
   const all = people.state.status === "ready" ? people.state.data : [];
   const deptList = departments.state.status === "ready" ? departments.state.data : [];
   const roleList = roles.state.status === "ready" ? roles.state.data : [];
-  const shown = useMemo(() => filterPeople(all, filters), [all, filters]);
+  const shown = useMemo(() => sortPeople(filterPeople(all, filters), sort, deptList, roleList), [all, filters, sort, deptList, roleList]);
+  const groups = useMemo(() => (grouped ? groupPeople(shown, deptList) : [{ id: null, name: null, people: shown }]), [grouped, shown, deptList]);
+  const sortBy = (key: PeopleSortKey) => setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+  const sortable = (key: PeopleSortKey, label: MessageKey) => (
+    <th scope="col" aria-sort={sort.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
+      <button type="button" className="wn-sort" onClick={() => sortBy(key)}>{t(label)}</button>
+    </th>
+  );
   const selected = side.kind === "person" ? all.find((x) => x.id === side.id) : undefined;
   useEffect(() => { if (side.kind === "person" && ready && !selected) setSide({ kind: "none" }); }, [side, ready, selected]);
 
@@ -109,6 +120,9 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
                 <option value="all">{fmt("people.filters.state.all")}</option>
               </select>
             </div>
+            <button type="button" role="switch" aria-checked={grouped} className="wn-switch wn-filters-switch" onClick={() => setGrouped((g) => !g)}>
+              {t("people.group.department")}
+            </button>
           </form>
 
           {shown.length === 0 ? (
@@ -124,15 +138,21 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
               <caption className="wn-visually-hidden">{t("people.table.caption", { count: shown.length })}</caption>
               <thead>
                 <tr>
-                  <th scope="col">{t("people.col.name")}</th>
-                  <th scope="col">{t("people.col.role")}</th>
-                  <th scope="col">{t("people.col.team")}</th>
+                  {sortable("name", "people.col.name")}
+                  {sortable("role", "people.col.role")}
+                  {sortable("department", "people.col.team")}
                   <th scope="col">{t("people.col.type")}</th>
                   <th scope="col">{t("people.col.hours")}</th>
                 </tr>
               </thead>
-              <tbody>
-                {shown.map((x) => {
+              {groups.map((g) => (
+              <tbody key={g.id ?? "none"}>
+                {grouped && (
+                  <tr className="wn-group-row">
+                    <th scope="rowgroup" colSpan={5}>{t("people.group.heading", { name: g.name ?? t("people.group.none"), count: g.people.length })}</th>
+                  </tr>
+                )}
+                {g.people.map((x) => {
                   const current = side.kind === "person" && side.id === x.id;
                   const { total, days } = weeklySummary(x.workDaysHours);
                   return (
@@ -152,6 +172,7 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
                   );
                 })}
               </tbody>
+              ))}
             </table>
           )}
         </>
