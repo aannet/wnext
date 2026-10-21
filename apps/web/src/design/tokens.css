@@ -64,6 +64,23 @@
   --color-timeoff-3-bg: #fce7f3;
   --color-timeoff-3-border: #be185d;
 
+  /* Noms sémantiques de shadcn/ui (ADR-010), alias des tokens ci-dessus : les composants de design/ui/ emploient bg-primary,
+     text-muted-foreground, ring-ring… sans jamais porter de couleur. Aucune valeur nouvelle ici. */
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text);
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-accent-fg);
+  --color-secondary: var(--color-surface-sunken);
+  --color-secondary-foreground: var(--color-text);
+  --color-muted: var(--color-surface-sunken);
+  --color-muted-foreground: var(--color-text-muted);
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-text);
+  --color-destructive: var(--color-cap-over);
+  --color-destructive-foreground: var(--color-accent-fg);
+  --color-input: var(--color-border-strong);
+  --color-ring: var(--color-focus);
+
   /* Transparences des hachures. */
   --color-hatch-dark: rgb(0 0 0 / 0.06);
   --color-hatch-light: rgb(255 255 255 / 0.75);

@@ -16,10 +16,13 @@
     "perf:scroll": "WNEXT_PERF=1 vitest run test/scroll-perf.test.ts --silent=false --reporter=verbose"
   },
   "dependencies": {
+    "@base-ui/react": "1.9.0",
     "@lingui/core": "^6.10.0",
     "@lingui/react": "^6.10.0",
     "@wnext/contracts": "*",
     "@wnext/engine": "*",
+    "class-variance-authority": "0.7.1",
+    "cn": "0.5.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
