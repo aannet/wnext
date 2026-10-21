@@ -1,5 +1,5 @@
 // Écran Projets (lot L-F1 : RT-010, RT-012 Projets, RT-018, US-2.1) dans un vrai navigateur, démo ?demo=1 : création d'un projet avec client
-// à la volée et couleur, code dupliqué refusé, panneau latéral, changement de couleur répercuté sur les blocs du Planning, axe-core.
+// à la volée et couleur, code dupliqué refusé, fiche dans le Drawer commun (PO-03), changement de couleur répercuté sur les blocs du Planning, axe-core.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { openDemo } from "./helpers";
@@ -25,9 +25,10 @@ test("liste, création avec client à la volée, code dupliqué refusé", async 
   await noViolations(page, "projets-liste");
 
   await page.getByRole("button", { name: "Nouveau projet" }).click();
-  const panel = page.getByRole("region", { name: "Nouveau projet" });
+  const panel = page.getByRole("dialog", { name: "Nouveau projet" });
   await expect(panel).toBeVisible();
-  await expect(panel.getByRole("heading", { level: 2, name: "Nouveau projet" })).toBeFocused();
+  await expect(panel.getByRole("heading", { level: 2, name: "Nouveau projet" })).toBeVisible();
+  await expect(panel.getByLabel("Nom du projet")).toBeFocused(); // le Drawer commun donne le focus au premier champ
   await panel.getByLabel("Nom du projet").fill("Portail RH");
   await panel.getByLabel("Client").selectOption({ label: "Nouveau client…" });
   await panel.getByLabel("Nom du nouveau client").fill("Initech");
@@ -39,15 +40,15 @@ test("liste, création avec client à la volée, code dupliqué refusé", async 
   // Le projet apparaît dans la liste, son panneau s'ouvre (client créé, code et couleur conservés).
   await expect(page.getByRole("row", { name: /Portail RH/ })).toContainText("Initech");
   await expect(page.getByRole("row", { name: /Portail RH/ })).toContainText("RH-1");
-  const detail = page.getByRole("region", { name: "Portail RH" });
+  const detail = page.getByRole("dialog", { name: "Portail RH" });
   await expect(detail.getByLabel("Code projet")).toHaveValue("RH-1");
   await expect(detail.getByLabel("Client")).toHaveValue(/.+/);
   await detail.getByRole("button", { name: "Fermer" }).click();
-  await expect(page.getByRole("region", { name: "Portail RH" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Portail RH" })).toHaveCount(0);
 
   // Code déjà utilisé : refusé avec un message clair, rien n'est créé.
   await page.getByRole("button", { name: "Nouveau projet" }).click();
-  const again = page.getByRole("region", { name: "Nouveau projet" });
+  const again = page.getByRole("dialog", { name: "Nouveau projet" });
   await again.getByLabel("Nom du projet").fill("Doublon");
   await again.getByLabel("Code projet").fill("RH-1");
   await again.getByRole("button", { name: "Créer le projet" }).click();
@@ -66,9 +67,10 @@ test("liste, création avec client à la volée, code dupliqué refusé", async 
 test("panneau : changer la couleur d'un projet la répercute sur ses blocs du Planning", async ({ page }) => {
   await openProjects(page);
   await page.getByRole("button", { name: "Projet A", exact: true }).click();
-  const panel = page.getByRole("region", { name: "Projet A" });
+  const panel = page.getByRole("dialog", { name: "Projet A" });
   await expect(panel).toBeVisible();
-  await expect(panel.getByRole("heading", { level: 2, name: "Projet A" })).toBeFocused();
+  await expect(panel.getByRole("heading", { level: 2, name: "Projet A" })).toBeVisible();
+  await expect(panel.getByLabel("Nom du projet")).toBeFocused();
   await expect(panel.getByRole("heading", { level: 3, name: "Équipe" })).toBeVisible();
   await expect(panel.getByRole("heading", { level: 3, name: "Tâches" })).toBeVisible();
 
@@ -83,6 +85,8 @@ test("panneau : changer la couleur d'un projet la répercute sur ses blocs du Pl
   await swatch.click();
   await panel.getByRole("button", { name: "Enregistrer", exact: true }).click();
   await expect(panel.getByText("Modifications enregistrées.")).toBeVisible();
+  await page.keyboard.press("Escape"); // le Drawer est modal : il se ferme avant de changer de page
+  await expect(panel).toHaveCount(0);
 
   await nav(page).getByRole("link", { name: "Planning" }).click();
   await page.getByRole("grid").waitFor();
@@ -91,14 +95,16 @@ test("panneau : changer la couleur d'un projet la répercute sur ses blocs du Pl
   await expect.poll(() => page.evaluate((rgb) => [...document.querySelectorAll<HTMLElement>(".wn-block")].filter((b) => getComputedStyle(b).backgroundColor === rgb).length, expected)).toBeGreaterThan(0);
 });
 
-test("Échap ferme le panneau et rend le focus au projet ; EN traduit", async ({ page }) => {
+test("la fiche est un Drawer : Échap ferme, le focus revient au projet ; EN traduit", async ({ page }) => {
   await page.goto("/projets?demo=1&lang=en");
   await expect(page.getByRole("heading", { level: 1, name: "Projects" })).toBeVisible();
   const opener = page.getByRole("button", { name: "Projet B", exact: true });
   await opener.click();
-  await expect(page.getByRole("region", { name: "Projet B" })).toBeVisible();
+  const drawer = page.getByRole("dialog", { name: "Projet B" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer).toHaveAttribute("aria-modal", "true");
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("region", { name: "Projet B" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Projet B" })).toHaveCount(0);
   await expect(opener).toBeFocused();
   await expect(page.getByRole("button", { name: "New project" })).toBeVisible();
 });
