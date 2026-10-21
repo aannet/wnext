@@ -19,11 +19,19 @@ Piles parallèles (une par outil) : `WNEXT_DEV_API_PORT`, `WNEXT_DEV_PG_PORT`, `
 ## Recette avec connexion (portail WNEXT, « Bonjour Alec »)
 
 ```
-npm run dev:stack -- --oidc                       # Postgres, migrations, jeu d'essai, fournisseur OIDC local :3010, API :3000 en AUTH_MODE=oidc
-VITE_AUTH_MODE=oidc npm run dev -w @wnext/web     # écran sur http://localhost:5173/
+npm run dev:recette              # tout en une commande ; --reset passe à la pile (npm run dev:recette -- --reset)
 ```
 
-1. Ouvrir `http://localhost:5173/` : le portail de connexion WNEXT s'affiche (aucune redirection automatique).
+Le script (`scripts/dev-recette.mjs`) lance `dev:stack --oidc` (Postgres, migrations, jeu d'essai, fournisseur OIDC local :3010, API :3000 en AUTH_MODE=oidc), attend que l'API réponde, puis l'écran en `VITE_AUTH_MODE=oidc`, issuer et URL d'API alignés sur `WNEXT_DEV_IDP_PORT` et `WNEXT_DEV_API_PORT`. Ctrl-C arrête l'écran puis la pile. Équivalent manuel, en deux terminaux :
+
+```
+npm run dev:stack -- --oidc
+VITE_AUTH_MODE=oidc npm run dev -w @wnext/web
+```
+
+« Session expirée » dès l'ouverture : l'écran tourne en `VITE_AUTH_MODE=dev` (valeur de `apps/web/.env.development`) face à une API en OIDC, qui refuse les en-têtes `x-dev-*` (RT-035). Arrêter ce Vite et relancer par `npm run dev:recette`.
+
+1. Ouvrir l'URL « Local » affichée par Vite (`http://localhost:5173/` si le port est libre) : le portail de connexion WNEXT s'affiche (aucune redirection automatique).
 2. « Se connecter » mène à la page de choix du fournisseur local (aucun mot de passe, développement seulement) : choisir **Alec** (owner du compte « WNEXT Dev », sujet `dev-alec`, e-mail `alec@wnext.test`, sans personne liée).
 3. Retour sur le planning : « Bonjour Alec » à droite de l'en-tête. Le menu de l'avatar propose Déconnexion, qui ramène au portail.
 

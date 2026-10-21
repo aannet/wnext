@@ -111,7 +111,7 @@ if (!stopping) {
   api.on("exit", (code) => { if (!stopping) { console.error(`l'API s'est arrêtée (code ${code})`); void stop(1); } });
   const identity = oidc
     ? `Fournisseur OIDC : ${idp.issuer} (client ${idp.clientId}, audience ${idp.audience}, utilisateurs : ${DEV_USERS.map((u) => u.subject).join(", ")}).
-Écran en OIDC : VITE_AUTH_MODE=oidc VITE_OIDC_ISSUER=${idp.issuer} npm run dev -w @wnext/web`
+Écran en OIDC : VITE_AUTH_MODE=oidc VITE_OIDC_ISSUER=${idp.issuer} npm run dev -w @wnext/web (ou tout en une commande : npm run dev:recette)`
     : `Valeurs VITE_DEV_* (déjà dans apps/web/.env.development) :
   VITE_DEV_ACCOUNT_ID=${DEV_IDS.accountId}
   VITE_DEV_USER_ID=${DEV_IDS.userId}
