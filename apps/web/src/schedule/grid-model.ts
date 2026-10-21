@@ -13,16 +13,23 @@
 //  * Congés : un fond par congé et par personne, sur toute la hauteur des blocs (les allocations restent visibles par-dessus :
 //    c'est le conflit BR-04). Demi-journée = demi-cellule (après-midi : commence au milieu du jour ; matin : finit au milieu).
 //    Couleur dérivée du type (le contrat n'en porte pas), statut « en attente » / « refusé » rendu par un motif (grid-dom).
+//  * Densité (schedule/density, RT-005) : hauteurs de bloc et de bande passées en paramètre (défaut : compacte, les valeurs
+//    d'avant le réglage) et portées par le modèle (les gestes lisent rowUnitPx).
+//  * Jauge par personne (RT-008, Q3 : période visible) : sommes cumulées par jour des heures de capacité, planifiées et
+//    tentatives (les mêmes lignes utilization() que la bande), calculées une fois par tranche ; la jauge d'une période
+//    quelconque en sort en O(1) (gaugeOf), état par classifyCapacity du moteur. Rôle, département et initiales : données.
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
-  blockFraction, capacityCellsByPerson, dayNumber, expandOccurrences, layoutRow, scheduleToEngineInput, utilization,
-  workDaysHoursOn, type CapacityCell, type LayoutBlock, type ScheduleEngineInput, type Zoom,
+  blockFraction, capacityCellsByPerson, classifyCapacity, dayNumber, type CapacityState, type CapacityThresholds, expandOccurrences, layoutRow, scheduleToEngineInput, utilization,
+  workDaysHoursOn, fromDayNumber, type CapacityCell, type UtilizationRow, type LayoutBlock, type ScheduleEngineInput, type Zoom,
 } from "@wnext/engine";
 
-/** Hauteur d'une ligne à 100 % de la journée de référence. Valeur provisoire, à régler à l'écran. */
-export const ROW_UNIT_PX = 48;
-/** Hauteur de la bande de capacité en pied de ligne. */
-export const CAP_PX = 14;
+import { DENSITY_METRICS, type RowMetrics } from "./density";
+
+/** Hauteur d'une ligne à 100 % de la journée de référence, en densité compacte (défaut de buildGrid). */
+export const ROW_UNIT_PX = DENSITY_METRICS.compact.rowUnitPx;
+/** Hauteur de la bande de capacité en pied de ligne, en densité compacte. */
+export const CAP_PX = DENSITY_METRICS.compact.capPx;
 
 export interface GridBlock {
   key: string;
@@ -93,16 +100,45 @@ export interface GridTimeoff {
 export const TIMEOFF_TONES = 4;
 const toneOf = (typeId: string) => [...typeId].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % TIMEOFF_TONES;
 
+/** Sommes cumulées par jour depuis `from` : l'indice i couvre les jours [from, from + i[ (longueur = jours + 1). */
+export interface RowLoad { from: string; days: number; capacity: Float64Array; planned: Float64Array; tentative: Float64Array }
+
+/** Jauge d'une personne sur une période (bornée aux jours chargés) ; heures arrondies au dixième. */
+export interface GridGauge {
+  from: string;
+  to: string;
+  plannedHours: number;
+  capacityHours: number;
+  /** Heures au-delà de la capacité sur la période (« +N h »). */
+  overHours: number;
+  /** Charge en % de la capacité ; null si capacité nulle. */
+  percent: number | null;
+  /** État du moteur ; « unavailable » : ni capacité ni charge (ou aucun jour chargé). */
+  state: CapacityState;
+  /** Remplissage de la barre (0..100). */
+  fill: number;
+}
+
 export interface GridRow {
-  personId: string; name: string; top: number; heightPx: number; overflow: boolean; blocks: GridBlock[];
+  personId: string; name: string;
+  /** Initiales (avatar), nom du rôle et du département (données ; vides si absents). */
+  initials: string; role: string; department: string;
+  top: number; heightPx: number; overflow: boolean; blocks: GridBlock[];
   /** Congés de la personne qui touchent la tranche (fonds derrière les blocs). */
   timeoffs: GridTimeoff[];
   /** Ordonnée de la bande de capacité dans la ligne (sous les blocs). */
   capY: number;
   cells: GridCap[];
+  /** Charge par jour pour la jauge ; null si aucun jour de la tranche n'est chargé. */
+  load: RowLoad | null;
 }
 
-export interface GridModel { from: string; to: string; pxPerDay: number; widthPx: number; heightPx: number; rows: GridRow[] }
+export interface GridModel {
+  from: string; to: string; pxPerDay: number; widthPx: number; heightPx: number; rows: GridRow[];
+  /** Densité du modèle : hauteur des blocs à 100 % et de la bande de capacité. */
+  rowUnitPx: number; capPx: number;
+  thresholds: CapacityThresholds;
+}
 
 type Alloc = ScheduleResponse["allocations"][number];
 type Timeoff = ScheduleResponse["timeoffs"][number];
@@ -163,10 +199,13 @@ function engineInputOf(s: ScheduleResponse): ScheduleEngineInput {
 
 const round1 = (h: number) => Math.round(h * 10) / 10;
 
-/** Cellules par personne : seules les périodes entièrement dans la fenêtre du snapshot (une période partielle serait trompeuse). */
-function capCells(s: ScheduleResponse, range: { from: string; to: string }, zoom: Zoom, pxPerDay: number): Map<string, GridCap[]> {
+/**
+ * Cellules par personne : seules les périodes entièrement dans la fenêtre du snapshot (une période partielle serait trompeuse).
+ * Avec, des mêmes lignes du moteur, les sommes cumulées par jour de la jauge.
+ */
+function capCells(s: ScheduleResponse, range: { from: string; to: string }, zoom: Zoom, pxPerDay: number, capPx: number): { cells: Map<string, GridCap[]>; loads: Map<string, RowLoad> } {
   const r = { from: range.from > s.window.from ? range.from : s.window.from, to: range.to < s.window.to ? range.to : s.window.to };
-  if (r.from > r.to) return new Map();
+  if (r.from > r.to) return { cells: new Map(), loads: new Map() };
   const input = engineInputOf(s);
   // Seules les allocations qui recoupent la tranche (ou les séries) entrent dans le calcul : le coût suit la tranche, pas le snapshot.
   const allocations = input.allocations.filter((a) => a.repeatState !== "none" || (a.startDate <= r.to && a.endDate >= r.from));
@@ -175,33 +214,97 @@ function capCells(s: ScheduleResponse, range: { from: string; to: string }, zoom
   const out = new Map<string, GridCap[]>();
   for (const [id, cells] of capacityCellsByPerson(rows, r, zoom, s.account.weekStart, input.thresholds)) {
     out.set(id, cells.filter((c) => c.from >= r.from && c.to <= r.to)
-      .map((c) => toCap(c, zoom, (dayNumber(c.from) - origin) * pxPerDay, (dayNumber(c.to) - dayNumber(c.from) + 1) * pxPerDay)));
+      .map((c) => toCap(c, zoom, (dayNumber(c.from) - origin) * pxPerDay, (dayNumber(c.to) - dayNumber(c.from) + 1) * pxPerDay, capPx)));
+  }
+  return { cells: out, loads: rowLoads(rows, r) };
+}
+
+/** Sommes cumulées par personne et par jour (lignes du moteur, un jour = une ligne par personne). */
+function rowLoads(rows: readonly UtilizationRow[], r: { from: string; to: string }): Map<string, RowLoad> {
+  const first = dayNumber(r.from);
+  const days = dayNumber(r.to) - first + 1;
+  const index = new Map<string, number>();
+  for (let i = 0; i < days; i++) index.set(fromDayNumber(first + i), i);
+  const daily = new Map<string, Float64Array>();
+  for (const u of rows) {
+    const i = index.get(u.day);
+    if (i === undefined) continue;
+    let d = daily.get(u.personId);
+    if (!d) { d = new Float64Array(days * 3); daily.set(u.personId, d); }
+    d[i * 3] = u.capacityHours;
+    d[i * 3 + 1] = u.plannedHours;
+    d[i * 3 + 2] = u.tentativeHours;
+  }
+  const out = new Map<string, RowLoad>();
+  for (const [id, d] of daily) {
+    const capacity = new Float64Array(days + 1);
+    const planned = new Float64Array(days + 1);
+    const tentative = new Float64Array(days + 1);
+    for (let i = 0; i < days; i++) {
+      capacity[i + 1] = capacity[i]! + d[i * 3]!;
+      planned[i + 1] = planned[i]! + d[i * 3 + 1]!;
+      tentative[i + 1] = tentative[i]! + d[i * 3 + 2]!;
+    }
+    out.set(id, { from: r.from, days, capacity, planned, tentative });
   }
   return out;
 }
 
-function toCap(c: CapacityCell, kind: Zoom, x: number, w: number): GridCap {
+/**
+ * Jauge d'une ligne sur [period.from, period.to], bornée aux jours chargés de la tranche (la période affichée dans
+ * l'infobulle est la période réellement comptée). État et dépassement par le moteur (classifyCapacity), sans règle locale.
+ */
+export function gaugeOf(row: Pick<GridRow, "load">, period: { from: string; to: string }, thresholds: CapacityThresholds): GridGauge {
+  const l = row.load;
+  const base = l ? dayNumber(l.from) : 0;
+  const a = l ? Math.max(0, dayNumber(period.from) - base) : 0;
+  const b = l ? Math.min(l.days, dayNumber(period.to) - base + 1) : 0;
+  if (!l || a >= b) return { from: period.from, to: period.to, plannedHours: 0, capacityHours: 0, overHours: 0, percent: null, state: "unavailable", fill: 0 };
+  const capacityHours = l.capacity[b]! - l.capacity[a]!;
+  const plannedHours = l.planned[b]! - l.planned[a]!;
+  const st = classifyCapacity({ capacityHours, plannedHours, tentativeHours: l.tentative[b]! - l.tentative[a]! }, thresholds);
+  const ratio = capacityHours > 0 ? plannedHours / capacityHours : null;
+  return {
+    from: fromDayNumber(base + a), to: fromDayNumber(base + b - 1),
+    plannedHours: round1(plannedHours), capacityHours: round1(capacityHours), overHours: round1(st.overHours),
+    percent: ratio === null ? null : Math.round(ratio * 100), state: st.state,
+    fill: ratio === null ? (plannedHours > 0 ? 100 : 0) : Math.min(100, Math.round(ratio * 1000) / 10),
+  };
+}
+
+/** Initiales d'un nom (deux au plus : premier et dernier mot), en majuscules. */
+export function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const pick = words.length > 1 ? [words[0]!, words[words.length - 1]!] : words;
+  return pick.map((w) => [...w][0]!.toLocaleUpperCase()).join("");
+}
+
+function toCap(c: CapacityCell, kind: Zoom, x: number, w: number, capPx: number): GridCap {
   const a = c.aggregate;
   const b = c.bar;
   const over = a.overbookedDays > 0 || a.state === "over";
-  const tentativePx = b.tentative > 0 ? Math.max(1, Math.round(b.tentative * CAP_PX)) : 0;
-  const confirmedPx = Math.min(CAP_PX - tentativePx, b.confirmed > 0 ? Math.max(1, Math.round(b.confirmed * CAP_PX)) : 0);
+  const tentativePx = b.tentative > 0 ? Math.max(1, Math.round(b.tentative * capPx)) : 0;
+  const confirmedPx = Math.min(capPx - tentativePx, b.confirmed > 0 ? Math.max(1, Math.round(b.confirmed * capPx)) : 0);
   return {
     from: c.from, to: c.to, kind, x, w,
     state: over ? "over" : a.capacityHours <= 0 && a.plannedHours <= 0 ? "none" : "ok",
-    confirmedPx, tentativePx, overPx: b.over > 0 ? Math.max(1, Math.round(b.over * CAP_PX)) : 0,
-    lineY: Math.min(CAP_PX - 2, Math.max(0, CAP_PX - Math.round(b.capacityLine * CAP_PX))),
+    confirmedPx, tentativePx, overPx: b.over > 0 ? Math.max(1, Math.round(b.over * capPx)) : 0,
+    lineY: Math.min(capPx - 2, Math.max(0, capPx - Math.round(b.capacityLine * capPx))),
     plannedHours: round1(a.plannedHours), capacityHours: round1(a.capacityHours), tentativeHours: round1(a.tentativeHours),
     overtimeHours: round1(a.overtimeHours), overbookedDays: a.overbookedDays,
   };
 }
 
-export function buildGrid(s: ScheduleResponse, range: { from: string; to: string }, pxPerDay: number, zoom: Zoom = "day"): GridModel {
+export function buildGrid(s: ScheduleResponse, range: { from: string; to: string }, pxPerDay: number, zoom: Zoom = "day",
+  metrics: RowMetrics = DENSITY_METRICS.compact): GridModel {
+  const { rowUnitPx, capPx } = metrics;
   const projects = new Map(s.projects.map((p) => [p.id, p]));
+  const roleNames = new Map(s.roles.map((r) => [r.id, r.name]));
+  const departmentNames = new Map(s.departments.map((d) => [d.id, d.name]));
   const byPerson = byPersonOf(s);
   const timeoffsByPerson = timeoffsByPersonOf(s);
   const typeNames = new Map(s.timeoffTypes.map((t) => [t.id, t.name]));
-  const caps = capCells(s, range, zoom, pxPerDay);
+  const { cells: caps, loads } = capCells(s, range, zoom, pxPerDay, capPx);
   let top = 0;
   const rows = s.people.map((p): GridRow => {
     const source = new Map<string, { a: Alloc; startDate: string; endDate: string }>();
@@ -216,15 +319,16 @@ export function buildGrid(s: ScheduleResponse, range: { from: string; to: string
       }
     }
     const lay = layoutRow(blocks, range.from, range.to);
-    const blocksPx = lay.height * ROW_UNIT_PX;
+    const blocksPx = lay.height * rowUnitPx;
     const row: GridRow = {
-      personId: p.id, name: p.name, top, heightPx: blocksPx + CAP_PX, overflow: lay.overflow, capY: blocksPx, cells: caps.get(p.id) ?? [],
+      personId: p.id, name: p.name, initials: initialsOf(p.name), role: roleNames.get(p.roleId ?? "") ?? "", department: departmentNames.get(p.departmentId ?? "") ?? "",
+      top, heightPx: blocksPx + capPx, overflow: lay.overflow, capY: blocksPx, cells: caps.get(p.id) ?? [], load: loads.get(p.id) ?? null,
       timeoffs: rowTimeoffs(timeoffsByPerson.get(p.id) ?? [], typeNames, range, pxPerDay, blocksPx),
       blocks: lay.placed.map((b) => {
         const { a, startDate, endDate } = source.get(b.id)!;
         const pr = projects.get(a.projectId);
         return {
-          key: b.id, allocationId: a.id, x: b.col * pxPerDay, w: b.span * pxPerDay, y: b.y * ROW_UNIT_PX, h: b.h * ROW_UNIT_PX,
+          key: b.id, allocationId: a.id, x: b.col * pxPerDay, w: b.span * pxPerDay, y: b.y * rowUnitPx, h: b.h * rowUnitPx,
           color: pr?.color ?? null, label: pr?.name ?? "", tentative: a.status === "tentative", clippedStart: b.clippedStart, clippedEnd: b.clippedEnd,
           startDate, endDate, hoursPerDay: a.mode === "hours" ? a.hoursPerDay : null, percent: a.mode === "percentage" ? a.percent : null,
           repeat: a.repeatState,
@@ -235,7 +339,10 @@ export function buildGrid(s: ScheduleResponse, range: { from: string; to: string
     return row;
   });
   const days = Math.round((Date.parse(range.to) - Date.parse(range.from)) / 86_400_000) + 1;
-  return { from: range.from, to: range.to, pxPerDay, widthPx: days * pxPerDay, heightPx: top, rows };
+  return {
+    from: range.from, to: range.to, pxPerDay, widthPx: days * pxPerDay, heightPx: top, rows, rowUnitPx, capPx,
+    thresholds: engineInputOf(s).thresholds,
+  };
 }
 
 /** Indices des lignes qui touchent [scrollTop, scrollTop + viewHeight[, plus `overscan` lignes de chaque côté. */
