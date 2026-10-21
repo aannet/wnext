@@ -1,6 +1,6 @@
 // Densité d'affichage et jauge par personne dans un vrai navigateur (démo ?demo=1, écran de référence 1920 × 1080 ;
 // RT-005 à RT-008) : les trois densités montrent ~12 / ~8 / ~6 lignes entières, la jauge et son pourcentage sont dans la
-// colonne de gauche (▲ pour une personne en dépassement), la densité est gardée au rechargement et appliquée par une vue
+// colonne de gauche (▲ pour une personne en dépassement), la densité (menu Affichage) est gardée au rechargement et appliquée par une vue
 // sauvegardée, et l'écran reste sans violation axe serious / critical.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
@@ -8,7 +8,12 @@ import { openDemo, settle, visibleHeaders } from "./helpers";
 
 test.use({ viewport: { width: 1920, height: 1080 } });
 
-const radio = (page: Page, name: string) => page.getByRole("radiogroup", { name: "Densité" }).getByRole("radio", { name, exact: true });
+/** Bouton radio de densité, dans le menu Affichage (RT-025) : le menu est ouvert s'il ne l'est pas. */
+async function radio(page: Page, name: string) {
+  const menu = page.getByRole("dialog", { name: "Affichage" });
+  if (!(await menu.isVisible())) await page.getByRole("button", { name: "Affichage", exact: true }).click();
+  return menu.getByRole("radiogroup", { name: "Densité" }).getByRole("radio", { name, exact: true });
+}
 
 /** Lignes de personnes entièrement visibles sous l'en-tête de dates (32 px), et hauteur de cette zone. */
 const fullRows = (page: Page) => page.evaluate(() => {
@@ -28,12 +33,12 @@ async function axe(page: Page, label: string) {
 
 test("trois densités : ~12 / ~8 / ~6 lignes visibles à 1920 × 1080, tailles qui grossissent, axe", async ({ page }) => {
   await openDemo(page);
-  await expect(radio(page, "Standard")).toHaveAttribute("aria-checked", "true");
+  await expect(await radio(page, "Standard")).toHaveAttribute("aria-checked", "true");
   const measured: Record<string, number> = {};
   let lastName = 0;
   for (const [name, expected] of [["Compacte", 12], ["Standard", 8], ["Aérée", 6]] as const) {
-    await radio(page, name).click();
-    await expect(radio(page, name)).toHaveAttribute("aria-checked", "true");
+    await (await radio(page, name)).click();
+    await expect(await radio(page, name)).toHaveAttribute("aria-checked", "true");
     const { count, zone } = await fullRows(page);
     measured[name] = count;
     // Une ligne de la démo peut porter des blocs empilés (plus haute) : une ligne de moins est tolérée.
@@ -66,31 +71,31 @@ test("jauge par personne : barre et pourcentage, ▲ et +N h en dépassement, in
 
 test("densité gardée au rechargement et appliquée par une vue sauvegardée", async ({ page }) => {
   await openDemo(page);
-  await radio(page, "Aérée").click();
+  await (await radio(page, "Aérée")).click();
   await page.getByRole("button", { name: "Enregistrer la vue…" }).click();
   await page.getByLabel("Nom de la vue").fill("Revue aérée");
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Vue « Revue aérée » enregistrée." })).toBeVisible();
 
-  await radio(page, "Compacte").click();
+  await (await radio(page, "Compacte")).click();
   await page.reload();
   await page.getByRole("rowheader").first().waitFor();
   // L'URL porte la vue (?view=) : appliquée au chargement, elle remet la densité aérée par-dessus la mémoire locale.
-  await expect(radio(page, "Aérée")).toHaveAttribute("aria-checked", "true");
+  await expect(await radio(page, "Aérée")).toHaveAttribute("aria-checked", "true");
 
   await page.getByRole("combobox", { name: "Vue" }).selectOption({ label: "Tout le monde" });
-  await radio(page, "Compacte").click();
+  await (await radio(page, "Compacte")).click();
   await page.goto("/?demo=1&lang=fr");
   await page.getByRole("rowheader").first().waitFor();
-  await expect(radio(page, "Compacte")).toHaveAttribute("aria-checked", "true"); // mémoire locale seule
+  await expect(await radio(page, "Compacte")).toHaveAttribute("aria-checked", "true"); // mémoire locale seule
   await page.getByRole("combobox", { name: "Vue" }).selectOption({ label: "Revue aérée" });
-  await expect(radio(page, "Aérée")).toHaveAttribute("aria-checked", "true");
+  await expect(await radio(page, "Aérée")).toHaveAttribute("aria-checked", "true");
 });
 
 test("PO-02 : quitter le Planning puis revenir garde zoom, position et densité (blocs affichés)", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("button", { name: "Semaine", exact: true }).click();
-  await radio(page, "Aérée").click();
+  await (await radio(page, "Aérée")).click();
   await page.getByRole("button", { name: "Période suivante" }).click();
   await settle(page);
   await page.getByRole("grid").evaluate((g) => { g.scrollTop = 900; });
@@ -107,7 +112,7 @@ test("PO-02 : quitter le Planning puis revenir garde zoom, position et densité 
   await settle(page);
 
   await expect(page.getByRole("button", { name: "Semaine", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(radio(page, "Aérée")).toHaveAttribute("aria-checked", "true");
+  await expect(await radio(page, "Aérée")).toHaveAttribute("aria-checked", "true");
   expect(await visibleHeaders(page)).toEqual(before.headers);
   expect(await page.getByRole("grid").evaluate((g) => g.scrollTop)).toBe(before.top);
   await expect.poll(shown).toBeGreaterThan(0);

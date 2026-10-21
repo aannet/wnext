@@ -19,12 +19,13 @@ test("en-tête WNEXT, « Bonjour », navigation Planning -> Projets -> Planning 
   await expect(header.getByRole("link", { name: "Réglages" })).toBeVisible(); // hors navigation principale
   await expect(nav.getByRole("link", { name: "Réglages" })).toHaveCount(0);
 
-  // Sous-header : titre + barre d'outils côte à côte, sous l'en-tête.
+  // En-tête du Planning en deux niveaux (RT-025) : titre au niveau 1 sous l'en-tête applicatif, barre d'outils juste dessous.
   const title = page.getByRole("heading", { level: 1, name: "Planning" });
   const toolbar = page.getByRole("toolbar");
   const [h, t, b] = await Promise.all([header.boundingBox(), title.boundingBox(), toolbar.boundingBox()]);
   expect(t!.y).toBeGreaterThanOrEqual(h!.y + h!.height);
-  expect(Math.abs((t!.y + t!.height / 2) - (b!.y + b!.height / 2))).toBeLessThan(40);
+  expect(b!.y).toBeGreaterThanOrEqual(t!.y + t!.height - 1);
+  expect(b!.y - (t!.y + t!.height)).toBeLessThan(40);
   await noViolations(page, "planning");
 
   await nav.getByRole("link", { name: "Projets" }).click();

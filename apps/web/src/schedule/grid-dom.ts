@@ -53,7 +53,7 @@ export interface GridRenderer {
   readonly surface: HTMLElement;
   stats(): { rowsCreated: number; blocksCreated: number; capsCreated: number };
   /** Nouveaux libellés (changement de locale) : chaque ligne affichée est réécrite au prochain render. */
-  setLabels(l: Pick<GridRendererOptions, "capLabel" | "blockLabel" | "timeoffLabel" | "gaugeLabel">): void;
+  setLabels(l: Pick<GridRendererOptions, "capLabel" | "capText" | "blockLabel" | "timeoffLabel" | "gaugeLabel">): void;
   destroy(): void;
 }
 
@@ -80,6 +80,8 @@ export interface GridRendererOptions {
   overscan?: number;
   /** Libellé accessible (aria-label et infobulle) d'une cellule de capacité ; absent : aucun libellé. */
   capLabel?(c: GridCap): string;
+  /** Charge chiffrée d'une cellule (data-load, affichée par CSS si la bascule « Charge » est active, Q11) ; absent : rien. */
+  capText?(c: GridCap): string;
   /** Libellé accessible d'un bloc (projet, dates, quantité) ; recalculé seulement si l'un d'eux change. */
   blockLabel?(b: GridBlock): string;
   /** Libellé accessible d'un congé (type, dates, demi-journées, statut). */
@@ -279,6 +281,7 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     if (v.w !== g.w) s.width = `${g.w}px`;
     if (v.state !== g.state) c.el.className = `wn-cap wn-cap-${g.state}`;
     if (v.confirmedPx !== g.confirmedPx || v.tentativePx !== g.tentativePx || v.overPx !== g.overPx || v.lineY !== g.lineY || v.state !== g.state) s.background = capBackground(g, capPx);
+    if (opts.capText && (v.plannedHours !== g.plannedHours || v.capacityHours !== g.capacityHours || v.state !== g.state)) c.el.dataset.load = opts.capText(g);
     if (opts.capLabel && (v.from !== g.from || v.kind !== g.kind || v.plannedHours !== g.plannedHours || v.capacityHours !== g.capacityHours
       || v.tentativeHours !== g.tentativeHours || v.overtimeHours !== g.overtimeHours || v.overbookedDays !== g.overbookedDays)) {
       const label = opts.capLabel(g);
@@ -409,6 +412,7 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     stats: () => ({ rowsCreated, blocksCreated, capsCreated }),
     setLabels(l) {
       opts.capLabel = l.capLabel;
+      opts.capText = l.capText;
       opts.blockLabel = l.blockLabel;
       opts.timeoffLabel = l.timeoffLabel;
       opts.gaugeLabel = l.gaugeLabel;

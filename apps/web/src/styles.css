@@ -26,7 +26,26 @@
 html, body, #root { height: 100%; margin: 0; overflow: hidden; }
 body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body) var(--font-sans); color: var(--text); background: var(--surface); }
 .wn-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-.wn-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.wn-toolbar { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; padding: 0 0 var(--space-3); }
+/* En-tête du Planning, niveau 2 (RT-025) : filtres et puces à gauche, navigation et affichage à droite. */
+.wn-toolbar-spacer { flex: 1; }
+.wn-button-group { display: inline-flex; }
+.wn-button-group > button { border-radius: 0; margin-left: -1px; }
+.wn-button-group > button:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); margin-left: 0; }
+.wn-button-group > button:last-child { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.wn-button-group > button[aria-pressed="true"] { position: relative; z-index: 1; }
+.wn-people-count { color: var(--text-muted); font-size: var(--text-label); white-space: nowrap; }
+.wn-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.wn-chip { display: inline-flex; align-items: center; gap: var(--space-1); padding: 2px 4px 2px var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-full); background: var(--surface-sunken); font-size: var(--text-label); }
+.wn-chip-remove { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--text-muted); cursor: pointer; }
+.wn-chip-remove:hover { background: var(--border); color: var(--text); }
+.wn-chip-remove:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.wn-filters-panel { padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-sunken); align-items: flex-end; }
+.wn-display-menu { display: flex; flex-direction: column; gap: var(--space-3); }
+.wn-switch { display: inline-flex; gap: var(--space-2); align-items: center; padding: 0; border: 0; background: none; color: var(--text); font: inherit; cursor: pointer; }
+.wn-switch::before { content: ""; flex: none; width: 28px; height: 16px; border-radius: var(--radius-full); background: var(--color-border-strong); box-shadow: inset 2px 0 0 2px var(--color-border-strong), inset 14px 0 0 2px var(--surface); transition: box-shadow 120ms; }
+.wn-switch[aria-checked="true"]::before { background: var(--accent); box-shadow: inset -2px 0 0 2px var(--accent), inset -14px 0 0 2px var(--surface); }
+.wn-switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius-sm); }
 .wn-header { background: var(--surface); border-bottom: 1px solid var(--border); }
 .wn-corner { background: var(--surface); }
 .wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; overflow: hidden; white-space: nowrap; color: var(--text-muted); border-left: 1px solid var(--wn-grid-line); }
@@ -74,6 +93,8 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-realtime::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--color-status-idle); }
 .wn-realtime-live::before { background: var(--color-status-live); }
 .wn-realtime-connecting::before, .wn-realtime-waiting::before { background: var(--color-status-pending); }
+.wn-realtime-stopped::before { background: var(--color-status-offline); }
+.wn-realtime-live::before { margin-right: 0; }
 .wn-error { margin: 8px 0; padding: 8px 12px; border: 1px solid var(--color-danger-border); background: var(--color-danger-bg); color: var(--color-danger-text); border-radius: 4px; }
 .wn-loading { color: var(--text-muted); }
 /* Couleurs d'un bloc (fond, texte noir ou blanc selon la luminance, bord) posées par grid-dom (block-colors). Tentatif :
@@ -82,6 +103,8 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 
 /* Bande de capacité en pied de ligne (BR-01, BR-07). Contrastes >= 3:1 sur le fond (WCAG 1.4.11) ; l'information ne repose
    jamais sur la couleur seule : tentatif = hachures bleues, dépassement = hachures rouges + ligne de capacité + cadre. */
+/* Charge par colonne (RT-030, Q11) : le texte de chaque cellule (data-load) ne s'affiche que si la bascule est active. */
+.wn-schedule[data-load="on"] .wn-cap::after { content: attr(data-load); position: absolute; right: 2px; bottom: 0; padding: 0 3px; border-radius: 2px; background: var(--surface); color: var(--text); font-size: 10px; line-height: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
 .wn-cap { contain: strict; box-sizing: border-box; border-left: 1px solid var(--surface); background-color: var(--border); }
 .wn-cap.wn-cap-none { background-color: var(--surface-sunken); }
 .wn-cap.wn-cap-over { box-shadow: inset 0 0 0 1px var(--cap-over); }
@@ -212,6 +235,8 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-user-identity strong { color: var(--text); font-size: var(--text-form); }
 .wn-user-popover .wn-menu { z-index: auto; min-width: 0; border: 0; box-shadow: none; padding: var(--space-1) 0 0; }
 .wn-subheader { display: flex; flex: none; flex-wrap: wrap; gap: var(--space-3) var(--space-6); align-items: center; padding: var(--space-3) 0; }
+.wn-subheader-end { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-left: auto; }
+.wn-schedule-container .wn-views { margin-bottom: 0; }
 .wn-subheader-title { margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold); }
 .wn-subheader-title:focus { outline: none; }
 .wn-page { padding: var(--space-4); }

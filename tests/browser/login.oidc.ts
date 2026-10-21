@@ -52,7 +52,7 @@ test("connexion OIDC PKCE de bout en bout", async ({ page }) => {
   await expect(header.getByRole("link", { name: "WNEXT", exact: true })).toBeVisible();
   await expect(header.getByRole("link", { name: "Réglages" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Importer" })).toBeVisible();
-  await expect(page.locator(".wn-realtime")).toHaveText("Temps réel : connecté");
+  await expect(page.locator(".wn-realtime-live")).toHaveText("En direct"); // puce verte seule, texte réservé aux lecteurs d'écran (Q12)
 
   // Temps réel : une allocation créée par un autre client apparaît sans rechargement.
   const today = todayParis();

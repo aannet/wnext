@@ -36,7 +36,12 @@ async function mount(opts: { views?: ViewsSource; memory?: ScheduleMemory } = {}
 }
 const unmount = () => { act(() => root?.unmount()); root = null; host.remove(); };
 
-const group = () => host.querySelector<HTMLElement>("[role=radiogroup]")!;
+/** Groupe radio de la densité, dans le menu Affichage (RT-025) : le menu est ouvert s'il ne l'est pas. */
+const group = () => {
+  const open = () => document.body.querySelector<HTMLElement>("[role=dialog][aria-label=Affichage] [role=radiogroup]");
+  if (!open()) act(() => { [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] button")].find((b) => b.textContent === "Affichage")!.click(); });
+  return open()!;
+};
 const radios = () => [...group().querySelectorAll<HTMLButtonElement>("[role=radio]")];
 const checked = () => radios().filter((r) => r.getAttribute("aria-checked") === "true").map((r) => r.textContent);
 const density = () => host.querySelector<HTMLElement>(".wn-schedule")!.getAttribute("data-density");
@@ -48,9 +53,9 @@ const key = (k: string) => act(() => { document.activeElement!.dispatchEvent(new
 const minRow = (d: keyof typeof DENSITY_METRICS) => DENSITY_METRICS[d].rowUnitPx + DENSITY_METRICS[d].capPx;
 
 describe("contrôle de densité", () => {
-  it("groupe radio libellé dans la barre d'outils, trois niveaux, Standard par défaut (roving tabindex)", async () => {
+  it("groupe radio libellé dans le menu Affichage, trois niveaux, Standard par défaut (roving tabindex)", async () => {
     await mount();
-    expect(group().closest("[role=toolbar]")).not.toBeNull();
+    expect(group().closest("[role=dialog][aria-label=Affichage]")).not.toBeNull(); // menu Affichage (RT-025)
     expect(group().getAttribute("aria-label")).toBe("Densité");
     expect(radios().map((r) => r.textContent)).toEqual(["Compacte", "Standard", "Aérée"]);
     expect(checked()).toEqual(["Standard"]);

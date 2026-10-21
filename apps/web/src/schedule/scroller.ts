@@ -66,6 +66,8 @@ export interface ScrollerOptions {
   build?: typeof buildGrid;
   /** Libellé accessible d'une cellule de capacité, avec la période déjà formatée (catalogue i18n). */
   capacityLabel?(period: string, c: GridCap): string;
+  /** Charge chiffrée d'une cellule de capacité (catalogue i18n, Q11). */
+  capacityText?(c: GridCap): string;
   /** Libellé accessible d'un bloc (catalogue i18n). */
   blockLabel?(b: GridBlock): string;
   /** Libellé accessible d'un congé (catalogue i18n). */
@@ -86,7 +88,7 @@ export interface Scroller {
   /** Date du jour (fuseau du compte) : cible d'« Aujourd'hui » ; la vue ne bouge pas. */
   setToday(today: string): void;
   /** Libellés localisés (changement de locale) : tout est réécrit au prochain dessin, la vue ne bouge pas. */
-  setLabels(l: Pick<ScrollerOptions, "label" | "capacityLabel" | "blockLabel" | "timeoffLabel" | "gaugeLabel">): void;
+  setLabels(l: Pick<ScrollerOptions, "label" | "capacityLabel" | "capacityText" | "blockLabel" | "timeoffLabel" | "gaugeLabel">): void;
   density(): Density;
   /** Nouvelles hauteurs de ligne ; la personne en haut de la vue y reste. */
   setDensity(d: Density): void;
@@ -128,6 +130,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
   const header = createHeaderRenderer(root, { heightPx: HEADER_PX, gutterPx: GUTTER_PX });
   const grid = createGridRenderer(root, {
     ...(o.capacityLabel ? { capLabel: (c: GridCap) => o.capacityLabel!(label(c), c) } : {}),
+    ...(o.capacityText ? { capText: o.capacityText } : {}),
     ...(o.blockLabel ? { blockLabel: o.blockLabel } : {}),
     ...(o.timeoffLabel ? { timeoffLabel: o.timeoffLabel } : {}),
     ...(o.gaugeLabel ? { gaugeLabel: o.gaugeLabel } : {}),
@@ -329,6 +332,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
       headerKey = "";
       grid.setLabels({
         ...(l.capacityLabel ? { capLabel: (c: GridCap) => l.capacityLabel!(label(c), c) } : {}),
+        ...(l.capacityText ? { capText: l.capacityText } : {}),
         ...(l.blockLabel ? { blockLabel: l.blockLabel } : {}),
         ...(l.timeoffLabel ? { timeoffLabel: l.timeoffLabel } : {}),
         ...(l.gaugeLabel ? { gaugeLabel: l.gaugeLabel } : {}),

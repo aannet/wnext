@@ -38,16 +38,19 @@ async function mount(views: ViewsSource = createDemoViewsSource(demoSeedViews(),
 const rows = () => [...host.querySelectorAll("[role=rowheader] .wn-person-name")].map((e) => e.textContent).filter(Boolean); // lignes recyclées vides écartées
 const count = () => Number(/(\d+) personnes?/.exec(host.querySelector("[role=toolbar]")!.textContent!)![1]);
 const viewSelect = () => host.querySelector<HTMLSelectElement>(".wn-views-row select")!;
-const button = (label: string) => [...document.body.querySelectorAll<HTMLButtonElement>(".wn-views button, [role=dialog] button")].find((b) => b.textContent === label);
+const button = (label: string) => [...document.body.querySelectorAll<HTMLButtonElement>(".wn-views button, .wn-filters-panel button, [role=dialog] button")].find((b) => b.textContent === label);
 const status = () => host.querySelector(".wn-views [role=status]")!.textContent;
 const optionNames = () => [...viewSelect().options].map((o) => o.textContent);
+const filtersButton = () => [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] button")].find((b) => /^Filtres/.test(b.textContent ?? ""))!;
 const zoomPressed = () => [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] [aria-pressed=true]")].map((b) => b.textContent);
 
 async function choose(id: string) {
   await act(async () => { viewSelect().value = id; viewSelect().dispatchEvent(new Event("change", { bubbles: true })); });
   await flush();
 }
+/** Filtres du panneau dépliable sous la barre d'outils (RT-025) : le panneau est ouvert s'il ne l'est pas. */
 async function pickOptions(label: string, values: string[]) {
+  if (!host.querySelector(".wn-filter")) await click(filtersButton());
   const select = [...host.querySelectorAll<HTMLElement>(".wn-filter")].find((l) => l.firstElementChild?.textContent === label)!.querySelector("select")!;
   await act(async () => {
     for (const o of select.options) o.selected = values.includes(o.value);
@@ -81,7 +84,7 @@ describe("vues sauvegardées dans l'écran", () => {
     await pickOptions("Département", ["2"]);
     expect(count()).toBe(4);
     expect(rows()).toEqual(["Personne 2", "Personne 5", "Personne 8", "Personne 11"]);
-    expect(host.querySelector(".wn-filters summary")!.textContent).toBe("Filtres (1)");
+    expect(filtersButton().textContent).toBe("Filtres (1)");
     expect(host.querySelector("[role=toolbar]")!.textContent).toContain("4 personnes");
     await pickOptions("Rôle", ["1"]);
     expect(count()).toBeLessThan(4);

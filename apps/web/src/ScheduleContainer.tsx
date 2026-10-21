@@ -48,6 +48,17 @@ const errorKey = (code: SourceErrorCode): MessageKey => `schedule.error.${SHOWN_
 const realtimeKey = (s: ScheduleSourceState["realtime"]): MessageKey =>
   s === "live" ? "schedule.realtime.live" : s === "stopped" ? "schedule.realtime.offline" : "schedule.realtime.reconnecting";
 
+/**
+ * Statut du temps réel (RT-032, Q12 amendée) : connecté, une puce verte seule (nom accessible « En direct », infobulle qui
+ * explique) ; en reconnexion (orange) ou hors connexion (rouge), la puce et un texte visible.
+ */
+export function RealtimeStatus({ i18n, state }: { i18n: I18n; state: ScheduleSourceState["realtime"] }) {
+  const label = i18n._(realtimeKey(state));
+  return state === "live"
+    ? <span role="status" className="wn-realtime wn-realtime-live" title={i18n._("schedule.realtime.live.hint")}><span className="wn-visually-hidden">{label}</span></span>
+    : <span role="status" className={`wn-realtime wn-realtime-${state}`}><span className="wn-realtime-text">{label}</span></span>;
+}
+
 /** Période de vérification du changement de jour (onglet laissé ouvert la nuit). */
 const TODAY_CHECK_MS = 60_000;
 const systemNow = () => new Date();
@@ -76,9 +87,7 @@ export function ScheduleContainer({ i18n, source, views, now = systemNow, widthP
     return () => source.stop();
   }, [source]);
 
-  const status = (
-    <span role="status" className={`wn-realtime wn-realtime-${state.realtime}`}>{t(realtimeKey(state.realtime))}</span>
-  );
+  const status = <RealtimeStatus i18n={i18n} state={state.realtime} />;
   const error = state.error && <div role="alert" className="wn-error">{t(errorKey(state.error))}</div>;
   const reconnect = state.error === "UNAUTHENTICATED" && onReconnect && <Button type="button" variant="primary" onClick={onReconnect}>{t("auth.retry")}</Button>;
 

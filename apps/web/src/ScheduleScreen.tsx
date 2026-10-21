@@ -22,8 +22,12 @@
 //    appliqués côté client aux lignes (schedule/view-filters) ; seule la grille reçoit les données filtrées, les éditeurs gardent
 //    les données complètes.
 //  * Retrait d'un projet (BR-10, schedule/team-removal-ui) si la source le permet : menu contextuel d'un bloc.
+//  * En-tête en deux niveaux (RT-025) : niveau 1 = titre, vue sauvegardée, statut et actions de création ; niveau 2 (barre
+//    d'outils) = Filtres (compteur, puces, panneau dépliable, schedule/filters-ui), annuler / rétablir, navigation, zoom,
+//    menu Affichage, nombre de personnes.
+//  * Menu Affichage (Popover) : densité et bascule « Charge par colonne » (RT-030, Q11 : état en mémoire, éteint au montage).
 //  * Densité (RT-005 à RT-007, schedule/density) : contrôle segmenté (groupe de boutons radio, flèches gauche / droite) dans
-//    la barre d'outils, appliquée à la volée (hauteurs du modèle, tailles CSS par data-density), mémorisée dans ce navigateur
+//    le menu Affichage, appliquée à la volée (hauteurs du modèle, tailles CSS par data-density), mémorisée dans ce navigateur
 //    et portée par les vues sauvegardées. Colonne de gauche : avatar, nom, rôle, département et jauge de la période visible.
 //  * Mémoire de l'écran (PO-02) : `memory`, tenu par l'appelant au-dessus du démontage, reçoit au démontage le zoom, le jour
 //    au centre et le défilement vertical, et les rend au montage suivant. La pile d'annulation n'y est pas : la source est
@@ -31,7 +35,7 @@
 import type { I18n } from "@lingui/core";
 import type { Me, ScheduleResponse } from "@wnext/contracts";
 import { dayNumber, fromDayNumber, type HeaderCell, type Viewport, type Zoom } from "@wnext/engine";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import type { ScheduleEditor } from "./data/allocation-edits";
 import type { ScheduleSource } from "./data/schedule-source";
 import type { ViewsSource } from "./data/views-source";
@@ -39,7 +43,7 @@ import type { MessageKey } from "./i18n";
 import { createBlockEditor, type BlockEditor } from "./schedule/block-editor";
 import { blockLabeler } from "./schedule/block-label";
 import { timeoffLabeler } from "./schedule/timeoff-label";
-import { capacityLabeler } from "./schedule/capacity-label";
+import { capacityLabeler, capacityTexter } from "./schedule/capacity-label";
 import { useScheduleEdits, type FocusTarget } from "./schedule/edits-ui";
 import type { History, HistoryDirection, HistoryResult, HistoryState } from "./schedule/history";
 import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
@@ -49,9 +53,10 @@ import { applyViewFilters, type ViewFilters } from "./schedule/view-filters";
 import { DENSITIES, readStoredDensity, storeDensity, type Density } from "./schedule/density";
 import { gaugeLabeler } from "./schedule/gauge-label";
 import { ViewsBar } from "./schedule/views-ui";
+import { FilterChips, FiltersButton, FiltersPanel } from "./schedule/filters-ui";
 import { useTeamRemoval } from "./schedule/team-removal-ui";
 import type { TeamRemovalEditor } from "./data/team-removal";
-import { Button } from "./design";
+import { Button, Popover } from "./design";
 
 export interface ScheduleScreenProps {
   i18n: I18n;
@@ -125,6 +130,12 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   const densityRef = useRef(density);
   densityRef.current = density;
   const [filters, setFilters] = useState<ViewFilters>({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [displayOpen, setDisplayOpen] = useState(false);
+  /** Charge chiffrée dans chaque colonne de temps (Q11) : en mémoire seulement, jamais enregistrée. */
+  const [showLoad, setShowLoad] = useState(false);
+  const displayButton = useRef<HTMLButtonElement>(null);
+  const uid = useId();
   // Lignes affichées : personnes filtrées (et triées) ; `data` reste la référence des éditeurs et des listes de choix.
   const shown = useMemo(() => applyViewFilters(data, filters), [data, filters]);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -241,7 +252,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   // Le scroller est créé une seule fois : la date du jour et la locale lui sont poussées (setToday, setLabels), sans perdre
   // la position.
   const labelsFor = (i: I18n) => ({
-    label: headerFormatter(i.locale), capacityLabel: capacityLabeler(i), blockLabel: blockLabeler(i), timeoffLabel: timeoffLabeler(i), gaugeLabel: gaugeLabeler(i),
+    label: headerFormatter(i.locale), capacityLabel: capacityLabeler(i), capacityText: capacityTexter(i), blockLabel: blockLabeler(i), timeoffLabel: timeoffLabeler(i), gaugeLabel: gaugeLabeler(i),
   });
   const labelled = useRef(i18n);
   // widthPx/heightPx ne sont que la taille initiale : ensuite la grille remplit l'espace restant (CSS flex) et un
@@ -336,27 +347,28 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   };
 
   return (
-    <div className="wn-schedule" data-density={density}>
+    <div className="wn-schedule" data-density={density} {...(showLoad ? { "data-load": "on" } : {})}>
       <div className="wn-subheader">
-      {heading}
-      <div role="toolbar" aria-label={t("schedule.toolbar.label")} className="wn-toolbar">
-        <Button type="button" onClick={() => scroller.current?.step(-1)}>{t("schedule.prev")}</Button>
-        <Button type="button" onClick={() => scroller.current?.today()}>{t("schedule.today")}</Button>
-        <Button type="button" onClick={() => scroller.current?.step(1)}>{t("schedule.next")}</Button>
-        <span>{t("schedule.zoom.label")}</span>
-        {ZOOMS.map((z) => (
-          <Button key={z} type="button" aria-pressed={zoom === z} onClick={() => zoomTo(z)}>
-            {t(`schedule.zoom.${z}`)}
-          </Button>
-        ))}
-        <div role="radiogroup" aria-label={t("schedule.density.label")} className="wn-segmented" onKeyDown={onDensityKey}>
-          {DENSITIES.map((d) => (
-            <button key={d} ref={(el) => { densityRefs.current[d] = el; }} type="button" role="radio" aria-checked={density === d} tabIndex={density === d ? 0 : -1}
-              onClick={() => densityTo(d)}>
-              {t(`schedule.density.${d}`)}
-            </button>
-          ))}
+        {heading}
+        {views && <ViewsBar i18n={i18n} shownCount={shown.people.length} source={views} filters={filters} zoom={zoom} density={density} onFilters={setFilters} onZoom={zoomTo} onDensity={densityTo} />}
+        <div className="wn-subheader-end">
+          {actions}
+          {records && (
+            <>
+              <Button type="button" aria-keyshortcuts="C" aria-haspopup="dialog" onClick={() => openTimeoffAt(document.activeElement)}>{t("schedule.timeoff.new")}</Button>
+              <Button type="button" variant="primary" aria-haspopup="dialog" onClick={openCreate}>{t("schedule.slot.add")}</Button>
+            </>
+          )}
         </div>
+      </div>
+      <div role="toolbar" aria-label={t("schedule.toolbar.label")} className="wn-toolbar">
+        {views && (
+          <>
+            <FiltersButton i18n={i18n} filters={filters} expanded={filtersOpen} controls={`${uid}-filters`} onToggle={() => setFiltersOpen((o) => !o)} />
+            <FilterChips i18n={i18n} data={data} filters={filters} onFilters={setFilters} />
+          </>
+        )}
+        <div className="wn-toolbar-spacer" />
         {history && (
           <>
             <Button type="button" disabled={!stack.canUndo} aria-keyshortcuts="Control+Z Meta+Z" onClick={() => stepRef.current("undo")}>
@@ -367,17 +379,35 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
             </Button>
           </>
         )}
-        {records && (
-          <>
-            <Button type="button" variant="primary" aria-haspopup="dialog" onClick={openCreate}>{t("schedule.slot.add")}</Button>
-            <Button type="button" aria-keyshortcuts="C" aria-haspopup="dialog" onClick={() => openTimeoffAt(document.activeElement)}>{t("schedule.timeoff.new")}</Button>
-          </>
-        )}
-        <span>{t("schedule.people.count", { count: shown.people.length })}</span>
+        <Button type="button" onClick={() => scroller.current?.step(-1)}>{t("schedule.prev")}</Button>
+        <Button type="button" onClick={() => scroller.current?.today()}>{t("schedule.today")}</Button>
+        <Button type="button" onClick={() => scroller.current?.step(1)}>{t("schedule.next")}</Button>
+        <div role="group" aria-label={t("schedule.zoom.label")} className="wn-button-group">
+          {ZOOMS.map((z) => (
+            <Button key={z} type="button" aria-pressed={zoom === z} onClick={() => zoomTo(z)}>
+              {t(`schedule.zoom.${z}`)}
+            </Button>
+          ))}
+        </div>
+        <Button ref={displayButton} type="button" aria-haspopup="dialog" aria-expanded={displayOpen} onClick={() => setDisplayOpen((o) => !o)}>{t("schedule.display")}</Button>
+        <span className="wn-people-count">{t("schedule.people.count", { count: shown.people.length })}</span>
       </div>
-      {actions}
-      </div>
-      {views && <ViewsBar i18n={i18n} data={data} shownCount={shown.people.length} source={views} filters={filters} zoom={zoom} density={density} onFilters={setFilters} onZoom={zoomTo} onDensity={densityTo} />}
+      {views && filtersOpen && <FiltersPanel i18n={i18n} data={data} filters={filters} onFilters={setFilters} id={`${uid}-filters`} />}
+      {displayOpen && displayButton.current && (
+        <Popover anchor={displayButton.current} label={t("schedule.display")} className="wn-display-menu" onClose={() => setDisplayOpen(false)}>
+          <div role="radiogroup" aria-label={t("schedule.density.label")} className="wn-segmented" onKeyDown={onDensityKey}>
+            {DENSITIES.map((d) => (
+              <button key={d} ref={(el) => { densityRefs.current[d] = el; }} type="button" role="radio" aria-checked={density === d} tabIndex={density === d ? 0 : -1}
+                onClick={() => densityTo(d)}>
+                {t(`schedule.density.${d}`)}
+              </button>
+            ))}
+          </div>
+          <button type="button" role="switch" aria-checked={showLoad} className="wn-switch" onClick={() => setShowLoad((v) => !v)}>
+            {t("schedule.display.load")}
+          </button>
+        </Popover>
+      )}
       {records && (
         <QuickEntry ref={quickRef} i18n={i18n} data={data} today={today} createAllocation={records.createAllocation} listProjects={records.listProjects} onProjectsChange={records.onProjectsChange} record={history?.record}
           announce={(text) => editsRef.current.announce(text)} onExit={() => gridRef.current?.focus({ preventScroll: true })} />

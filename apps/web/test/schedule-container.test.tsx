@@ -4,7 +4,7 @@ import type { ScheduleResponse } from "@wnext/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ScheduleContainer } from "../src/ScheduleContainer";
+import { RealtimeStatus, ScheduleContainer } from "../src/ScheduleContainer";
 import { createClient, type FetchResponse } from "../src/api/client.gen";
 import { createScheduleSource } from "../src/data/schedule-source";
 import { createI18n } from "../src/i18n";
@@ -48,7 +48,7 @@ describe("ScheduleContainer", () => {
     release();
     await flush();
     expect([...host.querySelectorAll("[role=rowheader] .wn-person-name")].map((e) => e.textContent)).toEqual(["Alice"]);
-    expect(host.querySelector("[role=status]")!.textContent).toBe("Temps réel : hors ligne");
+    expect(host.querySelector("[role=status]")!.textContent).toBe("Hors connexion");
   });
 
   it("repères de page : un <main> qui contient tout (barre d'outils comprise), un seul <h1> traduit", async () => {
@@ -112,19 +112,20 @@ describe("ScheduleContainer", () => {
     expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Se reconnecter")).toBe(false);
   });
 
-  it("sous-header : titre h1 visible et barre d'outils dans le même bloc ; import dans la zone de droite", async () => {
+  it("en-tête en deux niveaux (RT-025) : titre h1 et statut au niveau 1, barre d'outils juste dessous au niveau 2", async () => {
     mount(async (q) => ({ status: 200, body: body(q) }));
     await flush();
     const sub = host.querySelector(".wn-subheader")!;
     expect(sub.querySelector("h1")!.textContent).toBe("Planning");
-    expect(sub.querySelector("[role=toolbar]")).not.toBeNull();
     expect(sub.querySelector(".wn-statusbar [role=status]")).not.toBeNull();
+    expect(sub.querySelector("[role=toolbar]")).toBeNull();
+    expect(sub.nextElementSibling!.getAttribute("role")).toBe("toolbar");
   });
 
   it("lecture seule (member, guest) : ni boutons Annuler / Rétablir, ni « Nouveau congé », ni saisie rapide", async () => {
     mount(async (q) => ({ status: 200, body: body(q) }), undefined, undefined, true);
     await flush();
-    const labels = [...host.querySelectorAll("[role=toolbar] button")].map((b) => b.textContent);
+    const labels = [...host.querySelectorAll("button")].map((b) => b.textContent);
     expect(labels).toContain("Aujourd’hui");
     for (const hidden of ["Annuler", "Rétablir", "Nouveau congé"]) expect(labels).not.toContain(hidden);
     expect(host.querySelector(".wn-quick")).toBeNull();
@@ -134,5 +135,31 @@ describe("ScheduleContainer", () => {
     mount(async () => ({ status: 400, body: { code: "SCHEDULE_RANGE_INVALID", params: {}, requestId: "r" } }));
     await flush();
     expect(host.querySelector("[role=alert]")!.textContent).toBe("Le planning n’a pas pu être chargé. Réessayez plus tard.");
+  });
+});
+
+describe("indicateur temps réel (RT-032, Q12 amendée)", () => {
+  const show = (state: "live" | "connecting" | "waiting" | "stopped") => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+    act(() => root!.render(<RealtimeStatus i18n={createI18n("fr")} state={state} />));
+    const el = host.querySelector<HTMLElement>("[role=status]")!;
+    return { el, visible: el.querySelector(".wn-realtime-text")?.textContent ?? "", hidden: el.querySelector(".wn-visually-hidden")?.textContent ?? "" };
+  };
+
+  it("connecté : puce verte seule, nom accessible « En direct » et infobulle explicative", () => {
+    const { el, visible, hidden } = show("live");
+    expect([el.className, visible, hidden, el.title]).toEqual(["wn-realtime wn-realtime-live", "", "En direct", "Les changements de l’équipe apparaissent sans recharger la page"]);
+  });
+
+  it("reconnexion : puce orange et texte visible ; hors connexion : puce rouge et texte visible", () => {
+    for (const state of ["connecting", "waiting"] as const) {
+      const { el, visible } = show(state);
+      expect([el.className, visible]).toEqual([`wn-realtime wn-realtime-${state}`, "Reconnexion…"]);
+      act(() => root!.unmount()); host.remove();
+    }
+    const { el, visible } = show("stopped");
+    expect([el.className, visible]).toEqual(["wn-realtime wn-realtime-stopped", "Hors connexion"]);
   });
 });

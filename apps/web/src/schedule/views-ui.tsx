@@ -1,25 +1,23 @@
-// Barre des vues sauvegardées du Schedule (FR-10) : choisir une vue (par défaut « Tout le monde »), filtrer les lignes
-// (département, rôle, projet, personne, tri), enregistrer la vue courante (nom, partagée ou non), la mettre à jour, la
-// renommer, la supprimer. L'état courant se reflète dans l'URL (?view=<id>, remplacé sans empiler l'historique).
-//  * Les filtres sont portés par l'écran (lignes filtrées côté client, schedule/view-filters) ; la barre les édite et les lit.
+// Vues sauvegardées du Schedule (FR-10), au niveau 1 de l'en-tête : choisir une vue (par défaut « Tout le monde »),
+// enregistrer la vue courante (nom, partagée ou non), la mettre à jour, la renommer, la supprimer. L'état courant se reflète
+// dans l'URL (?view=<id>, remplacé sans empiler l'historique).
+//  * Les filtres sont portés par l'écran et édités au niveau 2 (schedule/filters-ui) ; la barre les lit et les enregistre.
 //  * Une vue enregistre les filtres, le zoom ET la densité au moment de l'enregistrement ; l'appliquer remet les trois (une
 //    vue enregistrée sans zoom ni densité ne les change pas).
 //  * Seules les vues que l'appelant peut gérer (`canManage`) offrent mise à jour, renommage et suppression.
 //  * Erreurs : codes stables de l'API, traduits ici ; sur VERSION_CONFLICT la vue est relue. Annonces dans une région role=status.
 import type { I18n } from "@lingui/core";
-import type { SavedView, ScheduleResponse } from "@wnext/contracts";
+import type { SavedView } from "@wnext/contracts";
 import type { Zoom } from "@wnext/engine";
 import type { Density } from "./density";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { ViewsErrorCode, ViewsResult, ViewsSource } from "../data/views-source";
 import { Button, Modal } from "../design";
 import type { MessageKey } from "../i18n";
-import { activeFilterCount, normalizeFilters, sameFilters, type ViewFilters } from "./view-filters";
+import { normalizeFilters, sameFilters, type ViewFilters } from "./view-filters";
 
 export interface ViewsBarProps {
   i18n: I18n;
-  /** Données complètes (non filtrées) : listes de choix. */
-  data: ScheduleResponse;
   /** Nombre de personnes affichées après filtrage (annonce). */
   shownCount: number;
   source: ViewsSource;
@@ -59,7 +57,7 @@ const screenFilters = (f: ViewFilters): ViewFilters => { const { zoom: _zoom, de
 
 const byPosition = (a: SavedView, b: SavedView) => a.position - b.position || a.name.localeCompare(b.name);
 
-export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, density, onFilters, onZoom, onDensity, urlSync = true }: ViewsBarProps) {
+export function ViewsBar({ i18n, shownCount, source, filters, zoom, density, onFilters, onZoom, onDensity, urlSync = true }: ViewsBarProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [views, setViews] = useState<SavedView[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -75,7 +73,6 @@ export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, densit
   const current = views.find((v) => v.id === currentId) ?? null;
   const effective: ViewFilters = { ...filters, zoom, ...(density ? { density } : {}) };
   const modified = current !== null && modifiedFrom(current, effective);
-  const count = activeFilterCount(filters);
 
   const say = (text: string, error = false) => setMessage({ text, error });
   const fail = (code: ViewsErrorCode) => say(t(errorKey(code)), true);
@@ -165,16 +162,6 @@ export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, densit
     void run(() => source.update(current, { filters: normalizeFilters(effective) }), current, (v) => { patchList(v); say(t("views.status.updated", { name: v.name })); });
   };
 
-  const multi = (key: "departmentIds" | "roleIds" | "projectIds" | "personIds", label: MessageKey, options: ReadonlyArray<{ id: string; name: string }>) => (
-    <div className="wn-filter">
-      <span id={`${uid}-${key}`}>{t(label)}</span>
-      <select multiple size={4} aria-labelledby={`${uid}-${key}`} value={filters[key] ?? []}
-        onChange={(e) => onFilters({ ...filters, [key]: [...e.currentTarget.selectedOptions].map((o) => o.value) })}>
-        {options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-      </select>
-    </div>
-  );
-
   const sorted = [...views].sort(byPosition);
   return (
     <div role="group" aria-label={t("views.toolbar.label")} className="wn-views">
@@ -227,22 +214,6 @@ export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, densit
           </form>
         </Modal>
       )}
-      <details className="wn-filters">
-        <summary>{count ? t("views.filters.count", { count }) : t("views.filters")}</summary>
-        <div className="wn-filters-body">
-          {multi("departmentIds", "views.filter.department", data.departments)}
-          {multi("roleIds", "views.filter.role", data.roles)}
-          {multi("projectIds", "views.filter.project", data.projects)}
-          {multi("personIds", "views.filter.person", data.people)}
-          <div className="wn-filter">
-            <span id={`${uid}-sort`}>{t("views.sort.label")}</span>
-            <select aria-labelledby={`${uid}-sort`} value={filters.peopleSort ?? "name"} onChange={(e) => onFilters({ ...filters, peopleSort: e.currentTarget.value as ViewFilters["peopleSort"] })}>
-              {(["name", "department", "role"] as const).map((s) => <option key={s} value={s}>{t(`views.sort.${s}`)}</option>)}
-            </select>
-          </div>
-          <Button type="button" disabled={count === 0 && !filters.peopleSort} onClick={() => onFilters({})}>{t("views.reset")}</Button>
-        </div>
-      </details>
     </div>
   );
 }

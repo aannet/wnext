@@ -53,6 +53,7 @@
   --color-status-idle: #9ca3af;
   --color-status-live: #10b981;
   --color-status-pending: #f59e0b;
+  --color-status-offline: #dc2626; /* hors connexion (Q12 : puce rouge et texte) */
 
   /* Teintes des types de congé (fond clair + bord), texte sombre >= 4,5:1. */
   --color-timeoff-0-bg: #e0e7ff;
