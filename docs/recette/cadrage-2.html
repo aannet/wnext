@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WNEXT — Cadrage de la note n°2</title>
+<style>
+  :root { color-scheme: light; --bg:#f7f8fa; --card:#fff; --ink:#1c2330; --muted:#566074; --line:#e3e7ee; --accent:#2f5bea; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .layout { display:flex; align-items:flex-start; }
+  nav { position:sticky; top:0; width:230px; flex:none; height:100vh; overflow:auto; padding:24px 16px; border-right:1px solid var(--line); background:var(--card); }
+  nav h1 { font-size:17px; margin:0 0 4px; } nav .s { color:var(--muted); font-size:12px; margin:0 0 16px; }
+  nav a { display:block; padding:6px 10px; margin-bottom:2px; border-radius:6px; color:var(--muted); text-decoration:none; font-size:14px; }
+  nav a:hover { background:var(--bg); } nav a.active { background:#e8eefd; color:var(--accent); font-weight:600; }
+  main { flex:1; min-width:0; max-width:1000px; padding:32px 32px 80px; }
+  section { margin-bottom:44px; scroll-margin-top:16px; }
+  h2 { font-size:21px; margin:0 0 6px; } h3 { margin:0 0 6px; font-size:16px; }
+  .sub { color:var(--muted); font-weight:400; font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin-bottom:14px; }
+  .intent { border-left:4px solid var(--accent); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  .stats ul { list-style:none; margin:6px 0 0; padding:0; } .stats li { padding:2px 0; }
+  .stats .big { font-size:40px; font-weight:700; line-height:1; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; font-size:13.5px; }
+  th,td { text-align:left; vertical-align:top; padding:8px 10px; border-top:1px solid var(--line); }
+  th { background:#eef1f6; border-top:0; font-size:12.5px; }
+  .nw { white-space:nowrap; } .tw { overflow-x:auto; }
+  blockquote { margin:6px 0 0; padding:2px 0 2px 10px; border-left:3px solid var(--line); color:var(--muted); font-size:13px; }
+  .gb { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:1px 8px; border-radius:10px; border:1px solid; white-space:nowrap; }
+  .gb i { width:8px; height:8px; display:inline-block; }
+  .g2 { background:#fdf0dc; color:#8a4b00; border-color:#8a4b00; } .g2 i { background:#8a4b00; transform:rotate(45deg); }
+  .g3 { background:#fbf6d6; color:#6b5a00; border-color:#6b5a00; } .g3 i { background:#6b5a00; border-radius:50%; }
+  .g4 { background:#eef1f6; color:#445; border-color:#445; } .g4 i { border:2px solid #445; border-radius:50%; }
+  .g0 { background:#eef1f6; color:#445; border-color:#aab; font-weight:500; }
+  .reco { background:#eaf6ef; border:1px solid #1f7a4d; border-radius:8px; padding:8px 12px; }
+  .tagreco { display:inline-block; font-size:12px; font-weight:700; color:#17603c; margin-right:6px; text-transform:uppercase; }
+  .answer { border:1px dashed #98a2b3; border-radius:8px; padding:10px 12px; min-height:56px; color:var(--muted); margin:10px 0 0; }
+  .flow { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:10px 0 4px; }
+  .flow .chain { display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  .node { border:2px solid var(--accent); border-radius:8px; padding:4px 12px; font-weight:700; background:#e8eefd; }
+  .node.role { border-color:#566074; background:#f2f4f8; font-weight:600; }
+  .arrow { color:var(--muted); font-weight:700; }
+  .roles { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; }
+  .roles .card h3 { display:flex; justify-content:space-between; gap:8px; }
+  .roles .card h3 span { font-weight:500; color:var(--muted); font-size:13px; }
+  ul.plain { margin:6px 0; padding-left:20px; } ul.plain li { margin:3px 0; }
+  .hl { background:#fff7e0; border:1px solid #e0a100; border-radius:8px; padding:8px 12px; }
+  @media (max-width:880px) { .layout { display:block; } nav { position:static; width:auto; height:auto; border-right:0; border-bottom:1px solid var(--line); padding:12px 16px; } nav a { display:inline-block; } main { padding:20px 16px 60px; } }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav id="nav">
+  <h1>Cadrage n°2</h1><p class="s">Note du 2026-10-21</p>
+  <a href="#resume">Résumé</a>
+  <a href="#workflow">Workflow de recette</a>
+  <a href="#retours">Ce que dit la note</a>
+  <a href="#analyses">Analyses par profil</a>
+  <a href="#temps-reel">« Temps réel : connecté »</a>
+  <a href="#lots">Lots proposés</a>
+  <a href="#questions">Questions à trancher</a>
+  <a href="#hors-cadrage">V2 et hors cadrage</a>
+  <a href="#suite">Suite</a>
+</nav>
+<main>
+<section id="resume">
+  <h2>Résumé</h2>
+  <p class="sub">Cadrage de la note n°2 d'Alec (<code>docs/recette/notes/2026-10-21-recette-2.txt</code>), pour validation. Source : <code>docs/recette/registre.md</code>, vérifié dans le code de <code>main</code> à <code>ecd5183</code>.</p>
+  <div class="card intent" style="border-left-color:#1f7a4d"><b>Validé par Alec le 2026-10-21</b> : recommandations retenues pour Q6 à Q11 et Q13 ; <b>Q12 amendée</b> (indicateur temps réel minimaliste). Exécution en séquence, un agent à la fois : L-H, puis L-G, puis les lots d'écran.</div>
+  <div class="card intent"><b>Intention.</b> La note est découpée en <b>15 retours</b> (RT-020 à RT-034). <b>Trois décisions sont déjà prises</b> : le kit shadcn/ui (ADR-010), le retrait de la demande de congé par un collaborateur, et le report de deux évolutions en V2 (T2). Les 12 retours restants forment <b>6 lots</b>. Le socle shadcn passe en premier, car le header, le drawer et la liste des personnes en dépendent. Il te reste <b>8 questions</b> (Q6 à Q13), avec ma recommandation à chaque fois.</div>
+  <div class="stats">
+    <div class="card"><div class="big">15</div>retours, 6 lots, 8 questions<br><span class="sub">dont 2 reportés en V2</span></div>
+    <div class="card"><b>Par nature</b><ul><li><b>6</b> évolution</li><li><b>3</b> décision</li><li><b>3</b> ergonomie</li><li><b>2</b> graphique</li><li><b>1</b> texte</li></ul></div>
+    <div class="card"><b>Par gravité</b><ul><li><span class="gb g2"><i></i>majeure</span> <b>9</b></li><li><span class="gb g3"><i></i>mineure</span> <b>2</b></li><li><span class="gb g4"><i></i>cosmétique</span> <b>1</b></li><li><span class="gb g0">sans gravité</span> <b>3</b> (décision, V2)</li></ul><span class="sub">Aucun retour bloquant.</span></div>
+    <div class="card"><b>Par écran</b><ul><li><b>10</b> Schedule</li><li><b>3</b> Toutes</li><li><b>2</b> Congés</li><li><b>1</b> Coque</li><li><b>1</b> Personnes</li><li><b>1</b> Réglages</li></ul><span class="sub">Un retour peut toucher plusieurs écrans.</span></div>
+  </div>
+</section>
+
+<section id="workflow">
+  <h2>Workflow de recette</h2>
+  <p class="sub">Nouveau à partir de cette note : chaque retour est analysé par les profils concernés avant l'arbitrage.</p>
+  <div class="flow" role="img" aria-label="Note d'Alec, puis tri PM, puis analyses Architecte, Designer et Product en parallèle, puis arbitrage CPTO, puis validation d'Alec, puis lots">
+    <div class="chain"><span class="node role">Note d'Alec</span><span class="arrow">→</span><span class="node">PM : tri</span><span class="arrow">→</span><span class="node role">Architecte · Designer · Product</span><span class="arrow">→</span><span class="node">CPTO : arbitrage</span><span class="arrow">→</span><span class="node role">Alec : validation</span><span class="arrow">→</span><span class="node">Lots</span></div>
+  </div>
+  <div class="tw"><table>
+  <thead><tr><th>Étape</th><th>Rôle</th><th>Ce qu'il produit</th></tr></thead>
+  <tbody>
+    <tr><td class="nw">1. Tri</td><td>PM</td><td>Retours atomiques avec citation et ligne, classés par nature, ordonnés par dépendance ; il affecte les profils à chaque retour (colonne « Profils » du registre).</td></tr>
+    <tr><td class="nw">2. Analyse</td><td>Architecte technique</td><td>Impacts techniques : fichiers, contrat, migration, risques (grille ADR-005, tests à réécrire), effort.</td></tr>
+    <tr><td></td><td>Senior Designer</td><td>Couche UX/UI : composant shadcn, tokens, états, accessibilité, densité ; règles à consigner dans <code>docs/design/design.md</code>.</td></tr>
+    <tr><td></td><td>Senior Product</td><td>Impacts fonctionnels : US et BR touchées, cas limites, critère d'acceptation.</td></tr>
+    <tr><td class="nw">3. Arbitrage</td><td>CPTO</td><td>Statut de chaque retour, lots, questions avec recommandation : ce document.</td></tr>
+    <tr><td class="nw">4. Validation</td><td>Alec</td><td>Réponses aux questions ; les retours passent de « qualifié » à « validé ».</td></tr>
+  </tbody></table></div>
+  <p class="sub">Les trois analyses sont menées en parallèle, en lecture seule, chaque profil ne recevant que les retours qui le concernent.</p>
+</section>
+
+<section id="retours">
+  <h2>Ce que dit la note</h2>
+  <p class="sub">Les 15 retours dans l'ordre du tri PM, avec la citation de ta note (numéro de ligne).</p>
+  <div class="tw"><table>
+  <thead><tr><th>Id</th><th>Retour et citation</th><th>Nature</th><th>Gravité</th><th>Profils</th><th>Lot</th></tr></thead>
+  <tbody>
+<tr id="rt-020"><td class="nw"><b>RT-020</b></td><td>Design system : choisir entre DaisyUI et TailGrids. <b>Décidé : shadcn/ui</b> (ADR-010)<blockquote>« faire un choix entre DAisyUI ou https://github.com/TailGrids/tailgrids » (l. 10)</blockquote></td><td>décision</td><td><span class="gb g0">sans gravité</span></td><td>A, D</td><td class="nw">L-G</td></tr>
+<tr id="rt-021"><td class="nw"><b>RT-021</b></td><td>Reprendre l'intégralité des composants existants avec ce kit<blockquote>« Reprendre l'intégralité des composants existants » (l. 11)</blockquote></td><td>évolution</td><td><span class="gb g2"><i></i>majeure</span></td><td>A, D</td><td class="nw">L-G, puis chaque lot</td></tr>
+<tr id="rt-022"><td class="nw"><b>RT-022</b></td><td>Retirer la demande de congé par un collaborateur (PO-01) et évaluer l'impact. <b>Décidé : retrait</b><blockquote>« je sors cette feature, je ne compte pas l'utiliser. Evaluer les impacts de retirer ce qui a déjà été implémenté » (l. 6)</blockquote></td><td>décision</td><td><span class="gb g2"><i></i>majeure</span></td><td>A, P</td><td class="nw">L-H</td></tr>
+<tr id="rt-023"><td class="nw"><b>RT-023</b></td><td>Un clic hors du drawer le ferme ; à consigner dans un <code>design.md</code> (fait : <code>docs/design/design.md</code>)<blockquote>« un clic hors du sidedrawer doit le fermer » (l. 46)</blockquote></td><td>ergonomie</td><td><span class="gb g2"><i></i>majeure</span></td><td>D, P</td><td class="nw">L-G</td></tr>
+<tr id="rt-024"><td class="nw"><b>RT-024</b></td><td>Éditer une allocation dans un drawer latéral, plus dans une pop-in<blockquote>« PLus de popin mais un sidedrawer comme cela a été fait pour les projets » (l. 30)</blockquote></td><td>ergonomie</td><td><span class="gb g2"><i></i>majeure</span></td><td>A, D, P</td><td class="nw">L-K</td></tr>
+<tr id="rt-025"><td class="nw"><b>RT-025</b></td><td>Header plus moderne, optimisé pour les filtres<blockquote>« proposer une interface header beaucoup plus moderne et optimisée pour la gestion des filtres » (l. 14)</blockquote></td><td>ergonomie</td><td><span class="gb g2"><i></i>majeure</span></td><td>D, P</td><td class="nw">L-J</td></tr>
+<tr id="rt-026"><td class="nw"><b>RT-026</b></td><td>Séparateurs gris clair visibles entre les colonnes<blockquote>« il faut des séparateurs visibles gris clair entre les colonnes affichés (mois/Semaine/jour » (l. 18)</blockquote></td><td>graphique</td><td><span class="gb g3"><i></i>mineure</span></td><td>A, D</td><td class="nw">L-I</td></tr>
+<tr id="rt-027"><td class="nw"><b>RT-027</b></td><td>Mettre en évidence le jour, la semaine ou le mois courant dans l'en-tête<blockquote>« Indication visuelle de now() : en entête, le jour/semaine/mois courant de la vue doit être highlighté » (l. 19)</blockquote></td><td>graphique</td><td><span class="gb g3"><i></i>mineure</span></td><td>A, D, P</td><td class="nw">L-I</td></tr>
+<tr id="rt-028"><td class="nw"><b>RT-028</b></td><td>Samedi et dimanche grisés et hachurés par défaut<blockquote>« par défaut, les samedi/dimanche doivent apparaître en grisés/hachuré » (l. 26)</blockquote></td><td>évolution</td><td><span class="gb g2"><i></i>majeure</span></td><td>A, D, P</td><td class="nw">L-I</td></tr>
+<tr id="rt-029"><td class="nw"><b>RT-029</b></td><td>Les % d'allocation ne comptent pas les jours non ouvrés<blockquote>« les % d'allocation ne doivent pas prendre en compte les non working days » (l. 27)</blockquote></td><td>décision</td><td><span class="gb g2"><i></i>majeure</span></td><td>A, P</td><td class="nw">L-I (si reproduit)</td></tr>
+<tr id="rt-030"><td class="nw"><b>RT-030</b></td><td>Toggle général, non sauvegardé, qui affiche la charge d'une personne à la colonne<blockquote>« option toggle générale (pas rattaché au profil et non sauvegardée) permettant d'afficher la charge d'une personne à la colonne » (l. 23)</blockquote></td><td>évolution</td><td><span class="gb g2"><i></i>majeure</span></td><td>A, D, P</td><td class="nw">L-J</td></tr>
+<tr id="rt-031"><td class="nw"><b>RT-031</b></td><td>Personnes : tri ASC / DESC et regroupement par département<blockquote>« bouton de tris + de grouping », « tri ASC / Desc », « Grouping : par département pour commencer » (l. 36-38)</blockquote></td><td>évolution</td><td><span class="gb g2"><i></i>majeure</span></td><td>A, D, P</td><td class="nw">L-L</td></tr>
+<tr id="rt-032"><td class="nw"><b>RT-032</b></td><td>Que signifie « Temps réel : connecté » ? (réponse <a href="#temps-reel">plus bas</a>)<blockquote>« Que signifie la mention : "Temps réel : connecté" ? » (l. 42)</blockquote></td><td>texte</td><td><span class="gb g4"><i></i>cosmétique</span></td><td>D, P</td><td class="nw">L-J</td></tr>
+<tr id="rt-033"><td class="nw"><b>RT-033</b></td><td>Jours fériés nationaux paramétrables par un admin, grisés par défaut. <b>V2 (T2)</b><blockquote>« National holidays / Je dois pouvoir les paramétrer en tant qu'admin / Il doivent apparaître grisés par défaut » (l. 51-53)</blockquote></td><td>évolution</td><td><span class="gb g0">reporté</span></td><td>A, P</td><td class="nw">—</td></tr>
+<tr id="rt-034"><td class="nw"><b>RT-034</b></td><td>Poser un congé sur des créneaux existants propose de les scinder autour du congé. <b>V2 (T2)</b><blockquote>« doit proposer de scinder ces créneaux pour tourner autour des congés » (l. 55-56)</blockquote></td><td>évolution</td><td><span class="gb g0">reporté</span></td><td>A, P</td><td class="nw">—</td></tr>
+  </tbody></table></div>
+</section>
+
+<section id="analyses">
+  <h2>Analyses par profil</h2>
+  <p class="sub">Les constats qui changent la décision. Le détail fichier par fichier sert de brief aux lots.</p>
+  <div class="roles">
+    <div class="card"><h3>Architecte technique <span>12 retours</span></h3><ul class="plain">
+      <li><b>RT-022</b> : <b>aucun parcours de demande par un membre n'existe</b>. <code>assertWriter</code> refuse déjà toute écriture à <code>member</code>. Le reliquat est le statut « en attente » : défaut de l'API (<code>timeoffs.ts:60</code>), option du formulaire, style de la grille, données de démo et environ 12 fichiers de tests. Le schéma est gelé : on garde l'enum, seul le défaut change, sans migration.</li>
+      <li><b>RT-021</b> : effort L, environ 40 fichiers <code>.tsx</code> et 300 lignes <code>wn-*</code>. Les primitives sont migrées derrière la même API, les écrans suivent.</li>
+      <li><b>RT-026 à RT-028</b> : séparateurs et hachures en fond CSS de la grille, jamais un nœud par cellule (300 × 365). Le fuseau du compte est déjà dans <code>GET /me</code> : pas de contrat pour RT-027.</li>
+      <li><b>RT-031</b> : <code>PersonListQuery</code> n'a aucun paramètre de tri. Tri et regroupement se font côté client (≤ 500 personnes), sans contrat.</li>
+      <li>Seul <b>L-H</b> touche le contrat.</li>
+    </ul></div>
+    <div class="card"><h3>Senior Designer <span>11 retours</span></h3><ul class="plain">
+      <li><b>RT-023</b> : le <code>Dialog</code> actuel <b>bloque volontairement</b> le clic sur le voile. La règle complète est consignée dans <code>design.md</code> : clic consommé, portails, Échap en cascade, confirmation si le formulaire est modifié.</li>
+      <li><b>RT-025</b> : header en deux niveaux. Niveau 1 : titre, vue sauvegardée, recherche (Ctrl+K), statut temps réel, « + Allocation ». Niveau 2 : bouton Filtres avec compteur et puces, zoom, Aujourd'hui, flèches. Densité et toggle de charge vont dans un menu « Affichage ».</li>
+      <li><b>RT-026</b> : le gris actuel des séparateurs est invisible (contraste 1,05:1). Nouveau token <code>--color-grid-line</code>.</li>
+      <li><b>RT-027</b> : fond, filet accent et graisse, plus <code>aria-current="date"</code> : trois signaux, dont deux qui ne passent pas par la couleur.</li>
+      <li><b>RT-028</b> : hachure par token (<code>--wn-weekend-hatch</code>), distincte du hachuré « tentatif ». Le garde-fou anti-couleurs reste vert.</li>
+    </ul></div>
+    <div class="card"><h3>Senior Product <span>10 retours</span></h3><ul class="plain">
+      <li><b>RT-022</b> : US-5.1 est réduite à « le manager ou l'admin pose, approuve ou refuse ». BR-04 et BR-05 restent valables. Le défaut « en attente » n'a plus de sens.</li>
+      <li><b>RT-024</b> : il faut garder dans le drawer les choix de portée (occurrence ou série, BR-25 ; une ligne ou tout le groupe, BR-26) et l'affichage du conflit de version (409).</li>
+      <li><b>RT-028</b> : le grisé dépend de la personne, pas de la colonne (une personne peut travailler le samedi). Une allocation existante un samedi reste affichée.</li>
+      <li><b>RT-029</b> : deux lectures possibles. La lecture A (agrégats sur les seuls jours ouvrés) est conforme à BR-24. La lecture B (base nette après congés) rouvrirait Q-04. <b>Le moteur applique déjà la lecture A</b> : 0 h sur un jour non ouvré.</li>
+      <li><b>RT-033</b> : le paramétrage des fériés est déjà en T1. La V2 porte sur le calendrier national par défaut et l'affichage grisé.</li>
+    </ul></div>
+  </div>
+  <div class="card hl"><b>Arbitrage CPTO sur RT-030.</b> Le Designer et le Product ont lu « la colonne de gauche ». Or la jauge et le % y sont déjà affichés en permanence (L-C), donc un toggle n'y ajouterait rien. Je retiens « dans chaque colonne de temps » : la charge chiffrée de la personne s'affiche dans chaque cellule de jour, de semaine ou de mois. C'est la lecture que te soumet Q11.</div>
+</section>
+
+<section id="temps-reel">
+  <h2>« Temps réel : connecté », qu'est-ce que c'est ?</h2>
+  <div class="card">
+    <p style="margin-top:0">C'est l'état de la connexion WebSocket entre ton navigateur et le serveur. Quand elle est active, <b>toute modification faite par quelqu'un d'autre</b> (une allocation déplacée, un congé posé) apparaît sur ton écran en moins d'une seconde, <b>sans recharger la page</b>. C'est une exigence du dossier (§3.3).</p>
+    <ul class="plain">
+      <li><b>connecté</b> : tu vois les changements de l'équipe en direct ;</li>
+      <li><b>reconnexion…</b> : la connexion a sauté et l'app la rétablit, puis rattrape les changements manqués ;</li>
+      <li><b>hors ligne</b> : tes modifications ne sont plus partagées tant que la connexion n'est pas revenue.</li>
+    </ul>
+    <p style="margin-bottom:0">Le libellé est trop technique. Décision (Q12) : une puce verte seule quand tout va bien, une puce orange ou rouge avec un texte dès qu'il y a un problème.</p>
+  </div>
+</section>
+
+<section id="lots">
+  <h2>Lots proposés</h2>
+  <p class="sub">Ordre proposé : L-H en parallèle de L-G, puis L-I, L-K, L-J et L-L, deux à la fois au plus (mémoire de la VM).</p>
+  <div class="tw"><table>
+  <thead><tr><th>Lot</th><th>Contenu</th><th>Retours</th><th>Dépend de</th><th>Modèle</th><th>Contrat</th></tr></thead>
+  <tbody>
+<tr><td class="nw"><b>L-H</b></td><td>Retrait du statut « en attente » : un congé posé est approuvé par défaut (API et écran), option retirée du formulaire, démo et tests alignés. L'enum SQL reste (schéma gelé). L'item P6 « Approbation des congés » est retiré.</td><td>RT-022</td><td>—</td><td>Sonnet</td><td>oui (défaut et description d'<code>approvalStatus</code>, commit séparé, revue CODEOWNERS)</td></tr>
+<tr><td class="nw"><b>L-G</b></td><td>Socle shadcn/ui : Base UI, preflight Tailwind, variables shadcn dans <code>tokens.css</code>. Migration des primitives derrière la même API : Button, Dialog et AlertDialog, Popover, Sheet, Command. Règle de fermeture des drawers. Les tests de comportement actuels (Échap, focus, superposition) servent de référence.</td><td>RT-020, RT-021, RT-023</td><td>—</td><td>Opus</td><td>non</td></tr>
+<tr><td class="nw"><b>L-I</b></td><td>Grille : séparateurs de colonnes, période courante en en-tête (fuseau du compte), jours non ouvrés hachurés, test de non-régression du % sur une semaine avec week-end</td><td>RT-026 à RT-029</td><td>L-G</td><td>Opus (grille)</td><td>non</td></tr>
+<tr><td class="nw"><b>L-K</b></td><td>Éditeur de créneau en drawer (Sheet) : édition, et création selon Q8 ; onglets Projet / Congé, portée série et groupe, conflit de version</td><td>RT-024</td><td>L-G</td><td>Opus</td><td>non</td></tr>
+<tr><td class="nw"><b>L-J</b></td><td>Header en deux niveaux : filtres avec compteur et puces, menu Affichage (densité, toggle de charge en mémoire), indicateur temps réel (puce seule si connecté, puce et texte en cas de problème)</td><td>RT-025, RT-030, RT-032</td><td>L-G</td><td>Sonnet</td><td>non</td></tr>
+<tr><td class="nw"><b>L-L</b></td><td>Personnes : tri (nom, département, rôle ; croissant ou décroissant) et regroupement par département (groupe « Sans département » en dernier), côté client, sur la Table shadcn</td><td>RT-031</td><td>L-G</td><td>Sonnet</td><td>non</td></tr>
+  </tbody></table></div>
+  <h3 style="margin-top:20px">Enchaînement</h3>
+  <div class="flow" role="img" aria-label="L-H seul ; L-G puis L-I, L-K, L-J, L-L">
+    <div class="chain"><span class="node">L-H</span></div>
+    <div class="chain"><span class="node">L-G</span><span class="arrow">→</span><span class="node">L-I</span><span class="node">L-K</span><span class="node">L-J</span><span class="node">L-L</span></div>
+  </div>
+  <p class="sub">L-H est indépendant et seul à toucher le contrat ; il peut tourner pendant L-G. L-G est le socle : il change le reset CSS et toutes les fenêtres, donc les lots d'écran passent après pour éviter de travailler deux fois. Trois lots sur Opus (socle, grille, éditeur), trois sur Sonnet.</p>
+</section>
+
+<section id="questions">
+  <h2>Questions à trancher</h2>
+  <p class="sub">8 questions. Ma recommandation est en vert. Écris ta réponse, ou dis simplement « OK pour toutes les recommandations ».</p>
+<div class="card q" id="q6"><h3>Q6 <span class="sub">(RT-022)</span></h3><p>Un congé posé par un manager ou un admin est-il approuvé d'emblée ?</p><p class="reco"><span class="tagreco">Recommandation</span> Oui : approuvé par défaut, et l'option « en attente » disparaît de l'écran. L'enum SQL garde <code>pending</code> (schéma gelé, pas de migration) et un congé existant en attente reste lisible. L'item P6 « Approbation des congés » est retiré.</p><p class="answer"><b>Réponse d'Alec (2026-10-21)</b> : oui.</p></div>
+<div class="card q" id="q7"><h3>Q7 <span class="sub">(RT-023)</span></h3><p>Drawer avec des modifications non enregistrées : que fait un clic hors du panneau ?</p><p class="reco"><span class="tagreco">Recommandation</span> Il demande « Abandonner les modifications ? ». Sans modification, le drawer se ferme directement. Le clic sur le voile est consommé : il n'active pas le bloc situé dessous. Les confirmations bloquantes (BR-04, BR-10, BR-31) ne se ferment pas au clic extérieur.</p><p class="answer"><b>Réponse d'Alec (2026-10-21)</b> : OK, recommandation retenue.</p></div>
+<div class="card q" id="q8"><h3>Q8 <span class="sub">(RT-024)</span></h3><p>La création d'une allocation passe-t-elle aussi par le drawer ?</p><p class="reco"><span class="tagreco">Recommandation</span> Oui : un seul éditeur pour la création et l'édition, avec les mêmes onglets et les mêmes tests. Le bloc provisoire reste visible dans la grille pendant la saisie.</p><p class="answer"><b>Réponse d'Alec (2026-10-21)</b> : OK, recommandation retenue.</p></div>
+<div class="card q" id="q9"><h3>Q9 <span class="sub">(RT-028)</span></h3><p>Jours non ouvrés : hachurés pour tout le monde le samedi et le dimanche, ou selon l'horaire de chaque personne ?</p><p class="reco"><span class="tagreco">Recommandation</span> Selon l'horaire de chaque personne, qui vaut 0 h le week-end par défaut : une personne qui travaille le samedi n'a pas de hachure ce jour-là. L'en-tête grise les colonnes du samedi et du dimanche. Pas de réglage pour masquer les week-ends en P6.</p><p class="answer"><b>Réponse d'Alec (2026-10-21)</b> : OK, recommandation retenue.</p></div>
+<div class="card q" id="q10"><h3>Q10 <span class="sub">(RT-029)</span></h3><p>Où as-tu vu un % qui compte les jours non ouvrés ?</p><p class="reco"><span class="tagreco">Recommandation</span> Le moteur compte déjà 0 h sur un jour non ouvré, et la jauge n'y voit aucune capacité. Sans cas précis, RT-029 est couvert par un test de non-régression (allocation à 50 % sur une semaine avec week-end) et BR-24 reste inchangée. Si tu as un écran en tête, donne-le : il devient un correctif de L-I.</p><p class="answer"><b>Réponse d'Alec (2026-10-21)</b> : OK, aucun impact. RT-029 est conforme ; le test de non-régression est gardé dans L-I.</p></div>
+<div class="card q" id="q11"><h3>Q11 <span class="sub">(RT-030)</span></h3><p>« Afficher la charge d'une personne à la colonne » : dans chaque colonne de temps, ou dans la colonne de gauche ?</p><p class="reco"><span class="tagreco">Recommandation</span> Dans chaque colonne de temps (jour, semaine ou mois) : la charge chiffrée de la personne (« 6 h » ou « 75 % ») s'affiche dans la bande de capacité de la cellule. La jauge de la colonne de gauche reste affichée en permanence. Toggle « Charge » dans le menu Affichage, désactivé au rechargement.</p><p class="answer"><b>Réponse d'Alec (2026-10-21)</b> : OK, recommandation retenue.</p></div>
+<div class="card q" id="q12"><h3>Q12 <span class="sub">(RT-032)</span></h3><p>Libellé du statut temps réel</p><p class="reco"><span class="tagreco">Recommandation</span> « En direct », avec l'infobulle « Les changements de l'équipe apparaissent sans recharger la page ». Les autres états deviennent « Reconnexion… » et « Hors connexion ».</p><p class="answer"><b>Réponse d'Alec (2026-10-21)</b> : <b>amendée</b> : pattern minimaliste. Puce verte <b>sans libellé</b> quand la connexion est bonne ; dès qu'il y a un problème, puce orange (reconnexion) ou rouge (hors connexion) <b>avec un texte</b>. La puce verte garde un nom accessible et une infobulle au survol ; les changements d'état sont annoncés (<code>aria-live</code>).</p></div>
+<div class="card q" id="q13"><h3>Q13 <span class="sub">(RT-020, ADR-010)</span></h3><p>Socle des primitives shadcn</p><p class="reco"><span class="tagreco">Recommandation</span> Base UI, le socle par défaut de shadcn depuis juin 2026. Radix en repli si un test de comportement casse.</p><p class="answer"><b>Réponse d'Alec (2026-10-21)</b> : OK, Base UI.</p></div>
+</section>
+
+<section id="hors-cadrage">
+  <h2>V2 et hors cadrage</h2>
+  <div class="card">
+    <p style="margin-top:0"><b>Rien n'est rejeté.</b> Deux retours sont placés en <b>V2 = T2</b> (feuille de route du dossier §5.6, amendée) :</p>
+    <ul class="plain">
+      <li><b>RT-033</b> : jours fériés nationaux par défaut, affichés en gris. Le paramétrage par un admin existe déjà (Réglages &gt; Fériés) et la capacité les déduit. Restent la source du calendrier national, sa portée (pays, compte, département, BR-30) et l'affichage grisé, distinct du hachuré du week-end.</li>
+      <li><b>RT-034</b> : un troisième choix « scinder » dans l'assistant BR-04, à côté de « reporter » et « réduire ». Le moteur sait déjà découper une allocation. Il reste à fixer les règles : temps saisi non modifié, demi-journées, groupe et série conservés.</li>
+    </ul>
+    <p>Au passage, la ligne T2 du §5.6 ne mentionne plus « billing (Stripe) », exclu par l'ADR-004.</p>
+    <p style="margin-bottom:0">Restent ouverts du cadrage n°1 : PO-04 (colonne « accès » des personnes), PO-05 (écriture des réglages du compte), PO-06 (co-gestion BR-33), PO-07 (création au toucher), PO-08 (portée de l'édition d'une série dans l'éditeur, à reprendre dans L-K).</p>
+  </div>
+</section>
+
+<section id="suite">
+  <h2>Suite</h2>
+  <div class="card">
+    <ol style="margin:0;padding-left:20px">
+      <li><b>Validation</b> : faite le 2026-10-21 ; les retours sont « validé ».</li>
+      <li><b>Lots</b> : L-H et L-G d'abord, puis les lots d'écran, tests d'abord (un retour est corrigé avec un test qui échouait avant).</li>
+      <li><b>Recette</b> : un retour ne passe « vérifié » que sur ta confirmation. Le suivi est dans <code>docs/avancement.html</code>.</li>
+    </ol>
+  </div>
+</section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll("#nav a")];
+const secs=links.map(a=>document.querySelector(a.getAttribute("href")));
+const onScroll=()=>{let cur=0;secs.forEach((s,i)=>{if(s&&s.getBoundingClientRect().top<120)cur=i;});links.forEach((a,i)=>a.classList.toggle("active",i===cur));};
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+</script>
+</body>
+</html>

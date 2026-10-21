@@ -459,7 +459,7 @@ Les cibles de la v1.0 sont conservées, mais l'ADR demande de **redéfinir** les
 timeline
     title Reconstruction Float - Trajectoire v1.1
     T1 MVP "Schedule + capacité" : Personnes et projets, Schedule temps réel, capacité, congés et fériés, permissions simples, vues sauvegardées
-    T2 : Timesheets, rapports et export CSV, PM par projet, notifications e-mail, billing (Stripe)
+    T2 : Timesheets, rapports et export CSV, PM par projet, notifications e-mail, profil utilisateur (préférences), jours fériés nationaux par défaut grisés (V2, RT-033), congé qui scinde les créneaux existants (V2, RT-034)
     T3 : Budgets (1 type puis 5), rate cards, marge, phases et dépenses, API v3, mobile web puis natif, SSO
     T4 : Smart Assign IA, Talent Intelligence, MCP
 ```

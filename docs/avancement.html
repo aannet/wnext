@@ -110,7 +110,7 @@
 
     <section id="recette">
       <h2>Recette</h2>
-      <p class="sub">Retours d'Alec tracés dans <a href="recette/registre.md"><code>docs/recette/registre.md</code></a>, cadrés par note (<a href="recette/cadrage-1.html"><code>cadrage-1.html</code></a>). Scénarios : <a href="recette/scenarios.md"><code>docs/recette/scenarios.md</code></a>.</p>
+      <p class="sub">Retours d'Alec tracés dans <a href="recette/registre.md"><code>docs/recette/registre.md</code></a>, cadrés par note (<a href="recette/cadrage-1.html"><code>cadrage-1.html</code></a>, <a href="recette/cadrage-2.html"><code>cadrage-2.html</code></a>). Scénarios : <a href="recette/scenarios.md"><code>docs/recette/scenarios.md</code></a>.</p>
       <div class="card" id="rc-notes"></div>
       <div class="card"><ul class="kpis" id="rc-kpis"></ul><div class="tw"><table class="t" id="rc-lots"></table></div></div>
     </section>
@@ -142,7 +142,10 @@ const AS_OF = "2026-10-21";
 // lots[].statut : proposé | planifié | en cours | livré | vérifié ; l'avancement d'un lot = retours vérifiés / retours rattachés.
 // notes[] : une entrée par note d'Alec (fichier brut, cadrage associé, statut du cadrage).
 const RECETTE = {
-  notes: [{ id: 1, date: "2026-10-21", file: "docs/recette/notes/2026-10-21-note-1.txt", cadrage: "docs/recette/cadrage-1.html", status: "cadrage validé (2026-10-21)" }],
+  notes: [
+    { id: 1, date: "2026-10-21", file: "docs/recette/notes/2026-10-21-note-1.txt", cadrage: "docs/recette/cadrage-1.html", status: "cadrage validé (2026-10-21)" },
+    { id: 2, date: "2026-10-21", file: "docs/recette/notes/2026-10-21-recette-2.txt", cadrage: "docs/recette/cadrage-2.html", status: "cadrage validé (2026-10-21, Q12 amendée)" },
+  ],
   retours: [
     { id: "RT-001", t: "Pas d'en-tête applicatif portant le nom de l'app ; la barre d'outils doit s'intégrer à un header ou un sous-header", nature: "manque", gravite: "majeure", lot: "L-B", statut: "corrigé" },
     { id: "RT-002", t: "L'app s'ouvre sans authentification ; il faut un portail de connexion adossé à la base des utilisateurs", nature: "manque", gravite: "majeure", lot: "L-B", statut: "corrigé" },
@@ -163,6 +166,21 @@ const RECETTE = {
     { id: "RT-017", t: "Une même pop-in pour un créneau : onglet « Projet / tâche » (par défaut) et onglet « Congé », car un créneau posé peut être une absence qui impacte la capacité", nature: "ergonomie", gravite: "majeure", lot: "L-E", statut: "corrigé" },
     { id: "RT-018", t: "Changer la couleur du projet depuis les propriétés de ce qui est posé", nature: "manque", gravite: "mineure", lot: "L-E, L-F", statut: "corrigé" },
     { id: "RT-019", t: "Utiliser Tailwind (bibliothèque CSS)", nature: "décision", gravite: "—", lot: "L-A", statut: "corrigé" },
+    { id: "RT-020", t: "Design system : choisir entre DaisyUI et TailGrids (décidé : shadcn/ui, ADR-010)", nature: "décision", gravite: "—", lot: "L-G", statut: "validé" },
+    { id: "RT-021", t: "Reprendre l'intégralité des composants existants avec ce kit", nature: "évolution", gravite: "majeure", lot: "L-G", statut: "validé" },
+    { id: "RT-022", t: "Retirer la demande de congé par un collaborateur (PO-01)", nature: "décision", gravite: "majeure", lot: "L-H", statut: "validé" },
+    { id: "RT-023", t: "Un clic hors du drawer le ferme (consigné dans docs/design/design.md)", nature: "ergonomie", gravite: "majeure", lot: "L-G", statut: "validé" },
+    { id: "RT-024", t: "Éditer une allocation dans un drawer latéral, plus dans une pop-in", nature: "ergonomie", gravite: "majeure", lot: "L-K", statut: "validé" },
+    { id: "RT-025", t: "Header plus moderne, optimisé pour la gestion des filtres", nature: "ergonomie", gravite: "majeure", lot: "L-J", statut: "validé" },
+    { id: "RT-026", t: "Séparateurs gris clair visibles entre les colonnes (jour, semaine, mois)", nature: "graphique", gravite: "mineure", lot: "L-I", statut: "validé" },
+    { id: "RT-027", t: "Mettre en évidence le jour, la semaine ou le mois courant dans l'en-tête", nature: "graphique", gravite: "mineure", lot: "L-I", statut: "validé" },
+    { id: "RT-028", t: "Samedi et dimanche grisés et hachurés par défaut", nature: "évolution", gravite: "majeure", lot: "L-I", statut: "validé" },
+    { id: "RT-029", t: "Les % d'allocation ne comptent pas les jours non ouvrés", nature: "décision", gravite: "majeure", lot: "L-I", statut: "validé" },
+    { id: "RT-030", t: "Toggle général, non sauvegardé, qui affiche la charge d'une personne à la colonne", nature: "évolution", gravite: "majeure", lot: "L-J", statut: "validé" },
+    { id: "RT-031", t: "Personnes : tri ASC / DESC et regroupement par département", nature: "évolution", gravite: "majeure", lot: "L-L", statut: "validé" },
+    { id: "RT-032", t: "Que signifie « Temps réel : connecté » ? (puce verte seule si connecté, orange ou rouge + texte en cas de problème)", nature: "texte", gravite: "cosmétique", lot: "L-J", statut: "validé" },
+    { id: "RT-033", t: "Jours fériés nationaux paramétrables par un admin, grisés par défaut (V2)", nature: "évolution", gravite: "—", lot: "—", statut: "reporté (T2+)" },
+    { id: "RT-034", t: "Poser un congé sur des créneaux existants propose de les scinder (V2)", nature: "évolution", gravite: "—", lot: "—", statut: "reporté (T2+)" },
   ],
   lots: [
     { id: "L-A", t: "Tailwind v4 et design tokens (socle sans changement visible, garde-fou anti-couleurs en dur)", statut: "fait" },
@@ -171,6 +189,12 @@ const RECETTE = {
     { id: "L-C", t: "Densité à 3 niveaux et jauge par personne dans la colonne de gauche", statut: "fait" },
     { id: "L-E", t: "Éditeur de créneau : création (bouton, clic ou glisser en zone libre), pop-in à onglets Projet / tâche et Congé, changement de projet / tâche / personnes, couleur du projet", statut: "livré" },
     { id: "L-F", t: "Back-office : écrans Projets (liste, création, panneau propriétés et équipe), Personnes (liste, création, modification datée), Réglages (départements, rôles, clients, types de congé, fériés)", statut: "livré (Projets L-F1, Personnes et Réglages L-F2 ; reste l'accès et le compte, PO-04 et PO-05)" },
+    { id: "L-H", t: "Retrait du statut « en attente » : un congé posé est approuvé par défaut (API, écran, démo, tests) ; enum SQL conservé", statut: "planifié" },
+    { id: "L-G", t: "Socle shadcn/ui (Base UI, preflight, variables dans tokens.css) et migration des primitives ; fermeture des drawers au clic extérieur", statut: "planifié" },
+    { id: "L-I", t: "Grille : séparateurs de colonnes, période courante en en-tête, jours non ouvrés hachurés, non-régression du %", statut: "planifié" },
+    { id: "L-K", t: "Éditeur de créneau en drawer (Sheet)", statut: "planifié" },
+    { id: "L-J", t: "Header en deux niveaux : filtres, menu Affichage (densité, toggle de charge), statut temps réel lisible", statut: "planifié" },
+    { id: "L-L", t: "Personnes : tri et regroupement par département", statut: "planifié" },
   ],
 };
 
@@ -274,7 +298,7 @@ const PHASES = [
       { t: "Logique congés et conflits (moteur)", s: "done" },
       { t: "Fériés par pays dans la capacité (moteur / SQL)", s: "done" },
       { t: "Rôles et permissions côté API", s: "done", n: "BR-33 en plus des rôles ; bouton Importer visible en OIDC (rôle non exposé)" },
-      { t: "Parcours congés complet (UI, BR-04, grille)", s: "done", n: "congés dans la grille, formulaire, demi-journées ; approbation par rôle non traitée dans l'écran" },
+      { t: "Parcours congés complet (UI, BR-04, grille)", s: "done", n: "congés dans la grille, formulaire, demi-journées ; pas d'approbation (retirée, RT-022)" },
       { t: "Vues sauvegardées et filtres", s: "done", n: "migration 0003, RLS restrictive, barre des vues, ?view=" },
       { t: "Retrait d'équipe BR-10 : parcours complet", s: "done", n: "menu contextuel, récapitulatif, confirmation ; undo invalidé après retrait" },
       { t: "BR-14 : suppression retrouvée dans delete_log ≥ 72 h", s: "done", n: "T19, purge refusée sous 72 h" },
@@ -303,9 +327,16 @@ const PHASES = [
       { t: "L-C Densité à 3 niveaux et jauge par personne", s: "done", n: "Compacte / Standard / Aérée (12 / 8 / 6 lignes à 1920 × 1080), jauge de la période visible, densité dans les vues sauvegardées, PO-02 (zoom et position gardés)" },
       { t: "L-E Éditeur de créneau (création, pop-in Projet / Congé, changement de projet)", s: "done", n: "pop-in modale ancrée au bloc (Q5 : double clic, Entrée ou clic sur le bloc sélectionné), « + Allocation » et bloc provisoire en zone libre, Combobox projet / tâche (BR-33), groupe BR-26, onglet Congé (BR-04), couleur du projet ; sans contrat ; PO-06 à PO-08" },
       { t: "L-F Back-office Projets, Personnes, Réglages", s: "part", n: "écrans Projets, Personnes et Réglages livrés (liste, création, fiche dans le Drawer, horaire daté, désactivation BR-31, équipes, rôles, clients, congés, fériés) ; manquent la colonne « accès » et l'écriture du compte (PO-04, PO-05)" },
-      { t: "Primitives et catalogue", s: "todo" },
+      { t: "Cadrage de la note n°2 (15 retours, 6 lots, 8 questions)", s: "done", n: "workflow PM → Architecte, Designer, Product → CPTO ; validé par Alec le 2026-10-21 (Q12 amendée : indicateur temps réel minimaliste)" },
+      { t: "Choix du kit UI : shadcn/ui (ADR-010)", s: "done", n: "décision d'Alec le 2026-10-21 ; socle Base UI (Q13) ; principes d'UX dans docs/design/design.md" },
+      { t: "L-H Retrait du statut « en attente » des congés", s: "todo", n: "seul lot de la note n°2 qui touche le contrat" },
+      { t: "L-G Socle shadcn et migration des primitives (catalogue)", s: "todo", n: "remplace l'item « Primitives et catalogue »" },
+      { t: "L-I Grille : séparateurs, période courante, jours non ouvrés", s: "todo" },
+      { t: "L-K Éditeur de créneau en drawer", s: "todo" },
+      { t: "L-J Header, filtres et toggle de charge", s: "todo" },
+      { t: "L-L Personnes : tri et regroupement", s: "todo" },
       { t: "Assistant de première allocation et « Trouver quelqu'un de dispo »", s: "todo" },
-      { t: "Approbation des congés", s: "todo" },
+      { t: "Approbation des congés", s: "defer", n: "retirée par Alec (RT-022, PO-01) : un congé posé est approuvé d'emblée (Q6)" },
       { t: "Aide des raccourcis et palette Ctrl+K", s: "todo" },
       { t: "Seed et recette automatisée (test:recette)", s: "todo" },
       { t: "Recette humaine par Alec, registre sans bloquant ni majeur", s: "todo" },
@@ -314,8 +345,9 @@ const PHASES = [
 ];
 
 const NEXT = [
-  "<b>Valider le cadrage n°1</b> : <code>docs/recette/cadrage-1.html</code> (19 retours, 6 lots), répondre aux questions Q1 à Q5.",
-  "<b>Déposer les images de référence</b> pour la direction visuelle (accent, Q-09) dans <code>docs/recette/notes/2026-10-21-note-1/</code> ou <code>docs/design/references/</code>.",
+  "<b>L-H en cours</b> : retrait du statut « en attente » des congés (seul lot avec contrat : commit séparé, relecture CODEOWNERS).",
+  "<b>Puis L-G</b> : socle shadcn/ui sur Base UI et migration des primitives ; les lots d'écran (L-I, L-K, L-J, L-L) suivent, un agent à la fois.",
+  "<b>Points ouverts du cadrage n°1</b> : PO-04 (accès des personnes), PO-05 (écriture du compte), PO-06 (co-gestion), PO-07 (création au toucher), PO-08 (portée série, à reprendre dans L-K).",
   "<b>Relectures en attente</b> : CODEOWNERS (<code>/db/migrations/</code> et <code>/db/rls/</code> n'existent pas) et tests SQL avec <code>docs/review/relecture-tests-sql.md</code>.",
   "<b>P5 en tâche de fond</b> : profiler le PATCH (227 ms sous 500 clients), rejouer PITR et <code>pg_dump</code>, job nocturne de charge."
 ];
@@ -362,7 +394,7 @@ const T1pc = global;
 document.getElementById("rm").innerHTML = `
   <div class="col t1"><h3>T1 · MVP « Schedule + capacité »<span class="tag now">en cours</span></h3>
     <p class="goal" style="margin:0 0 8px">Personnes et projets, Schedule temps réel, capacité, congés et fériés, permissions simples, vues sauvegardées. <b>${T1pc} %</b> au global.</p>${T1}</div>
-  <div class="col"><h3>T2<span class="tag">non démarré</span></h3><ul><li>Timesheets</li><li>Rapports et export CSV</li><li>PM par projet</li><li>Notifications e-mail</li><li>Profil utilisateur (préférences, p. ex. densité)</li></ul></div>
+  <div class="col"><h3>T2<span class="tag">non démarré</span></h3><ul><li>Timesheets</li><li>Rapports et export CSV</li><li>PM par projet</li><li>Notifications e-mail</li><li>Profil utilisateur (préférences, p. ex. densité)</li><li>V2 : jours fériés nationaux par défaut, grisés (RT-033)</li><li>V2 : congé qui scinde les créneaux existants (RT-034)</li></ul></div>
   <div class="col"><h3>T3<span class="tag">non démarré</span></h3><ul><li>Budgets, rate cards, marge</li><li>Phases et dépenses</li><li>API v3</li><li>Mobile web puis natif</li><li>SSO</li></ul></div>
   <div class="col"><h3>T4<span class="tag">non démarré</span></h3><ul><li>Smart Assign (IA)</li><li>Talent Intelligence</li><li>MCP</li></ul></div>`;
 

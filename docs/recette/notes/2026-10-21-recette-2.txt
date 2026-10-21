@@ -1,0 +1,56 @@
+
+
+
+
+
+P0-01 : demande d'un congé d'un collaborateur . je sors cette feature, je ne compte pas l'utiliser. Evaluer les impacts de retirer ce qui a déjà été implémenté
+
+
+
+Design System général : faire un choix entre DAisyUI ou https://github.com/TailGrids/tailgrids
+Reprendre l'intégralité des composants existants 
+
+
+Avec l'utilisation de ce nouveau kit, proposer une interface header beaucoup plus moderne et optimisée pour la gestion des filtres etc... 
+
+
+Vue calendier (la principale) 
+- il faut des séparateurs visibles gris clair entre les colonnes affichés (mois/Semaine/jour.
+- Indication visuelle de now() : en entête, le jour/semaine/mois courant de la vue doit être highlighté
+
+
+Header avec impact vue calendrier : 
+-Je veux une option toggle générale (pas rattaché au profil et non sauvegardée) permettant d'afficher la charge d'une personne à la colonne. 
+
+Nouvelle feature : 
+affichage Weekend : par défaut, les samedi/dimanche doivent apparaître en grisés/hachuré 
+les % d'allocation ne doivent pas prendre en compte les non working days 
+
+POPIN d'UPDATE D'une allocation : 
+PLus de popin mais un sidedrawer comme cela a été fait pour les projets 
+
+
+
+
+Nouvelle feature dans le listing des personnes: 
+-bouton de tris + de grouping 
+- tri ASC / Desc
+Grouping : par département pour commencer 
+
+
+
+Que signifie la mention  : "Temps réel : connecté" ? 
+
+
+
+Principe d'UX à consigner dans un design.md : un clic hors du sidedrawer doit le fermer 
+
+
+
+V2: 
+Nouvelle feature : National holidays 
+Je dois pouvoir les paramétrer en tant qu'admin 
+Il doivent apparaître grisés par défaut
+
+Nouvelle feature : 
+Poser un congé sur jour / période comprenant déjà des créneaux d'affectation doit proposer de scinder ces créneaux pour tourner autour des congés
