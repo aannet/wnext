@@ -4,7 +4,7 @@
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Button, Drawer, Modal, Popover, placePopover } from "../src/design";
+import { Button, Drawer, Modal, Popover } from "../src/design";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -224,7 +224,8 @@ describe("Popover", () => {
     );
   }
   const openPop = () => { const b = host.querySelector<HTMLButtonElement>("#anchor")!; act(() => { b.focus(); }); click(b); };
-  const pointerdown = (el: Element) => act(() => { el.dispatchEvent(new Event("pointerdown", { bubbles: true })); });
+  // Clic complet : Base UI ferme sur un appui extérieur « intentionnel » (pointeur puis clic), ADR-010.
+  const pointerdown = (el: Element) => pressOn(el);
 
   it("portail, focus initial dans le popover, Échap ferme et rend le focus à l'ancre", () => {
     const closed = vi.fn();
@@ -256,29 +257,10 @@ describe("Popover", () => {
     expect(document.body.style.overflow).toBe("");
   });
 
-  it("ancré à un rectangle (bloc de la grille)", () => {
+  it("ancré à un rectangle (bloc de la grille) : placé par Base UI, aligné au début de l'ancre (ADR-010 ; côté vérifié en navigateur)", async () => {
     render(<Popover anchor={{ left: 100, top: 50, width: 80, height: 20 }} label="Pop" onClose={() => {}}><p>x</p></Popover>);
-    expect(dialog()!.style.left).toBe("100px");
-    expect(dialog()!.style.top).toBe("74px");
-  });
-});
-
-describe("placePopover", () => {
-  const view = { width: 1000, height: 600 };
-  const size = { width: 200, height: 100 };
-  it("sous l'ancre, aligné à sa gauche", () => {
-    expect(placePopover({ left: 100, top: 100, width: 50, height: 20 }, size, view)).toEqual({ left: 100, top: 124, side: "bottom" });
-  });
-  it("retourné au-dessus quand le bas déborde", () => {
-    expect(placePopover({ left: 100, top: 560, width: 50, height: 20 }, size, view)).toEqual({ left: 100, top: 456, side: "top" });
-  });
-  it("aligné à droite de l'ancre quand la droite déborde", () => {
-    expect(placePopover({ left: 900, top: 100, width: 80, height: 20 }, size, view).left).toBe(780);
-  });
-  it("reste dans la fenêtre quand ni le haut ni le bas ne conviennent", () => {
-    const p = placePopover({ left: -50, top: 10, width: 20, height: 580 }, size, view);
-    expect(p.left).toBe(8);
-    expect(p.top).toBeGreaterThanOrEqual(8);
-    expect(p.top + size.height).toBeLessThanOrEqual(view.height - 8);
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(dialog()!.getAttribute("data-align")).toBe("start");
+    expect(["bottom", "top"]).toContain(dialog()!.getAttribute("data-side"));
   });
 });

@@ -14,6 +14,10 @@ test("cloche : liste, marquer lu, tout marquer lu, compteur à 0 (axe sans viola
 
   const panel = page.getByRole("dialog", { name: "Notifications" });
   await expect(panel.getByRole("listitem")).toHaveCount(3);
+  // Placement (Popover Base UI, L-J) : sous la cloche, décalé pour rester entièrement dans la fenêtre (la cloche est à droite).
+  const b = (await bell.boundingBox())!;
+  const vp = page.viewportSize()!;
+  await expect.poll(async () => { const p = (await panel.boundingBox())!; return p.y >= b.y + b.height && p.x >= 0 && p.x + p.width <= vp.width; }).toBe(true);
   await expect(panel.getByRole("listitem").first()).toContainText("Camille Durand a modifié vos allocations");
   await expect(panel.getByRole("listitem").first()).toContainText("2 allocations créées · 1 allocation modifiée");
   const axe = await new AxeBuilder({ page }).include(".wn-appheader").include("#wn-notifications-panel").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();

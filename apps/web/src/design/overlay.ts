@@ -1,6 +1,6 @@
 // Briques communes des fenêtres superposées (Modal, Drawer, Popover) : focus rendu à l'élément déclencheur, piège du focus,
 // focus initial, Échap hors de la fenêtre, blocage du défilement de la page.
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 
 const TABBABLE = 'a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]';
 export const CLOSE_ATTR = "data-wn-close";
@@ -29,14 +29,16 @@ export function useReturnFocus(): void {
   }, []);
 }
 
-/** Focus initial : l'élément déjà focalisé dans la fenêtre (autoFocus), sinon [data-autofocus], le premier champ ou la première action, sinon la fenêtre. */
-export function useInitialFocus(root: RefObject<HTMLElement | null>): void {
-  useEffect(() => {
-    const el = root.current;
+/**
+ * Focus initial : l'élément déjà focalisé dans la fenêtre (autoFocus), sinon [data-autofocus], le premier champ ou la première
+ * action, sinon la fenêtre. Reçoit l'élément et non une ref : un portail de Base UI le monte au rendu suivant.
+ */
+export function useInitialFocus(el: HTMLElement | null): void {
+  useLayoutEffect(() => {
     if (!el || el.contains(document.activeElement)) return;
     const first = el.querySelector<HTMLElement>("[data-autofocus]") ?? tabbables(el).find((x) => !x.hasAttribute(CLOSE_ATTR)) ?? el.querySelector<HTMLElement>(`[${CLOSE_ATTR}]`) ?? el;
     first.focus({ preventScroll: true });
-  }, [root]);
+  }, [el]);
 }
 
 /** Piège du focus : Tab / Maj+Tab bouclent dans la fenêtre (le voile couvre la page, le pointeur n'en sort pas). */
@@ -52,21 +54,6 @@ export function useFocusTrap(root: RefObject<HTMLElement | null>): { onKeyDown(e
       else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus({ preventScroll: true }); }
     },
   };
-}
-
-/** Échap pressé alors que le focus est hors de la fenêtre (clic sur le voile, focus resté sur la page) : même effet. */
-export function useEscapeOutside(root: RefObject<HTMLElement | null>, onEscape: () => void): void {
-  const cb = useRef(onEscape);
-  cb.current = onEscape;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || e.defaultPrevented || (e.target instanceof Node && root.current?.contains(e.target))) return;
-      e.preventDefault();
-      cb.current();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [root]);
 }
 
 let locks = 0;
