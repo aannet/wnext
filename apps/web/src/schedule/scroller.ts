@@ -15,6 +15,8 @@
 //    haut de la vue. Jauge par personne : période = jours visibles (visibleRange), passée au rendu à chaque dessin ; le
 //    rendu ne la recalcule que pour les lignes affichées et seulement quand la période change.
 //  * Position initiale (`center`, `scrollTop`) : l'écran rouvert reprend là où on l'avait quitté (PO-02).
+//  * Calendrier (L-I) : la cellule d'en-tête qui contient aujourd'hui est courante (RT-027), samedi et dimanche sont grisés
+//    en vue jour (Q9) ; le fond de la surface porte les séparateurs de colonnes et la teinte de la colonne courante (RT-026).
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
   CHUNK_DAYS, DEFAULT_PX_PER_DAY, chunkCover, coreRange, dayNumber, extendTrack, fromDayNumber, headerCells, neighborDays, scrollLeftOf,
@@ -22,7 +24,7 @@ import {
 } from "@wnext/engine";
 import type { EditHost } from "./block-editor";
 import { createGridRenderer } from "./grid-dom";
-import { createHeaderRenderer, type HeaderItem } from "./grid-header";
+import { columnsBackground, createHeaderRenderer, type HeaderItem } from "./grid-header";
 import { DENSITY_METRICS, type Density } from "./density";
 import { buildGrid, visibleRows, type GridBlock, type GridCap, type GridGauge, type GridModel, type GridTimeoff } from "./grid-model";
 
@@ -201,7 +203,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
     const originX = GUTTER_PX + (dayNumber(m.from) - first) * pxPerDay;
     const period = visibleRange(viewAtScroll(track, sl, zoom, tl(), pxPerDay));
     grid.render(m, Math.max(0, root.scrollTop - HEADER_PX), heightPx - HEADER_PX, { surfaceWidth, originX, left, right }, period);
-    const key = `${left}:${right}:${zoom}:${track.first}:${track.last}`;
+    const key = `${left}:${right}:${zoom}:${track.first}:${track.last}:${today}`;
     if (key === headerKey) return;
     headerKey = key;
     const range = {
@@ -212,8 +214,12 @@ export function createScroller(o: ScrollerOptions): Scroller {
       from: c.from, label: label(c),
       x: GUTTER_PX + (dayNumber(c.from) - first) * pxPerDay,
       w: (dayNumber(c.to) - dayNumber(c.from) + 1) * pxPerDay,
+      current: c.from <= today && today <= c.to,
+      // Jour 0 = jeudi 1er janvier 1970 : samedi et dimanche = 2 et 3 modulo 7.
+      weekend: zoom === "day" && (dayNumber(c.from) % 7 === 2 || dayNumber(c.from) % 7 === 3),
     }));
     header.render(items, surfaceWidth);
+    grid.surface.style.background = columnsBackground(items);
   }
 
   /** Allonge la piste si `v` approche d'un bord ; rend le scrollLeft corrigé. */
@@ -312,7 +318,11 @@ export function createScroller(o: ScrollerOptions): Scroller {
       jump(c);
       emit(current(), true);
     },
-    setToday(d) { today = d; },
+    setToday(d) {
+      if (d === today) return;
+      today = d;
+      schedule();
+    },
     setLabels(l) {
       labelOf = l.label;
       labels = new Map();

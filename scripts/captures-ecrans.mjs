@@ -17,6 +17,10 @@ const open = async (path) => { await page.goto(`${base}${path}${path.includes("?
 
 await open("/");
 await shot("01-planning");
+for (const [zoom, name] of [["Semaine", "01b-planning-semaine"], ["Mois", "01c-planning-mois"], ["Jour", null]]) {
+  await page.getByRole("button", { name: zoom, exact: true }).click();
+  if (name) await shot(name);
+}
 await page.getByRole("button", { name: "Nouveau congé" }).click();
 await shot("02-planning-conge");
 await page.keyboard.press("Escape");

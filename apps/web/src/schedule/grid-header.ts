@@ -4,8 +4,20 @@
 //  * Accessibilité : role=row, cellules role=columnheader (data-from = date de début) ; le coin au-dessus des noms de
 //    personnes est collé à gauche et masqué aux lecteurs d'écran (aucun texte d'interface).
 //  * Le libellé est fourni par l'appelant (formatage localisé) : ce module ne porte aucune chaîne.
+//  * Période courante (RT-027) : classe wn-colheader-current et aria-current="date" (l'information ne repose pas sur la
+//    couleur seule) ; samedi et dimanche en vue jour (Q9) : classe wn-colheader-weekend. Marques retirées au recyclage.
+//  * Corps de la grille (RT-026, RT-027) : columnsBackground donne le fond de la surface des lignes, un séparateur au début
+//    de chaque cellule et une teinte sous la colonne courante, en couches CSS (aucun nœud par colonne).
 
-export interface HeaderItem { from: string; x: number; w: number; label: string }
+export interface HeaderItem { from: string; x: number; w: number; label: string; current?: boolean; weekend?: boolean }
+
+/** Fond de la surface des lignes : séparateurs de colonnes (1 px) puis teinte de la colonne courante, en dessous. */
+export function columnsBackground(items: readonly HeaderItem[]): string {
+  const layer = (token: string, x: number, w: number) => `linear-gradient(var(${token}), var(${token})) ${x}px 0px / ${w}px 100% no-repeat`;
+  const lines = items.map((i) => layer("--wn-grid-line", i.x, 1));
+  const current = items.filter((i) => i.current).map((i) => layer("--wn-col-current", i.x, i.w));
+  return [...lines, ...current].join(", ");
+}
 
 export interface HeaderRenderer {
   render(items: readonly HeaderItem[], surfaceWidth: number): void;
@@ -13,7 +25,7 @@ export interface HeaderRenderer {
   destroy(): void;
 }
 
-interface CellEl { el: HTMLDivElement; text: Text; x: number; w: number; label: string }
+interface CellEl { el: HTMLDivElement; text: Text; x: number; w: number; label: string; kind: string }
 
 export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number; gutterPx: number }): HeaderRenderer {
   const bar = document.createElement("div");
@@ -44,7 +56,7 @@ export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number
     const text = document.createTextNode("");
     el.appendChild(text);
     bar.appendChild(el);
-    return { el, text, x: NaN, w: NaN, label: "" };
+    return { el, text, x: NaN, w: NaN, label: "", kind: "" };
   };
 
   return {
@@ -56,6 +68,9 @@ export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number
         c.el.style.display = "none";
         c.el.removeAttribute("role"); // hors champ : ni cellule pour l'arbre d'accessibilité, ni date
         c.el.removeAttribute("data-from");
+        c.el.removeAttribute("aria-current");
+        c.el.className = "wn-colheader";
+        c.kind = "";
         free.push(c);
         active.delete(k);
       }
@@ -65,6 +80,13 @@ export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number
         if (c.x !== i.x) { c.el.style.transform = `translateX(${i.x}px)`; c.x = i.x; }
         if (c.w !== i.w) { c.el.style.width = `${i.w}px`; c.w = i.w; }
         if (c.label !== i.label) { c.text.data = i.label; c.label = i.label; }
+        const kind = `${i.current ? "c" : ""}${i.weekend ? "w" : ""}`;
+        if (c.kind !== kind) {
+          c.el.className = `wn-colheader${i.current ? " wn-colheader-current" : ""}${i.weekend ? " wn-colheader-weekend" : ""}`;
+          if (i.current) c.el.setAttribute("aria-current", "date");
+          else c.el.removeAttribute("aria-current");
+          c.kind = kind;
+        }
       }
     },
     stats: () => ({ cellsCreated }),

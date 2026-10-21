@@ -85,6 +85,13 @@
   --color-hatch-dark: rgb(0 0 0 / 0.06);
   --color-hatch-light: rgb(255 255 255 / 0.75);
 
+  /* Calendrier de la grille (L-I) : séparateurs de colonnes (RT-026), jours non travaillés (RT-028), période courante
+     (RT-027). Transparents : les séparateurs restent visibles sous les hachures, la teinte courante sous les blocs. */
+  --color-grid-line: #e3e5e0;
+  --color-nonwork: rgb(17 24 39 / 0.035);
+  --color-nonwork-line: rgb(17 24 39 / 0.09);
+  --color-current: rgb(14 116 144 / 0.07);
+
   /* §3.2 Typographie. Écart : Inter n'est pas encore chargée, la pile reste celle de l'écran actuel. */
   --font-sans: system-ui, sans-serif;
   --text-caption: 11px;
@@ -168,6 +175,11 @@
   --wn-cap-tentative-hatch: repeating-linear-gradient(45deg, var(--color-cap-confirmed) 0 2px, var(--color-cap-tentative-light) 2px 5px);
   --wn-cap-over-hatch: repeating-linear-gradient(-45deg, var(--color-cap-over) 0 2px, var(--color-cap-over-light) 2px 5px);
   --wn-cap-line: var(--color-ink);
+
+  /* Calendrier de la grille : lus par grid-dom.ts et grid-header.ts. */
+  --wn-grid-line: var(--color-grid-line);
+  --wn-nonwork-hatch: repeating-linear-gradient(135deg, var(--color-nonwork-line) 0 1px, var(--color-nonwork) 1px 6px);
+  --wn-col-current: var(--color-current);
 }
 
 @media (prefers-reduced-motion: reduce) {

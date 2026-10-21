@@ -29,7 +29,10 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .wn-header { background: var(--surface); border-bottom: 1px solid var(--border); }
 .wn-corner { background: var(--surface); }
-.wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; overflow: hidden; white-space: nowrap; color: var(--text-muted); border-left: 1px solid var(--color-border-subtle); }
+.wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; overflow: hidden; white-space: nowrap; color: var(--text-muted); border-left: 1px solid var(--wn-grid-line); }
+/* Calendrier (L-I) : samedi et dimanche grisés en vue jour (Q9) ; période courante en couleur d'accent, soulignée (RT-027). */
+.wn-colheader-weekend { background: var(--wn-nonwork-hatch); }
+.wn-colheader-current { box-shadow: inset 0 -3px 0 var(--accent); background-color: var(--wn-col-current); color: var(--color-accent); font-weight: var(--font-weight-semibold); }
 .wn-schedule-container { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0 var(--space-4) var(--space-4); }
 .wn-schedule-container > * { flex: none; }
 .wn-schedule { display: flex; flex: 1; flex-direction: column; min-height: 0; }

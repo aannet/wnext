@@ -18,6 +18,8 @@
 //  * Jauge par personne (RT-008, Q3 : période visible) : sommes cumulées par jour des heures de capacité, planifiées et
 //    tentatives (les mêmes lignes utilization() que la bande), calculées une fois par tranche ; la jauge d'une période
 //    quelconque en sort en O(1) (gaugeOf), état par classifyCapacity du moteur. Rôle, département et initiales : données.
+//  * Jours non travaillés (RT-028, Q9) : plages de jours consécutifs à 0 h selon l'horaire de la personne en vigueur ce
+//    jour-là (BR-19), hachurées par grid-dom ; les fériés et congés n'en font pas partie (ils ont leur propre rendu).
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
   blockFraction, capacityCellsByPerson, classifyCapacity, dayNumber, type CapacityState, type CapacityThresholds, expandOccurrences, layoutRow, scheduleToEngineInput, utilization,
@@ -131,6 +133,24 @@ export interface GridRow {
   cells: GridCap[];
   /** Charge par jour pour la jauge ; null si aucun jour de la tranche n'est chargé. */
   load: RowLoad | null;
+  /** Plages de jours non travaillés (horaire à 0 h), en pixels depuis le début de la tranche. */
+  nonWorking: NonWorkingSpan[];
+}
+
+export interface NonWorkingSpan { x: number; w: number }
+
+/** Jours consécutifs à 0 h dans l'horaire en vigueur (index 0 = lundi ; jour 0 = jeudi 1er janvier 1970). */
+function nonWorkingSpans(p: ScheduleResponse["people"][number], range: { from: string; to: string }, pxPerDay: number): NonWorkingSpan[] {
+  const first = dayNumber(range.from);
+  const last = dayNumber(range.to);
+  const out: NonWorkingSpan[] = [];
+  let start = -1;
+  for (let n = first; n <= last + 1; n++) {
+    const off = n <= last && (p.workSchedule ? workDaysHoursOn(p, fromDayNumber(n)) : p.workDaysHours)[(n + 3) % 7] === 0;
+    if (off && start < 0) start = n;
+    else if (!off && start >= 0) { out.push({ x: (start - first) * pxPerDay, w: (n - start) * pxPerDay }); start = -1; }
+  }
+  return out;
 }
 
 export interface GridModel {
@@ -324,6 +344,7 @@ export function buildGrid(s: ScheduleResponse, range: { from: string; to: string
       personId: p.id, name: p.name, initials: initialsOf(p.name), role: roleNames.get(p.roleId ?? "") ?? "", department: departmentNames.get(p.departmentId ?? "") ?? "",
       top, heightPx: blocksPx + capPx, overflow: lay.overflow, capY: blocksPx, cells: caps.get(p.id) ?? [], load: loads.get(p.id) ?? null,
       timeoffs: rowTimeoffs(timeoffsByPerson.get(p.id) ?? [], typeNames, range, pxPerDay, blocksPx),
+      nonWorking: nonWorkingSpans(p, range, pxPerDay),
       blocks: lay.placed.map((b) => {
         const { a, startDate, endDate } = source.get(b.id)!;
         const pr = projects.get(a.projectId);

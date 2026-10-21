@@ -18,8 +18,10 @@
 //  * En-tête de ligne (colonne de gauche, ux-ui §2.1) : avatar à initiales, nom, rôle, département en pastille, jauge de la
 //    période visible (barre + pourcentage, ▲ et « +N h » au-delà de 100 % : redondance non chromatique, WCAG 1.4.1). La
 //    jauge n'est recalculée (gaugeOf, O(1)) que si la ligne ou la période change, et un nœud n'est écrit que si sa valeur change.
+//  * Jours non travaillés (RT-028) : un seul nœud décoratif par ligne (aria-hidden), juste après l'en-tête donc sous les
+//    congés et les blocs ; une couche de fond hachurée par plage de la fenêtre horizontale, réécrite si la liste change.
 import { blockColors } from "./block-colors";
-import { CAP_PX, gaugeOf, visibleRows, type GridBlock, type GridCap, type GridGauge, type GridModel, type GridRow, type GridTimeoff } from "./grid-model";
+import { CAP_PX, gaugeOf, visibleRows, type GridBlock, type GridCap, type GridGauge, type GridModel, type GridRow, type GridTimeoff, type NonWorkingSpan } from "./grid-model";
 
 interface BlockEl { el: HTMLDivElement; text: Text; v: Partial<GridBlock>; g: GridBlock | null; row: RowEl | null }
 interface CapEl { el: HTMLDivElement; v: Partial<GridCap>; y: number; h: number }
@@ -33,6 +35,8 @@ interface HeadEl {
 interface RowEl {
   el: HTMLDivElement; header: HTMLDivElement; head: HeadEl; index: number; model: GridModel | null; span: string; blocks: Map<string, BlockEl>; caps: Map<string, CapEl>;
   offs: Map<string, OffEl>; top: number; h: number;
+  /** Fond hachuré des jours non travaillés et dernière valeur écrite. */
+  nonWork: HTMLDivElement; nonWorkBg: string;
 }
 
 /** Placement horizontal, en pixels de surface. Absent : surface à la largeur du modèle, aucun tri horizontal. */
@@ -84,6 +88,11 @@ export interface GridRendererOptions {
   gaugeLabel?(g: GridGauge): { text: string; title: string };
 }
 
+/** Fond des jours non travaillés : une couche hachurée par plage, décalée de `originX` (repère de la ligne). */
+export function nonWorkingBackground(spans: readonly NonWorkingSpan[], originX: number): string {
+  return spans.map((n) => `var(--wn-nonwork-hatch) ${n.x + originX}px 0px / ${n.w}px 100% no-repeat`).join(", ");
+}
+
 /**
  * Fond d'une cellule de capacité : confirmé (plein), tentatif (hachuré), zone de dépassement (hachures), ligne de capacité ;
  * `capPx` : hauteur de la bande (densité du modèle). */
@@ -124,6 +133,9 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     el.style.right = "0";
     const header = div("wn-rowheader");
     header.setAttribute("role", "rowheader");
+    const nonWork = div("wn-nonwork");
+    nonWork.setAttribute("aria-hidden", "true");
+    Object.assign(nonWork.style, { position: "absolute", top: "0", left: "0", right: "0", bottom: "0" });
     const avatar = span("wn-person-avatar", header);
     avatar.setAttribute("aria-hidden", "true");
     const person = span("wn-person", header);
@@ -136,9 +148,10 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     const fill = span("wn-gauge-fill", span("wn-gauge-track", gauge));
     const value = textIn(span("wn-gauge-value", gauge));
     el.appendChild(header);
+    el.appendChild(nonWork);
     surface.appendChild(el);
     const head: HeadEl = { avatar, name, role, dept, gauge, fill, value, v: {}, g: {}, key: "", model: null };
-    return { el, header, head, index: -1, model: null, span: "", blocks: new Map(), caps: new Map(), offs: new Map(), top: NaN, h: NaN };
+    return { el, header, head, index: -1, model: null, span: "", blocks: new Map(), caps: new Map(), offs: new Map(), top: NaN, h: NaN, nonWork, nonWorkBg: "" };
   };
   const releaseRow = (r: RowEl) => {
     for (const b of r.blocks.values()) releaseBlock(b);
@@ -204,8 +217,8 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
       return made;
     })();
     o.el.style.display = "";
-    // Avant les blocs : sous eux dans l'ordre du document comme à l'écran.
-    parent.insertBefore(o.el, parent.children[1] ?? null);
+    // Après l'en-tête et les hachures, avant les blocs : sous eux dans l'ordre du document comme à l'écran.
+    parent.insertBefore(o.el, parent.children[2] ?? null);
     return o;
   };
   const releaseOff = (o: OffEl) => {
@@ -321,6 +334,8 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
       b.g = g;
       b.row = r;
     }
+    const nonWorkBg = nonWorkingBackground(row.nonWorking.filter((n) => n.x + h.originX + n.w >= h.left && n.x + h.originX <= h.right), h.originX);
+    if (nonWorkBg !== r.nonWorkBg) { r.nonWork.style.background = nonWorkBg; r.nonWorkBg = nonWorkBg; }
     const offsShown = row.timeoffs.filter((t) => t.x + h.originX + t.w >= h.left && t.x + h.originX <= h.right);
     const offKeep = new Set(offsShown.map((t) => t.key));
     for (const [k, o] of r.offs) if (!offKeep.has(k)) { releaseOff(o); r.offs.delete(k); }
