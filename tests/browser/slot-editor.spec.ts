@@ -80,7 +80,7 @@ test("double clic sur un bloc : drawer à droite, passer au projet suivant, bloc
   await dialog(page).getByRole("combobox", { name: "Projet" }).fill(`Projet ${to}`);
   await page.keyboard.press("Enter");
   await dialog(page).getByRole("combobox", { name: "Tâche" }).click();
-  await dialog(page).getByRole("option", { name: "Réalisation" }).click();
+  await page.getByRole("option", { name: "Réalisation" }).click(); // liste dans un portail Base UI, hors du drawer
   await dialog(page).getByRole("button", { name: "Enregistrer" }).click();
   await expect(dialog(page)).toHaveCount(0);
   await expect(notice(page)).toHaveText("Allocation modifiée. Ctrl+Z annule.");

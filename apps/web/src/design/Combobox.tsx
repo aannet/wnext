@@ -1,7 +1,9 @@
-// Combobox avec recherche (ux-ui §3.4, motif APG « combobox + listbox ») : le champ affiche le choix courant ; taper filtre
-// la liste (sans casse ni accents), flèches haut / bas pour parcourir, Entrée ou clic pour choisir, Échap ferme la liste
-// (sans fermer la fenêtre qui la contient) ou rend le texte du choix courant. Quitter le champ rend aussi ce texte.
-import { useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+// Combobox avec recherche (ux-ui §3.4, motif APG « combobox + listbox ») sur la Combobox de Base UI (ADR-010, L-K) : le
+// champ affiche le choix courant ; taper filtre la liste (sans casse ni accents), flèches haut / bas pour parcourir, Entrée
+// ou clic pour choisir, Échap ferme la liste sans fermer la fenêtre qui la contient. Quitter le champ rend le texte du choix.
+// La liste s'ouvre dans un portail, au-dessus des fenêtres (--z-menu) ; liste vide : message hors listbox.
+import { Combobox as Base } from "@base-ui/react/combobox";
+import { useId, useState, type ReactNode } from "react";
 
 export interface ComboboxOption { id: string; name: string; color?: string | null }
 
@@ -22,70 +24,54 @@ export interface ComboboxProps {
 }
 
 const fold = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase();
+const nameOf = (o: ComboboxOption) => o.name;
+const sameId = (a: ComboboxOption, b: ComboboxOption) => a.id === b.id;
+const matches = (o: ComboboxOption, query: string) => fold(o.name).includes(fold(query.trim()));
 
 export function Combobox({ label, value, options, onChange, placeholder, emptyLabel, disabled, initialFocus, swatch }: ComboboxProps) {
   const id = useId();
-  const input = useRef<HTMLInputElement>(null);
-  const current = options.find((o) => o.id === value);
-  const [query, setQuery] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
-  const shown = useMemo(() => {
-    const q = fold((query ?? "").trim());
-    return q === "" ? options : options.filter((o) => fold(o.name).includes(q));
-  }, [options, query]);
-  const optionId = (i: number) => `${id}-opt-${i}`;
-
-  const choose = (o: ComboboxOption | undefined) => {
-    if (o) onChange(o.id);
-    setQuery(null);
-    setOpen(false);
-  };
-  const openAt = (i: number) => { setOpen(true); setActive(Math.max(0, Math.min(i, shown.length - 1))); };
-
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.preventDefault();
-      const n = shown.length;
-      if (!open) { openAt(e.key === "ArrowDown" ? Math.max(0, shown.findIndex((o) => o.id === value)) : n - 1); return; }
-      if (n) setActive((a) => (a + (e.key === "ArrowDown" ? 1 : n - 1)) % n);
-    } else if (e.key === "Enter" && open) {
-      e.preventDefault();
-      choose(shown[active]);
-    } else if (e.key === "Escape" && (open || query !== null)) {
-      e.preventDefault();
-      e.stopPropagation();
-      setOpen(false);
-      setQuery(null);
-    }
-  };
-
+  /** Texte tapé ; null : le champ montre le choix courant (au départ du champ, après un choix). */
+  const [query, setQuery] = useState<string | null>(null);
+  const selected = options.find((o) => o.id === value) ?? null;
   return (
-    <div className="wn-combobox">
-      <label htmlFor={`${id}-input`}>{label}</label>
-      <div className="wn-combobox-field">
-        <input
-          ref={input} id={`${id}-input`} type="text" role="combobox" autoComplete="off" spellCheck={false} disabled={disabled} data-autofocus={initialFocus ? "" : undefined}
-          aria-autocomplete="list" aria-expanded={open && shown.length > 0} aria-controls={open && shown.length > 0 ? `${id}-list` : undefined}
-          aria-activedescendant={open && shown.length ? optionId(active) : undefined} placeholder={placeholder}
-          value={query ?? current?.name ?? ""}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); setActive(0); }}
-          onClick={() => { if (!open) openAt(Math.max(0, shown.findIndex((o) => o.id === value))); }}
-          onBlur={() => { setOpen(false); setQuery(null); }}
-          onKeyDown={onKeyDown}
-        />
-        {open && shown.length > 0 && (
-          <ul id={`${id}-list`} role="listbox" aria-label={label} className="wn-combobox-list">
-            {shown.map((o, i) => (
-              <li key={o.id} id={optionId(i)} role="option" aria-selected={o.id === value} data-active={i === active || undefined}
-                onMouseDown={(e) => { e.preventDefault(); choose(o); input.current?.focus(); }} onMouseEnter={() => setActive(i)}>
-                {swatch?.(o)}{o.name}
-              </li>
-            ))}
-          </ul>
-        )}
-        {open && shown.length === 0 && <div className="wn-combobox-empty">{emptyLabel}</div>}
+    <Base.Root<ComboboxOption>
+      items={options as ComboboxOption[]} value={selected} onValueChange={(o) => { setQuery(null); if (o) onChange(o.id); }}
+      inputValue={query ?? selected?.name ?? ""} onInputValueChange={(v) => setQuery(v)}
+      itemToStringLabel={nameOf} isItemEqualToValue={sameId} filter={matches} autoHighlight
+      open={open} onOpenChange={setOpen} {...(disabled ? { disabled } : {})}
+    >
+      <div className="wn-combobox">
+        <label htmlFor={`${id}-input`}>{label}</label>
+        <div className="wn-combobox-field">
+          <Base.Input
+            id={`${id}-input`} spellCheck={false} onBlur={() => setQuery(null)} placeholder={placeholder} data-autofocus={initialFocus ? "" : undefined}
+            // Liste ouverte : Échap la ferme et s'arrête au champ (la fenêtre parente reste ouverte). Liste fermée : Échap
+            // remonte à la fenêtre, sans vider le champ ni le choix (comportement de Base UI écarté).
+            onKeyDown={(e) => {
+              if (e.key !== "Escape") return;
+              if (open) e.stopPropagation();
+              else (e as typeof e & { preventBaseUIHandler(): void }).preventBaseUIHandler();
+            }}
+          />
+        </div>
       </div>
-    </div>
+      <Base.Portal>
+        <Base.Positioner sideOffset={2} align="start" className="z-(--z-menu) outline-none">
+          <Base.Popup aria-label={label}
+            className="wn-combobox-popup max-h-[min(15rem,var(--available-height))] w-(--anchor-width) overflow-auto rounded-md border border-solid border-input bg-popover text-popover-foreground shadow-popover">
+            <Base.Empty className="wn-combobox-empty px-2 py-1 text-muted-foreground empty:hidden">{emptyLabel}</Base.Empty>
+            <Base.List className="m-0 list-none p-0 outline-none">
+              {(o: ComboboxOption) => (
+                <Base.Item key={o.id} value={o}
+                  className="flex cursor-pointer items-center gap-2 px-2 py-1 outline-none select-none data-highlighted:bg-(--focus) data-highlighted:text-(--color-on-focus) data-selected:font-semibold">
+                  {swatch?.(o)}{o.name}
+                </Base.Item>
+              )}
+            </Base.List>
+          </Base.Popup>
+        </Base.Positioner>
+      </Base.Portal>
+    </Base.Root>
   );
 }

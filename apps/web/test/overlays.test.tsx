@@ -139,10 +139,10 @@ describe("Modal", () => {
 });
 
 /** Clic complet (pointeur + souris) sur un élément, comme un utilisateur sur le voile. */
-const pressOn = (el: Element) => act(() => {
+const pressOn = (el: Element, detail = 1) => act(() => {
   for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
     const Ctor = type.startsWith("pointer") && typeof PointerEvent !== "undefined" ? PointerEvent : MouseEvent;
-    el.dispatchEvent(new Ctor(type, { bubbles: true, cancelable: true, button: 0 }));
+    el.dispatchEvent(new Ctor(type, { bubbles: true, cancelable: true, button: 0, detail }));
   }
 });
 const scrim = () => document.querySelector<HTMLElement>("[data-slot=dialog-overlay]")!;
@@ -161,6 +161,15 @@ describe("Drawer", () => {
     pressOn(document.getElementById("in")!);
     expect(onClose).not.toHaveBeenCalled();
     pressOn(scrim());
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("deuxième clic d'un double clic sur le voile (le premier a ouvert le drawer depuis un bloc) : le drawer reste ouvert", () => {
+    const onClose = vi.fn();
+    render(<Drawer title="T" closeLabel="X" onClose={onClose}><p>texte</p></Drawer>);
+    pressOn(scrim(), 2);
+    expect(onClose).not.toHaveBeenCalled();
+    pressOn(scrim(), 1);
     expect(onClose).toHaveBeenCalledOnce();
   });
 

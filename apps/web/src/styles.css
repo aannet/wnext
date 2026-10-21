@@ -134,11 +134,6 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-combobox { display: flex; flex-direction: column; gap: 2px; }
 .wn-combobox-field { position: relative; }
 .wn-combobox-field input { box-sizing: border-box; width: 100%; }
-.wn-combobox-list { position: absolute; z-index: 5; left: 0; right: 0; max-height: 200px; margin: 2px 0 0; padding: 0; overflow: auto; list-style: none; background: var(--surface); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-popover); }
-.wn-combobox-list li { padding: 4px 8px; cursor: pointer; }
-.wn-combobox-list li[data-active] { background: var(--focus); color: var(--color-on-focus); }
-.wn-combobox-list li[aria-selected="true"] { font-weight: var(--font-weight-semibold); }
-.wn-combobox-empty { position: absolute; z-index: 5; left: 0; right: 0; margin-top: 2px; padding: 4px 8px; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); }
 .wn-timeoff-choice { margin: 0 0 8px; border: 1px solid var(--border); border-radius: 4px; }
 .wn-timeoff-choice label { margin-right: 12px; }
 .wn-dialog-error { color: var(--color-danger-text); }

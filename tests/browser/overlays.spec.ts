@@ -20,6 +20,8 @@ const firstRowBlock = (page: Page): Promise<string> => page.evaluate((gutter) =>
 
 /** La fenêtre est superposée : ancêtre en position fixed, couvrant le viewport, au-dessus de la grille, page non défilable. */
 async function expectOverlay(page: Page, dialog: Locator) {
+  // Mesure après l'animation d'entrée (glissement du drawer) : pendant, le panneau dépasse du bord droit.
+  await dialog.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
   const info = await dialog.evaluate((el) => {
     let fixed: HTMLElement | null = null;
     for (let n: HTMLElement | null = el as HTMLElement; n; n = n.parentElement) if (getComputedStyle(n).position === "fixed") { fixed = n; break; }

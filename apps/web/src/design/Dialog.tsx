@@ -2,7 +2,7 @@
 // relié, piège du focus, focus initial, Échap, bouton Fermer (×) toujours visible, focus rendu au déclencheur, défilement de
 // la page bloqué.
 // Fermeture (docs/design/design.md, RT-023) :
-//  * Drawer : un clic sur le voile ferme ; Modal : il ne ferme pas (formulaire ou confirmation en cours) ;
+//  * Drawer : un clic sur le voile ferme (sauf le deuxième clic d'un double clic) ; Modal : il ne ferme pas ;
 //  * `unsaved.dirty` : ×, Échap et clic extérieur demandent d'abord « Abandonner les modifications ? » (Q7) ;
 //  * `onEscape` : Échap revient d'une étape (avertissement, assistant) sans question ni fermeture.
 // Le panneau porte data-variant (modal | drawer). La modale ancrée au bloc a disparu avec l'éditeur en drawer (RT-024, Q8).
@@ -85,7 +85,8 @@ export function Dialog({ variant, title, onClose, onEscape, closeLabel, children
         if (open || confirming) return;
         const reason = details.reason;
         if (reason === "escape-key") request("escape");
-        else if (reason === "outside-press") request("outside");
+        // Deuxième clic d'un double clic (le premier a ouvert le drawer depuis un bloc de la grille) : pas une demande de fermeture.
+        else if (reason === "outside-press") { if (((details.event as MouseEvent | undefined)?.detail ?? 0) < 2) request("outside"); }
         else request("close");
       }}
     >

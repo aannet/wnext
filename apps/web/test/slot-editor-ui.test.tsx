@@ -77,7 +77,8 @@ function type(el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, va
   const proto = el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   act(() => {
     Object.getOwnPropertyDescriptor(proto, "value")!.set!.call(el, value);
-    el.dispatchEvent(new Event(el instanceof HTMLSelectElement ? "change" : "input", { bubbles: true }));
+    // Frappe réelle (inputType) : la Combobox Base UI n'ouvre pas sa liste sur un remplissage automatique.
+    el.dispatchEvent(el instanceof HTMLSelectElement ? new Event("change", { bubbles: true }) : new InputEvent("input", { bubbles: true, inputType: "insertText" }));
   });
 }
 const key = (target: Element, k: string) => act(() => { target.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true })); });
@@ -89,10 +90,16 @@ async function choose(label: string, query: string) {
   key(input, "Enter");
   await flush();
 }
-const options = (label: string) => {
+/** Options proposées par une Combobox : liste ouverte par Flèche bas (portail Base UI), puis refermée par Échap. */
+const options = async (label: string) => {
   const input = combo(label);
-  act(() => input.click());
-  return [...document.body.querySelectorAll(`#${CSS.escape(input.getAttribute("aria-controls")!)} [role=option]`)].map((o) => o.textContent);
+  act(() => input.focus());
+  key(input, "ArrowDown");
+  await flush();
+  const list = [...document.body.querySelectorAll("[role=listbox] [role=option]")].map((o) => o.textContent);
+  key(input, "Escape");
+  await flush();
+  return list;
 };
 const dblclick = async (el: Element) => { act(() => { el.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })); }); await flush(); };
 const submit = async () => { act(() => { dialog()!.querySelector("form")!.requestSubmit(); }); await flush(); };
@@ -112,7 +119,7 @@ describe("édition d'un bloc (RT-011, RT-013, RT-014)", () => {
     await dblclick(block("a:0"));
     await choose("Projet", "aud");
     expect(combo("Projet").value).toBe("Audit");
-    expect(options("Tâche")).toEqual(["Sans tâche", "Conception", "Réalisation"]);
+    expect(await options("Tâche")).toEqual(["Sans tâche", "Conception", "Réalisation"]);
     await choose("Tâche", "concep");
     await submit();
     expect(dialog()).toBeNull();
@@ -143,7 +150,7 @@ describe("édition d'un bloc (RT-011, RT-013, RT-014)", () => {
     mount([alloc("a")], { me: { role: "project_manager", person: { id: "p9", name: "Moi" } }, managers: { "2": "p9" } });
     await dblclick(block("a:0"));
     await flush();
-    expect(options("Projet")).toEqual(["Audit", "Refonte"]);
+    expect(await options("Projet")).toEqual(["Audit", "Refonte"]);
     expect(button("Couleur du projet…")).toBeUndefined();
     await choose("Projet", "aud");
     expect(button("Couleur du projet…")).toBeDefined();

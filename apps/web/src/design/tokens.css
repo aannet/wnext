@@ -140,6 +140,7 @@
   --z-popover: 30;
   --z-toast: 50;
   --z-modal: 60;
+  --z-menu: 70; /* listes ouvertes depuis une fenêtre (Combobox) : au-dessus du voile et du panneau */
 
   /* Mouvement : 80 / 120 / 200 ms ; ramené à 1 ms sous prefers-reduced-motion (voir plus bas). */
   --duration-fast: 80ms;
