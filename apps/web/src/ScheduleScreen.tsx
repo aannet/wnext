@@ -10,7 +10,10 @@
 //  * Annuler / Rétablir (BR-40) si un historique est fourni (schedule/history) : boutons de la barre d'outils, désactivés
 //    si la pile est vide, et raccourcis Ctrl+Z, Ctrl+Maj+Z, Ctrl+Y (Cmd sur Mac) écoutés sur le document, ignorés dans un
 //    champ de saisie ou une boîte de dialogue. Le résultat est annoncé dans la région aria-live des écritures.
-//  * Congés (BR-04, schedule/timeoff-ui) si une source d'écritures est fournie (`records`) : bouton « Nouveau congé » et
+//  * Pop-in du créneau (schedule/slot-editor-ui, RT-011 à RT-018) si une source d'écritures est fournie (`records`) : Q5
+//    (clic = sélection ; double clic, Entrée ou clic sur le bloc sélectionné = édition), création par le bouton
+//    « + Allocation » ou par clic / glisser en zone libre (bloc provisoire), onglets « Projet / tâche » et « Congé ».
+//  * Congés (BR-04, schedule/timeoff-ui, dans l'onglet « Congé » de la pop-in) : bouton « Nouveau congé » et
 //    touche C sur la grille (sur un bloc : sa personne et son premier jour ; sur un congé, ou un jour couvert par un congé :
 //    modification), clic ou Entrée sur un congé pour le modifier, double clic sur une case vide pour en créer un.
 //  * Saisie rapide (schedule/quick-entry-ui) si une source d'écritures est fournie : barre au-dessus de la grille, touche
@@ -26,21 +29,21 @@
 //    au centre et le défilement vertical, et les rend au montage suivant. La pile d'annulation n'y est pas : la source est
 //    arrêtée hors du Planning, les changements des autres n'y sont pas suivis et l'historique ne pourrait plus les invalider.
 import type { I18n } from "@lingui/core";
-import type { ScheduleResponse } from "@wnext/contracts";
+import type { Me, ScheduleResponse } from "@wnext/contracts";
 import { dayNumber, fromDayNumber, type HeaderCell, type Viewport, type Zoom } from "@wnext/engine";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import type { ScheduleEditor } from "./data/allocation-edits";
 import type { ScheduleSource } from "./data/schedule-source";
 import type { ViewsSource } from "./data/views-source";
 import type { MessageKey } from "./i18n";
-import { createBlockEditor } from "./schedule/block-editor";
+import { createBlockEditor, type BlockEditor } from "./schedule/block-editor";
 import { blockLabeler } from "./schedule/block-label";
 import { timeoffLabeler } from "./schedule/timeoff-label";
 import { capacityLabeler } from "./schedule/capacity-label";
 import { useScheduleEdits, type FocusTarget } from "./schedule/edits-ui";
 import type { History, HistoryDirection, HistoryResult, HistoryState } from "./schedule/history";
 import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
-import { useTimeoffEdits } from "./schedule/timeoff-ui";
+import { useSlotEditor, type SlotCatalog } from "./schedule/slot-editor-ui";
 import { QuickEntry, type QuickEntryHandle } from "./schedule/quick-entry-ui";
 import { applyViewFilters, type ViewFilters } from "./schedule/view-filters";
 import { DENSITIES, readStoredDensity, storeDensity, type Density } from "./schedule/density";
@@ -72,7 +75,12 @@ export interface ScheduleScreenProps {
   actions?: ReactNode;
   /** Écritures brutes de la source (congés, report assisté) ; absent : congés en lecture seule. */
   records?: Pick<ScheduleSource, "getState" | "updateAllocation" | "splitOccurrence" | "createTimeoff" | "updateTimeoff" | "deleteTimeoff"
-    | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "onProjectsChange" | "teamRemovalSummary" | "removeFromTeam">>;
+    | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "onProjectsChange" | "teamRemovalSummary" | "removeFromTeam"
+    | "createAllocationGroup" | "projectChanged">>;
+  /** Référentiel des projets (projets autorisés, tâches, couleur) pour la pop-in ; absent : projets de la source, sans tâches ni couleur. */
+  catalog?: SlotCatalog;
+  /** Utilisateur connecté : projets proposés selon ses droits (BR-33) ; absent : tous. */
+  me?: Pick<Me, "role" | "person">;
   /** État gardé d'un montage à l'autre (PO-02) ; absent : l'écran repart d'aujourd'hui, zoom jour. */
   memory?: ScheduleMemory;
 }
@@ -83,7 +91,7 @@ export interface ScheduleMemory { zoom?: Zoom; center?: number; scrollTop?: numb
 const ZOOMS: readonly Zoom[] = ["day", "week", "month"];
 const NO_HISTORY: HistoryState = { canUndo: false, canRedo: false, undoLabel: null, redoLabel: null };
 const noSubscribe = () => () => {};
-const LABELS: Record<string, string> = { "allocation.move": "move", "allocation.resize": "resize", "allocation.load": "load", "allocation.create": "create" };
+const LABELS: Record<string, string> = { "allocation.move": "move", "allocation.resize": "resize", "allocation.load": "load", "allocation.create": "create", "allocation.edit": "edit" };
 
 /** Cible où Ctrl+Z appartient au navigateur (champ de saisie) ou à une boîte de dialogue ouverte. */
 function ownsUndo(t: EventTarget | null): boolean {
@@ -109,7 +117,7 @@ function headerFormatter(locale: string) {
   return (c: HeaderCell) => fmt[c.kind].format(new Date(`${c.from}T00:00:00Z`));
 }
 
-export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, heightPx: initialHeightPx, onViewChange, clock, editor, history, records, views, heading, actions, memory }: ScheduleScreenProps) {
+export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, heightPx: initialHeightPx, onViewChange, clock, editor, history, records, views, heading, actions, memory, catalog, me }: ScheduleScreenProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [zoom, setZoom] = useState<Zoom>(memory?.zoom ?? "day");
   const [density, setDensityState] = useState<Density>(() => readStoredDensity());
@@ -178,19 +186,39 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   }, [history]);
   const dataRef = useRef(data);
   dataRef.current = data;
-  const timeoffs = useTimeoffEdits(
-    i18n, records && { editor: records, data: () => records.getState().data ?? dataRef.current, record: history?.record }, data,
-    (text) => editsRef.current.announce(text), () => gridRef.current?.focus({ preventScroll: true }),
-  );
+  const blocksRef = useRef<BlockEditor | null>(null);
+  const slot = useSlotEditor({
+    i18n, data, records, editor, history, catalog, me, announce: (text) => editsRef.current.announce(text),
+    onDraftDone: (draft) => blocksRef.current?.clearDraft(draft),
+    onClosed: ({ key, focus }) => {
+      if (focus) focusKey(key ?? "", focus);
+      else if (key) focusKey(key);
+      else gridRef.current?.focus({ preventScroll: true }); // comme avant la pop-in : congé et création rendent le focus à la grille
+    },
+  });
+  const slotRef = useRef(slot);
+  slotRef.current = slot;
+  /** Ancre de la pop-in ouverte depuis la barre d'outils : le bloc focalisé s'il y en a un, sinon le bouton. */
+  const anchorFor = (target: EventTarget | null, fallback: HTMLElement | null): HTMLElement =>
+    scroller.current?.host.timeoffAt?.(target)?.el ?? scroller.current?.host.blockAt(target)?.el ?? fallback ?? gridRef.current!;
   /** Personne et jour visés par une touche C (bloc focalisé, sinon première ligne au centre de la vue). */
-  const openTimeoffAt = (target: EventTarget | null) => {
+  const openTimeoffAt = (target: EventTarget | null, fallback: HTMLElement | null = null) => {
     const s = scroller.current;
     if (!s) return;
+    const anchor = anchorFor(target, fallback);
     const off = s.host.timeoffAt?.(target);
-    if (off) { timeoffs.openEdit(off.timeoff.timeoffId); return; }
+    if (off) { slot.openTimeoffEdit(off.timeoff.timeoffId, anchor); return; }
     const hit = s.host.blockAt(target);
     const personId = hit?.row.personId ?? s.host.model()?.rows[0]?.personId;
-    if (personId) timeoffs.openAt(personId, hit?.block.startDate ?? fromDayNumber(Math.floor(s.view().center)));
+    if (personId) slot.openTimeoffAt(personId, hit?.block.startDate ?? fromDayNumber(Math.floor(s.view().center)), anchor);
+  };
+  /** « + Allocation » : personne du bloc focalisé (sinon à choisir), jour au centre de la vue (ou celui du bloc). */
+  const openCreate = (button: HTMLElement) => {
+    const s = scroller.current;
+    if (!s) return;
+    const hit = s.host.blockAt(document.activeElement);
+    const day = hit?.block.startDate ?? fromDayNumber(Math.floor(s.view().center));
+    slot.openCreate({ personId: hit?.row.personId ?? null, startDate: day, endDate: day, draft: null }, button);
   };
   /** Double clic sur une case vide : personne de la ligne, jour de la colonne. */
   const onDoubleClick = (e: { target: EventTarget; clientX: number; clientY: number }) => {
@@ -204,7 +232,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     const row = m.rows.find((w) => y >= w.top && y < w.top + w.heightPx);
     const origin = s.host.xOfDate(m.from);
     if (!row || x < origin) return;
-    timeoffs.openAt(row.personId, fromDayNumber(dayNumber(m.from) + Math.floor((x - origin) / m.pxPerDay)));
+    slot.openTimeoffAt(row.personId, fromDayNumber(dayNumber(m.from) + Math.floor((x - origin) / m.pxPerDay)), { left: e.clientX, top: e.clientY, width: 1, height: 1 });
   };
   const removal = useTeamRemoval({ i18n, editor: records?.teamRemovalSummary && records.removeFromTeam ? records as TeamRemovalEditor : undefined, data: () => records?.getState().data ?? dataRef.current,
     gridRef, blockAt: (t) => scroller.current?.host.blockAt(t) ?? null, announce: (text) => editsRef.current.announce(text),
@@ -235,8 +263,11 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     const blocks = createBlockEditor({
       root: gridRef.current!, host: s.host, clock, enabled: () => editorRef.current !== undefined,
       onCommit: (r) => editsRef.current.onCommit(r), onPreview: (p) => editsRef.current.onPreview(p),
+      onOpen: (r) => slotRef.current.openEdit(r, blockRect(r.key) ?? r.el),
+      onCreate: (r) => slotRef.current.openCreate(r, r.rect.width > 0 ? r.rect : { left: r.rect.left, top: r.rect.top, width: 1, height: 1 }),
     });
-    return () => { blocks.destroy(); s.destroy(); scroller.current = null; };
+    blocksRef.current = blocks;
+    return () => { blocks.destroy(); s.destroy(); scroller.current = null; blocksRef.current = null; };
   }, []);
   // Mémoire (PO-02) relevée dans le nettoyage d'un effet de mise en page : il passe avant le retrait du DOM, quand la
   // grille porte encore son défilement (le nettoyage d'un useEffect arrive après : élément détaché, scrollLeft à 0).
@@ -340,7 +371,10 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
           </>
         )}
         {records && (
-          <button type="button" aria-keyshortcuts="C" onClick={() => openTimeoffAt(document.activeElement)}>{t("schedule.timeoff.new")}</button>
+          <>
+            <button type="button" className="wn-primary" aria-haspopup="dialog" onClick={(e) => openCreate(e.currentTarget)}>{t("schedule.slot.add")}</button>
+            <button type="button" aria-keyshortcuts="C" aria-haspopup="dialog" onClick={(e) => openTimeoffAt(document.activeElement, e.currentTarget)}>{t("schedule.timeoff.new")}</button>
+          </>
         )}
         <span>{t("schedule.people.count", { count: shown.people.length })}</span>
       </div>
@@ -352,10 +386,10 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
           announce={(text) => editsRef.current.announce(text)} onExit={() => gridRef.current?.focus({ preventScroll: true })} />
       )}
       <div ref={gridRef} role="grid" aria-label={t("schedule.grid.label")} tabIndex={0} onKeyDown={onKeyDown}
-        onClick={(e) => { const off = records && scroller.current?.host.timeoffAt?.(e.target); if (off) timeoffs.openEdit(off.timeoff.timeoffId); }}
+        onClick={(e) => { const off = records && scroller.current?.host.timeoffAt?.(e.target); if (off) slot.openTimeoffEdit(off.timeoff.timeoffId, off.el); }}
         onDoubleClick={records ? onDoubleClick : undefined}
         className="wn-grid" />
-      {timeoffs.element}
+      {slot.element}
       {removal.element}
       {edits.element}
     </div>

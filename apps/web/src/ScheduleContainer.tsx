@@ -6,6 +6,7 @@
 // dans <main>, titré par un <h1> visible (traduit) qui ouvre le sous-header de l'écran (titre + barre d'outils). L'en-tête
 // applicatif, la cloche des notifications et le menu utilisateur vivent dans la coque (shell/).
 import type { I18n } from "@lingui/core";
+import type { Me } from "@wnext/contracts";
 import { todayIn, viewAt } from "@wnext/engine";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ImportSource } from "./data/import-source";
@@ -15,6 +16,7 @@ import type { ViewsSource } from "./data/views-source";
 import type { MessageKey } from "./i18n";
 import { ScheduleScreen, type ScheduleMemory } from "./ScheduleScreen";
 import { historyForSource } from "./schedule/history";
+import type { SlotCatalog } from "./schedule/slot-editor-ui";
 import { GUTTER_PX } from "./schedule/scroller";
 
 export interface ScheduleContainerProps {
@@ -34,6 +36,10 @@ export interface ScheduleContainerProps {
   readOnly?: boolean;
   /** Zoom et position gardés quand on quitte le Planning (PO-02), tenus par l'appelant ; absent : rien n'est gardé. */
   memory?: ScheduleMemory;
+  /** Référentiel des projets de la pop-in du créneau (projets autorisés, tâches, couleur) ; absent : projets de la source. */
+  catalog?: SlotCatalog;
+  /** Utilisateur connecté : projets proposés selon ses droits (BR-33). */
+  me?: Pick<Me, "role" | "person">;
 }
 
 const SHOWN_ERRORS = new Set<SourceErrorCode>(["UNAUTHENTICATED", "FORBIDDEN", "RATE_LIMITED"]);
@@ -45,7 +51,7 @@ const realtimeKey = (s: ScheduleSourceState["realtime"]): MessageKey =>
 const TODAY_CHECK_MS = 60_000;
 const systemNow = () => new Date();
 
-export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onReconnect, imports, readOnly = false, memory }: ScheduleContainerProps) {
+export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onReconnect, imports, readOnly = false, memory, catalog, me }: ScheduleContainerProps) {
   const t = (k: MessageKey) => i18n._(k);
   const state = useSyncExternalStore(source.subscribe, source.getState);
   const timezone = state.data?.account.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -96,7 +102,8 @@ export function ScheduleContainer({ i18n, source, views, now = systemNow, widthP
       {reconnect}
       {imports && importing && <ImportDialog i18n={i18n} source={imports} onClose={closeImport} />}
       <ScheduleScreen i18n={i18n} data={state.data} today={today} widthPx={widthPx} heightPx={heightPx} onViewChange={source.setViewport}
-        {...(readOnly ? {} : { editor: undo.history.editor, history: undo.history, records: source })} {...(views ? { views } : {})} {...(memory ? { memory } : {})}
+        {...(readOnly ? {} : { editor: undo.history.editor, history: undo.history, records: source, ...(catalog ? { catalog } : {}) })} {...(views ? { views } : {})} {...(memory ? { memory } : {})}
+        {...(me ? { me } : {})}
         heading={title}
         actions={(
           <div className="wn-statusbar">

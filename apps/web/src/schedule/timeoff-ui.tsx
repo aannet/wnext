@@ -8,6 +8,8 @@
 //    « Appliquer » écrit tout et l'enregistre comme une seule action d'annulation.
 //  * Refus : chevauchement (TIMEOFF_OVERLAP) et autres codes traduits dans le formulaire, resté ouvert ; refus en cours de
 //    report : annonce, ce qui a été écrit s'annule par Ctrl+Z. Échap ferme (ou revient d'un cran).
+//  * Pas de fenêtre propre (RT-017) : le hook rend la vue de l'étape courante (titre, contenu, pied, retour), affichée par la
+//    pop-in du créneau dans son onglet « Congé ».
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import type { LoggedTimeInput } from "@wnext/engine";
@@ -15,7 +17,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import type { TimeoffPatch } from "../api/client.gen";
 import type { EditError } from "../data/allocation-edits";
 import type { Timeoff } from "../data/record-edits";
-import { Button, Modal } from "../design";
+import { Button } from "../design";
 import type { MessageKey } from "../i18n";
 import { planResolution, runTimeoffAction, timeoffConflicts, type Choice, type FlowDeps, type TimeoffConflictReport, type TimeoffDraft } from "./timeoff-flow";
 
@@ -26,12 +28,28 @@ type Step =
   | (Review & { kind: "warn" })
   | (Review & { kind: "assist" });
 
+/** Étape courante, à afficher dans la pop-in du créneau. */
+export interface TimeoffView {
+  title: string;
+  body: ReactNode;
+  footer: ReactNode;
+  describedBy?: string;
+  /** Formulaire d'un nouveau congé (les onglets de la pop-in restent proposés) ; sinon modification ou avertissement BR-04. */
+  creating: boolean;
+  /** Échap : revient d'une étape (assistant, avertissement), puis ferme. */
+  back(): void;
+}
+
 export interface TimeoffEdits {
   /** « C » ou double clic : le congé de cette personne ce jour-là s'il existe (modification), sinon un nouveau. */
   openAt(personId: string, date: string): void;
   openEdit(id: string): void;
+  /** Nouveau congé prérempli sur une plage (onglet « Congé » de la pop-in d'un bloc ou d'un bloc provisoire). */
+  openCreate(personId: string, startDate: string, endDate: string): void;
+  /** Oublie l'étape en cours sans rien écrire ni prévenir (onglet quitté, pop-in fermée). */
+  reset(): void;
   isOpen(): boolean;
-  element: ReactNode;
+  view: TimeoffView | null;
 }
 
 const SHOWN = new Set<EditError>(["TIMEOFF_OVERLAP", "VERSION_CONFLICT", "NOT_FOUND", "FORBIDDEN", "NETWORK"]);
@@ -60,10 +78,10 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
     return { id, scope: cur?.scope ?? "full_day", hoursPerDay: cur?.hoursPerDay ?? null, ...f };
   };
 
-  function openCreate(personId: string, day: string) {
+  function openCreate(personId: string, day: string, endDate = day) {
     const types = dataRef.current.timeoffTypes;
     const typeId = (types.find((x) => x.deducted) ?? types[0])?.id ?? "";
-    setStep({ kind: "form", id: null, error: null, fields: { personId, typeId, startDate: day, endDate: day, startHalf: "am", endHalf: "pm", approvalStatus: "approved" } });
+    setStep({ kind: "form", id: null, error: null, fields: { personId, typeId, startDate: day, endDate, startHalf: "am", endHalf: "pm", approvalStatus: "approved" } });
   }
   function openEdit(id: string) {
     const x = dataRef.current.timeoffs.find((o) => o.id === id);
@@ -135,17 +153,15 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
     else if (step.kind === "warn") setStep({ kind: "form", id: step.id, fields: step.fields, error: null });
     else close();
   };
-  // Une seule fenêtre pour les trois étapes : le déclencheur mémorisé à l'ouverture reçoit le focus à la fermeture.
-  const modal = (title: string, children: ReactNode, footer: ReactNode, describedBy?: string) => (
-    <Modal title={title} closeLabel={t("dialog.close")} onClose={close} onEscape={back} className="wn-timeoff-dialog" footer={footer} {...(describedBy ? { describedBy } : {})}>
-      {children}
-    </Modal>
-  );
+  // Une seule vue pour les trois étapes, affichée par la pop-in du créneau.
+  const modal = (title: string, body: ReactNode, footer: ReactNode, describedBy?: string): TimeoffView => ({
+    title, body, footer, back, creating: step?.kind === "form" && step.id === null, ...(describedBy ? { describedBy } : {}),
+  });
 
-  let element: ReactNode = null;
-  if (step?.kind === "form") element = renderForm(step);
-  else if (step?.kind === "warn") element = renderWarning(step);
-  else if (step?.kind === "assist") element = renderAssistant(step);
+  let view: TimeoffView | null = null;
+  if (step?.kind === "form") view = renderForm(step);
+  else if (step?.kind === "warn") view = renderWarning(step);
+  else if (step?.kind === "assist") view = renderAssistant(step);
 
   function renderForm(s: Extract<Step, { kind: "form" }>) {
     const set = (k: keyof Fields) => (e: { target: { value: string } }) => setStep({ ...s, error: null, fields: { ...s.fields, [k]: e.target.value } });
@@ -153,7 +169,7 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
     return modal(t(s.id === null ? "schedule.timeoff.form.create" : "schedule.timeoff.form.edit"), (
         <form id="wn-timeoff-form" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
           <label>{t("schedule.timeoff.form.person")}
-            <select autoFocus value={s.fields.personId} onChange={set("personId")}>{d.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+            <select data-autofocus value={s.fields.personId} onChange={set("personId")}>{d.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
           </label>
           <label>{t("schedule.timeoff.form.type")}
             <select value={s.fields.typeId} onChange={set("typeId")}>{d.timeoffTypes.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
@@ -267,7 +283,9 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
       else openCreate(personId, day);
     },
     openEdit: (id) => { if (deps) openEdit(id); },
+    openCreate: (personId, startDate, endDate) => { if (deps) openCreate(personId, startDate, endDate); },
+    reset: () => setStep(null),
     isOpen: () => stepRef.current !== null,
-    element,
+    view,
   };
 }

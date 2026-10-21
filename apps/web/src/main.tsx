@@ -27,7 +27,7 @@ import { canEditPeople } from "./people/people-model";
 import { PeopleScreen } from "./people/people-screen";
 import { SettingsScreen } from "./settings/settings-screen";
 import type { ScheduleMemory } from "./ScheduleScreen";
-import { demoSchedule } from "./demo";
+import { demoSchedule, demoTasks } from "./demo";
 import { App } from "./shell/app";
 import { canAdminister, canEditSchedule, demoMe, loadMe, type MeState } from "./shell/me";
 import { browserRouter } from "./shell/router";
@@ -62,7 +62,7 @@ function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, sessio
     <App i18n={i18n} router={router} me={me} notifications={notifications} onRetry={load}
       {...(session ? { onLogout: () => void session.logout() } : {})} {...(reconnect ? { onReconnect: reconnect } : {})}
       renderPlanning={(user) => (
-        <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} readOnly={!canEditSchedule(user)} memory={memory}
+        <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} readOnly={!canEditSchedule(user)} memory={memory} catalog={projects} me={user}
           {...(reconnect ? { onReconnect: reconnect } : {})} {...(canAdminister(user) ? { imports } : {})} />
       )}
       renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} />}
@@ -80,7 +80,7 @@ if (params.get("demo") === "1") {
   const source = createDemoSource(demo);
   const views = createDemoViewsSource(demoSeedViews());
   const imports = createDemoImportSource(demoImportSnapshot(demo, today));
-  const projects = createDemoProjectsSource(demo, { onProject: (p) => source.projectChanged?.(scheduleProjectOf(p)) });
+  const projects = createDemoProjectsSource(demo, { onProject: (p) => source.projectChanged?.(scheduleProjectOf(p)) }, demoTasks(demo));
   const directory = createDemoDirectory(demo, {
     today,
     onEntity: (kind, entity) => source.directoryChanged?.(kind, entity),
@@ -91,7 +91,7 @@ if (params.get("demo") === "1") {
   const memory: ScheduleMemory = {};
   root.render(
     <App i18n={i18n} router={router} me={{ status: "ready", me }} notifications={createDemoNotificationsSource(demoNotifications(today))}
-      renderPlanning={() => <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} imports={imports} memory={memory} />}
+      renderPlanning={(user) => <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} imports={imports} memory={memory} catalog={projects} me={user} />}
       renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} />}
       renderPeople={(user) => <PeopleScreen i18n={i18n} source={directory.people} reference={directory.reference} account={user.account} canEdit={canEditPeople(user)} imports={imports} />}
       renderSettings={(user) => <SettingsScreen i18n={i18n} reference={directory.reference} projects={projects} account={user.account} canEdit={canAdminister(user)} />} />,
