@@ -5,7 +5,7 @@
 import type { I18n } from "@lingui/core";
 import type { Client, ProjectDetail } from "@wnext/contracts";
 import { useEffect, useState } from "react";
-import { Drawer } from "../design";
+import { Button, Drawer } from "../design";
 import type { ProjectsSource } from "../data/projects-source";
 import type { TeamRemovalEditor } from "../data/team-removal";
 import type { MessageKey } from "../i18n";
@@ -87,7 +87,7 @@ export function ProjectPanel(p: ProjectPanelProps) {
       {conflict && (
         <div role="alert" className="wn-error">
           <p>{t("projects.error.conflict")}</p>
-          <button type="button" onClick={() => void reloadAfterConflict()}>{t("projects.panel.reload")}</button>
+          <Button type="button" onClick={() => void reloadAfterConflict()}>{t("projects.panel.reload")}</Button>
         </div>
       )}
       <h3 className="wn-panel-section">{t("projects.panel.properties")}</h3>

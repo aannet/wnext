@@ -11,6 +11,7 @@ import type { MessageKey } from "../i18n";
 import { TeamRemovalDialog } from "../team/team-removal-dialog";
 import { errorKey } from "./projects-model";
 import { useLoad } from "./use-load";
+import { Button } from "../design";
 
 interface Removal { member: TeamMember; summary: RemovalSummary | null; error: string | null; stale: boolean; busy: boolean }
 
@@ -85,7 +86,7 @@ export function ProjectTeam({ i18n, source, projectId, projectName, canEdit, edi
       {error && <p role="alert" className="wn-error">{error}</p>}
       <p role="status" className={notice ? "wn-panel-notice" : "wn-visually-hidden"}>{notice}</p>
       {team.state.status === "loading" && <p className="wn-muted">{t("projects.loading")}</p>}
-      {team.state.status === "error" && <p role="alert" className="wn-error">{t("projects.team.error.load")} <button type="button" onClick={team.reload}>{t("projects.retry")}</button></p>}
+      {team.state.status === "error" && <p role="alert" className="wn-error">{t("projects.team.error.load")} <Button size="sm" type="button" onClick={team.reload}>{t("projects.retry")}</Button></p>}
       {team.state.status === "ready" && (members.length === 0
         ? <p className="wn-muted">{t("projects.team.empty")}</p>
         : (
@@ -93,7 +94,7 @@ export function ProjectTeam({ i18n, source, projectId, projectName, canEdit, edi
             {members.map((m) => (
               <li key={m.personId}>
                 <span className="wn-row-name">{m.name}</span>
-                {canEdit && editor && <button type="button" onClick={() => void openRemoval(m)}>{t("projects.team.remove", { person: m.name })}</button>}
+                {canEdit && editor && <Button size="sm" type="button" onClick={() => void openRemoval(m)}>{t("projects.team.remove", { person: m.name })}</Button>}
               </li>
             ))}
           </ul>
@@ -109,7 +110,7 @@ export function ProjectTeam({ i18n, source, projectId, projectName, canEdit, edi
             <option value="">{t("projects.team.add.placeholder")}</option>
             {candidates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <button type="submit" disabled={busy || !pick}>{t("projects.team.add")}</button>
+          <Button type="submit" disabled={busy || !pick}>{t("projects.team.add")}</Button>
         </form>
       )}
     </section>

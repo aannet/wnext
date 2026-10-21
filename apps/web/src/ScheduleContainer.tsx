@@ -18,6 +18,7 @@ import { ScheduleScreen, type ScheduleMemory } from "./ScheduleScreen";
 import { historyForSource } from "./schedule/history";
 import type { SlotCatalog } from "./schedule/slot-editor-ui";
 import { GUTTER_PX } from "./schedule/scroller";
+import { Button } from "./design";
 
 export interface ScheduleContainerProps {
   i18n: I18n;
@@ -79,7 +80,7 @@ export function ScheduleContainer({ i18n, source, views, now = systemNow, widthP
     <span role="status" className={`wn-realtime wn-realtime-${state.realtime}`}>{t(realtimeKey(state.realtime))}</span>
   );
   const error = state.error && <div role="alert" className="wn-error">{t(errorKey(state.error))}</div>;
-  const reconnect = state.error === "UNAUTHENTICATED" && onReconnect && <button type="button" className="wn-primary" onClick={onReconnect}>{t("auth.retry")}</button>;
+  const reconnect = state.error === "UNAUTHENTICATED" && onReconnect && <Button type="button" variant="primary" onClick={onReconnect}>{t("auth.retry")}</Button>;
 
   const title = <h1 tabIndex={-1} className="wn-subheader-title">{t("app.title")}</h1>;
   const [importing, setImporting] = useState(false);
@@ -109,7 +110,7 @@ export function ScheduleContainer({ i18n, source, views, now = systemNow, widthP
           <div className="wn-statusbar">
             {status}
             {state.loading && <span className="wn-loading">{t("schedule.loading")}</span>}
-            {imports && <button ref={importButton} type="button" className="wn-import-open" aria-haspopup="dialog" onClick={() => setImporting(true)}>{t("import.open")}</button>}
+            {imports && <Button ref={importButton} type="button" aria-haspopup="dialog" onClick={() => setImporting(true)}>{t("import.open")}</Button>}
           </div>
         )} />
     </main>

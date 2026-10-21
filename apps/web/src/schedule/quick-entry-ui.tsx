@@ -16,6 +16,7 @@ import type { EditError } from "../data/allocation-edits";
 import type { CreateOutcome } from "../data/record-edits";
 import type { MessageKey } from "../i18n";
 import type { History } from "./history";
+import { Button } from "../design";
 
 export interface QuickEntryHandle { focus(personId?: string): void }
 
@@ -154,7 +155,7 @@ export const QuickEntry = forwardRef<QuickEntryHandle, QuickEntryProps>(function
           </ul>
         )}
       </div>
-      <button type="button" disabled={!body} onClick={() => void submit()}>{t("schedule.quick.submit")}</button>
+      <Button type="button" disabled={!body} onClick={() => void submit()}>{t("schedule.quick.submit")}</Button>
       <div id="wn-quick-preview" className="wn-quick-preview">
         {body && draft.startDate && draft.endDate && (
           <span>{draft.mode === "hours"

@@ -2,6 +2,7 @@
 // Les écrans d'accès (connexion, session, erreur) sont seuls sur la page : pas d'en-tête applicatif, personne n'est connecté.
 import type { I18n } from "@lingui/core";
 import type { MessageKey } from "../i18n";
+import { Button } from "../design";
 
 /** Page encore vide : titre de la page et état « bientôt », dans l'en-tête applicatif. */
 export function ComingSoon({ i18n, titleKey }: { i18n: I18n; titleKey: MessageKey }) {
@@ -44,7 +45,7 @@ export function LoginScreen({ i18n, onLogin }: { i18n: I18n; onLogin: () => void
   return (
     <Gate i18n={i18n} title={i18n._("shell.login.title")}>
       <p>{i18n._("shell.login.lead")}</p>
-      <button type="button" className="wn-primary" onClick={onLogin}>{i18n._("shell.login.button")}</button>
+      <Button type="button" variant="primary" onClick={onLogin}>{i18n._("shell.login.button")}</Button>
     </Gate>
   );
 }
@@ -54,7 +55,7 @@ export function SessionExpired({ i18n, onReconnect }: { i18n: I18n; onReconnect:
   return (
     <Gate i18n={i18n} title={i18n._("shell.expired.title")}>
       <p role="alert">{i18n._("shell.expired.body")}</p>
-      <button type="button" className="wn-primary" onClick={onReconnect}>{i18n._("auth.retry")}</button>
+      <Button type="button" variant="primary" onClick={onReconnect}>{i18n._("auth.retry")}</Button>
     </Gate>
   );
 }
@@ -64,7 +65,7 @@ export function ProfileError({ i18n, onRetry }: { i18n: I18n; onRetry: () => voi
   return (
     <Gate i18n={i18n} title={i18n._("shell.error.title")}>
       <p role="alert">{i18n._("shell.error.body")}</p>
-      <button type="button" className="wn-primary" onClick={onRetry}>{i18n._("shell.error.retry")}</button>
+      <Button type="button" variant="primary" onClick={onRetry}>{i18n._("shell.error.retry")}</Button>
     </Gate>
   );
 }
@@ -80,7 +81,7 @@ export function LoginFailure({ i18n, onRetry }: { i18n: I18n; onRetry: () => voi
   return (
     <Gate i18n={i18n} title={i18n._("shell.login.title")}>
       <p role="alert">{i18n._("auth.error")}</p>
-      <button type="button" className="wn-primary" onClick={onRetry}>{i18n._("auth.retry")}</button>
+      <Button type="button" variant="primary" onClick={onRetry}>{i18n._("auth.retry")}</Button>
     </Gate>
   );
 }

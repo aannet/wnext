@@ -7,6 +7,7 @@ import type { MessageKey } from "../i18n";
 import { COUNTRY_EXAMPLE, errorOf } from "../people/people-model";
 import { useLoad } from "../projects/use-load";
 import { countriesOf, holidayInputOf, holidaysOf, NEW_HOLIDAY, NO_COUNTRY, validateHoliday, type HolidayErrors, type HolidayValues } from "./settings-model";
+import { Button } from "../design";
 
 export interface HolidaysSectionProps {
   i18n: I18n;
@@ -63,7 +64,7 @@ export function HolidaysSection({ i18n, store, canEdit }: HolidaysSectionProps) 
       {error && <p role="alert" className="wn-error">{error}</p>}
       <p role="status" className={notice ? "wn-panel-notice" : "wn-visually-hidden"}>{notice}</p>
       {list.state.status === "loading" && <p className="wn-muted">{t("people.loading")}</p>}
-      {list.state.status === "error" && <p role="alert" className="wn-error">{t("people.error.load")} <button type="button" onClick={list.reload}>{t("people.retry")}</button></p>}
+      {list.state.status === "error" && <p role="alert" className="wn-error">{t("people.error.load")} <Button size="sm" type="button" onClick={list.reload}>{t("people.retry")}</Button></p>}
       {canEdit && (
         <form className="wn-holiday-form" onSubmit={(e) => void create(e)} noValidate>
           <div className="wn-field">
@@ -86,7 +87,7 @@ export function HolidaysSection({ i18n, store, canEdit }: HolidaysSectionProps) 
             <input id={`${id}-hours`} value={v.hoursOff} inputMode="decimal" size={4} autoComplete="off" onChange={(e) => set("hoursOff", e.target.value)} {...invalid("hoursOff")} />
             {err("hoursOff")}
           </div>
-          <button type="submit" className="wn-primary" disabled={busy}>{t("settings.add")}</button>
+          <Button type="submit" variant="primary" disabled={busy}>{t("settings.add")}</Button>
         </form>
       )}
       {list.state.status === "ready" && (
@@ -107,7 +108,7 @@ export function HolidaysSection({ i18n, store, canEdit }: HolidaysSectionProps) 
                     {h.name} <span className="wn-muted">{fmt.format(new Date(`${h.date}T00:00:00Z`))} · {h.country ? region(h.country) : t("settings.holidays.everyone")}
                     {h.hoursOff !== null ? ` · ${t("settings.holidays.off", { hours: h.hoursOff })}` : ""}</span>
                   </span>
-                  {canEdit && <button type="button" disabled={busy} onClick={() => void remove(h)}>{t("settings.delete", { name: h.name })}</button>}
+                  {canEdit && <Button size="sm" type="button" disabled={busy} onClick={() => void remove(h)}>{t("settings.delete", { name: h.name })}</Button>}
                 </li>
               ))}
             </ul>

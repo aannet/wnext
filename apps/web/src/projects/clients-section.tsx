@@ -6,6 +6,7 @@ import { useId, useState } from "react";
 import type { ProjectsSource } from "../data/projects-source";
 import type { MessageKey } from "../i18n";
 import { errorKey } from "./projects-model";
+import { Button } from "../design";
 
 export interface ClientsSectionProps {
   i18n: I18n;
@@ -53,7 +54,7 @@ export function ClientsSection({ i18n, source, clients, canEdit, onCreated, onRe
         <form className="wn-inline-form" onSubmit={(e) => void create(e)}>
           <label htmlFor={`${id}-new`}>{t("projects.clients.new.label")}</label>
           <input id={`${id}-new`} value={name} maxLength={200} autoComplete="off" onChange={(e) => setName(e.target.value)} />
-          <button type="submit" className="wn-primary" disabled={busy || !name.trim()}>{t("projects.clients.add")}</button>
+          <Button type="submit" variant="primary" disabled={busy || !name.trim()}>{t("projects.clients.add")}</Button>
         </form>
       )}
       {sorted.length === 0 ? <p className="wn-muted">{t("projects.clients.empty")}</p> : (
@@ -64,13 +65,13 @@ export function ClientsSection({ i18n, source, clients, canEdit, onCreated, onRe
                 <form className="wn-inline-form" onSubmit={(e) => { e.preventDefault(); void rename(c, editing.name); }}>
                   <input aria-label={t("projects.clients.rename.label", { name: c.name })} value={editing.name} autoFocus maxLength={200}
                     onChange={(e) => setEditing({ id: c.id, name: e.target.value })} onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setEditing(null); } }} />
-                  <button type="submit" disabled={busy}>{t("projects.tasks.save")}</button>
-                  <button type="button" onClick={() => setEditing(null)}>{t("projects.form.cancel")}</button>
+                  <Button size="sm" type="submit" disabled={busy}>{t("projects.tasks.save")}</Button>
+                  <Button size="sm" type="button" onClick={() => setEditing(null)}>{t("projects.form.cancel")}</Button>
                 </form>
               ) : (
                 <>
                   <span className="wn-row-name">{c.name}</span>
-                  {canEdit && <button type="button" onClick={() => { setError(null); setEditing({ id: c.id, name: c.name }); }}>{t("projects.clients.rename", { name: c.name })}</button>}
+                  {canEdit && <Button size="sm" type="button" onClick={() => { setError(null); setEditing({ id: c.id, name: c.name }); }}>{t("projects.clients.rename", { name: c.name })}</Button>}
                 </>
               )}
             </li>

@@ -6,7 +6,7 @@
 import type { I18n } from "@lingui/core";
 import { useEffect, useMemo, useState } from "react";
 import type { Department, PeopleSource, Person, Role } from "../data/people-source";
-import { Drawer } from "../design";
+import { Button, Drawer } from "../design";
 import type { MessageKey } from "../i18n";
 import { DeactivateDialog } from "./deactivate-dialog";
 import { diffOf, errorOf, valuesOf, weekdayName, weekOrder, weeklySummary, type PersonValues } from "./people-model";
@@ -79,7 +79,7 @@ export function PersonPanel(p: PersonPanelProps) {
       {conflict && (
         <div role="alert" className="wn-error">
           <p>{t("people.error.conflict")}</p>
-          <button type="button" onClick={() => void reloadAfterConflict()}>{t("people.panel.reload")}</button>
+          <Button type="button" onClick={() => void reloadAfterConflict()}>{t("people.panel.reload")}</Button>
         </div>
       )}
       <h3 className="wn-panel-section">{t("people.panel.properties")}</h3>
@@ -90,7 +90,7 @@ export function PersonPanel(p: PersonPanelProps) {
       <section className="wn-panel-block" aria-labelledby="wn-history-h">
         <h3 id="wn-history-h" className="wn-panel-section">{t("people.history.title")}</h3>
         {history.state.status === "loading" && <p className="wn-muted">{t("people.loading")}</p>}
-        {history.state.status === "error" && <p role="alert" className="wn-error">{t("people.history.error")} <button type="button" onClick={history.reload}>{t("people.retry")}</button></p>}
+        {history.state.status === "error" && <p role="alert" className="wn-error">{t("people.history.error")} <Button size="sm" type="button" onClick={history.reload}>{t("people.retry")}</Button></p>}
         {history.state.status === "ready" && (
           <ul className="wn-history">
             {periods.map((h) => {
@@ -110,8 +110,8 @@ export function PersonPanel(p: PersonPanelProps) {
         <section className="wn-panel-block" aria-labelledby="wn-access-h">
           <h3 id="wn-access-h" className="wn-panel-section">{t("people.panel.status")}</h3>
           {person.active
-            ? <button type="button" onClick={() => setDeactivating(true)}>{t("people.panel.deactivate")}</button>
-            : <button type="button" disabled={busy} onClick={() => void reactivate()}>{t("people.panel.reactivate")}</button>}
+            ? <Button type="button" onClick={() => setDeactivating(true)}>{t("people.panel.deactivate")}</Button>
+            : <Button type="button" disabled={busy} onClick={() => void reactivate()}>{t("people.panel.reactivate")}</Button>}
         </section>
       )}
       {deactivating && (

@@ -7,7 +7,7 @@ import type { Client, ProjectDetail } from "@wnext/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectsSource } from "../data/projects-source";
 import type { TeamRemovalEditor } from "../data/team-removal";
-import { Drawer } from "../design";
+import { Button, Drawer } from "../design";
 import { suggestColor } from "../design/project-palette";
 import type { MessageKey } from "../i18n";
 import { ClientsSection } from "./clients-section";
@@ -75,13 +75,13 @@ export function ProjectsScreen({ i18n, source, canEdit, editor }: ProjectsScreen
           {tabButton("clients", "projects.tabs.clients")}
         </div>
         {tab === "projects" && canEdit && (
-          <button type="button" className="wn-primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("projects.new")}</button>
+          <Button type="button" variant="primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("projects.new")}</Button>
         )}
       </div>
 
       {(projects.state.status === "loading" || clients.state.status === "loading") && <p className="wn-muted" role="status">{t("projects.loading")}</p>}
       {(projects.state.status === "error" || clients.state.status === "error") && (
-        <p role="alert" className="wn-error">{t("projects.error.load")} <button type="button" onClick={() => { projects.reload(); clients.reload(); }}>{t("projects.retry")}</button></p>
+        <p role="alert" className="wn-error">{t("projects.error.load")} <Button size="sm" type="button" onClick={() => { projects.reload(); clients.reload(); }}>{t("projects.retry")}</Button></p>
       )}
 
       {ready && (
@@ -148,8 +148,8 @@ function EmptyState({ i18n, filtered, canEdit, onCreate, onReset }: { i18n: I18n
       <h2 id="wn-empty-title">{t(filtered ? "projects.empty.filtered.title" : "projects.empty.title")}</h2>
       <p>{t(filtered ? "projects.empty.filtered.body" : "projects.empty.body")}</p>
       {filtered
-        ? <button type="button" onClick={onReset}>{t("projects.filters.reset")}</button>
-        : canEdit && <button type="button" className="wn-primary" onClick={(e) => onCreate(e.currentTarget)}>{t("projects.new")}</button>}
+        ? <Button type="button" onClick={onReset}>{t("projects.filters.reset")}</Button>
+        : canEdit && <Button type="button" variant="primary" onClick={(e) => onCreate(e.currentTarget)}>{t("projects.new")}</Button>}
     </section>
   );
 }

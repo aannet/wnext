@@ -63,13 +63,13 @@ export function TimeoffTypesSection({ i18n, store, canEdit }: TimeoffTypesSectio
       {error && <p role="alert" className="wn-error">{error}</p>}
       <p role="status" className={notice ? "wn-panel-notice" : "wn-visually-hidden"}>{notice}</p>
       {list.state.status === "loading" && <p className="wn-muted">{t("people.loading")}</p>}
-      {list.state.status === "error" && <p role="alert" className="wn-error">{t("people.error.load")} <button type="button" onClick={list.reload}>{t("people.retry")}</button></p>}
+      {list.state.status === "error" && <p role="alert" className="wn-error">{t("people.error.load")} <Button size="sm" type="button" onClick={list.reload}>{t("people.retry")}</Button></p>}
       {canEdit && (
         <form className="wn-inline-form" onSubmit={(e) => void create(e)}>
           <label htmlFor={`${id}-new`}>{t("settings.timeoff.new")}</label>
           <input id={`${id}-new`} value={name} maxLength={200} autoComplete="off" onChange={(e) => setName(e.target.value)} />
           <label><input type="checkbox" checked={deducted} onChange={(e) => setDeducted(e.target.checked)} /> {t("settings.timeoff.deducted")}</label>
-          <button type="submit" className="wn-primary" disabled={busy || !name.trim()}>{t("settings.add")}</button>
+          <Button type="submit" variant="primary" disabled={busy || !name.trim()}>{t("settings.add")}</Button>
         </form>
       )}
       {list.state.status === "ready" && (items.length === 0 ? <p className="wn-muted">{t("settings.timeoff.empty")}</p> : (
@@ -79,8 +79,8 @@ export function TimeoffTypesSection({ i18n, store, canEdit }: TimeoffTypesSectio
               <span className="wn-row-name">{x.name} <span className="wn-muted">{t(x.deducted ? "settings.timeoff.deducted.yes" : "settings.timeoff.deducted.no")}</span></span>
               {canEdit && (
                 <span className="wn-row-actions">
-                  <button type="button" disabled={busy} onClick={() => void toggle(x)}>{t(x.deducted ? "settings.timeoff.make_free" : "settings.timeoff.make_deducted", { name: x.name })}</button>
-                  <button type="button" onClick={() => { setError(null); setRemoving(x); }}>{t("settings.delete", { name: x.name })}</button>
+                  <Button size="sm" type="button" disabled={busy} onClick={() => void toggle(x)}>{t(x.deducted ? "settings.timeoff.make_free" : "settings.timeoff.make_deducted", { name: x.name })}</Button>
+                  <Button size="sm" type="button" onClick={() => { setError(null); setRemoving(x); }}>{t("settings.delete", { name: x.name })}</Button>
                 </span>
               )}
             </li>

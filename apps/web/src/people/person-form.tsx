@@ -8,6 +8,7 @@ import type { Department, Person, Role } from "../data/people-source";
 import type { MessageKey } from "../i18n";
 import { COUNTRY_EXAMPLE, diffOf, PEOPLE_TYPES, TYPE_KEY, validatePerson, type PersonErrors, type PersonField, type PersonValues } from "./people-model";
 import { WeekHoursField } from "./week-hours-field";
+import { Button } from "../design";
 
 export interface PersonFormProps {
   i18n: I18n;
@@ -108,8 +109,8 @@ export function PersonForm(p: PersonFormProps) {
       )}
       {!p.readOnly && (
         <div className="wn-dialog-actions">
-          <button type="submit" className="wn-primary" disabled={p.busy || !dirty}>{t(p.mode === "create" ? "people.form.create" : "people.form.save")}</button>
-          {p.onCancel && <button type="button" onClick={p.onCancel}>{t("people.form.cancel")}</button>}
+          <Button type="submit" variant="primary" disabled={p.busy || !dirty}>{t(p.mode === "create" ? "people.form.create" : "people.form.save")}</Button>
+          {p.onCancel && <Button type="button" onClick={p.onCancel}>{t("people.form.cancel")}</Button>}
         </div>
       )}
     </form>

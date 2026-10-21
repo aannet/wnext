@@ -70,7 +70,7 @@ export function NotificationsPanel({ i18n, source, anchor, onClose }: { i18n: I1
                   <time dateTime={n.createdAt}>{when.format(new Date(n.createdAt))}</time>
                   {unread && <span className="wn-notification-flag">{t("notifications.unread")}</span>}
                 </p>
-                {unread && <button type="button" disabled={busy} onClick={() => void run(() => source.markRead(n.id))}>{t("notifications.markRead")}</button>}
+                {unread && <Button size="sm" type="button" disabled={busy} onClick={() => void run(() => source.markRead(n.id))}>{t("notifications.markRead")}</Button>}
               </li>
             );
           })}

@@ -74,12 +74,12 @@ export function NamedListSection<T extends { id: string; version: number; name: 
       {error && <p role="alert" className="wn-error">{error}</p>}
       <p role="status" className={notice ? "wn-panel-notice" : "wn-visually-hidden"}>{notice}</p>
       {list.state.status === "loading" && <p className="wn-muted">{t("people.loading")}</p>}
-      {list.state.status === "error" && <p role="alert" className="wn-error">{t("people.error.load")} <button type="button" onClick={list.reload}>{t("people.retry")}</button></p>}
+      {list.state.status === "error" && <p role="alert" className="wn-error">{t("people.error.load")} <Button size="sm" type="button" onClick={list.reload}>{t("people.retry")}</Button></p>}
       {canEdit && (
         <form className="wn-inline-form" onSubmit={(e) => void create(e)}>
           <label htmlFor={`${id}-new`}>{t(newLabel)}</label>
           <input id={`${id}-new`} value={name} maxLength={200} autoComplete="off" onChange={(e) => setName(e.target.value)} />
-          <button type="submit" className="wn-primary" disabled={busy || !name.trim()}>{t("settings.add")}</button>
+          <Button type="submit" variant="primary" disabled={busy || !name.trim()}>{t("settings.add")}</Button>
         </form>
       )}
       {list.state.status === "ready" && (items.length === 0 ? <p className="wn-muted">{t(empty)}</p> : (
@@ -90,16 +90,16 @@ export function NamedListSection<T extends { id: string; version: number; name: 
                 <form className="wn-inline-form" onSubmit={(e) => { e.preventDefault(); void rename(x, editing.name); }}>
                   <input aria-label={t("settings.rename.label", { name: x.name })} value={editing.name} autoFocus maxLength={200}
                     onChange={(e) => setEditing({ id: x.id, name: e.target.value })} onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setEditing(null); } }} />
-                  <button type="submit" disabled={busy}>{t("settings.save")}</button>
-                  <button type="button" onClick={() => setEditing(null)}>{t("settings.cancel")}</button>
+                  <Button size="sm" type="submit" disabled={busy}>{t("settings.save")}</Button>
+                  <Button size="sm" type="button" onClick={() => setEditing(null)}>{t("settings.cancel")}</Button>
                 </form>
               ) : (
                 <>
                   <span className="wn-row-name">{x.name}</span>
                   {canEdit && (
                     <span className="wn-row-actions">
-                      <button type="button" onClick={() => { setError(null); setEditing({ id: x.id, name: x.name }); }}>{t("settings.rename", { name: x.name })}</button>
-                      <button type="button" onClick={() => { setError(null); setRemoving(x); }}>{t("settings.delete", { name: x.name })}</button>
+                      <Button size="sm" type="button" onClick={() => { setError(null); setEditing({ id: x.id, name: x.name }); }}>{t("settings.rename", { name: x.name })}</Button>
+                      <Button size="sm" type="button" onClick={() => { setError(null); setRemoving(x); }}>{t("settings.delete", { name: x.name })}</Button>
                     </span>
                   )}
                 </>

@@ -9,7 +9,7 @@ import { todayIn } from "@wnext/engine";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ImportSource } from "../data/import-source";
 import type { PeopleSource, Person, ReferenceSource } from "../data/people-source";
-import { Drawer } from "../design";
+import { Button, Drawer } from "../design";
 import type { MessageKey } from "../i18n";
 import { ImportDialog } from "../imports/import-dialog";
 import { useLoad } from "../projects/use-load";
@@ -61,14 +61,14 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
     <main className="wn-page wn-people">
       <div className="wn-subheader">
         <h1 tabIndex={-1} className="wn-subheader-title">{t("shell.nav.people")}</h1>
-        {imports && <button type="button" aria-haspopup="dialog" onClick={(e) => { trigger.current = e.currentTarget; setImporting(true); }}>{t("import.open")}</button>}
-        {canEdit && <button type="button" className="wn-primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("people.new")}</button>}
+        {imports && <Button type="button" aria-haspopup="dialog" onClick={(e) => { trigger.current = e.currentTarget; setImporting(true); }}>{t("import.open")}</Button>}
+        {canEdit && <Button type="button" variant="primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("people.new")}</Button>}
       </div>
       {imports && importing && <ImportDialog i18n={i18n} source={imports} onClose={() => { setImporting(false); people.reload(); }} />}
 
       {(people.state.status === "loading" || departments.state.status === "loading" || roles.state.status === "loading") && <p className="wn-muted" role="status">{t("people.loading")}</p>}
       {(people.state.status === "error" || departments.state.status === "error" || roles.state.status === "error") && (
-        <p role="alert" className="wn-error">{t("people.error.load")} <button type="button" onClick={() => { people.reload(); departments.reload(); roles.reload(); }}>{t("people.retry")}</button></p>
+        <p role="alert" className="wn-error">{t("people.error.load")} <Button size="sm" type="button" onClick={() => { people.reload(); departments.reload(); roles.reload(); }}>{t("people.retry")}</Button></p>
       )}
 
       {ready && (
@@ -116,8 +116,8 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
               <h2 id="wn-pempty-title">{t(all.length > 0 ? "people.empty.filtered.title" : "people.empty.title")}</h2>
               <p>{t(all.length > 0 ? "people.empty.filtered.body" : "people.empty.body")}</p>
               {all.length > 0
-                ? <button type="button" onClick={() => setFilters(NO_PEOPLE_FILTERS)}>{t("people.filters.reset")}</button>
-                : canEdit && <button type="button" className="wn-primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("people.new")}</button>}
+                ? <Button type="button" onClick={() => setFilters(NO_PEOPLE_FILTERS)}>{t("people.filters.reset")}</Button>
+                : canEdit && <Button type="button" variant="primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("people.new")}</Button>}
             </section>
           ) : (
             <table className="wn-table">

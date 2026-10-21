@@ -51,6 +51,7 @@ import { gaugeLabeler } from "./schedule/gauge-label";
 import { ViewsBar } from "./schedule/views-ui";
 import { useTeamRemoval } from "./schedule/team-removal-ui";
 import type { TeamRemovalEditor } from "./data/team-removal";
+import { Button } from "./design";
 
 export interface ScheduleScreenProps {
   i18n: I18n;
@@ -343,14 +344,14 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
       <div className="wn-subheader">
       {heading}
       <div role="toolbar" aria-label={t("schedule.toolbar.label")} className="wn-toolbar">
-        <button type="button" onClick={() => scroller.current?.step(-1)}>{t("schedule.prev")}</button>
-        <button type="button" onClick={() => scroller.current?.today()}>{t("schedule.today")}</button>
-        <button type="button" onClick={() => scroller.current?.step(1)}>{t("schedule.next")}</button>
+        <Button type="button" onClick={() => scroller.current?.step(-1)}>{t("schedule.prev")}</Button>
+        <Button type="button" onClick={() => scroller.current?.today()}>{t("schedule.today")}</Button>
+        <Button type="button" onClick={() => scroller.current?.step(1)}>{t("schedule.next")}</Button>
         <span>{t("schedule.zoom.label")}</span>
         {ZOOMS.map((z) => (
-          <button key={z} type="button" aria-pressed={zoom === z} onClick={() => zoomTo(z)}>
+          <Button key={z} type="button" aria-pressed={zoom === z} onClick={() => zoomTo(z)}>
             {t(`schedule.zoom.${z}`)}
-          </button>
+          </Button>
         ))}
         <div role="radiogroup" aria-label={t("schedule.density.label")} className="wn-segmented" onKeyDown={onDensityKey}>
           {DENSITIES.map((d) => (
@@ -362,18 +363,18 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
         </div>
         {history && (
           <>
-            <button type="button" disabled={!stack.canUndo} aria-keyshortcuts="Control+Z Meta+Z" onClick={() => stepRef.current("undo")}>
+            <Button type="button" disabled={!stack.canUndo} aria-keyshortcuts="Control+Z Meta+Z" onClick={() => stepRef.current("undo")}>
               {t("schedule.history.undo")}
-            </button>
-            <button type="button" disabled={!stack.canRedo} aria-keyshortcuts="Control+Shift+Z Control+Y Meta+Shift+Z" onClick={() => stepRef.current("redo")}>
+            </Button>
+            <Button type="button" disabled={!stack.canRedo} aria-keyshortcuts="Control+Shift+Z Control+Y Meta+Shift+Z" onClick={() => stepRef.current("redo")}>
               {t("schedule.history.redo")}
-            </button>
+            </Button>
           </>
         )}
         {records && (
           <>
-            <button type="button" className="wn-primary" aria-haspopup="dialog" onClick={(e) => openCreate(e.currentTarget)}>{t("schedule.slot.add")}</button>
-            <button type="button" aria-keyshortcuts="C" aria-haspopup="dialog" onClick={(e) => openTimeoffAt(document.activeElement, e.currentTarget)}>{t("schedule.timeoff.new")}</button>
+            <Button type="button" variant="primary" aria-haspopup="dialog" onClick={(e) => openCreate(e.currentTarget)}>{t("schedule.slot.add")}</Button>
+            <Button type="button" aria-keyshortcuts="C" aria-haspopup="dialog" onClick={(e) => openTimeoffAt(document.activeElement, e.currentTarget)}>{t("schedule.timeoff.new")}</Button>
           </>
         )}
         <span>{t("schedule.people.count", { count: shown.people.length })}</span>

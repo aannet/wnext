@@ -187,12 +187,12 @@ export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, densit
           </select>
         </label>
         {modified && <span className="wn-views-modified">{t("views.modified")}</span>}
-        <button type="button" onClick={() => openForm("save")}>{t("views.save")}</button>
+        <Button type="button" onClick={() => openForm("save")}>{t("views.save")}</Button>
         {current?.canManage && (
           <>
-            <button type="button" disabled={!modified || busy} onClick={update}>{t("views.update")}</button>
-            <button type="button" onClick={() => openForm("rename")}>{t("views.rename")}</button>
-            <button type="button" onClick={() => openForm("delete")}>{t("views.delete")}</button>
+            <Button type="button" disabled={!modified || busy} onClick={update}>{t("views.update")}</Button>
+            <Button size="sm" type="button" onClick={() => openForm("rename")}>{t("views.rename")}</Button>
+            <Button type="button" onClick={() => openForm("delete")}>{t("views.delete")}</Button>
           </>
         )}
         <span role="status" className={message?.error ? "wn-views-error" : "wn-views-status"}>{message?.text ?? ""}</span>
@@ -240,7 +240,7 @@ export function ViewsBar({ i18n, data, shownCount, source, filters, zoom, densit
               {(["name", "department", "role"] as const).map((s) => <option key={s} value={s}>{t(`views.sort.${s}`)}</option>)}
             </select>
           </div>
-          <button type="button" disabled={count === 0 && !filters.peopleSort} onClick={() => onFilters({})}>{t("views.reset")}</button>
+          <Button type="button" disabled={count === 0 && !filters.peopleSort} onClick={() => onFilters({})}>{t("views.reset")}</Button>
         </div>
       </details>
     </div>

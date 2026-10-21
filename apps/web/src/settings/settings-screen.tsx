@@ -13,6 +13,7 @@ import { AccountSection } from "./account-section";
 import { HolidaysSection } from "./holidays-section";
 import { NamedListSection } from "./named-list-section";
 import { TimeoffTypesSection } from "./timeoff-types-section";
+import { Button } from "../design";
 
 export interface SettingsScreenProps {
   i18n: I18n;
@@ -63,7 +64,7 @@ export function SettingsScreen({ i18n, reference, projects, account, canEdit }: 
               onCreated={(c: Client) => clients.update((d) => (d.some((x) => x.id === c.id) ? d : [...d, c]))}
               onRenamed={(c: Client) => clients.update((d) => d.map((x) => (x.id === c.id ? c : x)))} />
           : clients.state.status === "error"
-            ? <p role="alert" className="wn-error">{t("people.error.load")} <button type="button" onClick={clients.reload}>{t("people.retry")}</button></p>
+            ? <p role="alert" className="wn-error">{t("people.error.load")} <Button size="sm" type="button" onClick={clients.reload}>{t("people.retry")}</Button></p>
             : <p className="wn-muted" role="status">{t("people.loading")}</p>)}
         {tab === "timeoff" && <TimeoffTypesSection i18n={i18n} store={reference.timeoffTypes} canEdit={canEdit} />}
         {tab === "holidays" && <HolidaysSection i18n={i18n} store={reference.holidays} canEdit={canEdit} />}

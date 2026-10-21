@@ -7,6 +7,7 @@ import { useId, useState, useEffect } from "react";
 import type { MessageKey } from "../i18n";
 import { ColorField } from "./color-field";
 import { STATUS_KEY, STATUSES, validateForm, type FormErrors, type FormField, type FormValues } from "./projects-model";
+import { Button } from "../design";
 
 const NEW_CLIENT = "__new__";
 
@@ -109,8 +110,8 @@ export function ProjectForm(p: ProjectFormProps) {
       </div>
       {!p.readOnly && (
         <div className="wn-dialog-actions">
-          <button type="submit" className="wn-primary" disabled={p.busy || !dirty}>{t(p.mode === "create" ? "projects.form.create" : "projects.form.save")}</button>
-          {p.onCancel && <button type="button" onClick={p.onCancel}>{t("projects.form.cancel")}</button>}
+          <Button type="submit" variant="primary" disabled={p.busy || !dirty}>{t(p.mode === "create" ? "projects.form.create" : "projects.form.save")}</Button>
+          {p.onCancel && <Button type="button" onClick={p.onCancel}>{t("projects.form.cancel")}</Button>}
         </div>
       )}
     </form>
