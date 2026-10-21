@@ -168,7 +168,7 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
   .wn-greeting { display: none; }
 }
 
-/* Écran Projets (lot L-F1) : liste filtrable, panneau latéral local (rebranché plus tard sur le Drawer commun), formulaires. */
+/* Écran Projets (lot L-F1) : liste filtrable, fiche dans le Drawer commun, formulaires. */
 .wn-projects { overflow: auto; }
 .wn-projects .wn-subheader { padding-top: 0; }
 .wn-tabs { display: flex; gap: var(--space-1); }
@@ -197,7 +197,6 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-link-button .wn-dot { margin-right: 0; }
 .wn-muted { color: var(--text-muted); }
 .wn-empty { max-width: 520px; }
-.wn-project-panel { padding: var(--space-4); border: 1px solid var(--color-border-strong); border-radius: var(--radius-lg); background: var(--surface); }
 .wn-panel-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
 .wn-panel-title { margin: 0; font-size: var(--text-heading); line-height: var(--text-heading--line-height); display: flex; align-items: center; }
 .wn-panel-title:focus { outline: none; }
@@ -222,3 +221,31 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-color-preview { width: 20px; height: 20px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); }
 .wn-color-warnings { margin: var(--space-1) 0 0; padding-left: var(--space-4); color: var(--color-warn-text); font-size: var(--text-caption); }
 .wn-clients { max-width: 520px; }
+
+/* Écrans Personnes et Réglages (lot L-F2) : liste, fiche (Drawer), horaire sur 7 jours, sections de réglages. */
+.wn-people, .wn-settings { overflow: auto; }
+.wn-people .wn-subheader, .wn-settings .wn-subheader { padding-top: 0; }
+.wn-avatar { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-full); background: var(--surface-sunken); border: 1px solid var(--color-border-strong); font-size: var(--text-caption); font-weight: var(--font-weight-semibold); color: var(--text); }
+.wn-tag { padding: 0 var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-full); font-size: var(--text-caption); color: var(--text-muted); }
+.wn-dialog-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+.wn-person-form { display: flex; flex-direction: column; }
+.wn-week-hours { margin: 0 0 var(--space-3); padding: 0; border: 0; }
+.wn-week-hours legend { padding: 0; margin-bottom: var(--space-2); font-size: var(--text-label); font-weight: var(--font-weight-medium); color: var(--text-muted); }
+.wn-week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); }
+.wn-week-grid .wn-field { margin-bottom: 0; }
+.wn-week-grid input { width: 100%; text-align: center; }
+.wn-more { margin-bottom: var(--space-3); }
+.wn-more summary { margin-bottom: var(--space-2); cursor: pointer; color: var(--text-muted); }
+.wn-history { margin: 0; padding-left: var(--space-4); }
+.wn-history li { margin-bottom: var(--space-1); }
+.wn-choice { margin: var(--space-3) 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.wn-choice legend { padding: 0; margin-bottom: var(--space-1); font-weight: var(--font-weight-medium); }
+.wn-facts { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-4); margin: 0 0 var(--space-3); }
+.wn-facts dt { color: var(--text-muted); }
+.wn-facts dd { margin: 0; }
+.wn-row-name { flex: 1; min-width: 0; }
+.wn-holiday-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); margin-bottom: var(--space-3); }
+.wn-holiday-form .wn-field { margin-bottom: 0; }
+.wn-filter-inline { max-width: 320px; }
+.wn-settings .wn-clients { max-width: 720px; }
+@media (max-width: 880px) { .wn-week-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

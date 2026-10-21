@@ -1,5 +1,5 @@
 // Coque applicative : en-tête commun, puis la page de la route courante. Planning est fourni par l'appelant (renderPlanning,
-// qui détient la source de données) ; Projets, Personnes et Réglages sont des pages « bientôt » (lot L-F). Les droits d'affichage
+// qui détient la source de données) ; Projets, Personnes et Réglages sont fournis de même (une page absente : « bientôt »). Les droits d'affichage
 // viennent de GET /me (état `me`) : Réglages n'apparaît que pour owner et admin.
 // La page Planning est démontée quand on la quitte (sa source se rearrête et redémarre) : le défilement, le zoom et l'historique
 // d'annulation repartent de zéro au retour.
@@ -19,6 +19,10 @@ export interface AppProps {
   renderPlanning(me: Me): ReactNode;
   /** Page Projets (lot L-F1) ; absente : page « bientôt disponible ». */
   renderProjects?(me: Me): ReactNode;
+  /** Page Personnes (lot L-F2) ; absente : page « bientôt disponible ». */
+  renderPeople?(me: Me): ReactNode;
+  /** Page Réglages (lot L-F2, owner et admin) ; absente : page « bientôt disponible ». */
+  renderSettings?(me: Me): ReactNode;
   notifications?: NotificationsSource;
   /** Session à fermer (OIDC) : menu utilisateur avec Déconnexion. */
   onLogout?: () => void;
@@ -30,7 +34,7 @@ export interface AppProps {
 
 const reload = () => globalThis.location.reload();
 
-export function App({ i18n, router, me, renderPlanning, renderProjects, notifications, onLogout, onReconnect, onRetry }: AppProps) {
+export function App({ i18n, router, me, renderPlanning, renderProjects, renderPeople, renderSettings, notifications, onLogout, onReconnect, onRetry }: AppProps) {
   const route = useSyncExternalStore(router.subscribe, router.current);
   const previous = useRef<RouteId | null | undefined>(undefined);
   const ready = me.status === "ready";
@@ -56,6 +60,8 @@ export function App({ i18n, router, me, renderPlanning, renderProjects, notifica
         {...(notifications ? { notifications } : {})} {...(onLogout ? { onLogout } : {})} />
       {page === "planning" ? renderPlanning(user)
         : page === "projects" && renderProjects ? renderProjects(user)
+        : page === "people" && renderPeople ? renderPeople(user)
+        : page === "settings" && renderSettings ? renderSettings(user)
         : page ? <ComingSoon i18n={i18n} titleKey={ROUTE_TITLE_KEY[page]} />
         : <NotFound i18n={i18n} href={router.href("planning")} onBack={() => router.navigate("planning")} />}
     </div>

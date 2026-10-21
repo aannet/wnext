@@ -21,6 +21,10 @@ import { createApiProjectsSource, createDemoProjectsSource } from "./data/projec
 import { ScheduleContainer } from "./ScheduleContainer";
 import { ProjectsScreen } from "./projects/projects-screen";
 import { canEditProjects, scheduleProjectOf } from "./projects/projects-model";
+import { createApiPeopleSource, createApiReferenceSource, createDemoDirectory } from "./data/people-source";
+import { canEditPeople } from "./people/people-model";
+import { PeopleScreen } from "./people/people-screen";
+import { SettingsScreen } from "./settings/settings-screen";
 import { demoSchedule } from "./demo";
 import { App } from "./shell/app";
 import { canAdminister, canEditSchedule, demoMe, loadMe, type MeState } from "./shell/me";
@@ -47,6 +51,8 @@ function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, sessio
   const views = createApiViewsSource(api);
   const imports = createApiImportSource(api);
   const projects = createApiProjectsSource(api);
+  const people = createApiPeopleSource(api);
+  const reference = createApiReferenceSource(api);
   const reconnect = session && (() => void session.login());
   const load = () => { show({ status: "loading" }); void loadMe(api).then(show); };
   show = (me) => root.render(
@@ -56,7 +62,11 @@ function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, sessio
         <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} readOnly={!canEditSchedule(user)}
           {...(reconnect ? { onReconnect: reconnect } : {})} {...(canAdminister(user) ? { imports } : {})} />
       )}
-      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} />} />,
+      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} />}
+      renderPeople={(user) => (
+        <PeopleScreen i18n={i18n} source={people} reference={reference} account={user.account} canEdit={canEditPeople(user)} {...(canAdminister(user) ? { imports } : {})} />
+      )}
+      renderSettings={(user) => <SettingsScreen i18n={i18n} reference={reference} projects={projects} account={user.account} canEdit={canAdminister(user)} />} />,
   );
   load();
 }
@@ -68,10 +78,19 @@ if (params.get("demo") === "1") {
   const views = createDemoViewsSource(demoSeedViews());
   const imports = createDemoImportSource(demoImportSnapshot(demo, today));
   const projects = createDemoProjectsSource(demo, { onProject: (p) => source.projectChanged?.(scheduleProjectOf(p)) });
+  const directory = createDemoDirectory(demo, {
+    today,
+    onEntity: (kind, entity) => source.directoryChanged?.(kind, entity),
+    onRemoved: (kind, id) => source.directoryRemoved?.(kind, id),
+    onDeactivated: (id, asOf, disposition, replacementId) => source.personDeactivated?.(id, asOf, disposition, replacementId),
+  });
+  const me = demoMe();
   root.render(
-    <App i18n={i18n} router={router} me={{ status: "ready", me: demoMe() }} notifications={createDemoNotificationsSource(demoNotifications(today))}
+    <App i18n={i18n} router={router} me={{ status: "ready", me }} notifications={createDemoNotificationsSource(demoNotifications(today))}
       renderPlanning={() => <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} imports={imports} />}
-      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} />} />,
+      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} />}
+      renderPeople={(user) => <PeopleScreen i18n={i18n} source={directory.people} reference={directory.reference} account={user.account} canEdit={canEditPeople(user)} imports={imports} />}
+      renderSettings={(user) => <SettingsScreen i18n={i18n} reference={directory.reference} projects={projects} account={user.account} canEdit={canAdminister(user)} />} />,
   );
 } else if (import.meta.env.VITE_AUTH_MODE === "oidc") {
   const session = createOidcSession(oidcConfigFromEnv(import.meta.env, location.origin), browserOidcDeps());

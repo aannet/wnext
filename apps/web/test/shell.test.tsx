@@ -132,6 +132,21 @@ describe("navigation", () => {
     expect(host.querySelector("main p")!.textContent).toBe("grille");
   });
 
+  it("Personnes et Réglages rendus par l'appelant (lot L-F2) ; Réglages reste introuvable pour un rôle sans droit, même rendu fourni", () => {
+    const pages = { renderPeople: () => <main><h1>Personnes</h1><p>liste des personnes</p></main>, renderSettings: () => <main><h1>Réglages</h1><p>sections</p></main> };
+    const router = memoryRouter();
+    mount({ router, ...pages });
+    click(link("Personnes"));
+    expect(host.querySelector("main p")!.textContent).toBe("liste des personnes");
+    expect(host.querySelector(".wn-soon")).toBeNull();
+    click(link("Réglages"));
+    expect(host.querySelector("main p")!.textContent).toBe("sections");
+    act(() => root!.unmount());
+    host.remove();
+    mount({ router: memoryRouter("/reglages"), me: user("member"), ...pages });
+    expect(host.querySelector("main h1")!.textContent).toBe("Page introuvable");
+  });
+
   it("clic modifié (Ctrl, Cmd, molette) : laissé au navigateur, pas de navigation interne", () => {
     const router = memoryRouter();
     mount({ router });
