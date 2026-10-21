@@ -10,7 +10,10 @@ Statut : vivant. Ce document consigne les principes d'interface décidés par Al
 - Boutons : toujours le composant `Button` (`design/`), variantes `primary`, `secondary`, `danger`, taille `sm` pour les actions de ligne. Jamais de `<button>` stylé à la main.
 - Champs (texte, liste, zone de texte) : style shadcn posé une fois dans la couche `base` de `styles.css`. Un écran n'ajoute que sa mise en page (largeur, grille).
 - Reset Tailwind (preflight) actif depuis L-G : aucun style par défaut du navigateur n'est garanti (marges, listes, titres).
-- Encore natifs, à remplacer dans leur lot : onglets, groupes radio (densité, couleur), menus, cloche et liens de tableau (L-J, L-L) ; `Popover` (L-J) garde son moteur maison d'ici là.
+- Encore natifs : onglets, groupes radio (densité, couleur), menu de l'avatar, cloche et liens de tableau. `Popover` (L-J) est sur Base UI : portail, placement et retournement par Base UI, clic sur l'ancre ignoré.
+- Survol d'un bouton plein (primaire, danger) : fond plus foncé (`--color-primary-hover`, `--color-destructive-hover`), jamais une transparence qui éclaircit (contraste AA).
+- En-tête d'écran en deux niveaux (Planning, RT-025) : niveau 1 pour le titre, la vue et les créations ; niveau 2 (barre d'outils) pour les filtres (bouton avec compteur, puces retirables, panneau dépliable) et la navigation. Les réglages d'affichage (densité, charge) sont dans un menu « Affichage ».
+- Statut temps réel (Q12) : une puce seule quand tout va bien (nom accessible et infobulle) ; puce et texte visibles en cas de problème.
 - `Combobox` (L-K) : Combobox de Base UI, liste dans un portail au-dessus des fenêtres (`--z-menu`). Liste ouverte, Échap la ferme ; fermée, Échap remonte à la fenêtre sans vider le choix.
 - Grille (L-I) : séparateurs de colonnes `--wn-grid-line` ; jours non travaillés `--wn-nonwork-hatch`, selon l'horaire de chaque personne (jamais un calendrier commun dans le corps) ; période courante marquée par l'accent, un soulignement et `aria-current="date"`, jamais par la couleur seule. Les fonds de la grille sont des couches CSS (un nœud par ligne au plus), pas un nœud par jour.
 - Contrôle visuel d'un changement de CSS global : `node scripts/captures-ecrans.mjs <dossier>` (démo, serveur Vite lancé), avant et après.
