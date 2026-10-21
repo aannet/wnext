@@ -102,8 +102,11 @@ describe("rendu et recyclage", () => {
     const root = document.createElement("div");
     document.body.appendChild(root);
     const m = manual();
+    // 20 personnes (et non les 300 de la démo) : la vue de 400 px n'en montre que quelques-unes, la vérification est la même,
+    // mais chaque reconstruction de tranche (qui domine la durée : des dizaines sur 600 jours) coûte 15 fois moins. Avec 300
+    // personnes, le test dépassait le délai de 5 s sous la charge de make check.
     const s = createScroller({
-      root, data: demoSchedule(TODAY), today: TODAY, widthPx: GUTTER_PX + 960, heightPx: 400, label: (c) => c.from, clock: m.clock,
+      root, data: demoSchedule(TODAY, 20), today: TODAY, widthPx: GUTTER_PX + 960, heightPx: 400, label: (c) => c.from, clock: m.clock,
       capacityLabel: (p, c) => `${p} ${c.plannedHours}`,
     });
     const count = () => root.querySelectorAll(".wn-cap:not([style*='display: none'])").length;
@@ -123,7 +126,7 @@ describe("rendu et recyclage", () => {
     expect(count()).toBeLessThanOrEqual(visible + 12);
     expect(root.querySelector(".wn-cap")?.getAttribute("aria-label")).toMatch(/^\d{4}-\d{2}-\d{2} /);
     s.destroy();
-  });
+  }, 15_000); // ~0,5 s seul ; marge pour les 4 threads de make check (le DOM jsdom de 200 images reste incompressible)
 
   const cell = (over: Partial<GridCap> = {}): GridCap => ({
     from: "2026-03-03", to: "2026-03-03", kind: "day", x: 0, w: 96, state: "over", confirmedPx: 6, tentativePx: 4, overPx: 3, lineY: 3,
