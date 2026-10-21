@@ -1,6 +1,9 @@
-// Écritures d'allocations par gestes (ADR-002 §5) : passage du patch du moteur (BlockPatch, champs modifiés seulement) au
-// corps du PATCH / de la découpe (AllocationPatch : la charge voyage dans `load`), et état optimiste local.
-//  * Le patch d'un geste reste dans le mode de l'allocation (heures ou %) : on ne change jamais de mode ici.
+// Écritures d'allocations par gestes (ADR-002 §5) et par la pop-in du créneau (RT-011, RT-014) : passage du patch (BlockPatch
+// du moteur, élargi en AllocationEdit : projet, phase, tâche, statut, note, mode) au corps du PATCH / de la découpe
+// (AllocationPatch : la charge voyage dans `load`), et état optimiste local.
+//  * Le patch d'un geste reste dans le mode de l'allocation (heures ou %) ; seule la pop-in change de mode (`mode` + la
+//    quantité du nouveau mode).
+//  * Changer de projet sans préciser phase et tâche les remet à zéro, comme l'API (resolvePatch).
 //  * « Cette occurrence » (BR-25, décision 10 : découpe, pas d'exceptions) : les trois morceaux de splitSeries du moteur,
 //    l'occurrence et la suite portant des ids temporaires jusqu'à la réponse.
 import type { ApiError, ScheduleResponse } from "@wnext/contracts";
@@ -13,9 +16,14 @@ export type Allocation = ScheduleResponse["allocations"][number];
 export type EditError = ApiError["code"] | "NETWORK" | "BUSY" | "UNSUPPORTED";
 export type EditOutcome = { ok: true } | { ok: false; error: EditError; reason?: string };
 
+/** Patch d'une allocation : champs d'un geste, plus ceux de la pop-in (absents = inchangés). */
+export type AllocationEdit = BlockPatch & {
+  projectId?: string; phaseId?: string | null; taskId?: string | null; status?: Allocation["status"]; notes?: string | null; mode?: Allocation["mode"];
+};
+
 export interface ScheduleEditor {
   /** Modifie l'allocation (ou toute la série) : optimiste, puis PATCH avec la version lue. */
-  updateAllocation(id: string, patch: BlockPatch): Promise<EditOutcome>;
+  updateAllocation(id: string, patch: AllocationEdit): Promise<EditOutcome>;
   /** Modifie une seule occurrence (rang `index`) d'une série : découpe en avant / occurrence / après. */
   splitOccurrence(id: string, index: number, patch: BlockPatch): Promise<EditOutcome>;
 }
@@ -38,8 +46,8 @@ export function diffBlocks(a: GestureBlock, b: GestureBlock): BlockPatch {
   return out as BlockPatch;
 }
 
-export function toApiPatch(p: BlockPatch): AllocationPatch {
-  const { hoursPerDay, percent, ...rest } = p;
+export function toApiPatch(p: AllocationEdit): AllocationPatch {
+  const { hoursPerDay, percent, mode: _m, ...rest } = p;
   const out: AllocationPatch = { ...rest };
   if (hoursPerDay != null) out.load = { mode: "hours", hoursPerDay };
   if (percent != null) out.load = { mode: "percentage", percent };
@@ -52,10 +60,17 @@ export function toSplitBody(occurrenceDate: string, p: BlockPatch): AllocationSp
   return Object.keys(rest).length ? { occurrenceDate, patch: rest } : { occurrenceDate };
 }
 
-/** Allocation après le patch (même mode, même version : l'état optimiste porte encore la version lue). */
-export function patched<A extends Allocation>(a: A, p: BlockPatch): A {
-  const out = { ...a } as Allocation;
+/** Allocation après le patch (même version : l'état optimiste porte encore la version lue). */
+export function patched<A extends Allocation>(a: A, p: AllocationEdit): A {
+  let out = { ...a } as Allocation;
   if (p.personId !== undefined) out.personId = p.personId;
+  if (p.projectId !== undefined && p.projectId !== a.projectId) { out.projectId = p.projectId; out.phaseId = null; out.taskId = null; }
+  if (p.phaseId !== undefined) out.phaseId = p.phaseId;
+  if (p.taskId !== undefined) out.taskId = p.taskId;
+  if (p.status !== undefined) out.status = p.status;
+  if (p.notes !== undefined) out.notes = p.notes;
+  if (p.mode === "hours" && out.mode !== "hours" && p.hoursPerDay != null) out = { ...out, mode: "hours", hoursPerDay: p.hoursPerDay, percent: null };
+  if (p.mode === "percentage" && out.mode !== "percentage" && p.percent != null) out = { ...out, mode: "percentage", hoursPerDay: null, percent: p.percent };
   if (p.startDate !== undefined) out.startDate = p.startDate;
   if (p.endDate !== undefined) out.endDate = p.endDate;
   if (p.repeatEndDate !== undefined) out.repeatEndDate = p.repeatEndDate;

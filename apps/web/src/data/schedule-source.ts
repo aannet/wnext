@@ -19,6 +19,9 @@
 //    sur VERSION_CONFLICT / NOT_FOUND). Tant qu'une écriture est en vol, les rechargements demandés par le temps réel sont
 //    différés : l'écho de sa propre écriture (même version que la réponse) n'est alors jamais relu, rien ne clignote.
 //  * Congés et allocations créées / supprimées (record-edits) : même chemin optimiste ; une création rend l'id du serveur.
+//  * Pop-in du créneau (RT-014 à RT-016) : changement de projet (le projet d'arrivée, connu par listProjects, entre dans le
+//    magasin pour colorer le bloc), création de groupe (BR-26, POST /allocation-groups : N lignes optimistes, tout ou rien),
+//    projet modifié ailleurs dans l'écran (couleur, RT-018) appliqué tout de suite aux blocs.
 import { ErrorCode, type ApiError, type ScheduleResponse } from "@wnext/contracts";
 import { loadChunks, mergeChunks, neighborDays, type BlockPatch, type Viewport } from "@wnext/engine";
 import type { createClient } from "../api/client.gen";
@@ -27,15 +30,16 @@ import {
   applyChanges, applyOptimistic, confirmOptimistic, emptyStore, hasWindow, ingestSchedule, isKind, remove, rollbackOptimistic, snapshot, upsert,
   type Kind, type ScheduleStore, type Tables,
 } from "../schedule/store";
-import { localSplit, patched, toApiPatch, toSplitBody, type EditOutcome, type ScheduleEditor } from "./allocation-edits";
-import { allocationFromCreate, patchedTimeoff, timeoffFromCreate, type CreateOutcome, type RecordEditor } from "./record-edits";
+import type { AllocationGroupCreate } from "../api/client.gen";
+import { localSplit, patched, toApiPatch, toSplitBody, type AllocationEdit, type EditOutcome, type ScheduleEditor } from "./allocation-edits";
+import { allocationFromCreate, groupMembers, patchedTimeoff, timeoffFromCreate, type CreateOutcome, type RecordEditor } from "./record-edits";
 import { summaryFromParams, type TeamRemovalEditor } from "./team-removal";
 
 type Client = ReturnType<typeof createClient>;
 /** Lecture obligatoire ; écritures optionnelles (absentes : les gestes rendent UNSUPPORTED). */
 export type ScheduleApi = Pick<Client, "getSchedule" | "createRealtimeTicket"> & Partial<Pick<Client, "getAllocation" | "updateAllocation" | "splitAllocation">>
   & Partial<Pick<Client, "createTimeoff" | "updateTimeoff" | "deleteTimeoff" | "createAllocation" | "deleteAllocation" | "listLoggedTime" | "listProjects">>
-  & Partial<Pick<Client, "getTeamRemovalSummary" | "removeFromTeam">>;
+  & Partial<Pick<Client, "getTeamRemovalSummary" | "removeFromTeam" | "createAllocationGroup">>;
 export type SourceErrorCode = ApiError["code"];
 
 export interface ScheduleSourceState {
@@ -59,18 +63,26 @@ export interface ScheduleSourceOptions {
   realtime?: Pick<RealtimeClientOptions, "wsBase" | "openSocket" | "setTimer" | "clearTimer" | "random" | "now" | "onError" | "onNotifications">;
 }
 
-/** Projet proposé à la saisie rapide (liste complète du compte, pas seulement ceux de la fenêtre). */
+/** Projet proposé à la saisie rapide et à la pop-in (liste complète du compte, pas seulement ceux de la fenêtre). */
 export interface ProjectRef { id: string; name: string }
 
 export type ScheduleProjectPatch = ScheduleResponse["projects"][number];
+
+/** Création multi-personnes (BR-26) : ids des lignes créées, dans l'ordre des membres. */
+export type GroupOutcome = { ok: true; ids: string[] } | Exclude<CreateOutcome, { ok: true }>;
 
 export interface ScheduleSource extends ScheduleEditor, RecordEditor, TeamRemovalEditor {
   /** Tous les projets du compte (GET /projects, paginé), gardés pour la session ; rafraîchis sur l'événement temps réel « projects ». */
   listProjects(): Promise<ProjectRef[]>;
   /** Avertit quand la liste des projets a changé (le cache est alors vidé : relire avec listProjects). */
   onProjectsChange(listener: () => void): () => void;
-  /** Démo seulement : un projet créé ou modifié par l'écran Projets est appliqué aux blocs (l'API passe par le temps réel). */
+  /**
+   * Projet créé ou modifié ailleurs (écran Projets, couleur depuis la pop-in d'un bloc) : appliqué tout de suite aux blocs. Sur
+   * l'API, seulement s'il est plus récent que celui du magasin (l'écho temps réel, même version, n'est alors pas relu).
+   */
   projectChanged?(project: ScheduleProjectPatch): void;
+  /** Allocation multi-personnes (BR-26) : une ligne par personne, tout ou rien. */
+  createAllocationGroup(body: AllocationGroupCreate): Promise<GroupOutcome>;
   /** Démo seulement : personnes, équipes (départements), rôles, types de congé et fériés écrits depuis Personnes ou Réglages. */
   directoryChanged?(kind: "people" | "departments" | "roles" | "timeoff_types" | "holidays", entity: { id: string; version: number }): void;
   directoryRemoved?(kind: "people" | "departments" | "roles" | "timeoff_types" | "holidays", id: string): void;
@@ -254,12 +266,18 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
   // Projets du compte : lus page par page une fois par session (échec : pas de cache, nouvel essai à la demande).
   let projectsCache: Promise<ProjectRef[]> | null = null;
   const projectListeners = new Set<() => void>();
+  /** Derniers projets lus (forme du Schedule) : le projet d'arrivée d'une écriture entre dans le magasin. */
+  const knownProjects = new Map<string, ScheduleProjectPatch>();
   async function fetchProjects(): Promise<ProjectRef[]> {
     const out: ProjectRef[] = [];
     let cursor: string | undefined;
     for (let guard = 0; guard < 1000; guard++) {
       const res = await opts.api.listProjects!({ limit: pageLimit, ...(cursor ? { cursor } : {}) });
       if (!res.ok) throw new SourceError(errorCodeOf(res.status, res.error));
+      for (const p of res.data.items) {
+        const { projectManagerId: _m, clientId: _c, tags: _t, notes: _n, ...shape } = p;
+        knownProjects.set(p.id, shape);
+      }
       out.push(...res.data.items.map((p) => ({ id: p.id, name: p.name })));
       cursor = res.data.page.nextCursor ?? undefined;
       if (!cursor) break;
@@ -353,12 +371,20 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     return fail(errorCodeOf(res.status, res.error), typeof reason === "string" ? reason : undefined);
   }
 
-  async function updateAllocation(id: string, patch: BlockPatch): Promise<EditOutcome> {
+  /** Projet d'une écriture absent du magasin : repris des projets lus (sinon le bloc n'aurait ni nom ni couleur). */
+  function ensureProject(projectId: string | undefined) {
+    if (projectId === undefined || store.tables.projects.has(projectId)) return;
+    const p = knownProjects.get(projectId);
+    if (p) store = upsert(store, "projects", { ...p });
+  }
+
+  async function updateAllocation(id: string, patch: AllocationEdit): Promise<EditOutcome> {
     const cur = store.tables.allocations.get(id);
     const api = opts.api.updateAllocation;
     if (!api) return fail("UNSUPPORTED");
     if (!cur) return fail("NOT_FOUND");
     if (busy(id)) return fail("BUSY");
+    ensureProject(patch.projectId);
     const m = `edit-${++seq}`;
     store = applyOptimistic(store, m, "allocations", id, patched(cur, patch));
     refresh();
@@ -438,6 +464,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     },
     async createAllocation(body) {
       const api = opts.api.createAllocation;
+      if (api) ensureProject(body.projectId);
       return api ? create("allocations", (tmp) => allocationFromCreate(body, tmp), () => api({ body })) : fail("UNSUPPORTED");
     },
     async deleteAllocation(id) {
@@ -490,9 +517,35 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     },
   };
 
+  async function createAllocationGroup(body: AllocationGroupCreate): Promise<GroupOutcome> {
+    const api = opts.api.createAllocationGroup;
+    if (!api) return fail("UNSUPPORTED");
+    ensureProject(body.projectId);
+    const n = ++seq;
+    const ms = groupMembers(body).map((member, i) => {
+      const m = `group-${n}-${i}`;
+      store = applyOptimistic(store, m, "allocations", `tmp-group-${n}-${i}`, allocationFromCreate(member, `tmp-group-${n}-${i}`) as never);
+      return m;
+    });
+    refresh();
+    let ids: string[] = [];
+    const out = await write(ms, () => api({ body }), (d) => {
+      ms.forEach((m, i) => { store = confirmOptimistic(store, m, (d.items[i] ?? null) as never); });
+      ids = d.items.map((x) => x.id);
+    });
+    return out.ok ? { ok: true, ids } : out;
+  }
+
   return {
     ...records,
     ...removal,
+    createAllocationGroup,
+    projectChanged(p) {
+      const cur = store.tables.projects.get(p.id);
+      if (!cur || cur.version >= p.version) return;
+      store = upsert(store, "projects", { ...p });
+      refresh();
+    },
     listProjects,
     onProjectsChange(l) {
       projectListeners.add(l);

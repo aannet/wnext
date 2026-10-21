@@ -8,7 +8,7 @@
 //  * Le temps saisi (logged_time) n'est que lu : il est signalé par l'avertissement BR-04, jamais modifié.
 import type { ScheduleResponse } from "@wnext/contracts";
 import type { LoggedTimeInput } from "@wnext/engine";
-import type { AllocationCreate, TimeoffCreate, TimeoffPatch } from "../api/client.gen";
+import type { AllocationCreate, AllocationGroupCreate, TimeoffCreate, TimeoffPatch } from "../api/client.gen";
 import type { Allocation, EditError, EditOutcome } from "./allocation-edits";
 
 export type Timeoff = ScheduleResponse["timeoffs"][number];
@@ -57,6 +57,12 @@ export function allocationFromCreate(b: AllocationCreate, id: string, version = 
   return b.load.mode === "hours"
     ? { ...base, mode: "hours", hoursPerDay: b.load.hoursPerDay, percent: null }
     : { ...base, mode: "percentage", hoursPerDay: null, percent: b.load.percent };
+}
+
+/** Une création par membre d'un groupe (BR-26) : champs communs, charge du membre ou, à défaut, la charge commune. */
+export function groupMembers(b: AllocationGroupCreate): AllocationCreate[] {
+  const { members, load, ...common } = b;
+  return members.map((m) => ({ ...common, personId: m.personId, load: (m.load ?? load)! }));
 }
 
 /** Corps de création reprenant une allocation (copie hors groupe). */

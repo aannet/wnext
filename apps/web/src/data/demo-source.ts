@@ -2,10 +2,12 @@
 // s'appliquent tout de suite au magasin local (version + 1), pour que l'écran et les futurs tests navigateur les exercent.
 // Congés et allocations (record-edits) aussi ; le chevauchement de congés est refusé comme par l'API (TIMEOFF_OVERLAP).
 // Aucun temps saisi en démo. Retrait d'un projet (BR-10) : récapitulatif et confirmation calculés localement (team-removal).
+// Pop-in du créneau : changement de projet (le projet d'arrivée, connu de la démo, entre dans le magasin), groupe (BR-26 :
+// une ligne par personne, même groupId).
 import type { ScheduleResponse } from "@wnext/contracts";
 import { emptyStore, ingestSchedule, remove, snapshot, upsert, type ScheduleStore } from "../schedule/store";
 import { localSplit, patched, type EditOutcome } from "./allocation-edits";
-import { allocationFromCreate, overlapsTimeoff, patchedTimeoff, timeoffFromCreate } from "./record-edits";
+import { allocationFromCreate, groupMembers, overlapsTimeoff, patchedTimeoff, timeoffFromCreate } from "./record-edits";
 import type { ScheduleSource, ScheduleSourceState } from "./schedule-source";
 import { localRemoval } from "./team-removal";
 
@@ -23,6 +25,11 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
   const projectListeners = new Set<() => void>();
   const known = new Map(initial.projects.map((p) => [p.id, p] as const));
   let seq = 0;
+  /** Projet d'une écriture absent du magasin (projet d'arrivée) : repris des projets connus de la démo. */
+  const ensureProject = (id: string | undefined) => {
+    const p = id === undefined ? undefined : known.get(id);
+    if (p && !store.tables.projects.has(p.id)) store = upsert(store, "projects", { ...p });
+  };
   const changed = (): EditOutcome => {
     state = { ...state, data: view() };
     for (const l of listeners) l();
@@ -67,6 +74,7 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
     async updateAllocation(id, patch) {
       const a = store.tables.allocations.get(id);
       if (!a) return { ok: false, error: "NOT_FOUND" };
+      ensureProject(patch.projectId);
       store = upsert(store, "allocations", { ...patched(a, patch), version: a.version + 1 });
       return changed();
     },
@@ -92,9 +100,21 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
     },
     async createAllocation(body) {
       const a = allocationFromCreate(body, `demo-${++seq}`, 1);
+      ensureProject(body.projectId);
       store = upsert(store, "allocations", a);
       changed();
       return { ok: true, id: a.id };
+    },
+    async createAllocationGroup(body) {
+      const groupId = `demo-group-${++seq}`;
+      ensureProject(body.projectId);
+      const ids = groupMembers(body).map((m) => {
+        const a = { ...allocationFromCreate(m, `demo-${++seq}`, 1), groupId };
+        store = upsert(store, "allocations", a);
+        return a.id;
+      });
+      changed();
+      return { ok: true, ids };
     },
     async deleteAllocation(id) {
       if (!store.tables.allocations.has(id)) return { ok: false, error: "NOT_FOUND" };

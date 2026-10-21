@@ -18,9 +18,9 @@
 //    touchent ces entités sont retirées.
 import {
   emptyUndo, dropFailedStep, invalidateUndo, recordAction, redoStep, remapId, undoStep,
-  type Action, type BlockPatch, type Op, type UndoState,
+  type Action, type Op, type UndoState,
 } from "@wnext/engine";
-import { diffBlocks, gestureBlockOf, patched, type Allocation, type EditError, type EditOutcome, type ScheduleEditor } from "../data/allocation-edits";
+import { patched, type Allocation, type AllocationEdit, type EditError, type EditOutcome, type ScheduleEditor } from "../data/allocation-edits";
 import type { ScheduleSource } from "../data/schedule-source";
 import { executeRecordOp } from "./timeoff-flow";
 
@@ -63,8 +63,9 @@ export interface History {
 const ALLOCATIONS = "allocations";
 const TRANSIENT = new Set<EditError>(["NETWORK", "BUSY"]);
 
-/** Code de libellé d'une écriture : charge, déplacement (personne, ou dates décalées d'autant) ou redimensionnement. */
-export function labelOf(patch: BlockPatch, before: Allocation): string {
+/** Code de libellé d'une écriture : édition (pop-in : projet, tâche, statut, note, mode), charge, déplacement (personne, ou dates décalées d'autant) ou redimensionnement. */
+export function labelOf(patch: AllocationEdit, before: Allocation): string {
+  if (EDIT_ONLY.some((k) => patch[k] !== undefined && patch[k] !== before[k])) return "allocation.edit";
   if (patch.hoursPerDay != null || patch.percent != null) return "allocation.load";
   if (patch.personId !== undefined) return "allocation.move";
   const span = (s: string, e: string) => Date.parse(e) - Date.parse(s);
@@ -74,12 +75,19 @@ export function labelOf(patch: BlockPatch, before: Allocation): string {
   return "allocation.resize";
 }
 
-/** Champs d'avant et d'après d'une écriture, limités à ceux qu'elle change. */
-function updateOp(before: Allocation, patch: BlockPatch): Op {
-  const from = gestureBlockOf(before);
-  const after = diffBlocks(from, gestureBlockOf(patched(before, patch))) as Record<string, unknown>;
-  const prev = Object.fromEntries(Object.keys(after).map((k) => [k, from[k as keyof typeof from]]));
-  return { kind: "update", entity: ALLOCATIONS, id: before.id, before: prev, after };
+const EDIT_ONLY = ["projectId", "phaseId", "taskId", "status", "notes", "mode"] as const;
+const FIELDS = ["personId", "startDate", "endDate", "hoursPerDay", "percent", "repeatEndDate", ...EDIT_ONLY] as const;
+
+/**
+ * Champs d'avant et d'après d'une écriture, limités à ceux qu'elle change. Un changement de mode emporte les deux quantités
+ * (l'inverse rend le mode et sa quantité d'origine) ; un changement de projet, la phase et la tâche remises à zéro.
+ */
+function updateOp(before: Allocation, patch: AllocationEdit): Op {
+  const next = patched(before, patch);
+  const changed = FIELDS.filter((k) => next[k] !== before[k]);
+  if (changed.includes("mode")) for (const k of ["hoursPerDay", "percent"] as const) if (!changed.includes(k)) changed.push(k);
+  const pick = (a: Allocation) => Object.fromEntries(changed.map((k) => [k, a[k]]));
+  return { kind: "update", entity: ALLOCATIONS, id: before.id, before: pick(before), after: pick(next) };
 }
 
 export function createHistory(opts: HistoryOptions): History {
@@ -101,7 +109,7 @@ export function createHistory(opts: HistoryOptions): History {
   const record: History["record"] = (a) => set(recordAction(undo, { label: a.label, ops: a.ops, at: a.at ?? now() }));
 
   async function run(op: Op): Promise<ExecOutcome> {
-    if (op.kind === "update" && op.entity === ALLOCATIONS) return opts.editor.updateAllocation(op.id, op.after as BlockPatch);
+    if (op.kind === "update" && op.entity === ALLOCATIONS) return opts.editor.updateAllocation(op.id, op.after as AllocationEdit);
     return opts.execute ? opts.execute(op) : { ok: false, error: "UNSUPPORTED" };
   }
 
