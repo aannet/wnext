@@ -181,10 +181,11 @@ const RECETTE = {
     { id: "RT-032", t: "Que signifie « Temps réel : connecté » ? (puce verte seule si connecté, orange ou rouge + texte en cas de problème)", nature: "texte", gravite: "cosmétique", lot: "L-J", statut: "validé" },
     { id: "RT-033", t: "Jours fériés nationaux paramétrables par un admin, grisés par défaut (V2)", nature: "évolution", gravite: "—", lot: "—", statut: "reporté (T2+)" },
     { id: "RT-034", t: "Poser un congé sur des créneaux existants propose de les scinder (V2)", nature: "évolution", gravite: "—", lot: "—", statut: "reporté (T2+)" },
+    { id: "RT-035", t: "Connexion à la recette : `npm run dev` ouvre « Session expirée » au lieu du portail (Vite sans VITE_AUTH_MODE=oidc)", nature: "anomalie", gravite: "bloquante", lot: "hors lot", statut: "corrigé" },
   ],
   lots: [
     { id: "L-A", t: "Tailwind v4 et design tokens (socle sans changement visible, garde-fou anti-couleurs en dur)", statut: "fait" },
-    { id: "L-B", t: "Coque applicative : en-tête WNEXT, navigation (Schedule, Projets, Personnes, Réglages), barre d'outils en sous-header, écran de connexion OIDC par défaut en recette, « Bonjour Alec »", statut: "fait" },
+    { id: "L-B", t: "Coque applicative : en-tête WNEXT, navigation (Schedule, Projets, Personnes, Réglages), barre d'outils en sous-header, portail de connexion OIDC, « Bonjour Alec »", statut: "fait" },
     { id: "L-D", t: "Primitives de fenêtres (Modal, Popover, Drawer) et migration de tous les dialogues vers des fenêtres superposées (Fermer + Échap)", statut: "fait" },
     { id: "L-C", t: "Densité à 3 niveaux et jauge par personne dans la colonne de gauche", statut: "fait" },
     { id: "L-E", t: "Éditeur de créneau : création (bouton, clic ou glisser en zone libre), pop-in à onglets Projet / tâche et Congé, changement de projet / tâche / personnes, couleur du projet", statut: "livré" },
@@ -338,6 +339,7 @@ const PHASES = [
       { t: "Assistant de première allocation et « Trouver quelqu'un de dispo »", s: "todo" },
       { t: "Approbation des congés", s: "defer", n: "retirée par Alec (RT-022, PO-01) : un congé posé est approuvé d'emblée (Q6)" },
       { t: "Aide des raccourcis et palette Ctrl+K", s: "todo" },
+      { t: "Lancement de recette : une commande met l'écran en OIDC (RT-035, bloquante)", s: "done", n: "npm run dev:recette (29de368) : pile --oidc, attente de l'API, puis Vite en VITE_AUTH_MODE=oidc ; parcours vérifié jusqu'à « Bonjour Alec »" },
       { t: "Seed et recette automatisée (test:recette)", s: "todo" },
       { t: "Recette humaine par Alec, registre sans bloquant ni majeur", s: "todo" },
       { t: "Gate P6 signé", s: "todo" },
@@ -345,6 +347,7 @@ const PHASES = [
 ];
 
 const NEXT = [
+  "<b>Recette avec connexion</b> : arrêter le Vite lancé seul et relancer par <code>npm run dev:recette</code> (RT-035 corrigé).",
   "<b>Relire le commit de contrat de L-H</b> (<code>ce25e1f</code>, CODEOWNERS) : défaut <code>approved</code> des congés.",
   "<b>L-G livré</b> : rendu à revoir en recette ; prochains lots : L-I (grille), L-K (éditeur en drawer), L-J (header), L-L (personnes), un à la fois.",
   "<b>Points ouverts du cadrage n°1</b> : PO-04 (accès des personnes), PO-05 (écriture du compte), PO-06 (co-gestion), PO-07 (création au toucher), PO-08 (portée série, à reprendre dans L-K).",

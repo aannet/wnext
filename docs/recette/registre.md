@@ -94,6 +94,16 @@ Tri PM : les retours sont réordonnés par dépendance (kit et retrait d'abord, 
 
 **Décisions rattachées** : RT-020 (kit shadcn/ui, ADR-010) ; RT-022 (retrait de PO-01) ; RT-033 et RT-034 en V2 = T2 (dossier §5.6 amendé).
 
+## Retours hors note (recette, 2026-10-21)
+
+Retours constatés pendant la recette, sans note d'Alec : ils suivent le même cycle de vie.
+
+| ID | Retour | Citation / constat | Nature | Spec | Écart | Écran | Gravité | Cible | Lot | Statut |
+|---|---|---|---|---|---|---|---|---|---|---|
+| RT-035 | Connexion à la recette : `npm run dev -w @wnext/web` ouvre « Session expirée » au lieu du portail de connexion | Constat (Alec, 2026-10-21) : la session expire à la connexion. Cause : Vite lancé sans `VITE_AUTH_MODE=oidc` ; `apps/web/.env.development` met `VITE_AUTH_MODE=dev`, donc des en-têtes `x-dev-*` vont à une API en `AUTH_MODE=oidc`, qui répond 401. Vérifié : API en OIDC (401 sur les en-têtes `x-dev-*`), IdP répond, Vite sans variable `VITE_*` | anomalie | RT-002 (portail de connexion par défaut en recette) ; `docs/runbooks/demarrage-local.md` l. 23 | écart | Connexion | bloquante | P6 | hors lot | corrigé (`29de368`) : `npm run dev:recette` lance la pile en `--oidc`, attend l'API, puis Vite en `VITE_AUTH_MODE=oidc` (issuer et URL d'API alignés sur les ports) ; test `tests/guardrails/dev-recette.test.ts` rouge avant le script ; parcours vérifié portail → Alec → planning (200, Bearer) → « Bonjour Alec » ; runbook et `.env.development` mis à jour |
+
+Correctif : script `npm run dev:recette` (pile en `--oidc`, puis le web en `VITE_AUTH_MODE=oidc`) ; le runbook l'indique comme lancement de recette.
+
 ## Lots proposés (cadrage n°2)
 
 | Lot | Contenu | Retours | Modèle | Dépend de | Contrat |
