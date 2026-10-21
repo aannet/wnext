@@ -16,9 +16,14 @@
 //    choisit la portée (BR-25). Le fantôme reste figé tant que la promesse rendue par onCommit n'est pas réglée.
 //  * Positions : abscisse en jours absolus (invariante quand la piste s'allonge ou que la tranche change), ordonnée dans la
 //    surface (défilement vertical compris).
+//  * Pop-in du créneau (RT-013, Q5) : un clic (souris) sélectionne le bloc comme un tap ; double clic, Entrée sur le bloc
+//    focalisé (sans brouillon clavier) ou clic sur le bloc déjà sélectionné : onOpen. Un glisser reste un geste.
+//  * Création (RT-015, souris) : clic ou glisser dans une zone libre d'une ligne (hors en-tête, blocs, congés, bande de
+//    capacité) : un bloc provisoire (.wn-slot-draft) couvre la plage, puis onCreate ; il reste affiché jusqu'à clearDraft
+//    (pop-in fermée : créée ou annulée). Échap pendant le glisser annule.
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
-  applyGesture, dayNumber, expandOccurrences, keyGesture, pointerGesture, referenceHours, workDaysHoursOn, type BlockPatch, type Gesture, type GestureBlock,
+  applyGesture, dayNumber, expandOccurrences, fromDayNumber, keyGesture, pointerGesture, referenceHours, workDaysHoursOn, type BlockPatch, type Gesture, type GestureBlock,
 } from "@wnext/engine";
 import { diffBlocks, gestureBlockOf, type Allocation } from "../data/allocation-edits";
 import { ROW_UNIT_PX, type GridBlock, type GridModel, type GridRow, type GridTimeoff } from "./grid-model";
@@ -69,11 +74,26 @@ export interface BlockEditorOptions {
   maxSpeedPx?: number;
   /** Durée de l'appui long au toucher (ms, 400 par défaut). */
   longPressMs?: number;
+  /** Ouvrir la pop-in d'édition du bloc (Q5) ; absent : rien. */
+  onOpen?(r: OpenRequest): void;
+  /** Plage d'un bloc provisoire posé en zone libre (RT-015) ; absent : pas de création au pointeur. */
+  onCreate?(r: CreateRequest): void;
+}
+
+export interface OpenRequest { key: string; allocationId: string; occurrence: number | null; el: HTMLElement }
+export interface CreateRequest {
+  /** Identifiant du bloc provisoire (clearDraft ne retire que celui-là). */
+  draft: number;
+  personId: string; startDate: string; endDate: string;
+  /** Rectangle du bloc provisoire (repère de la fenêtre) : ancre de la pop-in. */
+  rect: { left: number; top: number; width: number; height: number };
 }
 
 export interface BlockEditor {
   /** Geste en cours (pointeur ou clavier) ou fantôme figé. */
   busy(): boolean;
+  /** Retire le bloc provisoire `draft` (tous s'il est absent). */
+  clearDraft(draft?: number): void;
   destroy(): void;
 }
 
@@ -81,7 +101,12 @@ interface Session {
   key: string; alloc: Allocation; index: number | null; block: GridBlock; personId: string; anchorY: number;
   occ0: GestureBlock; ser0: GestureBlock | null; occ: GestureBlock; ser: GestureBlock | null;
 }
-interface Drag extends Session { kind: Gesture["kind"]; pointerId: number; x0: number; y0: number; sd0: number; st0: number; cx: number; cy: number; started: boolean }
+interface Drag extends Session {
+  kind: Gesture["kind"]; pointerId: number; x0: number; y0: number; sd0: number; st0: number; cx: number; cy: number; started: boolean;
+  /** Le bloc était déjà sélectionné au début du geste : un clic sans glisser ouvre la pop-in (Q5). */
+  wasSelected: boolean; el: HTMLElement;
+}
+interface Creating { pointerId: number; personId: string; anchor: number; day: number }
 
 const KINDS: Record<string, Gesture["kind"]> = { start: "resizeStart", end: "resizeEnd", height: "height" };
 const THRESHOLD_PX = 3;
@@ -106,6 +131,9 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   let pending: Pending | null = null;
   let selectedKey: string | null = null;
   let observer: MutationObserver | null = null;
+  let creating: Creating | null = null;
+  let draftEl: HTMLDivElement | null = null;
+  let draftId = 0;
   const setTimer = o.clock?.setTimer ?? ((cb: () => void, ms: number) => setTimeout(cb, ms));
   const clearTimer = o.clock?.clearTimer ?? ((id: unknown) => clearTimeout(id as number));
 
@@ -175,6 +203,85 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     if (!r) { hideGhost(); return; }
     frozen = true;
     void Promise.resolve(r).catch(() => {}).finally(() => { frozen = false; hideGhost(); });
+  }
+
+  function open(hit: { key: string; allocationId: string; el: HTMLElement }) {
+    if (!o.onOpen || (o.enabled && !o.enabled())) return;
+    const a = host.data().allocations.find((x) => x.id === hit.allocationId);
+    if (!a) return;
+    o.onOpen({ key: hit.key, allocationId: a.id, occurrence: a.repeatState === "none" ? null : Number(hit.key.split(":")[1] ?? 0), el: hit.el });
+  }
+
+  // ---------- création en zone libre (RT-015) ----------
+
+  /** Ligne et jour sous le pointeur, si c'est une zone libre de la grille ; null sinon. */
+  function freeSlotAt(target: EventTarget | null, clientX: number, clientY: number): { row: GridRow; day: number } | null {
+    const m = host.model();
+    if (!m || !(target instanceof Element) || !host.surface.contains(target)) return null;
+    if (target.closest(".wn-rowheader, .wn-block, .wn-timeoff, .wn-cap, [data-handle]")) return null;
+    if (clientX < root.getBoundingClientRect().left + GUTTER_PX) return null;
+    const r = host.surface.getBoundingClientRect();
+    const y = clientY - r.top;
+    const row = rowAt(y);
+    if (!row || y < row.top || y >= row.top + row.capY) return null;
+    const day = dayAt(clientX);
+    return day === null ? null : { row, day };
+  }
+  function dayAt(clientX: number): number | null {
+    const m = host.model();
+    if (!m) return null;
+    const x = clientX - host.surface.getBoundingClientRect().left - host.xOfDate(m.from);
+    return x < 0 ? null : dayNumber(m.from) + Math.floor(x / host.pxPerDay());
+  }
+
+  function showDraft(c: Creating) {
+    const row = host.model()?.rows.find((r) => r.personId === c.personId);
+    if (!row) return;
+    if (!draftEl) {
+      draftEl = doc.createElement("div");
+      draftEl.className = "wn-slot-draft";
+      draftEl.setAttribute("aria-hidden", "true");
+      draftEl.style.position = "absolute";
+      draftEl.style.top = "0";
+      draftEl.style.left = "0";
+      draftEl.style.pointerEvents = "none";
+    }
+    if (draftEl.parentNode !== host.surface) host.surface.appendChild(draftEl);
+    const from = Math.min(c.anchor, c.day);
+    const days = Math.abs(c.day - c.anchor) + 1;
+    draftEl.style.transform = `translate(${host.xOfDate(fromDayNumber(from))}px, ${row.top}px)`;
+    draftEl.style.width = `${days * host.pxPerDay()}px`;
+    draftEl.style.height = `${Math.max(4, Math.min(row.capY, host.model()?.rowUnitPx ?? ROW_UNIT_PX))}px`;
+    draftEl.style.display = "";
+  }
+  function clearDraft(id?: number) {
+    if (id !== undefined && id !== draftId) return;
+    if (draftEl) draftEl.style.display = "none";
+  }
+
+  function beginCreate(e: PointerEvent): boolean {
+    const slot = freeSlotAt(e.target, e.clientX, e.clientY);
+    if (!slot) return false;
+    e.preventDefault();
+    creating = { pointerId: e.pointerId, personId: slot.row.personId, anchor: slot.day, day: slot.day };
+    draftId++;
+    showDraft(creating);
+    listen();
+    return true;
+  }
+  function endCreate(commit: boolean) {
+    const c = creating;
+    creating = null;
+    unlisten();
+    if (!c) return;
+    if (!commit) { clearDraft(); return; }
+    const r = draftEl?.getBoundingClientRect();
+    const from = Math.min(c.anchor, c.day);
+    const to = Math.max(c.anchor, c.day);
+    o.onCreate?.({
+      draft: draftId, personId: c.personId, startDate: fromDayNumber(from), endDate: fromDayNumber(to),
+      rect: { left: r?.left ?? 0, top: r?.top ?? 0, width: r?.width ?? 0, height: r?.height ?? 0 },
+    });
   }
 
   // ---------- pointeur ----------
@@ -284,7 +391,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     select(p.hit.block.key);
     p.hit.el.classList.add("wn-armed");
     try { navigator.vibrate?.(15); } catch { /* indisponible */ }
-    drag = { ...s, kind: "move", pointerId: p.pointerId, x0: p.cx, y0: p.cy, cx: p.cx, cy: p.cy, sd0: host.scrollDay(), st0: root.scrollTop, started: false };
+    drag = { ...s, kind: "move", pointerId: p.pointerId, x0: p.cx, y0: p.cy, cx: p.cx, cy: p.cy, sd0: host.scrollDay(), st0: root.scrollTop, started: false, wasSelected: false, el: p.hit.el };
     try { p.hit.el.setPointerCapture?.(p.pointerId); } catch { /* pointeur déjà relâché */ }
   }
 
@@ -304,10 +411,13 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   }
 
   function onDown(e: PointerEvent) {
-    if (e.button !== 0 || drag || pending || frozen || (o.enabled && !o.enabled())) return;
+    if (e.button !== 0 || drag || pending || creating || frozen || (o.enabled && !o.enabled())) return;
     if (e.pointerType === "touch") { onDownTouch(e); return; }
     const hit = host.blockAt(e.target);
-    if (!hit) return;
+    if (!hit) {
+      if (o.onCreate && beginCreate(e)) select(null);
+      return;
+    }
     const s = session(hit);
     if (!s) return;
     if (kb) cancelKeyboard();
@@ -319,12 +429,17 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     const handle = (e.target as Element).closest?.("[data-handle]")?.getAttribute("data-handle");
     drag = {
       ...s, kind: (handle && KINDS[handle]) || "move", pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY,
-      sd0: host.scrollDay(), st0: root.scrollTop, started: false,
+      sd0: host.scrollDay(), st0: root.scrollTop, started: false, wasSelected: selectedKey === hit.block.key, el: hit.el,
     };
     try { hit.el.setPointerCapture?.(e.pointerId); } catch { /* pointeur déjà relâché */ }
     listen();
   }
   function onMove(e: PointerEvent) {
+    if (creating && e.pointerId === creating.pointerId) {
+      const day = dayAt(e.clientX);
+      if (day !== null && day !== creating.day) { creating.day = day; showDraft(creating); }
+      return;
+    }
     if (pending && e.pointerId === pending.pointerId) {
       pending.cx = e.clientX;
       pending.cy = e.clientY;
@@ -345,19 +460,24 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       hit?.el.focus({ preventScroll: true });
       return;
     }
+    if (creating && e.pointerId === creating.pointerId) { endCreate(true); return; }
     if (!drag || e.pointerId !== drag.pointerId) return;
     drag.cx = e.clientX;
     drag.cy = e.clientY;
     update(drag);
     const d = endDrag()!;
-    if (d.started) commit(d, "pointer");
+    if (d.started) { commit(d, "pointer"); return; }
+    // Clic sans glisser (Q5) : sélectionne ; sur un bloc déjà sélectionné, ouvre la pop-in.
+    select(d.key);
+    if (d.wasSelected) open({ key: d.key, allocationId: d.alloc.id, el: d.el });
   }
   function onCancel() {
+    if (creating) endCreate(false);
     if (pending) cancelPending();
     if (drag) { endDrag(); hideGhost(); }
   }
   function onDocKey(e: KeyboardEvent) {
-    if (e.key !== "Escape" || !drag) return;
+    if (e.key !== "Escape" || !(drag || creating)) return;
     e.preventDefault();
     e.stopPropagation();
     onCancel();
@@ -374,6 +494,13 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   function onKey(e: KeyboardEvent) {
     const hit = host.blockAt(e.target);
     if (!hit || e.target !== hit.el || drag || frozen) return;
+    if (e.key === "Enter" && !kb && o.onOpen && !(o.enabled && !o.enabled())) {
+      e.preventDefault();
+      e.stopPropagation();
+      select(hit.block.key);
+      open({ key: hit.block.key, allocationId: hit.block.allocationId, el: hit.el });
+      return;
+    }
     if (e.key === "Escape" || e.key === "Enter") {
       if (!kb) return;
       e.preventDefault();
@@ -429,6 +556,13 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
 
   /** Pas de menu contextuel du navigateur pendant un appui long ou un glisser au toucher. */
   function onContextMenu(e: Event) { if (pending || drag) e.preventDefault(); }
+  function onDblClick(e: MouseEvent) {
+    const hit = host.blockAt(e.target);
+    if (!hit || drag || frozen) return;
+    select(hit.block.key);
+    open({ key: hit.block.key, allocationId: hit.block.allocationId, el: hit.el });
+  }
+  root.addEventListener("dblclick", onDblClick);
   root.addEventListener("contextmenu", onContextMenu);
   root.addEventListener("pointerover", onOver);
   root.addEventListener("pointerdown", onDown);
@@ -436,10 +570,14 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   root.addEventListener("focusout", onFocusOut);
 
   return {
-    busy: () => drag !== null || pending !== null || kb !== null || frozen,
+    busy: () => drag !== null || pending !== null || kb !== null || creating !== null || frozen,
+    clearDraft,
     destroy() {
       cancelPending();
       endDrag();
+      creating = null;
+      draftEl?.remove();
+      root.removeEventListener("dblclick", onDblClick);
       observer?.disconnect();
       root.removeEventListener("contextmenu", onContextMenu);
       for (const h of handles) h.remove();
