@@ -35,7 +35,7 @@ describe("createGridRenderer", () => {
     const created = r.stats().rowsCreated;
     for (let s = 0; s < 100 * U; s += 13) r.render(m, s, 5 * U);
     expect(r.stats().rowsCreated).toBe(created);
-    const names = [...root.querySelectorAll("[role=rowheader]")].map((e) => e.textContent).filter((t) => t !== "");
+    const names = [...root.querySelectorAll("[role=rowheader] .wn-person-name")].map((e) => e.textContent).filter((t) => t !== "");
     expect(names).toContain("P101");
   });
 

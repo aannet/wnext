@@ -47,7 +47,7 @@ describe("ScheduleContainer", () => {
     expect(host.querySelector("[role=grid]")).toBeNull();
     release();
     await flush();
-    expect([...host.querySelectorAll("[role=rowheader]")].map((e) => e.textContent)).toEqual(["Alice"]);
+    expect([...host.querySelectorAll("[role=rowheader] .wn-person-name")].map((e) => e.textContent)).toEqual(["Alice"]);
     expect(host.querySelector("[role=status]")!.textContent).toBe("Temps réel : hors ligne");
   });
 

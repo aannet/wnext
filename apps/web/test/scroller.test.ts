@@ -170,7 +170,10 @@ describe("tranches du modèle et recyclage", () => {
     const run = (frames: number) => {
       for (let i = 0; i < frames; i++) { x += 120; h.scrollTo(x, (i * 7) % 1500); }
     };
-    run(200); // pools chauds
+    // Pools chauds. 400 images (200 avant la gouttière de 240 px) : avec la nouvelle gouttière, la position de la fenêtre
+    // quantifiée (QUANTUM_PX) par rapport aux cellules met plus d'images à passer par toutes ses combinaisons ; il manquait
+    // un nœud de cellule au bout de 200, jamais au-delà (les 1 200 images suivantes restent vérifiées à l'identique).
+    run(400);
     const warm = h.s.stats();
     run(1200); // 1 500 jours : extensions de piste et dizaines de tranches
     const after = h.s.stats();
@@ -325,7 +328,7 @@ describe("navigation", () => {
   it("nouvelles données : modèle reconstruit et redessiné ; destroy vide le conteneur et coupe les rAF", () => {
     const h = setup();
     h.s.setData({ ...uniform(3) });
-    expect([...h.root.querySelectorAll("[role=rowheader]")].filter((e) => e.textContent).length).toBe(3);
+    expect([...h.root.querySelectorAll("[role=rowheader] .wn-person-name")].filter((e) => e.textContent).length).toBe(3);
     h.scrollTo(h.root.scrollLeft + 10);
     h.root.dispatchEvent(new Event("scroll"));
     h.s.destroy();

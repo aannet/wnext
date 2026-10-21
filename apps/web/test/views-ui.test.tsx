@@ -35,7 +35,7 @@ async function mount(views: ViewsSource = createDemoViewsSource(demoSeedViews(),
 }
 
 // Grille virtualisée : le nombre de personnes se lit dans la barre d'outils (les lignes DOM ne sont que celles de la fenêtre).
-const rows = () => [...host.querySelectorAll("[role=rowheader]")].map((e) => e.textContent).filter(Boolean); // lignes recyclées vides écartées
+const rows = () => [...host.querySelectorAll("[role=rowheader] .wn-person-name")].map((e) => e.textContent).filter(Boolean); // lignes recyclées vides écartées
 const count = () => Number(/(\d+) personnes?/.exec(host.querySelector("[role=toolbar]")!.textContent!)![1]);
 const viewSelect = () => host.querySelector<HTMLSelectElement>(".wn-views-row select")!;
 const button = (label: string) => [...document.body.querySelectorAll<HTMLButtonElement>(".wn-views button, [role=dialog] button")].find((b) => b.textContent === label);

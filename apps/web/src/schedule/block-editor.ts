@@ -189,7 +189,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       root.classList.add("wn-dragging");
     }
     const person = host.data().people.find((p) => p.id === d.personId);
-    const g = pointerGesture(d.kind, dx, dy, { pxPerDay: ppd, rowHeightPx: ROW_UNIT_PX, refHours: referenceHours(person ? workDaysHoursOn(person, d.occ0.startDate) : []), mode: d.occ0.mode });
+    const g = pointerGesture(d.kind, dx, dy, { pxPerDay: ppd, rowHeightPx: host.model()?.rowUnitPx ?? ROW_UNIT_PX, refHours: referenceHours(person ? workDaysHoursOn(person, d.occ0.startDate) : []), mode: d.occ0.mode });
     if (g.kind === "move") { const r = rowAt(d.anchorY + dy); if (r) g.personId = r.personId; }
     d.occ = step(d.occ0, g);
     d.ser = d.ser0 && step(d.ser0, g);

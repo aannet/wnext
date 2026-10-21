@@ -7,6 +7,7 @@ import { DEFAULT_PX_PER_DAY, HOURS_STEP, addDays } from "@wnext/engine";
 import { describe, expect, it } from "vitest";
 import { patched } from "../src/data/allocation-edits";
 import { createBlockEditor, type EditRequest } from "../src/schedule/block-editor";
+import { DENSITY_METRICS, type Density } from "../src/schedule/density";
 import { CAP_PX, ROW_UNIT_PX } from "../src/schedule/grid-model";
 import { GUTTER_PX, createScroller, type Clock } from "../src/schedule/scroller";
 
@@ -38,13 +39,13 @@ const BASE = [
   alloc("3", "3", { mode: "percentage", hoursPerDay: null, percent: 50 } as Partial<Alloc>),
 ];
 
-function setup(onCommit: (r: EditRequest) => void | Promise<unknown> = () => {}, schedule?: Record<string, unknown>) {
+function setup(onCommit: (r: EditRequest) => void | Promise<unknown> = () => {}, schedule?: Record<string, unknown>, density?: Density) {
   const root = document.createElement("div");
   document.body.appendChild(root);
   const frames: (() => void)[] = [];
   const clock: Partial<Clock> = { raf: (cb) => (frames.push(cb), frames.length), caf: () => {}, now: () => 0, idle: () => {}, setTimer: () => 0, clearTimer: () => {} };
   const frame = (n = 1) => { for (let i = 0; i < n; i++) for (const f of frames.splice(0)) f(); };
-  const s = createScroller({ root, data: data(BASE, schedule), today: TODAY, widthPx: GUTTER_PX + 960, heightPx: 480, label: (c) => c.from, clock, reducedMotion: () => true });
+  const s = createScroller({ root, data: data(BASE, schedule), today: TODAY, widthPx: GUTTER_PX + 960, heightPx: 480, label: (c) => c.from, clock, reducedMotion: () => true, ...(density ? { density } : {}) });
   const commits: EditRequest[] = [];
   const previews: (string | null)[] = [];
   const ed = createBlockEditor({
@@ -109,6 +110,15 @@ describe("pointeur", () => {
     h.drag(h.handle("1:0", "height"), 0, 4);
     h.drag(h.handle("3:0", "height"), 0, -12);
     expect(h.commits.map((c) => c.patch)).toEqual([{ hoursPerDay: 8 - HOURS_STEP }, { percent: 75 }]);
+  });
+
+  it("densité aérée (RT-005) : la conversion pixels -> heures et le changement de ligne suivent les hauteurs de la densité", () => {
+    const { rowUnitPx, capPx } = DENSITY_METRICS.airy;
+    const h = setup(() => {}, undefined, "airy");
+    // Un quart de la hauteur d'une journée aérée = 2 h de plus ; avec les 48 px de la densité compacte, ce serait 3 h.
+    h.drag(h.handle("1:0", "height"), 0, -rowUnitPx / 4);
+    h.drag(h.block("1:0"), 0, rowUnitPx + capPx);
+    expect(h.commits.map((c) => c.patch)).toEqual([{ hoursPerDay: 10 }, { personId: "2" }]);
   });
 
   // @BR-19

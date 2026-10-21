@@ -11,6 +11,10 @@
 //    de suite au montage et au changement de zoom.
 //  * « Aujourd'hui », précédent / suivant (une période du zoom) : défilement doux, sauf préférence « mouvement réduit ».
 //    Le zoom garde la date au centre.
+//  * Densité (schedule/density) : hauteurs de ligne du modèle ; la changer reconstruit le modèle en gardant la personne en
+//    haut de la vue. Jauge par personne : période = jours visibles (visibleRange), passée au rendu à chaque dessin ; le
+//    rendu ne la recalcule que pour les lignes affichées et seulement quand la période change.
+//  * Position initiale (`center`, `scrollTop`) : l'écran rouvert reprend là où on l'avait quitté (PO-02).
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
   CHUNK_DAYS, DEFAULT_PX_PER_DAY, chunkCover, coreRange, dayNumber, extendTrack, fromDayNumber, headerCells, neighborDays, scrollLeftOf,
@@ -19,10 +23,11 @@ import {
 import type { EditHost } from "./block-editor";
 import { createGridRenderer } from "./grid-dom";
 import { createHeaderRenderer, type HeaderItem } from "./grid-header";
-import { buildGrid, type GridBlock, type GridCap, type GridModel, type GridTimeoff } from "./grid-model";
+import { DENSITY_METRICS, type Density } from "./density";
+import { buildGrid, visibleRows, type GridBlock, type GridCap, type GridGauge, type GridModel, type GridTimeoff } from "./grid-model";
 
-/** Largeur de la colonne des noms de personnes (gouttière collée à gauche). */
-export const GUTTER_PX = 140;
+/** Largeur de la colonne des personnes (gouttière collée à gauche : avatar, nom, rôle, département, jauge ; ux-ui §2.1). */
+export const GUTTER_PX = 240;
 export const HEADER_PX = 32;
 /** Pas de la fenêtre horizontale rendue (et marge de chaque côté de la vue). */
 export const QUANTUM_PX = 256;
@@ -63,6 +68,13 @@ export interface ScrollerOptions {
   blockLabel?(b: GridBlock): string;
   /** Libellé accessible d'un congé (catalogue i18n). */
   timeoffLabel?(t: GridTimeoff): string;
+  /** Texte et infobulle de la jauge d'une personne (catalogue i18n). */
+  gaugeLabel?(g: GridGauge): { text: string; title: string };
+  /** Densité initiale (défaut : compacte, les hauteurs historiques, comme buildGrid ; l'écran passe la sienne). */
+  density?: Density;
+  /** Jour au centre de la vue au montage (défaut : aujourd'hui) et défilement vertical initial. */
+  center?: number;
+  scrollTop?: number;
 }
 
 export interface Scroller {
@@ -72,7 +84,10 @@ export interface Scroller {
   /** Date du jour (fuseau du compte) : cible d'« Aujourd'hui » ; la vue ne bouge pas. */
   setToday(today: string): void;
   /** Libellés localisés (changement de locale) : tout est réécrit au prochain dessin, la vue ne bouge pas. */
-  setLabels(l: Pick<ScrollerOptions, "label" | "capacityLabel" | "blockLabel" | "timeoffLabel">): void;
+  setLabels(l: Pick<ScrollerOptions, "label" | "capacityLabel" | "blockLabel" | "timeoffLabel" | "gaugeLabel">): void;
+  density(): Density;
+  /** Nouvelles hauteurs de ligne ; la personne en haut de la vue y reste. */
+  setDensity(d: Density): void;
   resize(widthPx: number, heightPx: number): void;
   today(): void;
   step(dir: -1 | 1): void;
@@ -113,9 +128,11 @@ export function createScroller(o: ScrollerOptions): Scroller {
     ...(o.capacityLabel ? { capLabel: (c: GridCap) => o.capacityLabel!(label(c), c) } : {}),
     ...(o.blockLabel ? { blockLabel: o.blockLabel } : {}),
     ...(o.timeoffLabel ? { timeoffLabel: o.timeoffLabel } : {}),
+    ...(o.gaugeLabel ? { gaugeLabel: o.gaugeLabel } : {}),
   });
 
   let data = o.data;
+  let density: Density = o.density ?? "compact";
   let zoom: Zoom = o.zoom ?? "day";
   let pxPerDay = DEFAULT_PX_PER_DAY[zoom];
   let widthPx = o.widthPx;
@@ -142,7 +159,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
 
   function rebuild(v: Viewport) {
     const range = chunkCover(v, weekStart(), neighborDays(v));
-    model = build(data, range, pxPerDay, zoom);
+    model = build(data, range, pxPerDay, zoom, DENSITY_METRICS[density]);
     modelKey = `${range.from}..${range.to}`;
     builds++;
   }
@@ -182,7 +199,8 @@ export function createScroller(o: ScrollerOptions): Scroller {
     const left = Math.floor((sl + GUTTER_PX - QUANTUM_PX) / QUANTUM_PX) * QUANTUM_PX;
     const right = Math.ceil((sl + GUTTER_PX + tl() + QUANTUM_PX) / QUANTUM_PX) * QUANTUM_PX;
     const originX = GUTTER_PX + (dayNumber(m.from) - first) * pxPerDay;
-    grid.render(m, Math.max(0, root.scrollTop - HEADER_PX), heightPx - HEADER_PX, { surfaceWidth, originX, left, right });
+    const period = visibleRange(viewAtScroll(track, sl, zoom, tl(), pxPerDay));
+    grid.render(m, Math.max(0, root.scrollTop - HEADER_PX), heightPx - HEADER_PX, { surfaceWidth, originX, left, right }, period);
     const key = `${left}:${right}:${zoom}:${track.first}:${track.last}`;
     if (key === headerKey) return;
     headerKey = key;
@@ -270,7 +288,8 @@ export function createScroller(o: ScrollerOptions): Scroller {
   root.addEventListener("wheel", stopAnim, { passive: true });
   root.addEventListener("pointerdown", stopAnim, { passive: true });
 
-  jump(dayNumber(o.today) + 0.5);
+  jump(o.center ?? dayNumber(o.today) + 0.5);
+  if (o.scrollTop) { root.scrollTop = o.scrollTop; paint(root.scrollLeft); }
   emit(current(), true);
 
   return {
@@ -302,8 +321,25 @@ export function createScroller(o: ScrollerOptions): Scroller {
         ...(l.capacityLabel ? { capLabel: (c: GridCap) => l.capacityLabel!(label(c), c) } : {}),
         ...(l.blockLabel ? { blockLabel: l.blockLabel } : {}),
         ...(l.timeoffLabel ? { timeoffLabel: l.timeoffLabel } : {}),
+        ...(l.gaugeLabel ? { gaugeLabel: l.gaugeLabel } : {}),
       });
       schedule();
+    },
+    density: () => density,
+    setDensity(d) {
+      if (d === density) return;
+      // Ancre : la ligne sous le haut de la vue (la surface commence sous l'en-tête de dates) et la fraction déjà défilée.
+      const before = model;
+      const y = root.scrollTop;
+      const i = before ? visibleRows(before, y, 1, 0)[0] : undefined;
+      const row = i === undefined ? undefined : before!.rows[i];
+      const frac = row ? (y - row.top) / row.heightPx : 0;
+      density = d;
+      rebuild(current());
+      const next = i === undefined ? undefined : model!.rows[i];
+      paint(root.scrollLeft);
+      if (next) root.scrollTop = Math.round(next.top + frac * next.heightPx);
+      paint(root.scrollLeft);
     },
     today: () => animateTo(dayNumber(today) + 0.5),
     step(dir) {

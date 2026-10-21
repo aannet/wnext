@@ -15,14 +15,23 @@
 //  * Congés : un nœud par congé visible (recyclé comme les blocs), derrière les blocs (z-index CSS), focalisable
 //    (tabindex -1) ; teinte du type (classe wn-timeoff-tone-N), motif pour « en attente » et « refusé » (classes de statut :
 //    l'information ne repose pas sur la couleur seule) ; libellé accessible de l'appelant. timeoffAt retrouve le congé d'un nœud.
+//  * En-tête de ligne (colonne de gauche, ux-ui §2.1) : avatar à initiales, nom, rôle, département en pastille, jauge de la
+//    période visible (barre + pourcentage, ▲ et « +N h » au-delà de 100 % : redondance non chromatique, WCAG 1.4.1). La
+//    jauge n'est recalculée (gaugeOf, O(1)) que si la ligne ou la période change, et un nœud n'est écrit que si sa valeur change.
 import { blockColors } from "./block-colors";
-import { CAP_PX, visibleRows, type GridBlock, type GridCap, type GridModel, type GridRow, type GridTimeoff } from "./grid-model";
+import { CAP_PX, gaugeOf, visibleRows, type GridBlock, type GridCap, type GridGauge, type GridModel, type GridRow, type GridTimeoff } from "./grid-model";
 
 interface BlockEl { el: HTMLDivElement; text: Text; v: Partial<GridBlock>; g: GridBlock | null; row: RowEl | null }
-interface CapEl { el: HTMLDivElement; v: Partial<GridCap>; y: number }
+interface CapEl { el: HTMLDivElement; v: Partial<GridCap>; y: number; h: number }
 interface OffEl { el: HTMLDivElement; text: Text; v: Partial<GridTimeoff>; g: GridTimeoff | null; row: RowEl | null }
+interface HeadEl {
+  avatar: HTMLSpanElement; name: Text; role: HTMLSpanElement; dept: HTMLSpanElement; gauge: HTMLSpanElement; fill: HTMLSpanElement; value: Text;
+  /** Valeurs écrites (identité, jauge) et clé ligne + période de la jauge affichée. */
+  v: { name?: string; initials?: string; role?: string; department?: string };
+  g: Partial<GridGauge>; key: string; model: GridModel | null;
+}
 interface RowEl {
-  el: HTMLDivElement; header: HTMLDivElement; index: number; model: GridModel | null; span: string; blocks: Map<string, BlockEl>; caps: Map<string, CapEl>;
+  el: HTMLDivElement; header: HTMLDivElement; head: HeadEl; index: number; model: GridModel | null; span: string; blocks: Map<string, BlockEl>; caps: Map<string, CapEl>;
   offs: Map<string, OffEl>; top: number; h: number;
 }
 
@@ -30,7 +39,8 @@ interface RowEl {
 export interface Horizontal { surfaceWidth: number; originX: number; left: number; right: number }
 
 export interface GridRenderer {
-  render(model: GridModel, scrollTop: number, viewHeight: number, h?: Horizontal): void;
+  /** `period` : jours visibles, période de la jauge par personne (absente : toute la tranche du modèle). */
+  render(model: GridModel, scrollTop: number, viewHeight: number, h?: Horizontal, period?: { from: string; to: string }): void;
   /** Bloc affiché qui contient `target` (ou l'une de ses poignées), avec sa ligne ; null hors bloc. */
   blockAt(target: EventTarget | null): { block: GridBlock; row: GridRow; el: HTMLElement } | null;
   /** Congé affiché qui contient `target`, avec sa ligne ; null hors congé. */
@@ -39,7 +49,7 @@ export interface GridRenderer {
   readonly surface: HTMLElement;
   stats(): { rowsCreated: number; blocksCreated: number; capsCreated: number };
   /** Nouveaux libellés (changement de locale) : chaque ligne affichée est réécrite au prochain render. */
-  setLabels(l: Pick<GridRendererOptions, "capLabel" | "blockLabel" | "timeoffLabel">): void;
+  setLabels(l: Pick<GridRendererOptions, "capLabel" | "blockLabel" | "timeoffLabel" | "gaugeLabel">): void;
   destroy(): void;
 }
 
@@ -47,6 +57,19 @@ const div = (className: string) => {
   const d = document.createElement("div");
   d.className = className;
   return d;
+};
+const span = (className: string, parent: HTMLElement) => {
+  const d = document.createElement("span");
+  d.className = className;
+  parent.appendChild(d);
+  return d;
+};
+const textIn = (parent: HTMLElement) => parent.appendChild(document.createTextNode(""));
+
+/** Texte et infobulle d'une jauge sans catalogue (tests) : pourcentage, ▲ et +N h en dépassement. */
+const defaultGaugeLabel = (g: GridGauge) => {
+  const text = g.state === "over" ? `▲ ${g.percent === null ? "" : `${g.percent} % `}+${g.overHours} h` : g.percent === null ? "—" : `${g.percent} %`;
+  return { text, title: `${g.from} – ${g.to} : ${g.plannedHours} h / ${g.capacityHours} h` };
 };
 
 export interface GridRendererOptions {
@@ -57,16 +80,20 @@ export interface GridRendererOptions {
   blockLabel?(b: GridBlock): string;
   /** Libellé accessible d'un congé (type, dates, demi-journées, statut). */
   timeoffLabel?(t: GridTimeoff): string;
+  /** Jauge d'une personne : texte visible (pourcentage, ▲ +N h) et infobulle (« du … au … : X h planifiées sur Y h »). */
+  gaugeLabel?(g: GridGauge): { text: string; title: string };
 }
 
-/** Fond d'une cellule de capacité : confirmé (plein), tentatif (hachuré), zone de dépassement (hachures), ligne de capacité. */
-export function capBackground(c: GridCap): string {
+/**
+ * Fond d'une cellule de capacité : confirmé (plein), tentatif (hachuré), zone de dépassement (hachures), ligne de capacité ;
+ * `capPx` : hauteur de la bande (densité du modèle). */
+export function capBackground(c: GridCap, capPx = CAP_PX): string {
   const layers: string[] = [];
   const bar = (img: string, y: number, h: number) => `${img} 0 ${y}px / 100% ${h}px no-repeat`;
   if (c.overPx > 0) layers.push(bar("var(--wn-cap-over-hatch)", 0, c.overPx));
   if (c.state !== "none") layers.push(bar("linear-gradient(var(--wn-cap-line), var(--wn-cap-line))", c.lineY, 2));
-  if (c.tentativePx > 0) layers.push(bar("var(--wn-cap-tentative-hatch)", CAP_PX - c.confirmedPx - c.tentativePx, c.tentativePx));
-  if (c.confirmedPx > 0) layers.push(bar("linear-gradient(var(--wn-cap-confirmed), var(--wn-cap-confirmed))", CAP_PX - c.confirmedPx, c.confirmedPx));
+  if (c.tentativePx > 0) layers.push(bar("var(--wn-cap-tentative-hatch)", capPx - c.confirmedPx - c.tentativePx, c.tentativePx));
+  if (c.confirmedPx > 0) layers.push(bar("linear-gradient(var(--wn-cap-confirmed), var(--wn-cap-confirmed))", capPx - c.confirmedPx, c.confirmedPx));
   return layers.join(", ");
 }
 
@@ -97,9 +124,21 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     el.style.right = "0";
     const header = div("wn-rowheader");
     header.setAttribute("role", "rowheader");
+    const avatar = span("wn-person-avatar", header);
+    avatar.setAttribute("aria-hidden", "true");
+    const person = span("wn-person", header);
+    const name = textIn(span("wn-person-name", person));
+    const meta = span("wn-person-meta", person);
+    const role = span("wn-person-role", meta);
+    const dept = span("wn-person-dept", meta);
+    const gauge = span("wn-gauge", person);
+    gauge.setAttribute("role", "img");
+    const fill = span("wn-gauge-fill", span("wn-gauge-track", gauge));
+    const value = textIn(span("wn-gauge-value", gauge));
     el.appendChild(header);
     surface.appendChild(el);
-    return { el, header, index: -1, model: null, span: "", blocks: new Map(), caps: new Map(), offs: new Map(), top: NaN, h: NaN };
+    const head: HeadEl = { avatar, name, role, dept, gauge, fill, value, v: {}, g: {}, key: "", model: null };
+    return { el, header, head, index: -1, model: null, span: "", blocks: new Map(), caps: new Map(), offs: new Map(), top: NaN, h: NaN };
   };
   const releaseRow = (r: RowEl) => {
     for (const b of r.blocks.values()) releaseBlock(b);
@@ -111,7 +150,11 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     r.index = -1;
     r.model = null;
     r.span = "";
-    r.header.textContent = "";
+    r.head.name.data = "";
+    r.head.v = {};
+    r.head.g = {};
+    r.head.key = "";
+    r.head.model = null;
     r.el.style.display = "none";
     freeRows.push(r);
   };
@@ -199,8 +242,7 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
       el.setAttribute("role", "gridcell");
       el.style.position = "absolute";
       el.style.top = "0";
-      el.style.height = `${CAP_PX}px`;
-      return { el, v: {}, y: NaN };
+      return { el, v: {}, y: NaN, h: NaN };
     })();
     c.el.style.display = "";
     parent.appendChild(c.el);
@@ -214,15 +256,16 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     freeCaps.push(c);
   };
 
-  const setCap = (c: CapEl, g: GridCap, y: number, originX: number) => {
+  const setCap = (c: CapEl, g: GridCap, y: number, originX: number, capPx: number) => {
     const v = c.v;
     const s = c.el.style;
     const x = g.x + originX;
+    if (c.h !== capPx) { s.height = `${capPx}px`; c.h = capPx; c.v = {}; }
     if (v.from !== g.from) c.el.setAttribute("data-from", g.from);
     if (v.x !== x || c.y !== y) { s.transform = `translate(${x}px, ${y}px)`; c.y = y; }
     if (v.w !== g.w) s.width = `${g.w}px`;
     if (v.state !== g.state) c.el.className = `wn-cap wn-cap-${g.state}`;
-    if (v.confirmedPx !== g.confirmedPx || v.tentativePx !== g.tentativePx || v.overPx !== g.overPx || v.lineY !== g.lineY || v.state !== g.state) s.background = capBackground(g);
+    if (v.confirmedPx !== g.confirmedPx || v.tentativePx !== g.tentativePx || v.overPx !== g.overPx || v.lineY !== g.lineY || v.state !== g.state) s.background = capBackground(g, capPx);
     if (opts.capLabel && (v.from !== g.from || v.kind !== g.kind || v.plannedHours !== g.plannedHours || v.capacityHours !== g.capacityHours
       || v.tentativeHours !== g.tentativeHours || v.overtimeHours !== g.overtimeHours || v.overbookedDays !== g.overbookedDays)) {
       const label = opts.capLabel(g);
@@ -263,7 +306,11 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     r.span = span;
     if (r.top !== row.top) { r.el.style.transform = `translateY(${row.top}px)`; r.top = row.top; }
     if (r.h !== row.heightPx) { r.el.style.height = `${row.heightPx}px`; r.h = row.heightPx; }
-    if (r.header.textContent !== row.name) r.header.textContent = row.name;
+    const hv = r.head.v;
+    if (hv.name !== row.name) { r.head.name.data = row.name; hv.name = row.name; }
+    if (hv.initials !== row.initials) { r.head.avatar.textContent = row.initials; hv.initials = row.initials; }
+    if (hv.role !== row.role) { r.head.role.textContent = row.role; r.head.role.hidden = row.role === ""; hv.role = row.role; }
+    if (hv.department !== row.department) { r.head.dept.textContent = row.department; r.head.dept.hidden = row.department === ""; hv.department = row.department; }
     const shown = row.blocks.filter((b) => b.x + h.originX + b.w >= h.left && b.x + h.originX <= h.right);
     const keep = new Set(shown.map((b) => b.key));
     for (const [k, b] of r.blocks) if (!keep.has(k)) { releaseBlock(b); r.blocks.delete(k); }
@@ -290,12 +337,35 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     for (const g of capsShown) {
       let c = r.caps.get(g.from);
       if (!c) { c = takeCap(r.el); r.caps.set(g.from, c); }
-      setCap(c, g, row.capY, h.originX);
+      setCap(c, g, row.capY, h.originX, model.capPx);
     }
   };
 
+  /** Jauge de la ligne sur la période : recalculée si la ligne ou la période change ; nœuds écrits si leur valeur change. */
+  const bindGauge = (r: RowEl, model: GridModel, period: { from: string; to: string }) => {
+    const row = model.rows[r.index]!;
+    const head = r.head;
+    // Le modèle compte : une reconstruction (données, densité) garde les indices de ligne avec d'autres charges.
+    const key = `${r.index}:${period.from}..${period.to}`;
+    if (head.model === model && head.key === key) return;
+    head.model = model;
+    head.key = key;
+    const g = gaugeOf(row, period, model.thresholds);
+    const v = head.g;
+    if (v.state !== g.state) head.gauge.className = `wn-gauge wn-gauge-${g.state}`;
+    if (v.fill !== g.fill) head.fill.style.width = `${g.fill}%`;
+    if (v.from !== g.from || v.to !== g.to || v.plannedHours !== g.plannedHours || v.capacityHours !== g.capacityHours || v.percent !== g.percent
+      || v.overHours !== g.overHours || v.state !== g.state) {
+      const l = (opts.gaugeLabel ?? defaultGaugeLabel)(g);
+      head.value.data = l.text;
+      head.gauge.title = l.title;
+      head.gauge.setAttribute("aria-label", `${l.text}, ${l.title}`);
+    }
+    head.g = g;
+  };
+
   return {
-    render(model, scrollTop, viewHeight, horizontal) {
+    render(model, scrollTop, viewHeight, horizontal, period) {
       const h = horizontal ?? { surfaceWidth: model.widthPx, originX: 0, left: -Infinity, right: Infinity };
       const next = `${h.surfaceWidth}x${model.heightPx}`;
       if (next !== size) { surface.style.width = `${h.surfaceWidth}px`; surface.style.height = `${model.heightPx}px`; size = next; }
@@ -305,6 +375,7 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
         let r = active.get(i);
         if (!r) { r = takeRow(); active.set(i, r); }
         bindRow(r, model, i, h);
+        bindGauge(r, model, period ?? model);
       }
     },
     blockAt(target) {
@@ -325,8 +396,11 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
       opts.capLabel = l.capLabel;
       opts.blockLabel = l.blockLabel;
       opts.timeoffLabel = l.timeoffLabel;
+      opts.gaugeLabel = l.gaugeLabel;
       for (const r of active.values()) {
         r.model = null;
+        r.head.g = {};
+        r.head.key = "";
         for (const b of r.blocks.values()) b.v = {};
         for (const o of r.offs.values()) o.v = {};
         for (const c of r.caps.values()) c.v = {};

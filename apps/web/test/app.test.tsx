@@ -77,7 +77,7 @@ describe("ScheduleScreen", () => {
 
   it("grille montée : une ligne par personne, compteur au pluriel", () => {
     mount("fr");
-    expect([...host.querySelectorAll("[role=rowheader]")].map((e) => e.textContent)).toEqual(["Alice", "Bruno"]);
+    expect([...host.querySelectorAll("[role=rowheader] .wn-person-name")].map((e) => e.textContent)).toEqual(["Alice", "Bruno"]);
     expect(grid().querySelector("[role=row]")!.querySelectorAll("[role=columnheader]").length).toBeGreaterThan(7); // en-tête dans la grille
     expect(host.textContent).toContain("2 personnes");
   });
