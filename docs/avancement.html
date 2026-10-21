@@ -155,7 +155,7 @@ const RECETTE = {
     { id: "RT-009", t: "Les formulaires (ex. nouveau congé) s'ouvrent dans un panneau inséré en bas de page au lieu d'une fenêtre superposée", nature: "ergonomie", gravite: "majeure", lot: "L-D", statut: "corrigé" },
     { id: "RT-010", t: "Aucune interface pour éditer les propriétés d'un projet (et de ses tâches)", nature: "manque", gravite: "bloquante", lot: "L-F", statut: "corrigé" },
     { id: "RT-011", t: "Aucune interface pour modifier une allocation déjà posée (changer son projet, sa tâche…)", nature: "manque", gravite: "bloquante", lot: "L-E", statut: "validé" },
-    { id: "RT-012", t: "Pas de back-office : listes et CRUD des projets, des personnes et des équipes", nature: "manque", gravite: "bloquante", lot: "L-F", statut: "planifié" },
+    { id: "RT-012", t: "Pas de back-office : listes et CRUD des projets, des personnes et des équipes", nature: "manque", gravite: "bloquante", lot: "L-F", statut: "corrigé" },
     { id: "RT-013", t: "Clic (ou double-clic, à définir) sur un bloc posé : ouvre une pop-in d'édition qui reprend les informations du projet", nature: "ergonomie", gravite: "majeure", lot: "L-E", statut: "validé" },
     { id: "RT-014", t: "Changer le projet ou la tâche d'un bloc depuis le référentiel (liste reliée aux données)", nature: "manque", gravite: "bloquante", lot: "L-E", statut: "validé" },
     { id: "RT-015", t: "Créer une allocation sans passer par la saisie rapide : bouton visible et clic ou glisser dans une zone libre, qui crée un bloc provisoire puis ouvre l'édition", nature: "manque", gravite: "bloquante", lot: "L-E", statut: "validé" },
@@ -170,7 +170,7 @@ const RECETTE = {
     { id: "L-D", t: "Primitives de fenêtres (Modal, Popover, Drawer) et migration de tous les dialogues vers des fenêtres superposées (Fermer + Échap)", statut: "fait" },
     { id: "L-C", t: "Densité à 3 niveaux et jauge par personne dans la colonne de gauche", statut: "proposé" },
     { id: "L-E", t: "Éditeur de créneau : création (bouton, clic ou glisser en zone libre), pop-in à onglets Projet / tâche et Congé, changement de projet / tâche / personnes, couleur du projet", statut: "proposé" },
-    { id: "L-F", t: "Back-office : écrans Projets (liste, création, panneau propriétés et équipe), Personnes (liste, création, modification datée), Réglages (départements, rôles, clients, types de congé, fériés)", statut: "en cours (Projets fait, Personnes et Réglages à venir)" },
+    { id: "L-F", t: "Back-office : écrans Projets (liste, création, panneau propriétés et équipe), Personnes (liste, création, modification datée), Réglages (départements, rôles, clients, types de congé, fériés)", statut: "livré (Projets L-F1, Personnes et Réglages L-F2 ; reste l'accès et le compte, PO-04 et PO-05)" },
   ],
 };
 
@@ -302,7 +302,7 @@ const PHASES = [
       { t: "L-B Coque : en-tête, navigation, connexion, utilisateur connecté", s: "done", n: "GET /me, routeur, portail OIDC, Bonjour, écritures selon le rôle" },
       { t: "L-C Densité à 3 niveaux et jauge par personne", s: "todo" },
       { t: "L-E Éditeur de créneau (création, pop-in Projet / Congé, changement de projet)", s: "todo" },
-      { t: "L-F Back-office Projets, Personnes, Réglages", s: "part", n: "écran Projets livré (liste, création, panneau, tâches, équipe, clients, palette) ; Personnes et Réglages à venir" },
+      { t: "L-F Back-office Projets, Personnes, Réglages", s: "part", n: "écrans Projets, Personnes et Réglages livrés (liste, création, fiche dans le Drawer, horaire daté, désactivation BR-31, équipes, rôles, clients, congés, fériés) ; manquent la colonne « accès » et l'écriture du compte (PO-04, PO-05)" },
       { t: "Primitives et catalogue", s: "todo" },
       { t: "Assistant de première allocation et « Trouver quelqu'un de dispo »", s: "todo" },
       { t: "Approbation des congés", s: "todo" },
