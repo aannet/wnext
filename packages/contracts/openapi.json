@@ -1813,7 +1813,8 @@
               "pending",
               "approved",
               "declined"
-            ]
+            ],
+            "description": "Défaut approved (RT-022) ; pending conservé pour les congés existants"
           },
           "notes": {
             "type": [
@@ -1885,7 +1886,8 @@
               "pending",
               "approved",
               "declined"
-            ]
+            ],
+            "description": "Défaut approved (RT-022) ; pending conservé pour les congés existants"
           },
           "notes": {
             "type": [

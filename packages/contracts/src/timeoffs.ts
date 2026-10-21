@@ -10,8 +10,10 @@ import { Id, IsoDate, orNull } from "./common";
 //    scope "partial" = un nombre d'heures par jour (hoursPerDay), toujours en journées entières (am..pm).
 //  * Un même congé ne peut pas en chevaucher un autre de la même personne, à la demi-journée près, sauf s'il est refusé
 //    (declined) ou partiel : 409 TIMEOFF_OVERLAP. Ce n'est pas un conflit de version : recharger ne suffit pas, il faut changer les dates.
-//  * Défauts serveur : scope "full_day", startHalf "am", endHalf "pm", approvalStatus "pending" (compté dans la capacité, BR-02/BR-29).
-//  * Hors périmètre (à venir) : demande d'un membre pour lui-même et circuit d'approbation par un tiers ; création de plusieurs
+//  * Défauts serveur : scope "full_day", startHalf "am", endHalf "pm", approvalStatus "approved" (RT-022 : un congé est posé par un
+//    manager ou un admin et vaut décision ; pas de circuit de demande). "pending" reste accepté et lu pour les congés existants
+//    (compté dans la capacité, sans assistant BR-04, BR-29), mais l'écran ne le propose plus à la pose.
+//  * Hors périmètre : demande d'un membre pour lui-même et circuit d'approbation (retirés, RT-022) ; création de plusieurs
 //    personnes à la fois ; types de congé (écriture).
 
 const half = z.enum(["am", "pm"]);
@@ -24,7 +26,7 @@ const fields = {
   startHalf: half.optional(),
   endHalf: half.optional(),
   hoursPerDay: orNull(z.number().gt(0).max(24)).optional().describe("Obligatoire si scope = partial, absent ou null sinon"),
-  approvalStatus: z.enum(["pending", "approved", "declined"]).optional(),
+  approvalStatus: z.enum(["pending", "approved", "declined"]).optional().describe("Défaut approved (RT-022) ; pending conservé pour les congés existants"),
   notes: z.string().max(5000).nullable().optional(),
 };
 
