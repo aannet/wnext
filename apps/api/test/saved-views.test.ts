@@ -49,6 +49,18 @@ describe("/api/v1/saved-views", () => {
     }
   });
 
+  it("densité d'affichage (RT-007) : enregistrée, relue, modifiée ; une vue sans densité n'en porte pas ; valeur inconnue : 400", async () => {
+    const v = await create("member", "Aérée", { filters: { density: "airy", zoom: "week" } });
+    expect(v.filters).toEqual({ density: "airy", zoom: "week" });
+    const list = (await send("member", "GET", "/api/v1/saved-views")).body as { items: SavedView[] };
+    expect(list.items.find((x) => x.id === v.id)?.filters.density).toBe("airy");
+    const patched = await send("member", "PATCH", `/api/v1/saved-views/${v.id}`, { filters: { density: "compact" } }, 1);
+    expect([patched.status, (patched.body as SavedView).filters]).toEqual([200, { density: "compact" }]);
+    expect((await create("member", "Sans densité")).filters).toEqual({});
+    const bad = await send("member", "POST", "/api/v1/saved-views", { name: "x", filters: { density: "dense" } });
+    expect([bad.status, code(bad)]).toEqual([400, "VALIDATION_FAILED"]);
+  });
+
   it("refuse sans authentification (401) et rejette les corps invalides (400) : clé de filtre inconnue, nom vide, corps vide", async () => {
     expect((await send("anon", "GET", "/api/v1/saved-views")).status).toBe(401);
     expect((await send("anon", "POST", "/api/v1/saved-views", { name: "x" })).status).toBe(401);
