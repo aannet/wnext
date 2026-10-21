@@ -11,6 +11,7 @@ Statut : vivant. Ce document consigne les principes d'interface décidés par Al
 - Champs (texte, liste, zone de texte) : style shadcn posé une fois dans la couche `base` de `styles.css`. Un écran n'ajoute que sa mise en page (largeur, grille).
 - Reset Tailwind (preflight) actif depuis L-G : aucun style par défaut du navigateur n'est garanti (marges, listes, titres).
 - Encore natifs, à remplacer dans leur lot : onglets, groupes radio (densité, couleur), menus, cloche et liens de tableau (L-J, L-K, L-L) ; `Popover` (L-J) et `Combobox` (L-K) gardent leur moteur maison d'ici là.
+- Grille (L-I) : séparateurs de colonnes `--wn-grid-line` ; jours non travaillés `--wn-nonwork-hatch`, selon l'horaire de chaque personne (jamais un calendrier commun dans le corps) ; période courante marquée par l'accent, un soulignement et `aria-current="date"`, jamais par la couleur seule. Les fonds de la grille sont des couches CSS (un nœud par ligne au plus), pas un nœud par jour.
 - Contrôle visuel d'un changement de CSS global : `node scripts/captures-ecrans.mjs <dossier>` (démo, serveur Vite lancé), avant et après.
 
 ## Fenêtres superposées
