@@ -10,7 +10,8 @@ Statut : vivant. Ce document consigne les principes d'interface décidés par Al
 - Boutons : toujours le composant `Button` (`design/`), variantes `primary`, `secondary`, `danger`, taille `sm` pour les actions de ligne. Jamais de `<button>` stylé à la main.
 - Champs (texte, liste, zone de texte) : style shadcn posé une fois dans la couche `base` de `styles.css`. Un écran n'ajoute que sa mise en page (largeur, grille).
 - Reset Tailwind (preflight) actif depuis L-G : aucun style par défaut du navigateur n'est garanti (marges, listes, titres).
-- Encore natifs, à remplacer dans leur lot : onglets, groupes radio (densité, couleur), menus, cloche et liens de tableau (L-J, L-K, L-L) ; `Popover` (L-J) et `Combobox` (L-K) gardent leur moteur maison d'ici là.
+- Encore natifs, à remplacer dans leur lot : onglets, groupes radio (densité, couleur), menus, cloche et liens de tableau (L-J, L-L) ; `Popover` (L-J) garde son moteur maison d'ici là.
+- `Combobox` (L-K) : Combobox de Base UI, liste dans un portail au-dessus des fenêtres (`--z-menu`). Liste ouverte, Échap la ferme ; fermée, Échap remonte à la fenêtre sans vider le choix.
 - Grille (L-I) : séparateurs de colonnes `--wn-grid-line` ; jours non travaillés `--wn-nonwork-hatch`, selon l'horaire de chaque personne (jamais un calendrier commun dans le corps) ; période courante marquée par l'accent, un soulignement et `aria-current="date"`, jamais par la couleur seule. Les fonds de la grille sont des couches CSS (un nœud par ligne au plus), pas un nœud par jour.
 - Contrôle visuel d'un changement de CSS global : `node scripts/captures-ecrans.mjs <dossier>` (démo, serveur Vite lancé), avant et après.
 
@@ -28,7 +29,7 @@ Décision d'Alec, recette n°2 (RT-023). Valable pour tout drawer (`Sheet` shadc
 - Modifications non enregistrées : clic extérieur, Échap et × demandent « Abandonner les modifications ? » [Continuer] [Abandonner]. Sans modification, la fermeture est directe (Q7, validé le 2026-10-21).
 - Les confirmations bloquantes (BR-04, BR-10, BR-31) sont des `AlertDialog` et ne se ferment pas au clic extérieur.
 
-État actuel du code : `design/Dialog.tsx` bloque volontairement le clic sur le voile. Le lot L-G inverse ce comportement pour les drawers.
+État du code (L-G, L-K) : `design/Dialog.tsx` ferme un drawer au clic sur le voile, jamais une modale. Le deuxième clic d'un double clic n'est pas une demande de fermeture : le premier a pu ouvrir le drawer depuis un bloc. `onEscape` sert à revenir d'une étape (avertissement BR-04), sans confirmation.
 
 ### Pop-in ou drawer
 
