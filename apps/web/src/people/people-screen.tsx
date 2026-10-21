@@ -187,10 +187,12 @@ function CreatePanel({ i18n, source, departments, roles, weekStart, today, onClo
   const [draft, setDraft] = useState<ReturnType<typeof newPersonValues> | null>(null);
   const [formKey, setFormKey] = useState(0);
   const initial = useMemo(() => draft ?? newPersonValues(), [draft]);
+  const [dirty, setDirty] = useState(false);
   return (
-    <Drawer title={i18n._("people.create.title")} closeLabel={i18n._("dialog.close")} onClose={onClose} busy={busy} className="wn-person-panel">
+    <Drawer title={i18n._("people.create.title")} closeLabel={i18n._("dialog.close")} onClose={onClose} busy={busy} className="wn-person-panel"
+      unsaved={{ dirty, title: i18n._("dialog.discard.title"), keep: i18n._("dialog.discard.keep"), discard: i18n._("dialog.discard.discard") }}>
       <PersonForm key={formKey} i18n={i18n} mode="create" initial={initial} departments={departments} roles={roles} weekStart={weekStart} today={today}
-        busy={busy} submitError={error} onCancel={onClose}
+        busy={busy} submitError={error} onCancel={onClose} onDirtyChange={setDirty}
         onSubmit={(v) => {
           void (async () => {
             setBusy(true); setError(null);

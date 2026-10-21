@@ -3,7 +3,7 @@
 // son refus revient ici sous forme de message traduit (`submitError`) et, pour un code déjà pris, sous le champ concerné.
 import type { I18n } from "@lingui/core";
 import type { Client, ProjectDetail } from "@wnext/contracts";
-import { useId, useState } from "react";
+import { useId, useState, useEffect } from "react";
 import type { MessageKey } from "../i18n";
 import { ColorField } from "./color-field";
 import { STATUS_KEY, STATUSES, validateForm, type FormErrors, type FormField, type FormValues } from "./projects-model";
@@ -28,6 +28,8 @@ export interface ProjectFormProps {
   onCancel?(): void;
   /** Valeurs qui ont changé depuis la dernière sauvegarde (édition) : active « Enregistrer ». */
   dirtyCheck?(values: FormValues): boolean;
+  /** Modifications non enregistrées (confirmation à la fermeture du drawer, RT-023, Q7). */
+  onDirtyChange?(dirty: boolean): void;
 }
 
 export function ProjectForm(p: ProjectFormProps) {
@@ -40,6 +42,9 @@ export function ProjectForm(p: ProjectFormProps) {
   const errors: FormErrors = { ...(showErrors ? local : {}), ...p.serverFieldErrors };
   const fieldError = (f: FormField) => (errors[f] ? t(errors[f]!) : undefined);
   const dirty = p.dirtyCheck ? p.dirtyCheck(v) : true;
+  const edited = p.dirtyCheck ? dirty : JSON.stringify(v) !== JSON.stringify(p.initial);
+  const onDirty = p.onDirtyChange;
+  useEffect(() => { onDirty?.(edited); }, [edited, onDirty]);
   const disabled = p.readOnly || p.busy;
   const creatingClient = v.clientId === NEW_CLIENT;
 

@@ -31,6 +31,7 @@ export function PersonPanel(p: PersonPanelProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => p.i18n._(k, v);
   const { person, source } = p;
   const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const [draft, setDraft] = useState<PersonValues | null>(null);
@@ -70,7 +71,8 @@ export function PersonPanel(p: PersonPanelProps) {
 
   const periods = history.state.status === "ready" ? history.state.data.filter((h) => h.attribute === "workDaysHours") : [];
   return (
-    <Drawer title={person.name} closeLabel={t("dialog.close")} onClose={p.onClose} busy={busy} className="wn-person-panel">
+    <Drawer title={person.name} closeLabel={t("dialog.close")} onClose={p.onClose} busy={busy} className="wn-person-panel"
+      unsaved={{ dirty, title: t("dialog.discard.title"), keep: t("dialog.discard.keep"), discard: t("dialog.discard.discard") }}>
       {!p.canEdit && <p className="wn-muted">{t("people.panel.readonly")}</p>}
       {!person.active && <p className="wn-muted">{t("people.panel.inactive")}</p>}
       <p role="status" className={notice ? "wn-panel-notice" : "wn-visually-hidden"}>{notice}</p>
@@ -83,7 +85,7 @@ export function PersonPanel(p: PersonPanelProps) {
       <h3 className="wn-panel-section">{t("people.panel.properties")}</h3>
       <PersonForm key={`${person.id}:${person.version}:${formKey}`} i18n={p.i18n} mode="edit" person={person} initial={draft ?? valuesOf(person)}
         departments={p.departments} roles={p.roles} weekStart={p.weekStart} today={p.today} readOnly={!p.canEdit} busy={busy} submitError={error}
-        onSubmit={(v, from) => void save(v, from)} />
+        onDirtyChange={setDirty} onSubmit={(v, from) => void save(v, from)} />
 
       <section className="wn-panel-block" aria-labelledby="wn-history-h">
         <h3 id="wn-history-h" className="wn-panel-section">{t("people.history.title")}</h3>

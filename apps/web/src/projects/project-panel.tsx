@@ -39,6 +39,7 @@ export function ProjectPanel(p: ProjectPanelProps) {
   const [draft, setDraft] = useState<FormValues | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [notice, setNotice] = useState("");
+  const [dirty, setDirty] = useState(false);
   const { project, source } = p;
 
   useEffect(() => { setError(null); setConflict(false); setFieldErrors({}); setDraft(null); setNotice(""); }, [project.id]);
@@ -79,7 +80,8 @@ export function ProjectPanel(p: ProjectPanelProps) {
   }
 
   return (
-    <Drawer title={project.name} closeLabel={t("dialog.close")} onClose={p.onClose} busy={busy} className="wn-project-panel">
+    <Drawer title={project.name} closeLabel={t("dialog.close")} onClose={p.onClose} busy={busy} className="wn-project-panel"
+      unsaved={{ dirty, title: t("dialog.discard.title"), keep: t("dialog.discard.keep"), discard: t("dialog.discard.discard") }}>
       {!p.canEdit && <p className="wn-muted">{t("projects.panel.readonly")}</p>}
       <p role="status" className={notice ? "wn-panel-notice" : "wn-visually-hidden"}>{notice}</p>
       {conflict && (
@@ -92,7 +94,7 @@ export function ProjectPanel(p: ProjectPanelProps) {
       <ProjectForm key={`${project.id}:${project.version}:${formKey}`} i18n={p.i18n} mode="edit" initial={draft ?? valuesOf(project)} clients={p.clients}
         others={p.others.filter((o) => o.id !== project.id)} readOnly={!p.canEdit} busy={busy} submitError={error} serverFieldErrors={fieldErrors}
         dirtyCheck={(v) => Object.keys(diffOf(project, v, v.newClientName.trim() ? "new" : v.clientId || null)).length > 0}
-        onSubmit={(v) => void save(v)} />
+        onDirtyChange={setDirty} onSubmit={(v) => void save(v)} />
       <ProjectTasks i18n={p.i18n} source={source} projectId={project.id} canEdit={p.canEdit} />
       <StructureLists i18n={p.i18n} source={source} projectId={project.id} />
       <ProjectTeam i18n={p.i18n} source={source} projectId={project.id} projectName={project.name} canEdit={p.canEdit} editor={p.editor} />

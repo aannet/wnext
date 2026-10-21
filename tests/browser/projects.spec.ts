@@ -37,9 +37,10 @@ test("liste, création avec client à la volée, code dupliqué refusé", async 
   await noViolations(page, "projets-formulaire");
   await panel.getByRole("button", { name: "Créer le projet" }).click();
 
-  // Le projet apparaît dans la liste, son panneau s'ouvre (client créé, code et couleur conservés).
-  await expect(page.getByRole("row", { name: /Portail RH/ })).toContainText("Initech");
-  await expect(page.getByRole("row", { name: /Portail RH/ })).toContainText("RH-1");
+  // Le projet apparaît dans la liste, son panneau s'ouvre (client créé, code et couleur conservés). La liste est derrière le
+  // panneau modal, donc retirée de l'arbre d'accessibilité (Base UI) : includeHidden pour la lire quand même.
+  await expect(page.getByRole("row", { name: /Portail RH/, includeHidden: true })).toContainText("Initech");
+  await expect(page.getByRole("row", { name: /Portail RH/, includeHidden: true })).toContainText("RH-1");
   const detail = page.getByRole("dialog", { name: "Portail RH" });
   await expect(detail.getByLabel("Code projet")).toHaveValue("RH-1");
   await expect(detail.getByLabel("Client")).toHaveValue(/.+/);
@@ -53,7 +54,7 @@ test("liste, création avec client à la volée, code dupliqué refusé", async 
   await again.getByLabel("Code projet").fill("RH-1");
   await again.getByRole("button", { name: "Créer le projet" }).click();
   await expect(again.getByText("Ce code est déjà utilisé par un autre projet.")).toBeVisible();
-  await expect(page.getByRole("row", { name: /Doublon/ })).toHaveCount(0);
+  await expect(page.getByRole("row", { name: /Doublon/, includeHidden: true })).toHaveCount(0);
 
   // Dates incohérentes.
   await again.getByLabel("Code projet").fill("RH-2");

@@ -3,6 +3,9 @@ import type { MessageKey } from "./messages.fr";
 
 export const en: Record<MessageKey, string> = {
   "dialog.close": "Close dialog",
+  "dialog.discard.title": "Discard your changes?",
+  "dialog.discard.keep": "Keep editing",
+  "dialog.discard.discard": "Discard",
   "app.title": "Schedule",
   "auth.logout": "Sign out",
   "auth.error": "Sign-in failed. Please try again.",

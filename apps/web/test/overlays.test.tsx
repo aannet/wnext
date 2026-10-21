@@ -123,15 +123,67 @@ describe("Modal", () => {
     render(<Modal title="T" closeLabel="X" onClose={() => {}} anchor={{ left: 100, top: 50, width: 80, height: 20 }}><input aria-label="a" /></Modal>);
     const panel = dialog()!;
     expect(panel.getAttribute("aria-modal")).toBe("true");
-    expect([panel.style.position, panel.style.left, panel.style.top]).toEqual(["absolute", "100px", "74px"]);
+    expect([panel.style.position, panel.style.left, panel.style.top]).toEqual(["fixed", "100px", "74px"]);
     expect(document.body.style.overflow).toBe("hidden");
   });
 });
+
+/** Clic complet (pointeur + souris) sur un élément, comme un utilisateur sur le voile. */
+const pressOn = (el: Element) => act(() => {
+  for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+    const Ctor = type.startsWith("pointer") && typeof PointerEvent !== "undefined" ? PointerEvent : MouseEvent;
+    el.dispatchEvent(new Ctor(type, { bubbles: true, cancelable: true, button: 0 }));
+  }
+});
+const scrim = () => document.querySelector<HTMLElement>("[data-slot=dialog-overlay]")!;
+const unsaved = (dirty: boolean) => ({ dirty, title: "Abandonner les modifications ?", keep: "Continuer", discard: "Abandonner" });
 
 describe("Drawer", () => {
   it("panneau latéral de 420 px", () => {
     render(<Drawer title="T" closeLabel="X" onClose={() => {}}><p>texte</p></Drawer>);
     expect(dialog()!.className).toContain("w-[420px]");
+  });
+
+  it("RT-023 : un clic sur le voile ferme le drawer ; un clic dans le panneau ne le ferme pas", () => {
+    const onClose = vi.fn();
+    render(<Drawer title="T" closeLabel="X" onClose={onClose}><input id="in" aria-label="a" /></Drawer>);
+    pressOn(document.getElementById("in")!);
+    expect(onClose).not.toHaveBeenCalled();
+    pressOn(scrim());
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("Q7 : formulaire modifié, clic sur le voile -> confirmation ; Continuer garde le drawer, Abandonner le ferme", () => {
+    const onClose = vi.fn();
+    render(<Drawer title="T" closeLabel="X" onClose={onClose} unsaved={unsaved(true)}><input aria-label="a" /></Drawer>);
+    pressOn(scrim());
+    expect(onClose).not.toHaveBeenCalled();
+    const alert = document.querySelector<HTMLElement>("[role=alertdialog]")!;
+    expect(alert.textContent).toContain("Abandonner les modifications ?");
+    click([...alert.querySelectorAll("button")].find((b) => b.textContent === "Continuer")!);
+    expect(document.querySelector("[role=alertdialog]")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    click(dialog()!.querySelector("[aria-label='X']")!);
+    click([...document.querySelectorAll<HTMLButtonElement>("[role=alertdialog] button")].find((b) => b.textContent === "Abandonner")!);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("Q7 : sans modification, × ferme directement (pas de confirmation)", () => {
+    const onClose = vi.fn();
+    render(<Drawer title="T" closeLabel="X" onClose={onClose} unsaved={unsaved(false)}><input aria-label="a" /></Drawer>);
+    click(dialog()!.querySelector("[aria-label='X']")!);
+    expect(document.querySelector("[role=alertdialog]")).toBeNull();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Modal et voile", () => {
+  it("un clic sur le voile ne ferme pas une modale (formulaire ou confirmation en cours)", () => {
+    const onClose = vi.fn();
+    render(<Modal title="T" closeLabel="X" onClose={onClose}><input aria-label="a" /></Modal>);
+    pressOn(scrim());
+    expect(onClose).not.toHaveBeenCalled();
+    expect(dialog()).not.toBeNull();
   });
 });
 

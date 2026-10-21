@@ -25,9 +25,11 @@ async function expectOverlay(page: Page, dialog: Locator) {
     for (let n: HTMLElement | null = el as HTMLElement; n; n = n.parentElement) if (getComputedStyle(n).position === "fixed") { fixed = n; break; }
     const r = el.getBoundingClientRect();
     const hit = document.elementFromPoint(r.left + r.width / 2, r.top + 8);
+    // Base UI : le voile est un frère du panneau (data-slot=dialog-overlay), en position fixed sur tout le viewport.
+    const scrim = [...document.querySelectorAll<HTMLElement>("[data-slot=dialog-overlay]")].find((s) => getComputedStyle(s).position === "fixed");
     return {
       fixed: fixed !== null,
-      coversViewport: fixed ? fixed.getBoundingClientRect().width === innerWidth && fixed.getBoundingClientRect().height === innerHeight : false,
+      coversViewport: scrim ? scrim.getBoundingClientRect().width === innerWidth && scrim.getBoundingClientRect().height === innerHeight : false,
       topmost: hit !== null && el.contains(hit),
       insideViewport: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
       scrollLocked: getComputedStyle(document.body).overflow === "hidden",
@@ -53,7 +55,8 @@ test("formulaire de congé : pop-in superposée, la grille ne bouge pas, axe pro
   await openDemo(page);
   const key = await firstRowBlock(page);
   const block = page.locator(`.wn-block[data-key="${key}"]`);
-  const grid = page.getByRole("grid");
+  // Par sélecteur et non par rôle : derrière une fenêtre modale, la grille sort de l'arbre d'accessibilité (Base UI, inert).
+  const grid = page.locator('[role="grid"]');
   const before = await grid.boundingBox();
   const scrollBefore = await page.evaluate(() => document.querySelector('[role="grid"]')!.scrollLeft);
 
@@ -89,7 +92,8 @@ test("formulaire de congé : le bouton Fermer (×) ferme sans enregistrer", asyn
 test("BR-10 : la boîte de retrait est une pop-in superposée, la grille ne bouge pas, axe propre", async ({ page }) => {
   await openDemo(page);
   const key = await firstRowBlock(page);
-  const grid = page.getByRole("grid");
+  // Par sélecteur et non par rôle : derrière une fenêtre modale, la grille sort de l'arbre d'accessibilité (Base UI, inert).
+  const grid = page.locator('[role="grid"]');
   const before = await grid.boundingBox();
 
   await page.locator(`.wn-block[data-key="${key}"]`).click({ button: "right" });

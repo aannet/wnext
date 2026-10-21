@@ -213,6 +213,7 @@ function CreatePanel({ i18n, source, clients, others, onClose, onClientCreated, 
     name: "", clientId: "", newClientName: "", projectCode: "", color: suggestColor(others.map((p) => p.color)), startDate: "", endDate: "", status: "planned",
   }), [draft, others]);
 
+  const [dirty, setDirty] = useState(false);
   async function create(v: FormValues) {
     setBusy(true); setError(null); setFieldErrors({});
     try {
@@ -232,9 +233,10 @@ function CreatePanel({ i18n, source, clients, others, onClose, onClientCreated, 
   }
 
   return (
-    <Drawer title={t("projects.create.title")} closeLabel={t("dialog.close")} onClose={onClose} busy={busy} className="wn-project-panel">
+    <Drawer title={t("projects.create.title")} closeLabel={t("dialog.close")} onClose={onClose} busy={busy} className="wn-project-panel"
+      unsaved={{ dirty, title: t("dialog.discard.title"), keep: t("dialog.discard.keep"), discard: t("dialog.discard.discard") }}>
       <ProjectForm key={formKey} i18n={i18n} mode="create" initial={initial} clients={clients} others={others} busy={busy} submitError={error}
-        serverFieldErrors={fieldErrors} onSubmit={(v) => void create(v)} onCancel={onClose} />
+        serverFieldErrors={fieldErrors} onDirtyChange={setDirty} onSubmit={(v) => void create(v)} onCancel={onClose} />
     </Drawer>
   );
 }

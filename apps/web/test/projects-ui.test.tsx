@@ -166,6 +166,27 @@ describe("création réduite (US-2.1)", () => {
     expect(panel()).toBeNull();
     expect(document.activeElement).toBe(opener);
   });
+
+  it("RT-023 : clic sur le voile ferme le panneau vide ; une fois saisi, il demande d'abord « Abandonner les modifications ? » (Q7)", async () => {
+    const pressOn = async (el: Element) => act(async () => {
+      for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0 }));
+    });
+    const scrim = () => document.body.querySelector<HTMLElement>("[data-slot=dialog-overlay]")!;
+    await mount(demo());
+    await click(button("Nouveau projet"));
+    await pressOn(scrim());
+    await flush();
+    expect(panel()).toBeNull();
+    await click(button("Nouveau projet"));
+    await type(field("Nom du projet"), "Refonte du site");
+    await pressOn(scrim());
+    await flush();
+    expect(panel()).not.toBeNull();
+    const alert = document.body.querySelector<HTMLElement>("[role=alertdialog]")!;
+    expect(alert.querySelector("h2")!.textContent).toBe("Abandonner les modifications ?");
+    await click([...alert.querySelectorAll("button")].find((b) => b.textContent === "Abandonner"));
+    expect(panel()).toBeNull();
+  });
 });
 
 describe("panneau d'un projet", () => {

@@ -3,7 +3,7 @@
 // (BR-19) : le champ « À partir du » apparaît, avec la date du jour par défaut. Validation locale avant l'appel ; le refus de
 // l'API revient sous forme de message traduit (`submitError`).
 import type { I18n } from "@lingui/core";
-import { useId, useState } from "react";
+import { useId, useState, useEffect } from "react";
 import type { Department, Person, Role } from "../data/people-source";
 import type { MessageKey } from "../i18n";
 import { COUNTRY_EXAMPLE, diffOf, PEOPLE_TYPES, TYPE_KEY, validatePerson, type PersonErrors, type PersonField, type PersonValues } from "./people-model";
@@ -25,6 +25,8 @@ export interface PersonFormProps {
   submitError?: string | null;
   onSubmit(values: PersonValues, effectiveFrom: string | undefined): void;
   onCancel?(): void;
+  /** Modifications non enregistrées (confirmation à la fermeture du drawer, RT-023, Q7). */
+  onDirtyChange?(dirty: boolean): void;
 }
 
 export function PersonForm(p: PersonFormProps) {
@@ -39,6 +41,9 @@ export function PersonForm(p: PersonFormProps) {
   // Une saisie invalide (heures hors 0-24) compte comme une modification : l'enregistrement l'explique au lieu de rester grisé.
   const dirty = change === null || JSON.stringify(v) !== JSON.stringify(p.initial);
   const dated = change?.historized ?? false;
+  const edited = JSON.stringify(v) !== JSON.stringify(p.initial) || (p.person !== undefined && effective !== p.today);
+  const onDirty = p.onDirtyChange;
+  useEffect(() => { onDirty?.(edited); }, [edited, onDirty]);
   const disabled = p.readOnly || p.busy;
 
   const field = (f: PersonField, label: MessageKey, control: (a: { id: string; "aria-invalid"?: true; "aria-describedby"?: string }) => React.ReactNode) => (

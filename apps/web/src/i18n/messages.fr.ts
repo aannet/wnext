@@ -2,6 +2,9 @@
 // déclencher l'échappement ICU. Toute chaîne visible de apps/web vient d'ici (lint : npm run lint:ui-strings).
 export const fr = {
   "dialog.close": "Fermer la fenêtre",
+  "dialog.discard.title": "Abandonner les modifications ?",
+  "dialog.discard.keep": "Continuer",
+  "dialog.discard.discard": "Abandonner",
   "app.title": "Planning",
   "auth.logout": "Se déconnecter",
   "auth.error": "Connexion impossible. Réessayez.",
