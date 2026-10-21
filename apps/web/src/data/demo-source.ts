@@ -13,13 +13,18 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
   let store: ScheduleStore = ingestSchedule(emptyStore(), initial);
   // Données initiales déjà passées par le magasin : même ordre des personnes qu'après une écriture (sinon la grille se
   // réordonne au premier geste).
-  let state: ScheduleSourceState = { data: snapshot(store, initial.window.from, initial.window.to), loading: false, error: null, realtime: "stopped" };
+  // Comme l'API, le planning n'expose que les personnes actives.
+  const view = (): ScheduleResponse => {
+    const d = snapshot(store, initial.window.from, initial.window.to);
+    return d.people.every((p) => p.active) ? d : { ...d, people: d.people.filter((p) => p.active) };
+  };
+  let state: ScheduleSourceState = { data: view(), loading: false, error: null, realtime: "stopped" };
   const listeners = new Set<() => void>();
   const projectListeners = new Set<() => void>();
   const known = new Map(initial.projects.map((p) => [p.id, p] as const));
   let seq = 0;
   const changed = (): EditOutcome => {
-    state = { ...state, data: snapshot(store, initial.window.from, initial.window.to) };
+    state = { ...state, data: view() };
     for (const l of listeners) l();
     return { ok: true };
   };
@@ -32,6 +37,23 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
       known.set(p.id, p);
       if (store.tables.projects.has(p.id)) { store = upsert(store, "projects", { ...p }); changed(); }
       for (const l of projectListeners) l();
+    },
+    // Personnes, équipes, rôles, types de congé et fériés écrits depuis Personnes ou Réglages : le planning les voit au retour.
+    directoryChanged(kind, entity) {
+      store = upsert(store, kind, { ...entity } as never);
+      changed();
+    },
+    directoryRemoved(kind, id) {
+      store = remove(store, kind, id);
+      changed();
+    },
+    personDeactivated(personId, asOf, disposition, replacementId) {
+      if (!disposition) return;
+      for (const a of [...store.tables.allocations.values()]) {
+        if (a.personId !== personId || (a.repeatEndDate ?? a.endDate) < asOf) continue;
+        store = disposition === "delete" || !replacementId ? remove(store, "allocations", a.id) : upsert(store, "allocations", { ...a, personId: replacementId, version: a.version + 1 });
+      }
+      changed();
     },
     getState: () => state,
     subscribe(l) {

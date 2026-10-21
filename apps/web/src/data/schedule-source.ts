@@ -71,6 +71,11 @@ export interface ScheduleSource extends ScheduleEditor, RecordEditor, TeamRemova
   onProjectsChange(listener: () => void): () => void;
   /** Démo seulement : un projet créé ou modifié par l'écran Projets est appliqué aux blocs (l'API passe par le temps réel). */
   projectChanged?(project: ScheduleProjectPatch): void;
+  /** Démo seulement : personnes, équipes (départements), rôles, types de congé et fériés écrits depuis Personnes ou Réglages. */
+  directoryChanged?(kind: "people" | "departments" | "roles" | "timeoff_types" | "holidays", entity: { id: string; version: number }): void;
+  directoryRemoved?(kind: "people" | "departments" | "roles" | "timeoff_types" | "holidays", id: string): void;
+  /** Démo seulement : désactivation d'une personne (BR-31), allocations futures réaffectées ou supprimées. */
+  personDeactivated?(personId: string, asOf: string, disposition: "reassign" | "delete" | undefined, replacementId: string | undefined): void;
   getState(): ScheduleSourceState;
   subscribe(listener: () => void): () => void;
   /** Nouvelle vue (défilement, zoom, navigation) : charge les blocs manquants si la source est démarrée. */
