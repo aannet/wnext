@@ -8,7 +8,9 @@ import { assertWriter, day, invalid, isId, lockAndCheck, notFound } from "./writ
 //  * BR-04 : aucun contrôle des allocations existantes, rien n'est supprimé ni déplacé ; le client déduit l'avertissement ;
 //  * le chevauchement à la demi-journée près est refusé par la contrainte d'exclusion de schema.sql (ex_timeoff_no_overlap) ;
 //    il devient TIMEOFF_OVERLAP, pas VERSION_CONFLICT : recharger ne le résout pas ;
-//  * l'état RÉSULTANT d'un PATCH (courant + champs fournis) doit rester cohérent : mêmes règles que les CHECK de la table.
+//  * l'état RÉSULTANT d'un PATCH (courant + champs fournis) doit rester cohérent : mêmes règles que les CHECK de la table ;
+//  * RT-022 : un congé posé est approuvé par défaut (pas de circuit de demande) ; le défaut SQL `pending` de schema.sql (figé)
+//    n'est jamais utilisé puisque la valeur est toujours fournie.
 
 type Half = "am" | "pm";
 interface Fields {
@@ -57,7 +59,7 @@ export async function createTimeoff(db: Db, ctx: RequestContext, body: TimeoffCr
         `INSERT INTO timeoffs (account_id, person_id, timeoff_type_id, start_date, end_date, scope, start_half, end_half, hours_per_day, approval_status, notes)
          VALUES ($1::bigint, $2::bigint, $3::bigint, $4::date, $5::date, $6::timeoff_scope, $7::day_half, $8::day_half, $9::numeric, $10::approval_status, $11)
          RETURNING ${TIMEOFF_COLUMNS}`,
-        [ctx.accountId, body.personId, body.typeId, fields.startDate, fields.endDate, fields.scope, fields.startHalf, fields.endHalf, fields.hoursPerDay, body.approvalStatus ?? "pending", body.notes ?? null],
+        [ctx.accountId, body.personId, body.typeId, fields.startDate, fields.endDate, fields.scope, fields.startHalf, fields.endHalf, fields.hoursPerDay, body.approvalStatus ?? "approved", body.notes ?? null],
       );
       return toScheduleTimeoff(rows[0]!);
     } catch (err) {

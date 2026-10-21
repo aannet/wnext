@@ -128,7 +128,7 @@ describe("allocations créées / supprimées (report assisté)", () => {
 describe("conversions et chevauchement", () => {
   it("défauts du serveur pour un congé ; aller-retour entité <-> corps", () => {
     const t = timeoffFromCreate({ personId: "1", typeId: "t1", startDate: "2026-10-20", endDate: "2026-10-20" }, "x");
-    expect(t).toMatchObject({ scope: "full_day", startHalf: "am", endHalf: "pm", approvalStatus: "pending", hoursPerDay: null, version: 0 });
+    expect(t).toMatchObject({ scope: "full_day", startHalf: "am", endHalf: "pm", approvalStatus: "approved", hoursPerDay: null, version: 0 });
     expect(timeoffFromCreate(timeoffCreateOf(off("o", { scope: "partial", hoursPerDay: 2 })), "o", 2)).toEqual(off("o", { scope: "partial", hoursPerDay: 2 }));
     const pct = { ...alloc("p"), mode: "percentage", hoursPerDay: null, percent: 50 } as Alloc;
     expect(allocationFromCreate(allocationCreateOf(pct), "p", 3)).toEqual(pct);

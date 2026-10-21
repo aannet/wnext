@@ -30,7 +30,7 @@ export function timeoffFromCreate(b: TimeoffCreate, id: string, version = 0): Ti
   return {
     id, version, personId: b.personId, typeId: b.typeId, startDate: b.startDate, endDate: b.endDate, scope,
     startHalf: b.startHalf ?? "am", endHalf: b.endHalf ?? "pm", hoursPerDay: scope === "partial" ? (b.hoursPerDay ?? null) : null,
-    approvalStatus: b.approvalStatus ?? "pending",
+    approvalStatus: b.approvalStatus ?? "approved",
   };
 }
 

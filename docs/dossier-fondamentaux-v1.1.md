@@ -364,7 +364,7 @@ Format Given/When/Then abrégé ; **chaque critère devient un test automatisé*
 - US-4.2 Agrégats par équipe/département/semaine.
 
 **E5 — Congés & fériés (FR-05, BR-02/04/05)**
-- US-5.1 Demande, approbation, refus ; types configurables ; demi-journées. CA : un congé `pending` s'affiche hachuré ; effet sur la capacité tant que `pending` : règle à trancher (le schéma déduit tout sauf `declined`, BR-29 propose de déduire sans déclencher l'assistant avant approbation).
+- US-5.1 Pose d'un congé par un manager ou un admin (approuvé d'emblée), refus ; types configurables ; demi-journées. *Amendé le 2026-10-21 (recette n°2, RT-022) : la demande par un membre et le circuit d'approbation sont retirés.* CA : un congé posé est `approved` par défaut ; un congé `pending` existant reste lisible, s'affiche hachuré et déduit la capacité sans déclencher l'assistant (BR-29).
 - US-5.2 Congé pleine journée sur jour alloué (BR-04). CA : aucune allocation supprimée ; avertissement listant les allocations impactées ; actions « reporter / laisser / réduire » ; badge de conflit tant que non résolu ; temps loggé jamais modifié.
 - US-5.3 Fériés par pays (+ équipe). CA : une personne rattachée à FR ne voit pas les fériés US (repose sur `people.country`).
 

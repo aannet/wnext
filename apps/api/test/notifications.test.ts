@@ -84,8 +84,8 @@ describe("émission par les écritures de l'API", () => {
 
   it("congé de Mia approuvé puis refusé par l'admin : timeoff_decided ; le poser en attente ne notifie pas", async () => {
     await readAll("member");
-    const t = await send("admin", "POST", "/api/v1/timeoffs", { personId: "3", typeId: "1", startDate: "2026-05-04", endDate: "2026-05-05" });
-    expect(t.status).toBe(201);
+    const t = await send("admin", "POST", "/api/v1/timeoffs", { personId: "3", typeId: "1", startDate: "2026-05-04", endDate: "2026-05-05", approvalStatus: "pending" });
+    expect(t.status).toBe(201); // en attente explicite : le défaut est « approuvé » depuis RT-022 (et notifie à la pose)
     expect((await list("member")).unreadCount).toBe(0);
     const id = (t.body as { id: string }).id;
     const ok = await send("admin", "PATCH", `/api/v1/timeoffs/${id}`, { approvalStatus: "approved" }, 1);

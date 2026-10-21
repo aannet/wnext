@@ -78,7 +78,7 @@ export function demoSchedule(today: string, people = 300): ScheduleResponse {
   const timeoffs = [
     off("1", "2", "1", monday, addDays(monday, 4)),
     off("2", "4", "2", addDays(monday, 2), addDays(monday, 2), { startHalf: "pm" }),
-    off("3", "5", "1", addDays(monday, 3), addDays(monday, 4), { approvalStatus: "pending" }),
+    off("3", "5", "1", addDays(monday, 3), addDays(monday, 4)),
   ];
   const timeoffTypes = [
     { id: "1", version: 1, name: "Congés payés", deducted: true }, { id: "2", version: 1, name: "RTT", deducted: true },

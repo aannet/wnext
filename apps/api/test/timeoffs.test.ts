@@ -58,12 +58,12 @@ beforeAll(async () => {
 afterAll(async () => { await pg?.close(); }, 60_000);
 
 describe("POST /timeoffs", () => {
-  it("201 : valide le contrat, défauts appliqués, version 1", async () => {
+  it("201 : valide le contrat, défauts appliqués (approuvé d'emblée, RT-022), version 1", async () => {
     const w = week();
     const r = await create(base(w));
     expect(r.status).toBe(201);
     expect(ScheduleTimeoff.safeParse(r.body).success).toBe(true);
-    expect(r.body).toMatchObject({ version: 1, personId: "1", typeId: "1", startDate: w.mon, endDate: w.fri, scope: "full_day", startHalf: "am", endHalf: "pm", hoursPerDay: null, approvalStatus: "pending" });
+    expect(r.body).toMatchObject({ version: 1, personId: "1", typeId: "1", startDate: w.mon, endDate: w.fri, scope: "full_day", startHalf: "am", endHalf: "pm", hoursPerDay: null, approvalStatus: "approved" });
   });
 
   it("congé partiel (heures par jour) et demi-journée", async () => {

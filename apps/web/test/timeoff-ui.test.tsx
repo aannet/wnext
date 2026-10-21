@@ -91,6 +91,17 @@ describe("saisie d'un congé", () => {
     expect(document.activeElement).toBe(host.querySelector("[role=grid]"));
   });
 
+  it("statut : « En attente » n'est plus proposé à la pose (RT-022) ; un congé existant en attente le garde à la modification", async () => {
+    mount([], [off("o1", { approvalStatus: "pending" })]);
+    await click("Nouveau congé");
+    expect([...(field("Statut") as HTMLSelectElement).options].map((o) => o.value)).toEqual(["approved", "declined"]);
+    press(dialog()!, { key: "Escape" });
+    await flush();
+    act(() => host.querySelector<HTMLElement>('[data-timeoff="o1"]')!.click());
+    expect(field("Statut").value).toBe("pending");
+    expect([...(field("Statut") as HTMLSelectElement).options].map((o) => o.value)).toEqual(["approved", "pending", "declined"]);
+  });
+
   it("sans conflit : enregistré tout de suite, rendu dans la grille, annoncé ; Ctrl+Z le retire", async () => {
     const { src } = mount([]);
     await click("Nouveau congé");

@@ -188,7 +188,9 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
           </label>
           <label>{t("schedule.timeoff.form.status")}
             <select value={s.fields.approvalStatus} onChange={set("approvalStatus")}>
-              {(["approved", "pending", "declined"] as const).map((v) => <option key={v} value={v}>{t(`schedule.timeoff.form.status.${v}`)}</option>)}
+              {/* RT-022 : « En attente » n'est plus proposé ; il ne reste affiché que pour un congé existant déjà en attente. */}
+              {(s.fields.approvalStatus === "pending" ? ["approved", "pending", "declined"] as const : ["approved", "declined"] as const)
+                .map((v) => <option key={v} value={v}>{t(`schedule.timeoff.form.status.${v}`)}</option>)}
             </select>
           </label>
           {d.timeoffTypes.length === 0 && <p role="alert">{t("schedule.timeoff.form.noType")}</p>}
