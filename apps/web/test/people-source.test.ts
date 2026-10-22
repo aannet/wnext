@@ -85,6 +85,35 @@ describe("démo : personnes (mêmes règles que l'API)", () => {
   });
 });
 
+describe("démo : accès (RT-040)", () => {
+  const withMembers = (memberIds?: readonly string[]) => {
+    const entities: Record<string, unknown>[] = [];
+    const dir = createDemoDirectory(demoSchedule("2026-10-20", 12), {
+      today: "2026-10-20", onEntity: (_k, e) => entities.push(e as never), onRemoved: () => {}, onDeactivated: () => {},
+      ...(memberIds ? { memberIds } : {}),
+    });
+    return { ...dir, entities };
+  };
+  it("memberIds : chaque personne porte access (member si listée, none sinon), une création est none, une écriture le garde", async () => {
+    const { people, entities } = withMembers(["1", "3"]);
+    const list = await value(people.listPeople());
+    expect(list.filter((p) => p.access === "member").map((p) => p.id)).toEqual(["1", "3"]);
+    expect(list.every((p) => p.access === "member" || p.access === "none")).toBe(true);
+    expect((await value(people.createPerson({ name: "Ada" }))).access).toBe("none");
+    const one = list.find((p) => p.id === "1")!;
+    expect((await value(people.updatePerson(one, { name: "Une" }))).access).toBe("member");
+    const { allocationCount } = await value(people.deactivationSummary("1"));
+    expect((await value(people.deactivate({ ...one, version: one.version + 1 }, { disposition: "delete", confirmation: { allocationCount } }))).access).toBe("member");
+    expect((await people.reloadPerson("1"))?.access).toBe("member");
+    for (const e of entities) expect(Object.keys(e)).not.toContain("access"); // le planning ne le porte pas (comme /schedule)
+  });
+  it("sans memberIds (rôle member ou guest) : la clé est absente", async () => {
+    const { people } = withMembers();
+    for (const p of await value(people.listPeople())) expect(Object.keys(p)).not.toContain("access");
+    expect(Object.keys(await value(people.createPerson({ name: "Ada" })))).not.toContain("access");
+  });
+});
+
 describe("démo : équipes, rôles, types de congé", () => {
   it("crée, renomme, refuse un doublon (casse ignorée) et supprime ; l'élément en usage est refusé", async () => {
     const { reference, people, entities, removed } = demo();
@@ -156,6 +185,12 @@ describe("source API : appels du client généré", () => {
     expect(await createApiReferenceSource({ deleteDepartment } as never).departments.remove({ id: "4", version: 2, name: "X" }))
       .toEqual({ ok: false, error: { code: "REFERENCE_IN_USE", params: { people: 2 } } });
     expect(deleteDepartment).toHaveBeenCalledWith({ path: { id: "4" }, headers: { "If-Match": '"2"' } });
+  });
+
+  it("la désactivation garde l'accès lu (PersonDeactivationResult ne le porte pas, RT-040)", async () => {
+    const deactivatePerson = vi.fn(async () => ({ ok: true as const, status: 200, data: { person: { id: "7", active: false } } }));
+    expect(await createApiPeopleSource({ deactivatePerson } as never).deactivate({ ...person, access: "member" }, {}))
+      .toEqual({ ok: true, value: { id: "7", active: false, access: "member" } });
   });
 
   it("un échec réseau devient INTERNAL_ERROR", async () => {

@@ -86,6 +86,7 @@ if (params.get("demo") === "1") {
     onEntity: (kind, entity) => source.directoryChanged?.(kind, entity),
     onRemoved: (kind, id) => source.directoryRemoved?.(kind, id),
     onDeactivated: (id, asOf, disposition, replacementId) => source.personDeactivated?.(id, asOf, disposition, replacementId),
+    memberIds: demo.people.filter((_, i) => i % 4 === 0).map((p) => p.id), // RT-040 : une personne sur quatre a un accès
   });
   const me = demoMe();
   const memory: ScheduleMemory = {};

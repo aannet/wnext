@@ -3,8 +3,8 @@
 // défaut), et l'accès à l'import CSV pour owner et admin. Lecture seule pour member et guest (GET /me).
 // Tri et regroupement (RT-031), côté client et en mémoire : en-têtes Nom, Rôle et Équipe triables (aria-sort, second clic =
 // sens inverse), interrupteur « Regrouper par équipe » (un tbody par équipe, « Sans équipe » en dernier).
-// Colonne « accès » (ADR-002 §1 : users distincts de people) : le contrat ne dit pas quelle personne a un compte de connexion
-// (GET /people n'expose ni e-mail ni lien vers un utilisateur) ; elle sera ajoutée quand la route existera.
+// Colonne « Accès » (RT-040, ADR-002 §1 : users distincts de people) : `access` de PersonDetail, servi par l'API aux seuls
+// owner, admin et project_manager ; la colonne n'apparaît que si le champ est présent. « Invitation envoyée » viendra en T2.
 import type { I18n } from "@lingui/core";
 import type { Me } from "@wnext/contracts";
 import { todayIn } from "@wnext/engine";
@@ -15,7 +15,7 @@ import { Button, Drawer, Switch } from "../design";
 import type { MessageKey } from "../i18n";
 import { ImportDialog } from "../imports/import-dialog";
 import { useLoad } from "../projects/use-load";
-import { DEFAULT_PEOPLE_SORT, filterPeople, groupPeople, initialsOf, sortPeople, type PeopleSort, type PeopleSortKey, NONE, NO_PEOPLE_FILTERS, PEOPLE_TYPES, refName, TYPE_KEY, errorOf, newPersonValues, parseWeek, weeklySummary, type PeopleFilters, type StateFilter } from "./people-model";
+import { ACCESS_KEY, DEFAULT_PEOPLE_SORT, filterPeople, groupPeople, initialsOf, sortPeople, type PeopleSort, type PeopleSortKey, NONE, NO_PEOPLE_FILTERS, PEOPLE_TYPES, refName, TYPE_KEY, errorOf, newPersonValues, parseWeek, weeklySummary, type PeopleFilters, type StateFilter } from "./people-model";
 import { PersonForm } from "./person-form";
 import { PersonPanel } from "./person-panel";
 
@@ -50,6 +50,7 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
   const deptList = departments.state.status === "ready" ? departments.state.data : [];
   const roleList = roles.state.status === "ready" ? roles.state.data : [];
   const shown = useMemo(() => sortPeople(filterPeople(all, filters), sort, deptList, roleList), [all, filters, sort, deptList, roleList]);
+  const showAccess = all.some((x) => x.access !== undefined);
   const groups = useMemo(() => (grouped ? groupPeople(shown, deptList) : [{ id: null, name: null, people: shown }]), [grouped, shown, deptList]);
   const sortBy = (key: PeopleSortKey) => setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
   const sortable = (key: PeopleSortKey, label: MessageKey) => (
@@ -141,13 +142,14 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
                   {sortable("department", "people.col.team")}
                   <th scope="col">{t("people.col.type")}</th>
                   <th scope="col">{t("people.col.hours")}</th>
+                  {showAccess && sortable("access", "people.col.access")}
                 </tr>
               </thead>
               {groups.map((g) => (
               <tbody key={g.id ?? "none"}>
                 {grouped && (
                   <tr className="wn-group-row">
-                    <th scope="rowgroup" colSpan={5}>{t("people.group.heading", { name: g.name ?? t("people.group.none"), count: g.people.length })}</th>
+                    <th scope="rowgroup" colSpan={showAccess ? 6 : 5}>{t("people.group.heading", { name: g.name ?? t("people.group.none"), count: g.people.length })}</th>
                   </tr>
                 )}
                 {g.people.map((x) => {
@@ -166,6 +168,7 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
                       <td>{refName(deptList, x.departmentId)}</td>
                       <td>{t(TYPE_KEY[x.peopleType])}</td>
                       <td>{t("people.hours.summary", { hours: total, days })}</td>
+                      {showAccess && <td>{x.access && <span className={x.access === "member" ? "wn-tag" : "wn-muted"}>{t(ACCESS_KEY[x.access])}</span>}</td>}
                     </tr>
                   );
                 })}

@@ -5,14 +5,15 @@
 //  * createDemoDirectory (?demo=1) : tout en mémoire, mêmes règles que l'API (périodes d'horaire datées, références en usage
 //    refusées à la suppression, désactivation avec disposition), et chaque écriture est répercutée sur la source du planning.
 // Les erreurs sont les codes stables du contrat ; l'écran les traduit. `params` porte ce que l'API précise.
-import type { ApiError, PersonDeactivationRequest, PersonDeactivationSummary, PersonHistoryEntry, ScheduleResponse } from "@wnext/contracts";
+import type { ApiError, PersonDeactivationRequest, PersonDeactivationSummary, PersonDetail, PersonHistoryEntry, ScheduleResponse } from "@wnext/contracts";
 import type { createClient } from "../api/client.gen";
 import { errorCodeOf } from "./schedule-source";
 
 export type DirError = { code: ApiError["code"]; params: Record<string, string | number | boolean> };
 export type DirResult<T> = { ok: true; value: T } | { ok: false; error: DirError };
 
-export type Person = ScheduleResponse["people"][number];
+/** Personne des routes people : celle du planning, plus `access` (RT-040) quand l'API le sert (owner, admin, project_manager). */
+export type Person = PersonDetail;
 export type PeopleType = Person["peopleType"];
 export type Department = NonNullable<ScheduleResponse["departments"]>[number];
 export type Role = NonNullable<ScheduleResponse["roles"]>[number];
@@ -105,7 +106,8 @@ export function createApiPeopleSource(api: ApiLike): PeopleSource {
     deactivationSummary: (personId) => call(() => api.getPersonDeactivationSummary({ path: { id: personId } })),
     async deactivate(person, request) {
       const r = await call(() => api.deactivatePerson({ path: { id: person.id }, body: request }));
-      return r.ok ? { ok: true, value: r.value.person } : r;
+      // La réponse porte la personne du planning, sans `access` : on garde celui déjà lu (la désactivation ne le change pas).
+      return r.ok ? { ok: true, value: { ...r.value.person, ...(person.access !== undefined ? { access: person.access } : {}) } } : r;
     },
   };
 }
@@ -150,6 +152,11 @@ export interface DemoDirectoryHooks {
   onDeactivated(personId: string, asOf: string, disposition: "reassign" | "delete" | undefined, replacementId: string | undefined): void;
   /** Date du jour (fuseau du compte), défaut d'une modification datée. */
   today: string;
+  /**
+   * Personnes liées à un utilisateur (RT-040). Donné : chaque personne porte `access` (member ou none), comme l'API pour owner,
+   * admin et project_manager ; absent : la clé manque, comme pour member et guest.
+   */
+  memberIds?: readonly string[];
 }
 
 const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
@@ -159,7 +166,10 @@ export function createDemoDirectory(schedule: ScheduleResponse, hooks: DemoDirec
   let seq = 0;
   const nextId = () => `demo-${++seq}`;
   const ok = <T,>(value: T): DirResult<T> => ({ ok: true, value });
-  const people: Person[] = schedule.people.map((p) => ({ ...p }));
+  const members = hooks.memberIds ? new Set(hooks.memberIds) : null;
+  const people: Person[] = schedule.people.map((p) => ({ ...p, ...(members ? { access: members.has(p.id) ? "member" : "none" } : {}) }));
+  // Le planning ne porte pas `access` (SchedulePerson, comme GET /schedule).
+  const planned = ({ access: _access, ...p }: Person) => p;
   const departments: Department[] = (schedule.departments ?? []).map((d) => ({ ...d }));
   const roles: Role[] = (schedule.roles ?? []).map((d) => ({ ...d }));
   const timeoffTypes: TimeoffType[] = (schedule.timeoffTypes ?? []).map((d) => ({ ...d }));
@@ -255,9 +265,10 @@ export function createDemoDirectory(schedule: ScheduleResponse, hooks: DemoDirec
       const p: Person = {
         id: nextId(), version: 1, name: input.name.trim(), peopleType: input.peopleType ?? "employee", departmentId: input.departmentId ?? null,
         roleId: input.roleId ?? null, country: input.country ?? null, workDaysHours: input.workDaysHours ?? [8, 8, 8, 8, 8, 0, 0], tags: [], avatarUrl: null, active: true,
+        ...(members ? { access: "none" as const } : {}),
       };
       people.push(p);
-      hooks.onEntity("people", p);
+      hooks.onEntity("people", planned(p));
       return ok({ ...p });
     },
     async updatePerson(person, patch) {
@@ -281,7 +292,7 @@ export function createDemoDirectory(schedule: ScheduleResponse, hooks: DemoDirec
         if (next.length > 1) cur.workSchedule = next; else delete cur.workSchedule;
       }
       cur.version += 1;
-      hooks.onEntity("people", cur);
+      hooks.onEntity("people", planned(cur));
       return ok({ ...cur });
     },
     reloadPerson: async (id) => { const p = find(people, id); return p ? { ...p } : null; },
@@ -318,7 +329,7 @@ export function createDemoDirectory(schedule: ScheduleResponse, hooks: DemoDirec
       cur.active = false;
       cur.version += 1;
       hooks.onDeactivated(cur.id, hooks.today, request.disposition, request.replacementId);
-      hooks.onEntity("people", cur);
+      hooks.onEntity("people", planned(cur));
       return ok({ ...cur });
     },
   };

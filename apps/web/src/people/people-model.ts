@@ -25,21 +25,29 @@ const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLo
 const matches = (filter: string, id: string | null) => !filter || (filter === NONE ? id === null : id === filter);
 
 /** Tri de la liste (RT-031) : colonne et sens, en mémoire de l'écran. */
-export type PeopleSortKey = "name" | "department" | "role";
+export type PeopleSortKey = "name" | "department" | "role" | "access";
 export interface PeopleSort { key: PeopleSortKey; dir: "asc" | "desc" }
 export const DEFAULT_PEOPLE_SORT: PeopleSort = { key: "name", dir: "asc" };
 
 const collator = new Intl.Collator(undefined, { sensitivity: "base" });
 type Ref = { id: string; name: string };
 
+/** Accès (RT-040), dans l'ordre du tri croissant : « A un accès » puis « Sans accès ». */
+const ACCESS_RANK: Record<NonNullable<Person["access"]>, number> = { member: 0, none: 1 };
+export const ACCESS_KEY: Record<NonNullable<Person["access"]>, MessageKey> = { member: "people.access.member", none: "people.access.none" };
+
 /**
- * Tri par nom, par équipe (département) ou par rôle, croissant ou décroissant (RT-031). Équipe et rôle : par le nom de la
- * référence, les personnes sans valeur toujours en dernier ; à égalité, par nom croissant. Tri stable, liste copiée.
+ * Tri par nom, par équipe (département), par rôle ou par accès (RT-040), croissant ou décroissant (RT-031). Équipe et rôle : par
+ * le nom de la référence, les personnes sans valeur toujours en dernier ; à égalité, par nom croissant. Tri stable, liste copiée.
  */
 export function sortPeople(people: readonly Person[], sort: PeopleSort, departments: readonly Ref[], roles: readonly Ref[]): Person[] {
   const sign = sort.dir === "asc" ? 1 : -1;
   const byName = (a: Person, b: Person) => collator.compare(a.name, b.name);
   if (sort.key === "name") return [...people].sort((a, b) => sign * byName(a, b));
+  if (sort.key === "access") {
+    const rank = (p: Person) => (p.access === undefined ? 2 : ACCESS_RANK[p.access]);
+    return [...people].sort((a, b) => sign * (rank(a) - rank(b)) || byName(a, b));
+  }
   const names = new Map((sort.key === "department" ? departments : roles).map((r) => [r.id, r.name]));
   const key = (p: Person) => names.get((sort.key === "department" ? p.departmentId : p.roleId) ?? "") ?? null;
   return [...people].sort((a, b) => {

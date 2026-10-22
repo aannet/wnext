@@ -21,8 +21,8 @@ afterEach(() => { act(() => root?.unmount()); host?.remove(); root = null; });
 
 const flush = async () => { for (let i = 0; i < 8; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); }); };
 
-function directory() {
-  const hooks = { onEntity: vi.fn(), onRemoved: vi.fn(), onDeactivated: vi.fn(), today: TODAY };
+function directory(memberIds?: readonly string[]) {
+  const hooks = { onEntity: vi.fn(), onRemoved: vi.fn(), onDeactivated: vi.fn(), today: TODAY, ...(memberIds ? { memberIds } : {}) };
   return { ...createDemoDirectory(demoSchedule(TODAY, 12), hooks), hooks };
 }
 const account = (weekStart = 1): Me["account"] => ({ id: "1", name: "Démo", timezone: "Europe/Paris", weekStart, defaultLocale: "fr" });
@@ -138,6 +138,45 @@ describe("tri et regroupement de la liste (RT-031)", () => {
     await click(sortButton("Nom"));
     const firstGroup = [...groups[0]!.querySelectorAll("th[scope=row] button")].map((b) => b.textContent);
     expect(firstGroup).toEqual([...firstGroup].sort().reverse());
+  });
+});
+
+describe("colonne Accès (RT-040)", () => {
+  const headers = () => [...document.body.querySelectorAll("thead th")].map((th) => th.textContent);
+  const accessCells = () => [...document.body.querySelectorAll("tbody tr:not(.wn-group-row)")].map((tr) => tr.children[5]?.textContent);
+
+  it("servie (owner, admin, chef de projet) : « A un accès » ou « Sans accès » ; triable ; l'en-tête de groupe couvre 6 colonnes", async () => {
+    const d = directory(["2", "5"]);
+    await mount(d.people, d.reference);
+    expect(headers()).toEqual(["Nom", "Rôle", "Équipe", "Type", "Horaire", "Accès"]);
+    const rows = [...document.body.querySelectorAll("tbody tr")];
+    const of = (name: string) => rows.find((tr) => tr.querySelector("th")!.textContent!.endsWith(name))!.children[5]!.textContent;
+    expect([of("Personne 2"), of("Personne 5"), of("Personne 1")]).toEqual(["A un accès", "A un accès", "Sans accès"]);
+    const sortButton = [...document.body.querySelectorAll<HTMLElement>("thead th")].find((th) => th.textContent === "Accès")!.querySelector("button")!;
+    await click(sortButton);
+    expect(sortButton.closest("th")!.getAttribute("aria-sort")).toBe("ascending");
+    expect(accessCells().slice(0, 3)).toEqual(["A un accès", "A un accès", "Sans accès"]);
+    expect(rowNames().slice(0, 2)).toEqual(["Personne 2", "Personne 5"]);
+    await click(sortButton);
+    expect(accessCells().at(-1)).toBe("A un accès");
+    await click([...document.body.querySelectorAll<HTMLElement>("[role=switch]")].find((b) => b.textContent === "Regrouper par équipe"));
+    expect(document.body.querySelector("th[scope=rowgroup]")!.getAttribute("colspan")).toBe("6");
+  });
+
+  it("absente quand l'API ne sert pas le champ (member, guest)", async () => {
+    const d = directory();
+    await mount(d.people, d.reference, { canEdit: false });
+    expect(headers()).toEqual(["Nom", "Rôle", "Équipe", "Type", "Horaire"]);
+    expect(page().textContent).not.toMatch(/accès/i);
+    await click([...document.body.querySelectorAll<HTMLElement>("[role=switch]")].find((b) => b.textContent === "Regrouper par équipe"));
+    expect(document.body.querySelector("th[scope=rowgroup]")!.getAttribute("colspan")).toBe("5");
+  });
+
+  it("anglais : Access, Has access, No access", async () => {
+    const d = directory(["1"]);
+    await mount(d.people, d.reference, { locale: "en" });
+    expect(headers().at(-1)).toBe("Access");
+    expect(new Set(accessCells())).toEqual(new Set(["Has access", "No access"]));
   });
 });
 
