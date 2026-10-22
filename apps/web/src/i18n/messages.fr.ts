@@ -431,6 +431,7 @@ export const fr = {
   "projects.clients.rename.label": "Nouveau nom du client {name}",
   "people.access.member": "A un accès",
   "people.access.none": "Sans accès",
+  "people.access.other": "Autre",
   "people.col.access": "Accès",
   "people.col.hours": "Horaire",
   "people.col.name": "Nom",

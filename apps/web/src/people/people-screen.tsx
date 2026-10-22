@@ -15,7 +15,7 @@ import { Button, Drawer, Switch } from "../design";
 import type { MessageKey } from "../i18n";
 import { ImportDialog } from "../imports/import-dialog";
 import { useLoad } from "../projects/use-load";
-import { ACCESS_KEY, DEFAULT_PEOPLE_SORT, filterPeople, groupPeople, initialsOf, sortPeople, type PeopleSort, type PeopleSortKey, NONE, NO_PEOPLE_FILTERS, PEOPLE_TYPES, refName, TYPE_KEY, errorOf, newPersonValues, parseWeek, weeklySummary, type PeopleFilters, type StateFilter } from "./people-model";
+import { accessKey, DEFAULT_PEOPLE_SORT, filterPeople, groupPeople, initialsOf, sortPeople, type PeopleSort, type PeopleSortKey, NONE, NO_PEOPLE_FILTERS, PEOPLE_TYPES, refName, TYPE_KEY, errorOf, newPersonValues, parseWeek, weeklySummary, type PeopleFilters, type StateFilter } from "./people-model";
 import { PersonForm } from "./person-form";
 import { PersonPanel } from "./person-panel";
 
@@ -168,7 +168,7 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
                       <td>{refName(deptList, x.departmentId)}</td>
                       <td>{t(TYPE_KEY[x.peopleType])}</td>
                       <td>{t("people.hours.summary", { hours: total, days })}</td>
-                      {showAccess && <td>{x.access && <span className={x.access === "member" ? "wn-tag" : "wn-muted"}>{t(ACCESS_KEY[x.access])}</span>}</td>}
+                      {showAccess && <td>{x.access && <span className={x.access === "member" ? "wn-tag" : "wn-muted"}>{t(accessKey(x.access))}</span>}</td>}
                     </tr>
                   );
                 })}

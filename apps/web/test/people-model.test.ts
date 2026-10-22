@@ -2,7 +2,7 @@ import type { Me } from "@wnext/contracts";
 import { describe, expect, it } from "vitest";
 import type { Person } from "../src/data/people-source";
 import {
-  canEditPeople, diffOf, errorOf, filterPeople, groupPeople, initialsOf, sortPeople, NONE, NO_PEOPLE_FILTERS, newPersonValues, parseHours, parseWeek, validatePerson, valuesOf, weekdayName,
+  accessKey, canEditPeople, diffOf, errorOf, filterPeople, groupPeople, initialsOf, sortPeople, NONE, NO_PEOPLE_FILTERS, newPersonValues, parseHours, parseWeek, validatePerson, valuesOf, weekdayName,
   weekOrder, weeklySummary,
 } from "../src/people/people-model";
 import { countriesOf, holidayInputOf, holidaysOf, NO_COUNTRY, validateHoliday } from "../src/settings/settings-model";
@@ -94,6 +94,16 @@ describe("tri et regroupement (RT-031)", () => {
     expect(names("department", "asc")).toEqual(["Alice Roux", "Chloé Bas", "Élodie Durand", "Bruno Petit"]);
     expect(names("department", "desc")).toEqual(["Chloé Bas", "Élodie Durand", "Alice Roux", "Bruno Petit"]);
     expect(names("role", "asc")).toEqual(["Bruno Petit", "Chloé Bas", "Élodie Durand", "Alice Roux"]);
+  });
+
+  it("par accès (RT-040) : member, none, valeur inconnue (repli « Autre »), puis absent ; à égalité par nom ; décroissant inversé", () => {
+    const acc = [
+      person({ id: "1", name: "Dora", access: "none" }), person({ id: "2", name: "Ada" }), person({ id: "3", name: "Cyd", access: "invited" as never }),
+      person({ id: "4", name: "Bea", access: "member" }), person({ id: "5", name: "Eve", access: "member" }),
+    ];
+    expect(sortPeople(acc, { key: "access", dir: "asc" }, depts, roles).map((p) => p.name)).toEqual(["Bea", "Eve", "Dora", "Cyd", "Ada"]);
+    expect(sortPeople(acc, { key: "access", dir: "desc" }, depts, roles).map((p) => p.name)).toEqual(["Ada", "Cyd", "Dora", "Bea", "Eve"]);
+    expect([accessKey("member"), accessKey("none"), accessKey("invited"), accessKey("toString")]).toEqual(["people.access.member", "people.access.none", "people.access.other", "people.access.other"]);
   });
 
   it("regroupement par équipe : groupes par nom d'équipe, « Sans équipe » en dernier, ordre de la liste gardé dans chaque groupe", () => {

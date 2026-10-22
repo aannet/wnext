@@ -32,9 +32,15 @@ export const DEFAULT_PEOPLE_SORT: PeopleSort = { key: "name", dir: "asc" };
 const collator = new Intl.Collator(undefined, { sensitivity: "base" });
 type Ref = { id: string; name: string };
 
-/** Accès (RT-040), dans l'ordre du tri croissant : « A un accès » puis « Sans accès ». */
-const ACCESS_RANK: Record<NonNullable<Person["access"]>, number> = { member: 0, none: 1 };
-export const ACCESS_KEY: Record<NonNullable<Person["access"]>, MessageKey> = { member: "people.access.member", none: "people.access.none" };
+/**
+ * Accès (RT-040), dans l'ordre du tri croissant : « A un accès », « Sans accès », puis une valeur inconnue (le contrat pourra en
+ * ajouter, p. ex. une invitation en attente : libellé de repli « Autre »), puis l'absence du champ.
+ */
+const ACCESS_RANK: Readonly<Record<string, number>> = { member: 0, none: 1 };
+const ACCESS_LABEL: Readonly<Record<string, MessageKey>> = { member: "people.access.member", none: "people.access.none" };
+const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
+const accessRank = (access: string | undefined) => (access === undefined ? 3 : own(ACCESS_RANK, access) ? ACCESS_RANK[access]! : 2);
+export const accessKey = (access: string): MessageKey => (own(ACCESS_LABEL, access) ? ACCESS_LABEL[access]! : "people.access.other");
 
 /**
  * Tri par nom, par équipe (département), par rôle ou par accès (RT-040), croissant ou décroissant (RT-031). Équipe et rôle : par
@@ -45,8 +51,7 @@ export function sortPeople(people: readonly Person[], sort: PeopleSort, departme
   const byName = (a: Person, b: Person) => collator.compare(a.name, b.name);
   if (sort.key === "name") return [...people].sort((a, b) => sign * byName(a, b));
   if (sort.key === "access") {
-    const rank = (p: Person) => (p.access === undefined ? 2 : ACCESS_RANK[p.access]);
-    return [...people].sort((a, b) => sign * (rank(a) - rank(b)) || byName(a, b));
+    return [...people].sort((a, b) => sign * (accessRank(a.access) - accessRank(b.access)) || byName(a, b));
   }
   const names = new Map((sort.key === "department" ? departments : roles).map((r) => [r.id, r.name]));
   const key = (p: Person) => names.get((sort.key === "department" ? p.departmentId : p.roleId) ?? "") ?? null;

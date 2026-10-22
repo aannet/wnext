@@ -432,6 +432,7 @@ export const en: Record<MessageKey, string> = {
   "projects.clients.rename.label": "New name for client {name}",
   "people.access.member": "Has access",
   "people.access.none": "No access",
+  "people.access.other": "Other",
   "people.col.access": "Access",
   "people.col.hours": "Hours",
   "people.col.name": "Name",

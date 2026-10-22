@@ -172,6 +172,21 @@ describe("colonne Accès (RT-040)", () => {
     expect(document.body.querySelector("th[scope=rowgroup]")!.getAttribute("colspan")).toBe("5");
   });
 
+  it("valeur d'accès inconnue (future, p. ex. invited) : libellé de repli « Autre » / « Other »", async () => {
+    for (const [locale, label] of [["fr", "Autre"], ["en", "Other"]] as const) {
+      const d = directory(["1"]);
+      const listPeople = d.people.listPeople;
+      d.people.listPeople = async () => {
+        const r = await listPeople();
+        return r.ok ? { ok: true, value: r.value.map((p) => (p.id === "2" ? { ...p, access: "invited" as never } : p)) } : r;
+      };
+      await mount(d.people, d.reference, { locale });
+      const row = [...document.body.querySelectorAll("tbody tr")].find((tr) => tr.querySelector("th")!.textContent!.endsWith("Personne 2"))!;
+      expect(row.children[5]!.textContent, locale).toBe(label);
+      act(() => root?.unmount()); host.remove(); root = null;
+    }
+  });
+
   it("anglais : Access, Has access, No access", async () => {
     const d = directory(["1"]);
     await mount(d.people, d.reference, { locale: "en" });
