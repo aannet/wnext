@@ -187,6 +187,29 @@ describe("suppression en cours (revue)", () => {
   });
 });
 
+describe("touches hors d'un bloc (revue)", () => {
+  it("Suppr et Retour arrière dans un champ (saisie rapide, formulaire du drawer) : rien supprimé, la touche reste au champ", async () => {
+    const { rows } = mount([alloc("a")]);
+    const quick = host.querySelector<HTMLInputElement>("input[aria-keyshortcuts]")!;
+    act(() => quick.focus());
+    for (const key of ["Backspace", "Delete"]) expect((await press(quick, { key })).defaultPrevented).toBe(false);
+    await dblclick(block("a:0"));
+    const notes = dialog()!.querySelector("textarea")!;
+    act(() => notes.focus());
+    for (const key of ["Backspace", "Delete"]) expect((await press(notes, { key })).defaultPrevented).toBe(false);
+    expect([rows().length, title()]).toEqual([1, "Modifier l’allocation"]);
+  });
+
+  it("Ctrl+D hors d'un bloc (grille, champ) : pas de preventDefault, le raccourci du navigateur reste ; rien n'est créé", async () => {
+    const { rows } = mount([alloc("a")]);
+    expect((await press(host.querySelector("[role=grid]")!, { key: "d", ctrlKey: true })).defaultPrevented).toBe(false);
+    const quick = host.querySelector<HTMLInputElement>("input[aria-keyshortcuts]")!;
+    act(() => quick.focus());
+    expect((await press(quick, { key: "d", ctrlKey: true })).defaultPrevented).toBe(false);
+    expect(rows()).toHaveLength(1);
+  });
+});
+
 describe("dupliquer (Ctrl+D) et scinder (S)", () => {
   it("Ctrl+D : copie juste après le bloc, mêmes champs, sélectionnée et focalisée ; Ctrl+Z la retire", async () => {
     const { rows } = mount([alloc("a")]);
