@@ -94,3 +94,22 @@ it("dans un drawer : la liste s'ouvre dans un portail Base UI, hors du panneau, 
   expect(list.closest("[role=dialog]")).toBeNull();
   expect(list.closest(".wn-combobox-popup")).not.toBeNull();
 });
+
+it("erreur reliée au champ : aria-invalid et aria-describedby posés sur la saisie, absents sans erreur", async () => {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  root = createRoot(host);
+  const render = (invalid: boolean) => act(() => root!.render(<>
+    <Combobox label="Fuseau" value="1" options={OPTIONS} onChange={() => {}} emptyLabel="Aucun" invalid={invalid} {...(invalid ? { describedBy: "err" } : {})} />
+    <p id="err">Inconnu</p>
+  </>));
+  render(false);
+  await flush();
+  const input = document.querySelector<HTMLInputElement>("input[role=combobox]")!;
+  expect(input.getAttribute("aria-invalid")).toBeNull();
+  expect(input.getAttribute("aria-describedby")).toBeNull();
+  render(true);
+  await flush();
+  expect(input.getAttribute("aria-invalid")).toBe("true");
+  expect(input.getAttribute("aria-describedby")).toBe("err");
+});

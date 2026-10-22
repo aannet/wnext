@@ -21,6 +21,10 @@ export interface ComboboxProps {
   initialFocus?: boolean;
   /** Pastille avant le nom (couleur de projet, par exemple). */
   swatch?(o: ComboboxOption): ReactNode;
+  /** Valeur refusée (erreur de saisie ou du serveur) : aria-invalid sur la saisie. */
+  invalid?: boolean;
+  /** Identifiants (séparés par des espaces) des textes qui décrivent le champ, message d'erreur compris : aria-describedby. */
+  describedBy?: string;
 }
 
 const fold = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase();
@@ -28,7 +32,7 @@ const nameOf = (o: ComboboxOption) => o.name;
 const sameId = (a: ComboboxOption, b: ComboboxOption) => a.id === b.id;
 const matches = (o: ComboboxOption, query: string) => fold(o.name).includes(fold(query.trim()));
 
-export function Combobox({ label, value, options, onChange, placeholder, emptyLabel, disabled, initialFocus, swatch }: ComboboxProps) {
+export function Combobox({ label, value, options, onChange, placeholder, emptyLabel, disabled, initialFocus, swatch, invalid, describedBy }: ComboboxProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
   /** Texte tapé ; null : le champ montre le choix courant (au départ du champ, après un choix). */
@@ -46,6 +50,7 @@ export function Combobox({ label, value, options, onChange, placeholder, emptyLa
         <div className="wn-combobox-field">
           <Base.Input
             id={`${id}-input`} spellCheck={false} onBlur={() => setQuery(null)} placeholder={placeholder} data-autofocus={initialFocus ? "" : undefined}
+            aria-invalid={invalid ? true : undefined} aria-describedby={describedBy || undefined}
             // Liste ouverte : Échap la ferme et s'arrête au champ (la fenêtre parente reste ouverte). Liste fermée : Échap
             // remonte à la fenêtre, sans vider le champ ni le choix (comportement de Base UI écarté).
             onKeyDown={(e) => {

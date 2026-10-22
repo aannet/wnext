@@ -266,6 +266,27 @@ describe("compte", () => {
     expect(planning.getState().data!.account).toEqual({ weekStart: 7, capacityThresholds: { underPercent: 60 }, timezone: "Asia/Tokyo" });
   });
 
+  it("400 sur le fuseau : l'erreur est reliée au champ (aria-invalid, aria-describedby) jusqu'au prochain choix", async () => {
+    const { src } = spied(async () => ({ ok: false, error: { code: "VALIDATION_FAILED", params: { field: "timezone" } } }));
+    await mount(setup(), { account: src });
+    await tab("Compte");
+    const zone = field("Fuseau horaire");
+    expect(zone.getAttribute("aria-invalid")).toBeNull();
+    await choose(field("Début de semaine"), "2");
+    await click(button("Enregistrer", panel()));
+    expect(zone.getAttribute("aria-invalid")).toBe("true");
+    const described = (zone.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent);
+    expect(described).toContain("Fuseau horaire inconnu du serveur.");
+    await act(async () => {
+      zone.focus();
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(zone, "new_york");
+      zone.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+    });
+    await flush();
+    await click([...document.querySelectorAll<HTMLElement>("[role=option]")].find((o) => o.textContent === "America/New_York"));
+    expect(field("Fuseau horaire").getAttribute("aria-invalid")).toBeNull();
+  });
+
   it("400 sur le fuseau : message dédié ; 403 traduit", async () => {
     const { src } = spied(async () => ({ ok: false, error: { code: "VALIDATION_FAILED", params: { field: "timezone" } } }));
     await mount(setup(), { account: src });

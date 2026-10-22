@@ -103,6 +103,8 @@ function AccountForm({ i18n, settings, source, langName, onSaved }: {
   const [v, setV] = useState<Values>(() => valuesOf(settings));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<MessageKey | null>(null);
+  /** Fuseau refusé par le serveur : le champ est marqué et décrit par le message, jusqu'au prochain choix. */
+  const [badZone, setBadZone] = useState<string | null>(null);
   const [notice, setNotice] = useState<MessageKey | null>(null);
   const [showErrors, setShowErrors] = useState(false);
   const zones = useMemo(() => {
@@ -120,7 +122,7 @@ function AccountForm({ i18n, settings, source, langName, onSaved }: {
     if (busy || !dirty) return;
     setShowErrors(true);
     if (underInvalid) return;
-    setBusy(true); setError(null); setNotice(null);
+    setBusy(true); setError(null); setNotice(null); setBadZone(null);
     const r = await source.update(settings, patch);
     if (r.ok) {
       setBusy(false);
@@ -138,16 +140,18 @@ function AccountForm({ i18n, settings, source, langName, onSaved }: {
     }
     setBusy(false);
     setError(errorKey(r.error));
+    if (r.error.code === "VALIDATION_FAILED" && r.error.params.field === "timezone") setBadZone(v.timezone);
   }
 
   return (
     <form className="wn-account-form" onSubmit={(e) => void submit(e)} noValidate aria-busy={busy || undefined}>
-      {error && <p role="alert" className="wn-error">{t(error)}</p>}
+      {error && <p id={`${id}-error`} role="alert" className="wn-error">{t(error)}</p>}
       <dl className="wn-facts">
         <dt>{t("settings.account.name")}</dt><dd>{settings.name}</dd>
       </dl>
       <div className="wn-field">
         <Combobox label={t("settings.account.timezone")} value={v.timezone} options={zones} onChange={(z) => set("timezone", z)}
+          {...(badZone !== null && badZone === v.timezone ? { invalid: true, describedBy: `${id}-error` } : {})}
           emptyLabel={t("settings.account.timezone.empty")} disabled={busy} />
       </div>
       <div className="wn-field">
