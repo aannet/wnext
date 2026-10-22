@@ -13,6 +13,8 @@ import { Id, Version } from "./common";
 //    entités par personne (people, allocations, timeoffs, logged_time, project_team) ; les référentiels lui parviennent comme aux
 //    autres rôles. Sans personne liée, aucun changement par personne. Le rattrapage (subscribe) applique le même filtre ; le
 //    `cursor` de `ready` est la tête du journal (les changements filtrés sont sautés, pas rejoués).
+//    Un changement par personne écrit avant que le journal ne porte sa personne (migration 0006) ne peut pas être attribué : un
+//    `member` qui reprend avant lui reçoit `resync` (cursor_expired), comme pour un curseur purgé, et recharge GET /schedule.
 //  * `v` est la version du protocole ; un changement cassant l'incrémente (jamais de réinterprétation silencieuse).
 //  * Refus à l'upgrade (avant toute trame, donc en HTTP, sans corps) :
 //      401 : non authentifié. Le client se ré-authentifie ; il ne réessaie pas tel quel.
