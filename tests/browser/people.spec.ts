@@ -155,3 +155,22 @@ test("tri des colonnes et regroupement par équipe (RT-031), axe propre", async 
   await expect(page.locator("tbody")).toHaveCount(3);
   await noViolations(page, "personnes-groupees");
 });
+
+test("fiche personne : aucun libellé de la grille horaire ne déborde du drawer ni de sa colonne (RT-036)", async ({ page }) => {
+  await page.goto("/personnes?demo=1&lang=fr");
+  await page.getByRole("button", { name: /^(?:\w{2})?Personne 3\b/ }).first().click();
+  const fiche = page.getByRole("dialog", { name: "Personne 3" });
+  await expect(fiche).toBeVisible();
+  await fiche.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+  const overflows = await fiche.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    return [...el.querySelectorAll<HTMLElement>(".wn-week-grid label")].flatMap((label) => {
+      const r = label.getBoundingClientRect();
+      const cell = label.parentElement!.getBoundingClientRect();
+      const out = r.left < box.left - 0.5 || r.right > box.right + 0.5 || r.left < cell.left - 0.5 || r.right > cell.right + 0.5 || label.scrollWidth > label.clientWidth;
+      return out ? [`${label.textContent}: label ${Math.round(r.left)}-${Math.round(r.right)}, colonne ${Math.round(cell.left)}-${Math.round(cell.right)}, drawer ${Math.round(box.left)}-${Math.round(box.right)}`] : [];
+    });
+  });
+  expect(overflows).toEqual([]);
+  await expect(fiche.getByLabel("dimanche")).toBeVisible(); // nom long conservé comme nom accessible
+});

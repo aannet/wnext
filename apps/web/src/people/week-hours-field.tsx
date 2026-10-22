@@ -28,8 +28,8 @@ export function WeekHoursField({ i18n, weekStart, value, onChange, disabled, err
       <div className="wn-week-grid">
         {weekOrder(weekStart).map((index) => (
           <div key={index} className="wn-field">
-            <label htmlFor={`${id}-${index}`}>{weekdayName(index, i18n.locale)}</label>
-            <input id={`${id}-${index}`} type="text" inputMode="decimal" size={3} value={value[index] ?? ""} disabled={disabled} autoComplete="off"
+            <label htmlFor={`${id}-${index}`}><abbr title={weekdayName(index, i18n.locale)}>{weekdayName(index, i18n.locale, "short")}</abbr></label>
+            <input id={`${id}-${index}`} type="text" aria-label={weekdayName(index, i18n.locale)} inputMode="decimal" size={3} value={value[index] ?? ""} disabled={disabled} autoComplete="off"
               aria-invalid={error ? true : undefined}
               onChange={(e) => { const next = [...value]; next[index] = e.target.value; onChange(next); }} />
           </div>
