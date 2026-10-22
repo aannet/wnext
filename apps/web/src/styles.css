@@ -64,7 +64,8 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 @keyframes wn-row-flash { from { background: color-mix(in srgb, var(--accent) 35%, transparent); } }
 /* Densité (RT-005, RT-006 ; schedule/density.ts pour les hauteurs) : tailles de la colonne de gauche et des blocs, sur
    l'échelle typographique des tokens. Compacte = l'écran d'avant le réglage ; aérée : tout grossit, pas seulement la ligne. */
-.wn-schedule, .wn-grid { --wn-avatar: 24px; --wn-name-size: var(--text-body); --wn-meta-size: var(--text-caption); --wn-gauge-h: 4px; --wn-block-size: var(--text-label); --wn-head-pad: 6px; }
+/* La grille hors écran Planning (tests) prend les tailles compactes ; dans le Planning, elle hérite de la densité (RT-050). */
+.wn-schedule, .wn-grid:not(.wn-schedule .wn-grid) { --wn-avatar: 24px; --wn-name-size: var(--text-body); --wn-meta-size: var(--text-caption); --wn-gauge-h: 4px; --wn-block-size: var(--text-label); --wn-head-pad: 6px; }
 .wn-schedule[data-density="standard"] { --wn-avatar: 28px; --wn-name-size: var(--text-form); --wn-meta-size: var(--text-label); --wn-block-size: var(--text-body); --wn-head-pad: 10px; }
 .wn-schedule[data-density="airy"] { --wn-avatar: 36px; --wn-name-size: var(--text-heading); --wn-meta-size: var(--text-body); --wn-gauge-h: 6px; --wn-block-size: var(--text-form); --wn-head-pad: 14px; }
 /* Colonne de gauche (ux-ui §2.1) : 240 px, avatar à initiales, nom, rôle, département en pastille, jauge de la période visible. */

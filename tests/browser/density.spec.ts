@@ -36,6 +36,7 @@ test("trois densités : ~12 / ~8 / ~6 lignes visibles à 1920 × 1080, tailles q
   await expect(await radio(page, "Standard")).toHaveAttribute("aria-checked", "true");
   const measured: Record<string, number> = {};
   let lastName = 0;
+  let lastBlock = 0;
   for (const [name, expected] of [["Compacte", 12], ["Standard", 8], ["Aérée", 6]] as const) {
     await (await radio(page, name)).click();
     await expect(await radio(page, name)).toHaveAttribute("aria-checked", "true");
@@ -44,10 +45,14 @@ test("trois densités : ~12 / ~8 / ~6 lignes visibles à 1920 × 1080, tailles q
     // Une ligne de la démo peut porter des blocs empilés (plus haute) : une ligne de moins est tolérée.
     expect(count, `${name} (zone de ${zone} px)`).toBeGreaterThanOrEqual(expected - 1);
     expect(count, `${name} (zone de ${zone} px)`).toBeLessThanOrEqual(expected);
-    // RT-006 : le nom grossit avec la densité, pas seulement la hauteur de ligne.
+    // RT-006, RT-050 : le nom et le texte des blocs grossissent à chaque niveau, pas seulement la hauteur de ligne
+    // (strictement : les tailles posées sur la grille elle-même écrasaient celles de la densité).
     const size = await page.locator(".wn-person-name").first().evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
-    expect(size).toBeGreaterThanOrEqual(lastName);
+    const block = await page.locator(".wn-block[data-key]").first().evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+    expect(size, `nom en ${name}`).toBeGreaterThan(lastName);
+    expect(block, `bloc en ${name}`).toBeGreaterThan(lastBlock);
     lastName = size;
+    lastBlock = block;
   }
   expect(measured["Compacte"]! > measured["Standard"]! && measured["Standard"]! > measured["Aérée"]!).toBe(true);
   await axe(page, "densité aérée");
