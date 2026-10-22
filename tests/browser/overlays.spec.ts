@@ -81,6 +81,19 @@ test("formulaire de congé : pop-in superposée, la grille ne bouge pas, axe pro
   expect(await page.evaluate(() => document.body.style.overflow)).toBe("");
 });
 
+test("ouvert par un bouton de l'en-tête, le drawer rend le focus à ce bouton à la fermeture (RT-049)", async ({ page }) => {
+  await openDemo(page);
+  for (const [button, title] of [["Nouveau congé", "Nouveau congé"], ["+ Allocation", "Nouvelle allocation"]] as const) {
+    const trigger = page.getByRole("button", { name: button, exact: true });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: title });
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger, button).toBeFocused();
+  }
+});
+
 test("formulaire de congé : le bouton Fermer (×) ferme sans enregistrer", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("grid").focus();

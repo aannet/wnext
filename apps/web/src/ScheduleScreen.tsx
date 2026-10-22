@@ -245,13 +245,17 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   const dataRef = useRef(data);
   dataRef.current = data;
   const blocksRef = useRef<BlockEditor | null>(null);
+  /** Bouton de l'en-tête qui a ouvert le drawer (« Nouveau congé », « + Allocation ») : il retrouve le focus à la fermeture (RT-049). */
+  const slotOpener = useRef<HTMLElement | null>(null);
   const slot = useSlotEditor({
     i18n, data, records, editor, history, catalog, me, announce: (text) => editsRef.current.announce(text),
     onDraftDone: (draft) => blocksRef.current?.clearDraft(draft),
     onClosed: ({ key, focus }) => {
       if (focus) focusKey(key ?? "", focus);
       else if (key) focusKey(key);
-      else gridRef.current?.focus({ preventScroll: true }); // comme avant la pop-in : congé et création rendent le focus à la grille
+      else if (slotOpener.current?.isConnected) slotOpener.current.focus({ preventScroll: true });
+      else gridRef.current?.focus({ preventScroll: true }); // depuis la grille (touche C, N…), congé et création rendent le focus à la grille
+      slotOpener.current = null;
     },
   });
   const slotRef = useRef(slot);
@@ -423,8 +427,8 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
           </Button>
           {records && (
             <>
-              <Button type="button" aria-keyshortcuts="C" aria-haspopup="dialog" onClick={() => openTimeoffAt(document.activeElement)}>{t("schedule.timeoff.new")}</Button>
-              <Button type="button" variant="primary" aria-haspopup="dialog" onClick={openCreate}>{t("schedule.slot.add")}</Button>
+              <Button type="button" aria-keyshortcuts="C" aria-haspopup="dialog" onClick={(e) => { const from = document.activeElement; slotOpener.current = e.currentTarget; openTimeoffAt(from); }}>{t("schedule.timeoff.new")}</Button>
+              <Button type="button" variant="primary" aria-haspopup="dialog" onClick={(e) => { slotOpener.current = e.currentTarget; openCreate(); }}>{t("schedule.slot.add")}</Button>
             </>
           )}
         </div>
