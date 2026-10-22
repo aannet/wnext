@@ -15,6 +15,13 @@ export function activeFilterCount(f: ViewFilters): number {
   return [f.departmentIds, f.roleIds, f.projectIds, f.personIds, f.tags].filter((l) => l && l.length).length;
 }
 
+/** Filtres sans leurs critères (département, rôle, projet, personne, étiquettes) ; tri, zoom et densité sont gardés. */
+export function clearCriteria(f: ViewFilters): ViewFilters {
+  const { departmentIds, roleIds, projectIds, personIds, tags, ...rest } = f;
+  void departmentIds; void roleIds; void projectIds; void personIds; void tags;
+  return rest;
+}
+
 /** Forme canonique (listes vides retirées, identifiants triés) : deux filtres équivalents ont la même forme. */
 export function normalizeFilters(f: ViewFilters): ViewFilters {
   const out: ViewFilters = {};
