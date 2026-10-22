@@ -1,7 +1,7 @@
 // Contrat des groupes d'allocations (BR-26) : création multi-personnes, édition « tous », routes.
 import "../src/zod-setup";
 import { describe, expect, it } from "vitest";
-import { AllocationGroup, AllocationGroupCreate, AllocationGroupMax, AllocationGroupPatch, AllocationPathParams, IfMatchHeader, routes } from "@wnext/contracts";
+import { AllocationGroup, AllocationGroupCreate, AllocationGroupMax, AllocationGroupPatch, AllocationPathParams, GroupDeleteHeaders, IfMatchHeader, routes } from "@wnext/contracts";
 import { buildSpec } from "../src/openapi";
 
 const ok = (s: { safeParse(v: unknown): { success: boolean } }, v: unknown) => s.safeParse(v).success;
@@ -69,9 +69,14 @@ describe("routes", () => {
     const p = op("updateAllocationGroup");
     const d = op("deleteAllocationGroup");
     expect([p.method, p.path, p.params, p.headers, p.body]).toEqual(["patch", "/api/v1/allocations/{id}/group", AllocationPathParams, IfMatchHeader, AllocationGroupPatch]);
-    expect([d.method, d.path, d.params, d.headers]).toEqual(["delete", "/api/v1/allocations/{id}/group", AllocationPathParams, IfMatchHeader]);
+    expect([d.method, d.path, d.params, d.headers]).toEqual(["delete", "/api/v1/allocations/{id}/group", AllocationPathParams, GroupDeleteHeaders]);
     for (const r of [p, d]) for (const code of [400, 401, 403, 404, 409, 428]) expect(r.responses[code], `${r.operationId} ${code}`).toBeDefined();
     expect(d.responses[204]).toBeDefined();
+    // RT-047 : avec Prefer: return=representation, 200 et toutes les lignes supprimées (preuve d'exhaustivité pour l'annulation).
+    expect(d.responses[200]?.schema).toBe(AllocationGroup);
+    expect(ok(GroupDeleteHeaders, { "If-Match": "\"1\"" })).toBe(true);
+    expect(ok(GroupDeleteHeaders, { "If-Match": "\"1\"", Prefer: "return=representation" })).toBe(true);
+    expect(ok(GroupDeleteHeaders, { "If-Match": "\"1\"", Prefer: "return=minimal" })).toBe(false);
   });
   it("la spec contient les chemins ; l'allocation seule garde les siens", () => {
     const spec = buildSpec() as { paths: Record<string, Record<string, unknown>> };
