@@ -26,9 +26,11 @@
 //    l'écriture (allocations du projet) pour que l'annulation connaisse leur état d'avant ; PATCH /allocations/{id}/group
 //    avec la version de la ligne désignée ; toute la réponse entre au magasin ; refus : retour arrière de toutes les
 //    lignes (et relecture de chacune sur conflit). Découpe vers un projet absent du magasin : projet d'arrivée ajouté.
-//  * Suppressions (RT-047) : « tout le groupe » (DELETE /allocations/{id}/group) retire tout de suite les lignes chargées, lit
-//    avant l'écriture celles hors fenêtre (comme le PATCH de groupe) pour que l'annulation puisse les recréer, puis pose leurs
-//    pierres tombales ; « cette occurrence » passe par la découpe (POST /allocations/{id}/split, `delete: true`).
+//  * Suppressions (RT-047) : « tout le groupe » (DELETE /allocations/{id}/group, `Prefer: return=representation`) retire tout de
+//    suite les lignes chargées ; la réponse liste TOUTES les lignes supprimées, état d'avant (seule preuve d'exhaustivité : une
+//    lecture préalable ne couvre qu'un projet et 400 jours), pour que l'annulation les recrée ; pierres tombales pour chacune.
+//    Réponse sans corps (204) : suppression faite, non annulable. Allocation seule refusée sur conflit : relue, comme les autres
+//    écritures. « Cette occurrence » passe par la découpe (POST /allocations/{id}/split, `delete: true`).
 import { ErrorCode, type ApiError, type ScheduleResponse } from "@wnext/contracts";
 import { addDays, loadChunks, mergeChunks, neighborDays, type Viewport } from "@wnext/engine";
 import type { createClient } from "../api/client.gen";
@@ -416,24 +418,25 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
 
   /**
    * Lignes du groupe de `a` absentes du magasin (hors de la fenêtre chargée) : lecture préalable des allocations de son projet
-   * sur 400 jours autour d'elle (pas de lecture de groupe dans l'API). Échec ou page refusée : ce qui a été lu, `complete` faux.
+   * sur 400 jours autour d'elle (pas de lecture de groupe dans l'API). Échec ou page refusée : ce qui a été lu. Jamais une preuve
+   * d'exhaustivité : la réponse du PATCH de groupe, qui liste toutes les lignes, dit lesquelles restent inconnues.
    */
-  async function groupOutside(a: Allocation, known: ReadonlySet<string>): Promise<{ items: Allocation[]; complete: boolean }> {
+  async function groupOutside(a: Allocation, known: ReadonlySet<string>): Promise<Allocation[]> {
     const list = opts.api.listProjectAllocations;
-    const items: Allocation[] = [];
-    if (!list) return { items, complete: false };
+    const out: Allocation[] = [];
+    if (!list) return out;
     const query = { from: addDays(a.startDate, -199), to: addDays(a.startDate, 200), limit: 500 };
     let cursor: string | undefined;
     try {
       for (let guard = 0; guard < 100; guard++) {
         const res = await list({ path: { projectId: a.projectId }, query: cursor ? { ...query, cursor } : query });
-        if (!res.ok) return { items, complete: false };
-        items.push(...res.data.items.filter((x) => x.groupId === a.groupId && !known.has(x.id)));
+        if (!res.ok) break;
+        out.push(...res.data.items.filter((x) => x.groupId === a.groupId && !known.has(x.id)));
         cursor = res.data.page.nextCursor ?? undefined;
-        if (!cursor) return { items, complete: true };
+        if (!cursor) break;
       }
     } catch { /* réseau : les lignes non lues seront « inconnues » */ }
-    return { items, complete: false };
+    return out;
   }
 
   async function updateAllocationGroup(id: string, patch: AllocationGroupEdit): Promise<GroupEditOutcome> {
@@ -454,7 +457,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     let before: Allocation[] = lines;
     let unknown: string[] = [];
     const out = await write(ms, async () => {
-      before = [...lines, ...(await groupOutside(cur, new Set(lines.map((a) => a.id)))).items];
+      before = [...lines, ...await groupOutside(cur, new Set(lines.map((a) => a.id)))];
       return api({ path: { id }, headers: { "If-Match": `"${cur.version}"` }, body: toGroupBody(patch) });
     }, (d) => {
       const byId = new Map(d.items.map((x) => [x.id, x]));
@@ -485,17 +488,16 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
       return m;
     });
     refresh();
-    let outside: { items: Allocation[]; complete: boolean } = { items: [], complete: false };
-    const out = await write(ms, async () => {
-      outside = await groupOutside(cur, new Set(lines.map((a) => a.id)));
-      return api({ path: { id }, headers: { "If-Match": `"${cur.version}"` } });
-    }, () => {
+    let deleted: Allocation[] | null = null;
+    const out = await write(ms, () => api({ path: { id }, headers: { "If-Match": `"${cur.version}"`, Prefer: "return=representation" } }), (d) => {
       for (const m of ms) store = confirmOptimistic(store, m, null);
+      deleted = d ? d.items : null;
       // Pierres tombales des lignes hors fenêtre : ni un chargement tardif ni l'écho temps réel ne les font revivre.
-      for (const a of outside.items) store = remove(store, "allocations", a.id);
+      for (const a of deleted ?? []) store = remove(store, "allocations", a.id);
     });
     if (!out.ok && (out.error === "VERSION_CONFLICT" || out.error === "NOT_FOUND")) for (const a of lines) await reread(a.id);
-    return out.ok ? { ok: true, before: [...lines, ...outside.items], complete: outside.complete } : out;
+    if (!out.ok) return out;
+    return deleted ? { ok: true, before: deleted, complete: true } : { ok: true, before: lines, complete: false };
   }
 
   async function deleteOccurrence(id: string, index: number): Promise<EditOutcome> {

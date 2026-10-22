@@ -150,13 +150,15 @@ describe("écritures et annulation (démo)", () => {
 describe("source branchée sur l'API", () => {
   const flush = async () => { for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r)); };
   const overlaps = (a: Alloc, from: string, to: string) => a.startDate <= to && (a.repeatEndDate ?? a.endDate) >= from;
-  function setup(o: { status?: number; preRead?: boolean } = {}) {
+  /** `representation: false` : serveur qui ignore Prefer (204 sans corps). Ligne m : du groupe G, autre projet, à 16 mois (hors de toute lecture préalable). */
+  function setup(o: { status?: number; preRead?: boolean; representation?: boolean } = {}) {
     const calls: { path: string; method: string; headers: Record<string, string>; body: unknown }[] = [];
     let release: () => void = () => {};
     const gate = new Promise<void>((r) => { release = r; });
     const server = new Map([
       alloc("a", { groupId: "G", startDate: "2026-10-20", endDate: "2026-10-21" }), alloc("b", { personId: "2", groupId: "G", startDate: "2026-10-20", endDate: "2026-10-21" }),
       alloc("c", { personId: "2", groupId: "G", startDate: "2027-03-01", endDate: "2027-03-02" }), alloc("d", { startDate: "2026-10-22", endDate: "2026-10-22" }),
+      alloc("m", { groupId: "G", projectId: "2", startDate: "2028-02-01", endDate: "2028-02-02" }),
       series({ startDate: "2026-10-20", endDate: "2026-10-20", repeatEndDate: "2026-11-10" }),
     ].map((a) => [a.id, a] as const));
     let seq = 0;
@@ -175,8 +177,9 @@ describe("source branchée sur l'API", () => {
       if (u.pathname === "/api/v1/allocations/a/group" && method === "DELETE") {
         await gate;
         if ((o.status ?? 204) !== 204) return json(409, { code: "VERSION_CONFLICT", params: { currentVersion: 2 } });
-        for (const a of [...server.values()]) if (a.groupId === "G") server.delete(a.id);
-        return { status: 204, json: async () => undefined };
+        const items = [...server.values()].filter((a) => a.groupId === "G");
+        for (const a of items) server.delete(a.id);
+        return o.representation !== false && init?.headers?.Prefer === "return=representation" ? json(200, { groupId: "G", items }) : { status: 204, json: async () => undefined };
       }
       if (u.pathname === "/api/v1/allocations/s/split") {
         const s = server.get("s")!;
@@ -203,33 +206,35 @@ describe("source branchée sur l'API", () => {
   }
   const ids = (src: ReturnType<typeof createScheduleSource>) => src.getState().data!.allocations.map((a) => a.id).sort();
 
-  it("« tout le groupe » : lignes retirées tout de suite, DELETE /allocations/{id}/group avec If-Match, lignes hors fenêtre relues avant", async () => {
+  it("« tout le groupe » : lignes retirées tout de suite, DELETE /allocations/{id}/group avec If-Match et Prefer ; la réponse liste toutes les lignes (preuve d'exhaustivité)", async () => {
     const { src, calls, release } = setup();
     await flush();
     const p = src.deleteAllocationGroup!("a");
     expect(ids(src)).toEqual(["d", "s"]);
     release();
     const out = await p;
-    expect(out.ok && out.before.map((a) => a.id).sort()).toEqual(["a", "b", "c"]);
+    expect(out.ok && out.before.map((a) => a.id).sort()).toEqual(["a", "b", "c", "m"]);
     expect(out.ok && out.complete).toBe(true);
     const call = calls.find((c) => c.path === "/api/v1/allocations/a/group")!;
-    expect([call.method, call.headers["If-Match"]]).toEqual(["DELETE", "\"1\""]);
+    expect([call.method, call.headers["If-Match"], call.headers.Prefer]).toEqual(["DELETE", "\"1\"", "return=representation"]);
     expect(ids(src)).toEqual(["d", "s"]);
   });
 
-  it("« tout le groupe » puis Ctrl+Z : chaque ligne recréée (hors fenêtre comprise) ; sans lecture préalable : non annulable", async () => {
+  it("« tout le groupe » puis Ctrl+Z : chaque ligne recréée, y compris celle d'un autre projet hors de toute lecture préalable", async () => {
     const { src, calls, release } = setup();
     await flush();
     const { history } = historyForSource(src);
     const a = src.getState().data!.allocations.find((x) => x.id === "a")!;
     const p = deleteAllocationScoped({ records: src, history }, a, null, "group");
     release();
-    expect(await p).toEqual({ ok: true, count: 3, undoable: true });
+    expect(await p).toEqual({ ok: true, count: 4, undoable: true });
     expect((await history.undo())?.ok).toBe(true);
     expect(calls.filter((c) => c.path === "/api/v1/allocations" && c.method === "POST").map((c) => (c.body as { startDate: string }).startDate).sort())
-      .toEqual(["2026-10-20", "2026-10-20", "2027-03-01"]);
+      .toEqual(["2026-10-20", "2026-10-20", "2027-03-01", "2028-02-01"]);
+  });
 
-    const other = setup({ preRead: false });
+  it("une lecture préalable terminée n'est pas une preuve : serveur sans représentation (204), suppression faite mais non annulable", async () => {
+    const other = setup({ representation: false });
     await flush();
     const h2 = historyForSource(other.src).history;
     const a2 = other.src.getState().data!.allocations.find((x) => x.id === "a")!;
