@@ -601,7 +601,11 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     },
     async deleteAllocation(id) {
       const api = opts.api.deleteAllocation;
-      return api ? change("allocations", id, () => null, (v) => api({ path: { id }, headers: ifMatch(v) })) : fail("UNSUPPORTED");
+      if (!api) return fail("UNSUPPORTED");
+      const out = await change("allocations", id, () => null, (v) => api({ path: { id }, headers: ifMatch(v) }));
+      // Refus sur conflit : l'allocation remise en place est relue (version à jour, ou retirée si elle n'existe plus).
+      if (!out.ok && (out.error === "VERSION_CONFLICT" || out.error === "NOT_FOUND") && store.tables.allocations.has(id)) await reread(id);
+      return out;
     },
     async loggedTime(personId, from, to) {
       if (!opts.api.listLoggedTime) return null;

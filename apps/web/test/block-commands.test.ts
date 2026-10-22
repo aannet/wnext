@@ -195,6 +195,11 @@ describe("source branchée sur l'API", () => {
         return json(201, a);
       }
       const id = u.pathname.split("/").at(-1)!;
+      if (u.pathname === "/api/v1/allocations/d" && method === "DELETE") {
+        // Modifiée ailleurs entre-temps : 409, la version à jour est sur le serveur.
+        server.set("d", { ...server.get("d")!, version: 2, notes: "relu" });
+        return json(409, { code: "VERSION_CONFLICT", params: { currentVersion: 2 } });
+      }
       if (u.pathname === `/api/v1/allocations/${id}` && method === "GET") return server.has(id) ? json(200, server.get(id)) : json(404, { code: "NOT_FOUND" });
       return json(404, { code: "NOT_FOUND" });
     };
@@ -252,6 +257,17 @@ describe("source branchée sur l'API", () => {
     expect(await p).toEqual({ ok: false, error: "VERSION_CONFLICT" });
     await flush();
     expect(ids(src)).toEqual(["a", "b", "d", "s"]);
+  });
+
+  it("allocation seule refusée (409) par la commande de l'écran : remise en place puis relue (version à jour), rien d'enregistré", async () => {
+    const { src } = setup();
+    await flush();
+    const { history } = historyForSource(src);
+    const d = src.getState().data!.allocations.find((x) => x.id === "d")!;
+    expect(await deleteAllocationScoped({ records: src, history }, d, null, "line")).toEqual({ ok: false, error: "VERSION_CONFLICT" });
+    await flush();
+    expect(src.getState().data!.allocations.find((x) => x.id === "d")).toMatchObject({ version: 2, notes: "relu" });
+    expect(history.getState().canUndo).toBe(false);
   });
 
   it("« cette occurrence » : POST /allocations/{id}/split avec delete: true, la série découpée sans l'occurrence", async () => {
