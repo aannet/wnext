@@ -175,9 +175,9 @@ describe("matrice des lectures par personne (RT-048)", () => {
 describe("temps réel filtré par abonné (RT-048)", () => {
   const head = async () => body(await get("admin", `/api/v1/schedule?${WINDOW}`)).changeCursor as string;
   const sub = (cursor: string) => JSON.stringify({ v: 1, type: "subscribe", cursor });
-  function open(who: string) {
+  function open(who: string, pageSize?: number) {
     const out: RealtimeServerMessage[] = [];
-    const session = createRealtimeSession({ db, ctx: users[who]!, send: (m) => { out.push(RealtimeServerMessage.parse(m)); } });
+    const session = createRealtimeSession({ db, ctx: users[who]!, pageSize, send: (m) => { out.push(RealtimeServerMessage.parse(m)); } });
     const changes = () => out.flatMap((m) => (m.type === "changes" ? m.changes.map((c) => `${c.entity}:${c.id}:${c.op}`) : []));
     return { out, session, changes };
   }
@@ -239,6 +239,63 @@ describe("temps réel filtré par abonné (RT-048)", () => {
     for (const s of [m, l]) await s.session.poll();
     expect(m.changes()).toEqual(["people:1:update", expect.stringMatching(/^holidays:\d+:insert$/)]);
     expect(l.changes()).toEqual([expect.stringMatching(/^holidays:\d+:insert$/)]);
+  });
+
+  it("le member REÇOIT ses propres événements, pour chaque entité filtrée (création, modification, suppression)", async () => {
+    const c = await head();
+    const m = open("member");
+    await m.session.receive(sub(c));
+    const ok = (r: { status: number; body: unknown }, status: number) => { expect(r.status, JSON.stringify(r.body)).toBe(status); return body(r); };
+    // allocations
+    const a = await alloc("1");
+    const a2 = ok(await send("admin", "PATCH", `/api/v1/allocations/${a.id}`, { body: { name: "x" }, ifMatch: `"${a.version}"` }), 200);
+    ok(await send("admin", "DELETE", `/api/v1/allocations/${a.id}`, { ifMatch: `"${a2.version}"` }), 204);
+    // congés
+    const t = ok(await send("admin", "POST", "/api/v1/timeoffs", { body: { personId: "1", typeId: "1", startDate: "2026-05-04", endDate: "2026-05-04" } }), 201);
+    const t2 = ok(await send("admin", "PATCH", `/api/v1/timeoffs/${t.id}`, { body: { endDate: "2026-05-05" }, ifMatch: `"${t.version}"` }), 200);
+    ok(await send("admin", "DELETE", `/api/v1/timeoffs/${t.id}`, { ifMatch: `"${t2.version}"` }), 204);
+    // temps saisi
+    const l = ok(await send("admin", "POST", "/api/v1/logged-time", { body: { personId: "1", projectId: "1", workDate: "2026-03-04", hours: 1 } }), 201);
+    const l2 = ok(await send("admin", "PATCH", `/api/v1/logged-time/${l.id}`, { body: { hours: 2 }, ifMatch: `"${l.version}"` }), 200);
+    ok(await send("admin", "DELETE", `/api/v1/logged-time/${l.id}`, { ifMatch: `"${l2.version}"` }), 204);
+    // personne
+    const me = body(await get("admin", "/api/v1/people/1"));
+    ok(await send("admin", "PATCH", "/api/v1/people/1", { body: { tags: ["moi"] }, ifMatch: `"${me.version}"` }), 200);
+    // équipe : ajout puis retrait d'un projet sans allocation
+    const p = ok(await send("admin", "POST", "/api/v1/projects", { body: { name: `Équipe ${c}` } }), 201);
+    ok(await send("admin", "PUT", `/api/v1/projects/${p.id}/team/1`), 200);
+    ok(await send("admin", "POST", `/api/v1/projects/${p.id}/team/1/removal`, { body: {} }), 200);
+    await m.session.poll();
+    expect(m.changes()).toEqual([
+      `allocations:${a.id}:insert`, `allocations:${a.id}:update`, `allocations:${a.id}:delete`,
+      `timeoffs:${t.id}:insert`, `timeoffs:${t.id}:update`, `timeoffs:${t.id}:delete`,
+      `logged_time:${l.id}:insert`, `logged_time:${l.id}:update`, `logged_time:${l.id}:delete`,
+      "people:1:update",
+      `projects:${p.id}:insert`, `project_team:${p.id}:update`, `project_team:${p.id}:update`,
+    ]);
+  });
+
+  it("rattrapage filtré page par page (pageSize = 1), queue invisible : rien de perdu, curseur final = tête, member comme admin", async () => {
+    const c = await head();
+    const mine1 = await alloc("1");
+    await alloc("2");
+    const mine2 = await alloc("1");
+    for (let i = 0; i < 3; i++) await alloc("2"); // queue invisible pour le member
+    const end = await head();
+    const m = open("member", 1); const a = open("admin", 1);
+    for (const s of [m, a]) await s.session.receive(sub(c));
+    expect(m.changes()).toEqual([`allocations:${mine1.id}:insert`, `allocations:${mine2.id}:insert`]);
+    expect(m.out.map((x) => x.type)).toEqual(["changes", "changes", "ready"]);
+    expect(m.out.at(-1)).toEqual({ v: 1, type: "ready", cursor: end });
+    expect(a.changes()).toHaveLength(6);
+    expect(a.out.filter((x) => x.type === "changes").map((x) => x.type === "changes" && x.hasMore)).toEqual([true, true, true, true, true, false]);
+    expect(a.out.at(-1)).toEqual({ v: 1, type: "ready", cursor: end });
+    // flux direct ensuite : rien n'est relu, la nouveauté visible arrive seule
+    const mine3 = await alloc("1");
+    for (const s of [m, a]) await s.session.poll();
+    expect(m.changes().at(-1)).toBe(`allocations:${mine3.id}:insert`);
+    expect(m.changes()).toHaveLength(3);
+    expect(a.changes()).toHaveLength(7);
   });
 
   it("WebSocket de bout en bout : le member ne reçoit pas l'allocation d'une autre personne, reçoit la sienne", async () => {
