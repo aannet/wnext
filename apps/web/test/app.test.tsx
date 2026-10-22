@@ -69,8 +69,12 @@ describe("ScheduleScreen", () => {
 
   it("pseudo-locale : tout le texte de l'interface passe par le catalogue (seuls les noms restent)", () => {
     mount("pseudo");
-    // Les pastilles de touches (kbd : Ctrl K) sont des noms de touches, pas du texte traduit : retirées du texte du bouton.
-    const texts = [...host.querySelectorAll("button, [role=toolbar] span")].map((e) => [...e.childNodes].filter((n) => (n as Element).tagName !== "KBD").map((n) => n.textContent).join(""));
+    // Seule exception : la pastille du raccourci de recherche (kbd[data-shortcut], un nom de touche et non un texte traduit),
+    // dont le contenu doit être exactement l'une des deux valeurs autorisées.
+    const shortcuts = [...host.querySelectorAll("kbd[data-shortcut]")];
+    expect(shortcuts).toHaveLength(1);
+    expect(["Ctrl K", "⌘K"]).toContain(shortcuts[0]!.textContent);
+    const texts = [...host.querySelectorAll("button, [role=toolbar] span")].map((e) => [...e.childNodes].filter((n) => !(n as Element).matches?.("kbd[data-shortcut]")).map((n) => n.textContent).join(""));
     expect(texts.length).toBeGreaterThan(5);
     for (const t of texts) expect(t).toMatch(/^\[.*\]$/);
     expect(host.querySelector("[role=grid]")!.getAttribute("aria-label")).toMatch(/^\[.*\]$/);
