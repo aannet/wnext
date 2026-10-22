@@ -24,11 +24,12 @@ const flush = async () => { for (let i = 0; i < 8; i++) await act(async () => { 
 function demo(hooks: { onProject?(p: ProjectDetail): void } = {}) {
   return createDemoProjectsSource(demoSchedule("2026-10-20", 12), { onProject: hooks.onProject ?? (() => {}) });
 }
-async function mount(source: ProjectsSource, props: { canEdit?: boolean; editor?: TeamRemovalEditor; locale?: "fr" | "en" } = {}) {
+async function mount(source: ProjectsSource, props: { canEdit?: boolean; editor?: TeamRemovalEditor; locale?: "fr" | "en"; openProjectId?: string; onOpenProjectHandled?(): void } = {}) {
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
-  act(() => root!.render(<ProjectsScreen i18n={createI18n(props.locale ?? "fr")} source={source} canEdit={props.canEdit ?? true} {...(props.editor ? { editor: props.editor } : {})} />));
+  act(() => root!.render(<ProjectsScreen i18n={createI18n(props.locale ?? "fr")} source={source} canEdit={props.canEdit ?? true} {...(props.editor ? { editor: props.editor } : {})}
+    {...(props.openProjectId ? { openProjectId: props.openProjectId } : {})} {...(props.onOpenProjectHandled ? { onOpenProjectHandled: props.onOpenProjectHandled } : {})} />));
   await flush();
 }
 const emptySource = (): ProjectsSource => {
@@ -95,6 +96,33 @@ describe("liste", () => {
     expect(alerts()[0]).toContain("Impossible de charger les projets");
     await click(button("Réessayer"));
     expect(rowNames()).toHaveLength(6);
+  });
+});
+
+describe("fiche ouverte par l'adresse (?projet=, RT-038)", () => {
+  it("projet connu : sa fiche s'ouvre dès le chargement, une seule fois, et l'adresse est consommée", async () => {
+    const id = (await demo().listProjects() as { ok: true; value: ProjectDetail[] }).value.find((p) => p.name === "Projet C")!.id;
+    const handled = vi.fn();
+    await mount(demo(), { openProjectId: id, onOpenProjectHandled: handled });
+    expect(panel()).not.toBeNull();
+    expect(panel()!.textContent).toContain("Projet C");
+    expect(handled).toHaveBeenCalledTimes(1);
+  });
+
+  it("projet inconnu : la liste s'affiche sans fiche, l'adresse est quand même consommée", async () => {
+    const handled = vi.fn();
+    await mount(demo(), { openProjectId: "absent", onOpenProjectHandled: handled });
+    expect(rowNames()).toHaveLength(6);
+    expect(panel()).toBeNull();
+    expect(handled).toHaveBeenCalledTimes(1);
+  });
+
+  it("projet archivé, masqué par le filtre de statut par défaut : la fiche s'ouvre quand même", async () => {
+    const s = demo();
+    const list = (await s.listProjects() as { ok: true; value: ProjectDetail[] }).value;
+    const done = { ...list[0]!, status: "archived" as const };
+    await mount({ ...s, listProjects: async () => ({ ok: true, value: [done, ...list.slice(1)] }) }, { openProjectId: done.id });
+    expect(panel()).not.toBeNull();
   });
 });
 

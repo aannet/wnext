@@ -23,18 +23,22 @@ export interface ProjectsScreenProps {
   canEdit: boolean;
   /** Parcours de retrait BR-10 (source du planning) ; absent : pas de retrait depuis cet écran. */
   editor?: TeamRemovalEditor;
+  /** Projet dont la fiche s'ouvre dès le chargement (?projet=, recherche du Planning, RT-038) ; inconnu : ignoré. */
+  openProjectId?: string;
+  /** Appelé une fois, quand `openProjectId` a été pris en compte (l'adresse n'a plus à le porter). */
+  onOpenProjectHandled?(): void;
 }
 
 type Tab = "projects" | "clients";
 type Side = { kind: "none" } | { kind: "create" } | { kind: "project"; id: string };
 
-export function ProjectsScreen({ i18n, source, canEdit, editor }: ProjectsScreenProps) {
+export function ProjectsScreen({ i18n, source, canEdit, editor, openProjectId, onOpenProjectHandled }: ProjectsScreenProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const projects = useLoad(() => source.listProjects(), "projects");
   const clients = useLoad(() => source.listClients(), "clients");
   const [tab, setTab] = useState<Tab>("projects");
   const [filters, setFilters] = useState<ProjectFilters>(NO_FILTERS);
-  const [side, setSide] = useState<Side>({ kind: "none" });
+  const [side, setSide] = useState<Side>(() => (openProjectId ? { kind: "project", id: openProjectId } : { kind: "none" }));
   const trigger = useRef<HTMLElement | null>(null);
 
   const ready = projects.state.status === "ready" && clients.state.status === "ready";
@@ -52,6 +56,13 @@ export function ProjectsScreen({ i18n, source, canEdit, editor }: ProjectsScreen
     setSide({ kind: "none" });
     requestAnimationFrame(() => { if (document.activeElement === document.body && trigger.current?.isConnected) trigger.current.focus(); });
   }
+  // Fiche demandée par l'adresse : prise en compte une seule fois, au chargement (un projet inconnu referme le panneau ci-dessous).
+  const handled = useRef(false);
+  useEffect(() => {
+    if (!openProjectId || !ready || handled.current) return;
+    handled.current = true;
+    onOpenProjectHandled?.();
+  }, [openProjectId, ready]);
   // Un projet disparu (autre session) ferme son panneau.
   useEffect(() => { if (side.kind === "project" && ready && !selected) setSide({ kind: "none" }); }, [side, ready, selected]);
 
