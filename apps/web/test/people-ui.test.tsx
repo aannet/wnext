@@ -254,7 +254,9 @@ describe("désactivation (BR-31)", () => {
     expect(dialog.textContent).toMatch(/\d+ allocations? à venir sur \d+ projets?/);
     const confirm = button("Désactiver", dialog)!;
     expect(confirm.disabled).toBe(true); // rien n'est écrit tant qu'un choix n'est pas fait
-    await click(dialog.querySelector<HTMLInputElement>("input[type=radio]")!);
+    const radio = (name: string) => [...dialog.querySelectorAll<HTMLElement>("[role=radio]")].find((r) => r.closest("label")?.textContent?.trim() === name)!;
+    await click(radio("Les réaffecter à une autre personne"));
+    expect(radio("Les réaffecter à une autre personne").getAttribute("aria-checked")).toBe("true");
     expect(confirm.disabled).toBe(true); // réaffecter : il faut une personne
     await choose(field("Réaffecter à", dialog), "2");
     expect(confirm.disabled).toBe(false);
@@ -262,6 +264,40 @@ describe("désactivation (BR-31)", () => {
     expect(d.hooks.onDeactivated).toHaveBeenCalledWith("1", TODAY, "reassign", "2");
     expect(rowNames()).not.toContain("Personne 1");
     expect(top().textContent).toContain("Personne désactivée.");
+  });
+});
+
+describe("désactivation : clavier", () => {
+  const radios = () => [...top().querySelectorAll<HTMLElement>("[role=radio]")];
+  const checked = () => radios().map((r) => r.getAttribute("aria-checked"));
+  const key = async (target: Element, k: string) => { await act(async () => { target.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true })); }); await flush(); };
+  async function openDialog() {
+    const d = directory();
+    await mount(d.people, d.reference);
+    await open("Personne 1");
+    await click(button("Désactiver cette personne"));
+  }
+
+  it("flèches entre les deux choix : le focus suit, Début et Fin vont aux extrêmes", async () => {
+    await openDialog();
+    radios()[0]!.focus();
+    await key(radios()[0]!, "ArrowDown");
+    expect([checked(), document.activeElement === radios()[1]]).toEqual([["false", "true"], true]);
+    await key(radios()[1]!, "Home");
+    expect([checked(), document.activeElement === radios()[0]]).toEqual([["true", "false"], true]);
+    await key(radios()[0]!, "End");
+    expect([checked(), document.activeElement === radios()[1]]).toEqual([["false", "true"], true]);
+  });
+
+  it("dans le sélecteur du remplaçant, Début, Fin et flèches ne changent jamais la disposition ni le focus", async () => {
+    await openDialog();
+    await click(radios()[0]!);
+    const select = field("Réaffecter à", top()) as unknown as HTMLSelectElement;
+    select.focus();
+    for (const k of ["End", "Home", "ArrowDown", "ArrowUp"]) {
+      await key(select, k);
+      expect([k, checked(), document.activeElement === select]).toEqual([k, ["true", "false"], true]);
+    }
   });
 });
 
@@ -283,7 +319,7 @@ describe("droits", () => {
     await mount(source, d.reference);
     await open("Personne 1");
     await click(button("Désactiver cette personne"));
-    await click([...top().querySelectorAll<HTMLInputElement>("input[type=radio]")][1]);
+    await click([...top().querySelectorAll<HTMLElement>("[role=radio]")][1]);
     await click(button("Désactiver", top()));
     expect(top().textContent).toContain("Vous n’avez pas le droit de faire cette modification.");
   });

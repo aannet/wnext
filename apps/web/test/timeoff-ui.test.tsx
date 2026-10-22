@@ -180,12 +180,20 @@ describe("BR-04 : avertissement et reprogrammation assistée", () => {
     const { src, history } = await warn([alloc("a", { endDate: "2026-10-21" })]);
     await click("Reprogrammer…");
     expect(dialog()!.querySelector("legend")!.textContent).toBe("Refonte, du mar. 20 oct. au mer. 21 oct.");
-    const radios = [...dialog()!.querySelectorAll<HTMLInputElement>("input[type=radio]")];
-    expect(radios.map((r) => [r.value, r.checked])).toEqual([["move", true], ["reduce", false], ["keep", false]]);
+    const radios = [...dialog()!.querySelectorAll<HTMLElement>("[role=radio]")];
+    const state = () => radios.map((r) => [r.closest("label")!.textContent, r.getAttribute("aria-checked")]);
+    expect(state()).toEqual([["Reporter", "true"], ["Réduire", "false"], ["Garder", "false"]]);
+    expect(document.activeElement).toBe(radios[0]); // focus initial sur le choix sélectionné à l'entrée dans l'assistant
     expect(dialog()!.querySelector("ul")!.textContent).toBe("8 h reportéesDevient : du mer. 21 oct. au jeu. 22 oct.");
-    act(() => radios[1]!.click());
+    press(radios[0]!, { key: "ArrowDown" }); await flush(); // flèche : le focus et le choix passent au suivant
+    expect([state()[1], document.activeElement === radios[1]]).toEqual([["Réduire", "true"], true]);
     expect(dialog()!.querySelector("ul")!.textContent).toBe("8 h retiréesDevient : du mer. 21 oct. au mer. 21 oct.");
-    act(() => radios[0]!.click());
+    press(radios[1]!, { key: "ArrowUp" }); await flush();
+    expect([state()[0], document.activeElement === radios[0]]).toEqual([["Reporter", "true"], true]);
+    await act(async () => radios[2]!.click()); await flush(); // clic
+    expect(state()[2]).toEqual(["Garder", "true"]);
+    await act(async () => radios[0]!.click()); await flush();
+    expect(state()[0]).toEqual(["Reporter", "true"]);
     await click("Appliquer");
     expect(dialog()).toBeNull();
     expect(notice()).toBe("Congé enregistré et allocations reprogrammées. Ctrl+Z annule le tout.");

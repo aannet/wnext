@@ -39,6 +39,7 @@ test("congé journée entière sur un bloc : avertissement, reporter, bloc déca
   await dialog(page).getByRole("button", { name: "Reprogrammer…" }).click();
   await expect(dialog(page).getByRole("heading")).toHaveText("Reprogrammer les allocations");
   await expect(dialog(page).getByRole("radio", { name: "Reporter" }).first()).toBeChecked();
+  await expect(dialog(page).getByRole("radio", { name: "Reporter" }).first()).toBeFocused();
   await dialog(page).getByRole("button", { name: "Appliquer" }).click();
 
   await expect(dialog(page)).toHaveCount(0);

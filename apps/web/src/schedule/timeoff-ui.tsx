@@ -60,6 +60,9 @@ const SHOWN = new Set<EditError>(["TIMEOFF_OVERLAP", "VERSION_CONFLICT", "NOT_FO
 const errorKey = (e: EditError): MessageKey => (SHOWN.has(e) ? `schedule.timeoff.error.${e as "NETWORK"}` : "schedule.timeoff.error.other");
 const FIELDS = ["personId", "typeId", "startDate", "endDate", "startHalf", "endHalf", "approvalStatus"] as const;
 
+/** Focus initial de l'assistant : le radio sélectionné du premier groupe. Le drawer reste monté d'une étape à l'autre, son focus initial ne se rejoue pas ; l'identité stable de la fonction limite l'appel au montage du groupe. */
+const focusChecked = (el: HTMLElement | null) => { el?.querySelector<HTMLElement>("[role=radio][aria-checked=true]")?.focus({ preventScroll: true }); };
+
 export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: ScheduleResponse, announce: (text: string) => void, onClose: () => void): TimeoffEdits {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const [step, setStep] = useState<Step | null>(null);
@@ -260,10 +263,10 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
             <fieldset key={id} className="wn-timeoff-choice">
               <legend id={`wn-choice-legend-${id}`}>{legend}</legend>
               {series ? <p>{t("schedule.timeoff.assistant.series")}</p> : (
-                <RadioGroup aria-labelledby={`wn-choice-legend-${id}`} value={s.choices[id]} onValueChange={(c) => setStep({ ...s, choices: { ...s.choices, [id]: c as Choice } })}>
+                <RadioGroup {...(i === 0 ? { ref: focusChecked } : {})} aria-labelledby={`wn-choice-legend-${id}`} value={s.choices[id]} onValueChange={(c) => setStep({ ...s, choices: { ...s.choices, [id]: c as Choice } })}>
                   {(["move", "reduce", "keep"] as const).map((c) => (
                     <label key={c}>
-                      <RadioItem value={c} {...(i === 0 && c === s.choices[id] ? { "data-autofocus": "" } : {})} />
+                      <RadioItem value={c} />
                       {t(`schedule.timeoff.assistant.${c}`)}
                     </label>
                   ))}

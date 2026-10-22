@@ -4,7 +4,7 @@
 // affiché et il faut confirmer à nouveau. Rien n'est écrit avant la confirmation ; sans allocation future, un simple clic suffit.
 import type { I18n } from "@lingui/core";
 import type { PersonDeactivationSummary } from "@wnext/contracts";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import type { DirError, DirResult, PeopleSource, Person } from "../data/people-source";
 import { Button, Modal, RadioGroup, RadioItem } from "../design";
 import type { MessageKey } from "../i18n";
@@ -33,6 +33,10 @@ export interface DeactivateDialogProps {
   onClose(): void;
   onDone(person: Person): void;
 }
+
+/** Le sélecteur est dans le groupe radio : ses flèches, Début et Fin restent à la liste et n'atteignent pas la navigation du groupe. */
+const keepNavigation = (e: KeyboardEvent) => { if (NAV_KEYS.has(e.key)) e.stopPropagation(); };
+const NAV_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"]);
 
 export function DeactivateDialog({ i18n, source, person, candidates, onClose, onDone }: DeactivateDialogProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
@@ -93,7 +97,7 @@ export function DeactivateDialog({ i18n, source, person, candidates, onClose, on
               <RadioGroup aria-labelledby="wn-disposition-legend" value={disposition || null} onValueChange={(v) => setDisposition(v as typeof disposition)} className="flex flex-col gap-(--space-2)">
                 <label className="inline-flex items-center gap-2"><RadioItem value="reassign" /> {t("people.deactivate.reassign")}</label>
                 {disposition === "reassign" && (
-                  <div className="wn-field">
+                  <div className="wn-field" onKeyDown={keepNavigation}>
                     <label htmlFor="wn-replacement">{t("people.deactivate.replacement")}</label>
                     <select id="wn-replacement" value={replacementId} onChange={(e) => setReplacementId(e.target.value)}>
                       <option value="">{t("people.deactivate.replacement.placeholder")}</option>

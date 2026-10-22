@@ -1,5 +1,5 @@
 // Groupe de boutons radio shadcn/ui sur le RadioGroup et le Radio de Base UI (RT-037). Base UI gère les flèches (avec retour au
-// début) et le focus itinérant, mais pas Début / Fin : le groupe les ajoute, le focus suit le choix comme pour les flèches.
+// début) et le focus itinérant, mais pas Début / Fin : le groupe les ajoute (pour les seules touches venues d'un radio), le focus suit le choix comme pour les flèches.
 // Trois présentations d'un choix : « dot » (rond avec libellé, formulaires), « segment » (bouton d'un groupe segmenté),
 // « bare » (aucun style : la pastille de couleur du projet habille elle-même son bouton).
 import { Radio as RadioPrimitive } from "@base-ui/react/radio";
@@ -11,6 +11,9 @@ export function RadioGroup({ className, onKeyDown, ...props }: RadioGroupPrimiti
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     (onKeyDown as ((e: KeyboardEvent<HTMLDivElement>) => void) | undefined)?.(e);
     if (e.defaultPrevented || (e.key !== "Home" && e.key !== "End")) return;
+    // Seule une touche venue d'un radio du groupe compte : un champ placé dans le groupe (liste, saisie) garde ses Début / Fin.
+    const origin = e.target instanceof Element ? e.target.closest("[role=radio]") : null;
+    if (!origin || origin.closest("[role=radiogroup]") !== e.currentTarget) return;
     const items = [...e.currentTarget.querySelectorAll<HTMLElement>("[role=radio]:not([aria-disabled=true])")];
     const target = e.key === "Home" ? items[0] : items.at(-1);
     if (!target) return;
