@@ -64,6 +64,17 @@ describe("detection de rupture", () => {
     next.components.schemas.HealthResponse.properties.status.enum = ["ok"];
     expect(findBreakingChanges(base, next).join()).toMatch(/status.*degraded/);
   });
+  it("$ref renomme vers un schema compatible (meme forme + champ optionnel) n'est pas une rupture ; vers un schema appauvri, si", () => {
+    const next = clone(base);
+    const schema = next.paths["/api/v1/health"].get.responses["200"].content["application/json"].schema;
+    schema.$ref = "#/components/schemas/HealthDetail";
+    next.components.schemas.HealthDetail = clone(next.components.schemas.HealthResponse);
+    next.components.schemas.HealthDetail.properties.uptime = { type: "number" };
+    expect(findBreakingChanges(base, next)).toEqual([]);
+    delete next.components.schemas.HealthDetail.properties.version;
+    next.components.schemas.HealthDetail.required = ["status"];
+    expect(findBreakingChanges(base, next).join("\n")).toMatch(/200\.version : propriete supprimee/);
+  });
   it("ajout d'un champ optionnel n'est pas une rupture", () => {
     const next = clone(base);
     next.components.schemas.HealthResponse.properties.uptime = { type: "number" };

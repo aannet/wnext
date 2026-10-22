@@ -9,8 +9,8 @@ import { HealthResponse } from "./health";
 import { Me } from "./me";
 import { REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket } from "./realtime";
 import { TeamBatchAdd, TeamBatchResult, TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
-import { PersonDeactivationQuery, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonCreate, PersonHistoryList, PersonHistoryQuery, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProjectList, PersonProjectListQuery } from "./people";
-import { ScheduleDepartment, ScheduleHoliday, SchedulePerson, ScheduleAllocation, ScheduleRole, ScheduleTimeoffType, ScheduleQuery, ScheduleResponse, ScheduleTimeoff } from "./schedule";
+import { PersonDeactivationQuery, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonCreate, PersonDetail, PersonHistoryList, PersonHistoryQuery, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProjectList, PersonProjectListQuery } from "./people";
+import { ScheduleDepartment, ScheduleHoliday, ScheduleAllocation, ScheduleRole, ScheduleTimeoffType, ScheduleQuery, ScheduleResponse, ScheduleTimeoff } from "./schedule";
 import {
   DepartmentCreate, DepartmentList, DepartmentPatch, HolidayCreate, HolidayList, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectDetail,
   ProjectList, ProjectListQuery, ProjectPatch, ReferenceListQuery, ReferencePathParams, RoleCreate, RoleList, RolePatch, TimeoffTypeCreate,
@@ -508,7 +508,7 @@ export const routes: RouteContract[] = [
     summary: "Lire une personne (desactivee comprise, avec sa version ; tout membre authentifie)",
     params: PersonPathParams,
     responses: {
-      200: { description: "Personne", schema: SchedulePerson },
+      200: { description: "Personne", schema: PersonDetail },
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
       404: { description: "Personne inconnue ou hors compte (NOT_FOUND)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
@@ -601,7 +601,7 @@ export const routes: RouteContract[] = [
     summary: "Creer une personne planifiable",
     body: PersonCreate,
     responses: {
-      201: { description: "Personne creee", schema: SchedulePerson },
+      201: { description: "Personne creee", schema: PersonDetail },
       400: { description: "Corps invalide (VALIDATION_FAILED)", schema: ApiError },
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
       403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },
@@ -618,7 +618,7 @@ export const routes: RouteContract[] = [
     headers: IfMatchHeader,
     body: PersonPatch,
     responses: {
-      200: { description: "Personne modifiee (nouvelle version)", schema: SchedulePerson },
+      200: { description: "Personne modifiee (nouvelle version)", schema: PersonDetail },
       400: { description: "Corps ou en-tete invalide (VALIDATION_FAILED)", schema: ApiError },
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
       403: { description: "Role insuffisant (FORBIDDEN)", schema: ApiError },

@@ -424,8 +424,24 @@ export interface LoggedTimeSubmitResult {
 }
 
 export interface PersonList {
-  items: Array<SchedulePerson>;
+  items: Array<PersonDetail>;
   page: SchedulePage;
+}
+
+export interface PersonDetail {
+  id: Id;
+  version: Version;
+  name: string;
+  peopleType: SchedulePeopleType;
+  departmentId: Id | null;
+  roleId: Id | null;
+  country: string | null;
+  workDaysHours: Array<number>;
+  workSchedule?: Array<ScheduleWorkPeriod>;
+  tags: Array<string>;
+  avatarUrl: string | null;
+  active: boolean;
+  access?: "member" | "none";
 }
 
 export interface PersonProjectList {
@@ -1369,11 +1385,11 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
     /** Creer une personne planifiable (POST /api/v1/people) */
     async createPerson(input: {
       body: PersonCreate;
-    }): Promise<ApiResult<SchedulePerson, ApiError>> {
+    }): Promise<ApiResult<PersonDetail, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/people", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(input.body) });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
-        ? { ok: true, status: res.status, data: body as SchedulePerson }
+        ? { ok: true, status: res.status, data: body as PersonDetail }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Lire une personne (desactivee comprise, avec sa version ; tout membre authentifie) (GET /api/v1/people/{id}) */
@@ -1381,11 +1397,11 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       path: {
         id: Id;
       };
-    }): Promise<ApiResult<SchedulePerson, ApiError>> {
+    }): Promise<ApiResult<PersonDetail, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/people/" + encodeURIComponent(String(input.path.id)), { method: "GET", headers: { accept: "application/json" } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
-        ? { ok: true, status: res.status, data: body as SchedulePerson }
+        ? { ok: true, status: res.status, data: body as PersonDetail }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Modifier ou desactiver une personne (verrou optimiste If-Match ; pas de suppression ; horaire, departement et role a effet date via effectiveFrom, BR-19) (PATCH /api/v1/people/{id}) */
@@ -1397,11 +1413,11 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         "If-Match": string;
       };
       body: PersonPatch;
-    }): Promise<ApiResult<SchedulePerson, ApiError>> {
+    }): Promise<ApiResult<PersonDetail, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/people/" + encodeURIComponent(String(input.path.id)), { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
-        ? { ok: true, status: res.status, data: body as SchedulePerson }
+        ? { ok: true, status: res.status, data: body as PersonDetail }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Projets d'une personne : equipe ou allocations (pagine, tri par id de projet ; archives exclus par defaut ; tout membre authentifie) (GET /api/v1/people/{id}/projects) */

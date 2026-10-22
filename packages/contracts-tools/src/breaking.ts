@@ -16,8 +16,9 @@ function cmpSchema(a: Json | undefined, b: Json | undefined, oldSpec: Json, newS
     out.push(`${where} : schema supprime`);
     return;
   }
+  // Un $ref renommé n'est pas une rupture en soi (le JSON reçu est le même) : on compare la structure résolue, qui signale
+  // propriété supprimée, required retiré, type changé ou enum appauvrie (p. ex. SchedulePerson -> PersonDetail, RT-040).
   if (a.$ref || b.$ref) {
-    if (a.$ref !== b.$ref) out.push(`${where} : $ref ${a.$ref ?? "inline"} -> ${b.$ref ?? "inline"}`);
     const key = String(a.$ref);
     if (a.$ref && seen.has(key)) return;
     if (a.$ref) seen.add(key);

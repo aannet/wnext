@@ -15,7 +15,8 @@ import { SchedulePage, SchedulePeopleType, SchedulePerson, ScheduleProject } fro
 //  * `workDaysHours` : 7 valeurs, index 0 = lundi (ISO, CLAUDE.md), 0 à 24 h. Défaut serveur {8,8,8,8,8,0,0}.
 //  * Défauts serveur : peopleType "employee", tags [], active true, pays/département/rôle/avatar null.
 //  * Désactiver une personne ne touche pas ses allocations existantes (BR-04 : rien n'est supprimé en silence).
-//  * Lecture (tout membre authentifié, comme GET /schedule : mêmes champs que SchedulePerson, ni coût ni e-mail) :
+//  * Lecture (tout membre authentifié, comme GET /schedule : champs de SchedulePerson, ni coût ni e-mail, plus `access` pour
+//    owner/admin/project_manager seulement, cf. PersonDetail) :
 //      - GET /people : liste paginée par curseur sur `id` (tri par id, `page.total`, limit 1..500, défaut 200). Les personnes
 //        désactivées sont EXCLUES par défaut (comme le Schedule) ; `includeInactive=true` les inclut. Filtres : departmentId, roleId,
 //        tag (exact), search (sous-chaîne du nom, sans tenir compte de la casse ; les accents comptent). Paramètre inconnu ou répété :
@@ -78,7 +79,20 @@ export const PersonListQuery = ReferenceListQuery.extend({
   includeInactive: z.boolean().optional().describe("Inclure les personnes désactivées (défaut : non)"),
 });
 export type PersonListQuery = z.infer<typeof PersonListQuery>;
-export const PersonList = z.object({ items: z.array(SchedulePerson), page: SchedulePage }).meta({ id: "PersonList" });
+// Personne telle que la servent les routes people (liste, lecture, création, modification) : SchedulePerson + `access`.
+// `access` n'est PAS dans SchedulePerson : GET /schedule (et la désactivation) ne le portent pas (RT-040).
+export const PersonDetail = SchedulePerson.extend({
+  access: z
+    .enum(["member", "none"])
+    .optional()
+    .describe(
+      "Accès de la personne au produit : member = un utilisateur du compte lui est lié (account_members.person_id), " +
+        "none = aucun. Servi seulement aux rôles owner, admin et project_manager ; clé absente pour member et guest. " +
+        "Valeurs extensibles (une invitation en attente viendra plus tard) : un client doit tolérer une valeur inconnue.",
+    ),
+}).meta({ id: "PersonDetail" });
+export type PersonDetail = z.infer<typeof PersonDetail>;
+export const PersonList = z.object({ items: z.array(PersonDetail), page: SchedulePage }).meta({ id: "PersonList" });
 
 export const PersonProject = z
   .object({

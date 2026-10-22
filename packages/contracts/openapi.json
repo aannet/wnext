@@ -2165,7 +2165,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SchedulePerson"
+              "$ref": "#/components/schemas/PersonDetail"
             }
           },
           "page": {
@@ -2175,6 +2175,103 @@
         "required": [
           "items",
           "page"
+        ]
+      },
+      "PersonDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "name": {
+            "type": "string"
+          },
+          "peopleType": {
+            "$ref": "#/components/schemas/SchedulePeopleType"
+          },
+          "departmentId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "roleId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Z]{2}$",
+            "description": "ISO 3166-1 alpha-2 ; null = aucun férié de pays"
+          },
+          "workDaysHours": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 24
+            },
+            "description": "Heures ouvrées par jour, index 0 = lundi ... 6 = dimanche"
+          },
+          "workSchedule": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleWorkPeriod"
+            },
+            "description": "Historique COMPLET de l'horaire (BR-19), périodes sans recouvrement triées par date ; absent = horaire constant (workDaysHours). Complet et non limité à la fenêtre : la personne reste identique d'une fenêtre à l'autre à version égale. Le moteur lit l'horaire en vigueur à chaque date (PersonInput.workSchedule)."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "member",
+              "none"
+            ],
+            "description": "Accès de la personne au produit : member = un utilisateur du compte lui est lié (account_members.person_id), none = aucun. Servi seulement aux rôles owner, admin et project_manager ; clé absente pour member et guest. Valeurs extensibles (une invitation en attente viendra plus tard) : un client doit tolérer une valeur inconnue."
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "name",
+          "peopleType",
+          "departmentId",
+          "roleId",
+          "country",
+          "workDaysHours",
+          "tags",
+          "avatarUrl",
+          "active"
         ]
       },
       "PersonProjectList": {
@@ -7462,7 +7559,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SchedulePerson"
+                  "$ref": "#/components/schemas/PersonDetail"
                 }
               }
             }
@@ -7541,7 +7638,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SchedulePerson"
+                  "$ref": "#/components/schemas/PersonDetail"
                 }
               }
             }
@@ -7619,7 +7716,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SchedulePerson"
+                  "$ref": "#/components/schemas/PersonDetail"
                 }
               }
             }

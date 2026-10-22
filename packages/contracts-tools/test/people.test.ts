@@ -1,7 +1,7 @@
 // Contrat d'écriture des personnes : validation des corps, absence de DELETE, aucune fuite de coût ou d'e-mail.
 import "../src/zod-setup";
 import { describe, expect, it } from "vitest";
-import { PersonCreate, PersonList, PersonListQuery, PersonPatch, PersonProject, PersonProjectList, PersonProjectListQuery, SchedulePerson, routes } from "@wnext/contracts";
+import { PersonCreate, PersonDetail, PersonList, PersonListQuery, PersonPatch, PersonProject, PersonProjectList, PersonProjectListQuery, SchedulePerson, routes } from "@wnext/contracts";
 import { buildSpec } from "../src/openapi";
 
 const ok = (s: { safeParse(v: unknown): { success: boolean } }, v: unknown) => s.safeParse(v).success;
@@ -89,6 +89,23 @@ describe("lecture des personnes", () => {
       expect(get(id).responses[403]).toBeUndefined(); // lecture ouverte à tout membre
     }
     expect(get("getPerson").responses[404]).toBeDefined();
+  });
+  it("PersonDetail : `access` facultatif (member | none), propre aux routes people, absent de SchedulePerson (RT-040)", () => {
+    expect(ok(PersonDetail, person)).toBe(true); // clé absente : rôle member ou guest
+    expect(ok(PersonDetail, { ...person, access: "member" })).toBe(true);
+    expect(ok(PersonDetail, { ...person, access: "none" })).toBe(true);
+    for (const access of ["invited", null, "", true]) expect(ok(PersonDetail, { ...person, access }), String(access)).toBe(false);
+    expect(Object.keys(SchedulePerson.shape)).not.toContain("access");
+    expect(Object.keys(PersonDetail.shape).filter((k) => /cost|rate|email|salary/i.test(k))).toEqual([]);
+    expect(ok(PersonList, { items: [{ ...person, access: "invited" }], page: { nextCursor: null, total: 1 } })).toBe(false);
+    const spec = buildSpec() as any;
+    const ref = (op: Record<string, any>, code: string) => op.responses[code].content["application/json"].schema.$ref;
+    expect(spec.components.schemas.PersonList.properties.items.items.$ref).toBe("#/components/schemas/PersonDetail");
+    expect(ref(spec.paths["/api/v1/people/{id}"].get, "200")).toBe("#/components/schemas/PersonDetail");
+    expect(ref(spec.paths["/api/v1/people/{id}"].patch, "200")).toBe("#/components/schemas/PersonDetail");
+    expect(ref(spec.paths["/api/v1/people"].post, "201")).toBe("#/components/schemas/PersonDetail");
+    expect(spec.components.schemas.ScheduleResponse.properties.people.items.$ref).toBe("#/components/schemas/SchedulePerson");
+    expect(spec.components.schemas.PersonDetail.properties.access.description).toMatch(/owner.*admin.*project_manager/);
   });
   it("la spec garde l'écriture existante sur les mêmes chemins", () => {
     const spec = buildSpec() as { paths: Record<string, Record<string, unknown>> };
