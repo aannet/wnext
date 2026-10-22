@@ -42,9 +42,17 @@ Les autres comptes du jeu d'essai (`DEV_USERS` de `scripts/dev-seed.mjs`) serven
 ```
 npm run dev:recette:seed              # = dev:recette --seed=recette ; --reset repart d'une base de recette vide
 npm run dev:stack -- --oidc --seed=recette   # pile seule, sans l'écran
+npm run dev:recette:vide              # compte vide (Alec owner seul), base .dev-pg-vide/
 ```
 
-Le seed (`scripts/seed-recette.mjs`) vit dans un répertoire de données **dédié** `.dev-pg-recette/` (ignoré par git) : la base `.dev-pg/` d'Alec n'est jamais lue ni modifiée, et `--reset` ne supprime que le répertoire du profil choisi. Mêmes ports que `dev:recette` (Postgres 54329, API 3000, IdP 3010, Vite 5173) : on ne peut donc pas faire tourner les deux piles en même temps (« le port ... est déjà utilisé »). Le seed est idempotent (relancer ne change rien, les identités OIDC sont complétées) et refuse une base qui contient déjà un autre compte.
+Le seed (`scripts/seed-recette.mjs`) vit dans un répertoire de données **dédié** `.dev-pg-recette/` (ignoré par git). Mêmes ports que `dev:recette` (Postgres 54329, API 3000, IdP 3010, Vite 5173) : on ne peut donc pas faire tourner deux piles en même temps (« le port ... est déjà utilisé »). Le seed est idempotent : relancer ne change rien (les identités OIDC attendues sont complétées).
+
+Garde-fous (`scripts/dev-profile.mjs`), tous exécutés avant la moindre suppression, le moindre démarrage ou la moindre écriture, pour que `.dev-pg/` d'Alec ne soit jamais touché :
+- Profils : `dev` (`.dev-pg/`), `recette` (`.dev-pg-recette/`), `vide` (`.dev-pg-vide/`). Chaque répertoire dédié porte un **marqueur** `.wnext-profile`, posé à sa création.
+- `WNEXT_DEV_PG_DIR` reste utilisable, mais pour recette et vide seulement vers un répertoire absent, vide ou marqué pour le même profil. Le chemin est résolu en chemin réel (liens symboliques, `..`, barre finale) : tout ce qui recouvre `.dev-pg/`, ou un répertoire non vide sans marqueur, est refusé (« démarrage impossible : ... »), y compris avec `--reset`. Le dépôt ou un de ses ancêtres est refusé pour tous les profils.
+- Avant les extensions et les migrations, la base doit être exactement celle du profil (comptes et identités attendus) ; sinon refus, rien n'est écrit. Un répertoire `.dev-pg-recette/` créé avant l'introduction du marqueur est refusé : le supprimer à la main (`rm -r .dev-pg-recette`) puis relancer.
+
+Compte vide (point de départ de R-06) : `npm run dev:recette:vide` (`-- --reset` pour repartir de zéro) ; base `.dev-pg-vide/`, compte « WNEXT Vide », Alec (`dev-alec`) owner seul, aucune personne ni projet.
 
 Contenu : compte « WNEXT Recette » (lundi, Europe/Paris), 4 équipes, 16 personnes actives + 1 placeholder + 1 désactivée (Karim travaille le samedi, Élodie à temps partiel, Thomas a un horaire daté BR-19 : 4 jours à partir du lundi S+3), 3 clients, 7 projets dont 1 tentatif (`REF-01`, `SITE-01`...), ~70 allocations (heures et %, une série hebdomadaire, un groupe multi-personnes BR-26, sur- et sous-allocations), congés (journée, demi-journée, en attente), un férié France, du temps loggé. Un second compte « Autre Société » sert à l'isolation. Les dates sont relatives au lundi de la semaine du semis (S0).
 
