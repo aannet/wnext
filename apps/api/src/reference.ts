@@ -160,7 +160,9 @@ export const deleteHoliday = (db: Db, ctx: RequestContext, id: string, expected:
   remove(db, ctx, { table: "holidays", entity: "holiday", columns: HOLIDAY_COLUMNS, dependents: {} }, id, expected);
 
 // --- Projets ----------------------------------------------------------------------------------------------------------
-const DETAIL_COLUMNS = `${PROJECT_COLUMNS}, project_manager_id, client_id, tags, notes`;
+// managerUserIds (BR-33) : co-gestionnaires, triés par user_id numérique (et non textuel).
+const DETAIL_COLUMNS = `${PROJECT_COLUMNS}, project_manager_id, client_id, tags, notes,
+  ARRAY(SELECT m.user_id::text FROM project_managers m WHERE m.account_id = projects.account_id AND m.project_id = projects.id ORDER BY m.user_id) AS manager_user_ids`;
 const failProject = translate("project", "projectCode");
 
 function toDetail(r: Row): ProjectDetail {
@@ -168,6 +170,7 @@ function toDetail(r: Row): ProjectDetail {
     ...toScheduleProject(r),
     projectManagerId: r.project_manager_id === null ? null : String(r.project_manager_id),
     clientId: r.client_id === null ? null : String(r.client_id), tags: r.tags as string[], notes: r.notes ?? null,
+    managerUserIds: (r.manager_user_ids as string[]).map(String),
   };
 }
 
@@ -196,12 +199,15 @@ export async function createProject(db: Db, ctx: RequestContext, body: ProjectCr
       ],
     ).catch(failProject);
     // BR-33 : le project_manager qui crée un projet en devient co-gestionnaire (sinon il ne pourrait plus l'écrire).
+    // Le RETURNING précède cette insertion : la réponse ajoute le co-gestionnaire créé (projet neuf, seul possible).
     if (ctx.role === "project_manager") {
-      await tx.query(
+      const added = await tx.query<Row>(
         `INSERT INTO project_managers (project_id, account_id, user_id)
-         SELECT $1::bigint, account_id, user_id FROM account_members WHERE account_id = $2::bigint AND user_id = $3::bigint ON CONFLICT DO NOTHING`,
+         SELECT $1::bigint, account_id, user_id FROM account_members WHERE account_id = $2::bigint AND user_id = $3::bigint ON CONFLICT DO NOTHING
+         RETURNING user_id::text`,
         [rows[0]!.id, ctx.accountId, ctx.userId],
       );
+      return { ...toDetail(rows[0]!), managerUserIds: added.rows.map((r) => String(r.user_id)) };
     }
     return toDetail(rows[0]!);
   });

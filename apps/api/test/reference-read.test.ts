@@ -34,6 +34,9 @@ beforeAll(async () => {
     INSERT INTO timeoff_types (account_id, name) VALUES (1, 'Vacances'), (2, 'Intrus');
     INSERT INTO holidays (account_id, name, hdate) VALUES (1, 'Nouvel an', '2026-01-01'), (1, 'Noël', '2026-12-25'), (1, 'Pâques', '2026-04-06'), (2, 'Intrus', '2026-05-01');
     INSERT INTO projects (account_id, name, status, tags, notes) VALUES (1, 'Actif', 'in_progress', '{a,b}', 'n'), (1, 'Prévu', 'planned', '{}', NULL), (1, 'Vieux', 'archived', '{}', NULL), (2, 'Intrus', 'in_progress', '{}', NULL);
+    INSERT INTO users (email) SELECT 'u' || g || '@x.test' FROM generate_series(2, 10) g;
+    INSERT INTO account_members (account_id, user_id, role) VALUES (1, 10, 'project_manager'), (1, 2, 'project_manager'), (2, 3, 'admin');
+    INSERT INTO project_managers (project_id, account_id, user_id) VALUES (1, 1, 10), (1, 1, 2), (4, 2, 3);
   `);
 }, 120_000);
 afterAll(async () => { await pg?.close(); }, 60_000);
@@ -164,6 +167,13 @@ describe("filtres", () => {
     expect(page(await get("owner", "/api/v1/projects?status=in_progress")).page.total).toBe(1);
     expect((await get("owner", "/api/v1/projects?status=perdu")).status).toBe(400);
     expect((await get("owner", `/api/v1/projects/${archived.items[0]!.id}`)).status).toBe(200); // par id : l'archivé reste lisible
+  });
+
+  it("projets : managerUserIds liste les user_id des co-gestionnaires, triés numériquement, vide sinon, sans fuite entre comptes (RT-039)", async () => {
+    const managers = (r: { body: unknown }) => Object.fromEntries(page(r).items.map((p) => [(p as unknown as { name: string }).name, (p as unknown as { managerUserIds: string[] }).managerUserIds]));
+    expect(managers(await get("member", "/api/v1/projects"))).toEqual({ Actif: ["2", "10"], Prévu: [] });
+    expect((await get("owner", "/api/v1/projects/1")).body).toMatchObject({ name: "Actif", managerUserIds: ["2", "10"] });
+    expect(managers(await get("other", "/api/v1/projects"))).toEqual({ Intrus: ["3"] });
   });
 });
 

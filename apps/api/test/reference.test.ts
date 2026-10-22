@@ -33,6 +33,7 @@ beforeAll(async () => {
     INSERT INTO accounts (name) VALUES ('A'), ('B');
     INSERT INTO people (account_id, name) VALUES (1,'hal'), (2,'intrus');
     INSERT INTO departments (account_id, name) VALUES (2, 'Autre compte');
+    INSERT INTO account_members (account_id, user_id, role) VALUES (1, 1, 'project_manager');
   `);
 }, 120_000);
 afterAll(async () => { await pg?.close(); }, 60_000);
@@ -191,8 +192,14 @@ describe("/api/v1/projects", () => {
     const r = await send("pm", "POST", "/api/v1/projects", { name: "Site web" });
     expect(r.status).toBe(201);
     expect(ProjectDetail.safeParse(r.body).success).toBe(true);
-    expect(r.body).toMatchObject({ version: 1, name: "Site web", projectCode: null, color: "#3B82F6", status: "planned", nonBillable: false, startDate: null, endDate: null, projectManagerId: null, clientId: null, tags: [], notes: null });
+    expect(r.body).toMatchObject({ version: 1, name: "Site web", projectCode: null, color: "#3B82F6", status: "planned", nonBillable: false, startDate: null, endDate: null, projectManagerId: null, clientId: null, tags: [], notes: null, managerUserIds: ["1"] });
     id = body<{ id: string }>(r).id;
+    expect(await n(`SELECT count(*) AS n FROM project_managers WHERE project_id = ${id} AND user_id = 1`)).toBe(1);
+  });
+
+  it("managerUserIds à la création : vide pour owner et admin (pas de co-gestion implicite), jamais d'un autre compte (RT-039)", async () => {
+    expect((await send("admin", "POST", "/api/v1/projects", { name: "Sans co-gestion" })).body).toMatchObject({ managerUserIds: [] });
+    expect((await send("other", "POST", "/api/v1/projects", { name: "Voisin" })).body).toMatchObject({ managerUserIds: [] });
   });
 
   it("membre : 403 ; anonyme : 401", async () => {
@@ -223,7 +230,7 @@ describe("/api/v1/projects", () => {
 
   it("modifie, archive (statut), efface un champ (null) ; cohérence des dates sur l'état résultant", async () => {
     const r = await send("admin", "PATCH", `/api/v1/projects/${id}`, { status: "archived", color: "#112233", startDate: "2026-03-01", endDate: "2026-03-31", tags: ["web"], notes: "n" }, 1);
-    expect(r.body).toMatchObject({ version: 2, status: "archived", color: "#112233", startDate: "2026-03-01", endDate: "2026-03-31", tags: ["web"], notes: "n" });
+    expect(r.body).toMatchObject({ version: 2, status: "archived", color: "#112233", startDate: "2026-03-01", endDate: "2026-03-31", tags: ["web"], notes: "n", managerUserIds: ["1"] });
     const bad = await send("admin", "PATCH", `/api/v1/projects/${id}`, { endDate: "2026-02-01" }, 2); // fin avant le début déjà posé
     expect(err(bad)).toMatchObject({ code: "VALIDATION_FAILED", params: { field: "endDate" } });
     const cleared = await send("admin", "PATCH", `/api/v1/projects/${id}`, { endDate: null, notes: null }, 2);
