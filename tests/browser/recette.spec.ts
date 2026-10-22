@@ -794,6 +794,8 @@ test("R-22 — Recherche, filtres, vues sauvegardées", async ({ page }) => {
 });
 
 test("R-23 — Notifications in-app", async ({ browser }) => {
+  // Les scénarios précédents ont modifié les allocations de Camille (base partagée) : on part d'une cloche lue.
+  expect((await api("camille", "POST", "/notifications/read-all")).status).toBe(200);
   const ctxAlec = await browser.newContext({ viewport: { width: 1600, height: 900 } });
   const ctxCamille = await browser.newContext({ viewport: { width: 1600, height: 900 } });
   const alec = await ctxAlec.newPage();
@@ -1105,9 +1107,9 @@ test.describe("R-30 — Appui long tactile sur une case vide", () => {
   });
 });
 
-// RT-042 (L-P) : portée d'une série et d'un groupe dans le drawer. Écrits d'après le registre ; sélecteurs et libellés à ajuster
-// à l'interface fusionnée (étape de choix à l'enregistrement : « Cette occurrence » / « Toute la série », « Cette ligne » / « Tout le groupe »).
-test.fixme("R-31 — Portée d'une série dans le drawer (RT-042 en cours de fusion)", async ({ page }) => {
+// RT-042 (L-P) : portée d'une série et d'un groupe dans le drawer : étape de choix à l'enregistrement,
+// « Cette occurrence » / « Toute la série », « Cette ligne » / « Tout le groupe », puis « Confirmer ».
+test("R-31 — Portée d'une série dans le drawer", async ({ page }) => {
   await loginPlanning(page, "alec");
   await showPerson(page, "Nadia Benali");
   await showDay(page, day(7));
@@ -1120,7 +1122,7 @@ test.fixme("R-31 — Portée d'une série dans le drawer (RT-042 en cours de fus
 
   // Cette occurrence : scission annoncée, non annulable ; seule l'occurrence du lundi S+1 passe à 3 h.
   await drawer.getByRole("radio", { name: "Cette occurrence" }).check();
-  await drawer.getByRole("button", { name: "Enregistrer" }).click();
+  await drawer.getByRole("button", { name: "Confirmer" }).click();
   await expect(notice(page)).toContainText("La découpe d’une occurrence ne peut pas être annulée.");
   await expect(page.locator(`.wn-row[data-person="3"] .wn-block[aria-label^="Refonte, le ${fr(day(7))}, 3 h"]:visible`)).toBeVisible();
   await expect(occurrence(14, 2)).toBeVisible();
@@ -1130,39 +1132,46 @@ test.fixme("R-31 — Portée d'une série dans le drawer (RT-042 en cours de fus
   await drawer.getByRole("spinbutton", { name: "Heures par jour" }).fill("4");
   await drawer.getByRole("button", { name: "Enregistrer" }).click();
   await drawer.getByRole("radio", { name: "Toute la série" }).check();
-  await drawer.getByRole("button", { name: "Enregistrer" }).click();
+  await drawer.getByRole("button", { name: "Confirmer" }).click();
   await expect(occurrence(14, 4)).toBeVisible();
   await page.getByRole("grid").focus();
   await page.keyboard.press("Control+z");
   await expect(occurrence(14, 2)).toBeVisible();
 });
 
-test.fixme("R-32 — Portée d'un groupe dans le drawer (RT-042 en cours de fusion)", async ({ page }) => {
+test("R-32 — Portée d'un groupe dans le drawer", async ({ page }) => {
   await loginPlanning(page, "alec");
   await showPerson(page, "Thomas Girard");
   await showDay(page, day(14));
-  const atelier = (person: string, hours: number) => page.locator(`.wn-row[data-person="${person}"] .wn-block[aria-label="Application mobile, du ${fr(day(16))} au ${fr(day(17))}, ${hours} h par jour"]:visible`);
-  await atelier("4", 6).dblclick(); // Thomas Girard ; Nadia (3) et Yasmine Cherif (15) ont la même ligne de groupe
+  // La charge et la personne sont propres à chaque ligne : la portée ne se pose que pour un champ commun au groupe (ici le statut).
+  const atelier = (person: string, tentative: boolean) => page.locator(`.wn-row[data-person="${person}"] .wn-block[aria-label="Application mobile, du ${fr(day(16))} au ${fr(day(17))}, 6 h par jour${tentative ? ", tentatif" : ""}"]:visible`);
+  await atelier("4", false).dblclick(); // Thomas Girard ; Nadia (3) et Yasmine Cherif (15) ont la même ligne de groupe
   const drawer = dialog(page);
-  await drawer.getByRole("spinbutton", { name: "Heures par jour" }).fill("4");
+  await drawer.getByRole("combobox", { name: "Statut" }).selectOption("tentative");
   await drawer.getByRole("button", { name: "Enregistrer" }).click();
 
   // Cette ligne : seule la ligne de Thomas change.
   await drawer.getByRole("radio", { name: "Cette ligne" }).check();
-  await drawer.getByRole("button", { name: "Enregistrer" }).click();
-  await expect(atelier("4", 4)).toBeVisible();
+  await drawer.getByRole("button", { name: "Confirmer" }).click();
+  await expect(atelier("4", true)).toBeVisible();
   await showPerson(page, "Yasmine Cherif");
   await showDay(page, day(14));
-  await expect(atelier("15", 6)).toBeVisible();
+  await expect(atelier("15", false)).toBeVisible();
 
-  // Tout le groupe : les trois lignes passent à 5 h, annulable en un Ctrl+Z.
-  await atelier("15", 6).dblclick();
-  await drawer.getByRole("spinbutton", { name: "Heures par jour" }).fill("5");
+  // Tout le groupe : les trois lignes passent en tentatif, annulable en un Ctrl+Z.
+  await atelier("15", false).dblclick();
+  await drawer.getByRole("combobox", { name: "Statut" }).selectOption("tentative");
   await drawer.getByRole("button", { name: "Enregistrer" }).click();
   await drawer.getByRole("radio", { name: "Tout le groupe" }).check();
-  await drawer.getByRole("button", { name: "Enregistrer" }).click();
-  await expect(atelier("15", 5)).toBeVisible();
+  await drawer.getByRole("button", { name: "Confirmer" }).click();
+  await expect(atelier("15", true)).toBeVisible();
   await page.getByRole("grid").focus();
   await page.keyboard.press("Control+z");
-  await expect(atelier("15", 6)).toBeVisible();
+  await expect(atelier("15", false)).toBeVisible();
+  // Remise en état : la ligne de Thomas revient en confirmé.
+  await showPerson(page, "Thomas Girard");
+  await showDay(page, day(14));
+  await page.getByRole("grid").focus();
+  await page.keyboard.press("Control+z");
+  await expect(atelier("4", false)).toBeVisible();
 });
