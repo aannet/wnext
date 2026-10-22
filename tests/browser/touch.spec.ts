@@ -62,6 +62,40 @@ async function finger(page: Page, from: Pt, to: Pt | null, opts: { holdMs?: numb
   await cdp.detach();
 }
 
+type Contact = Pt & { id: number };
+/** Plusieurs doigts : chaque étape liste les contacts posés (identifiants stables) puis attend `wait` ms. Un nouvel identifiant
+ *  pose un doigt (touchStart), un identifiant absent le relève (CDP relâche les points manquants), une liste vide relève tout. */
+async function fingers(page: Page, steps: { pts: Contact[]; wait?: number; check?: () => Promise<void> }[]) {
+  const cdp = await page.context().newCDPSession(page);
+  let prev = new Set<number>();
+  for (const { pts, wait, check } of steps) {
+    const ids = new Set(pts.map((p) => p.id));
+    const type = pts.length === 0 ? "touchEnd" : [...ids].some((i) => !prev.has(i)) ? "touchStart" : "touchMove";
+    await cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map((p) => ({ x: p.x, y: p.y, id: p.id })) });
+    prev = ids;
+    await page.waitForTimeout(wait ?? 16);
+    await check?.();
+  }
+  if (prev.size) await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+}
+/** Un point hors de la grille, au-dessus d'elle, sur rien de cliquable (un deuxième doigt qui s'y pose puis se relève ne déclenche rien). */
+const offGrid = (page: Page): Promise<Pt> => page.evaluate(() => {
+  const g = document.querySelector('[role="grid"]')!.getBoundingClientRect();
+  for (let y = g.top - 4; y > 0; y -= 4) {
+    for (let x = g.left + 8; x < g.right; x += 16) {
+      const el = document.elementFromPoint(x, y);
+      if (el && !el.closest('button, a, input, select, textarea, label, [role="tab"], [role="button"], [tabindex], [role="grid"]')) return { x, y };
+    }
+  }
+  throw new Error("aucun point libre au-dessus de la grille");
+});
+/** Ni drawer ni bloc provisoire visible. */
+async function nothingCreated(page: Page) {
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".wn-slot-draft")).toBeHidden();
+}
+
 test.describe("gestes tactiles (démo)", () => {
   test.beforeEach(async ({ page }) => { await openDemo(page); });
 
@@ -133,5 +167,47 @@ test.describe("gestes tactiles (démo)", () => {
     await page.waitForTimeout(600);
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.locator(".wn-slot-draft")).toHaveCount(0);
+  });
+
+  test("deux doigts immobiles sur des cases libres, puis pincement : rien n'est créé (RT-043, revue)", async ({ page }) => {
+    const ppd = await pxPerDay(page);
+    const c = (await freeCell(page, ppd))!;
+    expect(c, "une case libre visible").toBeTruthy();
+    const a = { id: 1, x: c.x, y: c.y };
+    const b = { id: 2, x: c.x + ppd, y: c.y };
+    await fingers(page, [{ pts: [a], wait: 50 }, { pts: [a, b], wait: 600 }, { pts: [b], wait: 600 }, { pts: [] }]);
+    await nothingCreated(page);
+    const spread = (d: number) => [{ ...a, x: a.x - d }, { ...b, x: b.x + d }];
+    await fingers(page, [{ pts: [a], wait: 30 }, { pts: [a, b], wait: 30 }, ...[4, 8, 16, 24, 32].map((d) => ({ pts: spread(d) })), { pts: spread(32), wait: 600 }, { pts: [] }]);
+    await nothingCreated(page);
+  });
+
+  test("deuxième doigt hors de la grille après l'armement : bloc provisoire retiré, relâcher n'ouvre rien (RT-043, revue)", async ({ page }) => {
+    const c = (await freeCell(page, 0))!;
+    expect(c, "une case libre visible").toBeTruthy();
+    const out = await offGrid(page);
+    const a = { id: 1, x: c.x, y: c.y };
+    await fingers(page, [
+      { pts: [a], wait: 550, check: () => expect(page.locator(".wn-slot-draft")).toBeVisible() },
+      { pts: [a, { id: 2, ...out }], wait: 50, check: () => expect(page.locator(".wn-slot-draft")).toBeHidden() },
+      { pts: [a], wait: 50 }, { pts: [] },
+    ]);
+    await page.waitForTimeout(300);
+    await nothingCreated(page);
+  });
+
+  test("après l'armement, glisser vers la colonne des personnes ou au-dessus de la grille : création abandonnée (RT-043, revue)", async ({ page }) => {
+    const c = (await freeCell(page, 0))!;
+    expect(c, "une case libre visible").toBeTruthy();
+    const g = (await page.getByRole("grid").boundingBox())!;
+    await finger(page, c, { x: g.x + 120, y: c.y }, { holdMs: 550 });
+    await page.waitForTimeout(300);
+    await nothingCreated(page);
+    await finger(page, c, { x: c.x, y: g.y - 10 }, { holdMs: 550 });
+    await page.waitForTimeout(300);
+    await nothingCreated(page);
+    // Témoin : le même geste resté dans la zone des blocs ouvre bien le drawer.
+    await finger(page, c, { x: c.x, y: c.y + 4 }, { holdMs: 550 });
+    await expect(page.getByRole("dialog").getByRole("heading")).toHaveText("Nouvelle allocation");
   });
 });
