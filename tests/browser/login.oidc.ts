@@ -1,7 +1,8 @@
 // Parcours complet contre `dev:stack --oidc` (configuration playwright.oidc.config.ts) : portail de connexion WNEXT (pas de
 // redirection automatique), bouton « Se connecter » vers le fournisseur, choix de l'utilisateur « Alec », retour avec URL nettoyée,
 // « Bonjour Alec » (GET /me), GET /schedule 200 avec jeton porteur, temps réel connecté et reçu, renouvellement du jeton avant
-// expiration, reprise après rechargement sans redirection, Déconnexion qui ramène au portail, puis un membre (droits réduits).
+// expiration, reprise après rechargement sans redirection, Déconnexion qui ramène au portail, puis un membre sans personne liée
+// (droits réduits, RT-048 : aucune personne servie, état vide explicite).
 import { createHash, randomBytes } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
@@ -82,13 +83,23 @@ test("connexion OIDC PKCE de bout en bout", async ({ page }) => {
   await expect(page.getByRole("banner")).toHaveCount(0);
   expect(await page.evaluate(() => Object.keys(sessionStorage))).toEqual([]);
 
-  // Un membre : « Bonjour Membre », ni Réglages ni Importer, planning en lecture seule.
+  // Un membre sans personne liée (RT-048, US-6.1) : « Bonjour Membre », ni Réglages ni Importer ; l'API ne lui sert aucune personne
+  // (REST comme temps réel) et le Planning, puis l'écran Personnes, expliquent qu'il n'a accès qu'à son propre planning.
+  const memberSchedule = await fetch(`${API}/api/v1/schedule?from=${today}&to=${today}`, { headers: { authorization: `Bearer ${await tokenFor("dev-member")}` } });
+  expect(memberSchedule.status).toBe(200);
+  expect(((await memberSchedule.json()) as { people: unknown[]; allocations: unknown[] })).toMatchObject({ people: [], allocations: [] });
   await page.getByRole("button", { name: "Se connecter" }).click();
   await page.getByRole("link", { name: "Membre Dev" }).click();
   await expect(page.getByRole("banner").getByText("Bonjour Membre")).toBeVisible();
-  await page.getByRole("rowheader").first().waitFor();
+  const ownOnly = page.getByRole("heading", { level: 2, name: "Vous n’avez accès qu’à votre propre planning" });
+  await expect(ownOnly).toBeVisible();
+  await expect(page.getByRole("grid")).toHaveCount(0);
   await expect(page.getByRole("banner").getByRole("link", { name: "Réglages" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Importer" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Nouveau congé" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Aujourd’hui" })).toBeVisible();
+  await page.getByRole("banner").getByRole("link", { name: "Personnes" }).click();
+  await expect(ownOnly).toBeVisible();
+  await expect(page.getByRole("button", { name: "Nouvelle personne" })).toHaveCount(0);
+  const memberAxe = await new AxeBuilder({ page }).include("main").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"]).analyze();
+  expect(memberAxe.violations.map((v) => `${v.id}: ${v.help} -> ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
 });
