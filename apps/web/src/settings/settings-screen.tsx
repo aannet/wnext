@@ -1,9 +1,10 @@
 // Écran Réglages (lot L-F2 : RT-012 partie Réglages ; owner et admin, la coque masque la page aux autres rôles). Sections en onglets :
 // Équipes (= départements, décision Q4), Rôles, Clients (même gestion que l'écran Projets), Types de congé, Jours fériés (par
-// pays) et Compte (en lecture : aucune route d'écriture du compte).
+// pays) et Compte (RT-041 : réglages du compte, modifiables par owner et admin).
 import type { I18n } from "@lingui/core";
-import type { Client, Me } from "@wnext/contracts";
+import type { AccountSettings, Client } from "@wnext/contracts";
 import { useState } from "react";
+import type { AccountSource } from "../data/account-source";
 import type { ReferenceSource } from "../data/people-source";
 import type { ProjectsSource } from "../data/projects-source";
 import type { MessageKey } from "../i18n";
@@ -19,7 +20,10 @@ export interface SettingsScreenProps {
   i18n: I18n;
   reference: ReferenceSource;
   projects: ProjectsSource;
-  account: Me["account"];
+  /** Réglages du compte (GET et PATCH /account). */
+  account: AccountSource;
+  /** Réglages du compte enregistrés : l'appelant relit /me et met à jour le Planning (pas de temps réel pour le compte). */
+  onAccountSaved?(settings: AccountSettings): void;
   canEdit: boolean;
 }
 
@@ -30,7 +34,7 @@ const TAB_KEY: Record<Tab, MessageKey> = {
   holidays: "settings.tab.holidays", account: "settings.tab.account",
 };
 
-export function SettingsScreen({ i18n, reference, projects, account, canEdit }: SettingsScreenProps) {
+export function SettingsScreen({ i18n, reference, projects, account, onAccountSaved, canEdit }: SettingsScreenProps) {
   const t = (k: MessageKey) => i18n._(k);
   const [tab, setTab] = useState<Tab>("teams");
   const clients = useLoad(() => projects.listClients(), "settings-clients");
@@ -54,7 +58,7 @@ export function SettingsScreen({ i18n, reference, projects, account, canEdit }: 
             : <p className="wn-muted" role="status">{t("people.loading")}</p>)}
         {tab === "timeoff" && <TimeoffTypesSection i18n={i18n} store={reference.timeoffTypes} canEdit={canEdit} />}
         {tab === "holidays" && <HolidaysSection i18n={i18n} store={reference.holidays} canEdit={canEdit} />}
-        {tab === "account" && <AccountSection i18n={i18n} account={account} />}
+        {tab === "account" && <AccountSection i18n={i18n} source={account} canEdit={canEdit} {...(onAccountSaved ? { onSaved: onAccountSaved } : {})} />}
       </TabsContent>
     </Tabs>
   );

@@ -7,6 +7,7 @@
 //  * ?demo=1 : démo locale sans API ni connexion (src/demo.ts), utilisateur fictif « Alec » ; les gestes s'y appliquent
 //    localement (src/data/demo-source.ts), quelques notifications locales (src/data/notifications-source.ts).
 //  * Le Planning est démonté quand on le quitte ; son zoom et sa position sont gardés ici (`memory`, PO-02).
+import type { AccountSettings } from "@wnext/contracts";
 import { todayIn } from "@wnext/engine";
 import { createRoot } from "react-dom/client";
 import { createClient } from "./api/client.gen";
@@ -19,6 +20,7 @@ import { browserOidcDeps, createOidcSession, oidcConfigFromEnv, type OidcSession
 import { createScheduleSource } from "./data/schedule-source";
 import { createI18n, type UiLocale } from "./i18n";
 import { createApiProjectsSource, createDemoProjectsSource } from "./data/projects-source";
+import { createApiAccountSource, createDemoAccountSource, meAccountOf, scheduleAccountOf } from "./data/account-source";
 import { ScheduleContainer } from "./ScheduleContainer";
 import { ProjectsScreen } from "./projects/projects-screen";
 import { canEditProjects, scheduleProjectOf } from "./projects/projects-model";
@@ -62,9 +64,12 @@ function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, sessio
   const projects = createApiProjectsSource(api);
   const people = createApiPeopleSource(api);
   const reference = createApiReferenceSource(api);
+  const account = createApiAccountSource(api);
   const memory: ScheduleMemory = {};
   const reconnect = session && (() => void session.login());
   const load = () => { show({ status: "loading" }); void loadMe(api).then(show); };
+  // Compte écrit (RT-041, pas de temps réel) : Planning mis à jour, /me relu sans repasser par l'écran de chargement.
+  const accountSaved = (s: AccountSettings) => { source.accountChanged?.(scheduleAccountOf(s)); void loadMe(api).then((m) => { if (m.status === "ready") show(m); }); };
   show = (me) => root.render(
     <App i18n={i18n} router={router} me={me} notifications={notifications} onRetry={load}
       {...(session ? { onLogout: () => void session.logout() } : {})} {...(reconnect ? { onReconnect: reconnect } : {})}
@@ -76,7 +81,7 @@ function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, sessio
       renderPeople={(user) => (
         <PeopleScreen i18n={i18n} source={people} reference={reference} account={user.account} canEdit={canEditPeople(user)} {...(canAdminister(user) ? { imports } : {})} />
       )}
-      renderSettings={(user) => <SettingsScreen i18n={i18n} reference={reference} projects={projects} account={user.account} canEdit={canAdminister(user)} />} />,
+      renderSettings={(user) => <SettingsScreen i18n={i18n} reference={reference} projects={projects} account={account} onAccountSaved={accountSaved} canEdit={canAdminister(user)} />} />,
   );
   load();
 }
@@ -95,15 +100,18 @@ if (params.get("demo") === "1") {
     onDeactivated: (id, asOf, disposition, replacementId) => source.personDeactivated?.(id, asOf, disposition, replacementId),
     memberIds: demo.people.filter((_, i) => i % 4 === 0).map((p) => p.id), // RT-040 : une personne sur quatre a un accès
   });
-  const me = demoMe();
+  let me = demoMe();
+  const account = createDemoAccountSource({ ...me.account, version: 1, capacityThresholds: demo.account.capacityThresholds });
+  const accountSaved = (s: AccountSettings) => { me = { ...me, account: meAccountOf(s) }; source.accountChanged?.(scheduleAccountOf(s)); renderDemo(); };
   const memory: ScheduleMemory = {};
-  root.render(
+  const renderDemo = () => root.render(
     <App i18n={i18n} router={router} me={{ status: "ready", me }} notifications={createDemoNotificationsSource(demoNotifications(today))}
       renderPlanning={(user) => <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} imports={imports} memory={memory} catalog={projects} me={user} onOpenProject={openProject} />}
       renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} {...projectsProps()} />}
       renderPeople={(user) => <PeopleScreen i18n={i18n} source={directory.people} reference={directory.reference} account={user.account} canEdit={canEditPeople(user)} imports={imports} />}
-      renderSettings={(user) => <SettingsScreen i18n={i18n} reference={directory.reference} projects={projects} account={user.account} canEdit={canAdminister(user)} />} />,
+      renderSettings={(user) => <SettingsScreen i18n={i18n} reference={directory.reference} projects={projects} account={account} onAccountSaved={accountSaved} canEdit={canAdminister(user)} />} />,
   );
+  renderDemo();
 } else if (import.meta.env.VITE_AUTH_MODE === "oidc") {
   const session = createOidcSession(oidcConfigFromEnv(import.meta.env, location.origin), browserOidcDeps());
   session.restore().then(

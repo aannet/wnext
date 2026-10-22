@@ -86,6 +86,11 @@ export interface ScheduleSource extends ScheduleEditor, RecordEditor, TeamRemova
   /** Démo seulement : personnes, équipes (départements), rôles, types de congé et fériés écrits depuis Personnes ou Réglages. */
   directoryChanged?(kind: "people" | "departments" | "roles" | "timeoff_types" | "holidays", entity: { id: string; version: number }): void;
   directoryRemoved?(kind: "people" | "departments" | "roles" | "timeoff_types" | "holidays", id: string): void;
+  /**
+   * Réglages du compte écrits (Réglages > Compte, RT-041 ; pas de temps réel pour le compte) : semaine, seuil et fuseau appliqués
+   * tout de suite ; sur l'API, les blocs chargés sont aussi oubliés pour que le Schedule soit relu (au retour sur le Planning).
+   */
+  accountChanged?(account: ScheduleResponse["account"]): void;
   /** Démo seulement : désactivation d'une personne (BR-31), allocations futures réaffectées ou supprimées. */
   personDeactivated?(personId: string, asOf: string, disposition: "reassign" | "delete" | undefined, replacementId: string | undefined): void;
   getState(): ScheduleSourceState;
@@ -545,6 +550,13 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
       if (!cur || cur.version >= p.version) return;
       store = upsert(store, "projects", { ...p });
       refresh();
+    },
+    accountChanged(account) {
+      if (!store.account) return;
+      store = { ...store, account };
+      refresh();
+      store = { ...store, windows: new Set() };
+      if (started) quiet(load(false));
     },
     listProjects,
     onProjectsChange(l) {

@@ -54,6 +54,10 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
       store = remove(store, kind, id);
       changed();
     },
+    accountChanged(account) {
+      store = { ...store, account };
+      changed();
+    },
     personDeactivated(personId, asOf, disposition, replacementId) {
       if (!disposition) return;
       for (const a of [...store.tables.allocations.values()]) {

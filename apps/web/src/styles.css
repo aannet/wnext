@@ -321,6 +321,7 @@ th[aria-sort="ascending"] .wn-sort::after { border-top-color: transparent; borde
 .wn-facts dd { margin: 0; }
 .wn-row-name { flex: 1 1 8rem; min-width: 0; overflow-wrap: anywhere; }
 .wn-holiday-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); margin-bottom: var(--space-3); }
+.wn-account-form { display: flex; flex-direction: column; max-width: 32rem; }
 .wn-holiday-form .wn-field { margin-bottom: 0; }
 .wn-filter-inline { max-width: 320px; }
 .wn-settings .wn-clients { max-width: 720px; }

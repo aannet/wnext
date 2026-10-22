@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 // Écran Réglages (lot L-F2 : RT-012 partie Réglages) : sections Équipes (= départements), Rôles, Clients, Types de congé, Jours fériés,
-// Compte (lecture seule : pas de route d'écriture) ; création, renommage, suppression refusée si l'élément sert encore, droits.
-import type { Me } from "@wnext/contracts";
+// Compte (formulaire pour owner et admin, RT-041 ; lecture seule sinon) ; création, renommage, suppression refusée si l'élément sert
+// encore, droits.
+import type { AccountSettings } from "@wnext/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { demoSchedule } from "../src/demo";
+import { createDemoAccountSource, type AccountSource } from "../src/data/account-source";
 import { createDemoDirectory, type ReferenceSource } from "../src/data/people-source";
 import { createDemoProjectsSource } from "../src/data/projects-source";
 import { createI18n } from "../src/i18n";
@@ -25,13 +27,14 @@ function setup() {
   const dir = createDemoDirectory(schedule, hooks);
   return { ...dir, hooks, projects: createDemoProjectsSource(schedule, { onProject: () => {} }) };
 }
-const account: Me["account"] = { id: "1", name: "WNEXT Démo", timezone: "Europe/Paris", weekStart: 1, defaultLocale: "fr" };
+const settings: AccountSettings = { id: "1", version: 4, name: "WNEXT Démo", timezone: "Europe/Paris", weekStart: 1, defaultLocale: "fr", capacityThresholds: { underPercent: 80 } };
 
-async function mount(s: ReturnType<typeof setup>, props: { canEdit?: boolean; locale?: "fr" | "en"; reference?: ReferenceSource } = {}) {
+async function mount(s: ReturnType<typeof setup>, props: { canEdit?: boolean; locale?: "fr" | "en"; reference?: ReferenceSource; account?: AccountSource; onAccountSaved?: (a: AccountSettings) => void } = {}) {
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
-  act(() => root!.render(<SettingsScreen i18n={createI18n(props.locale ?? "fr")} reference={props.reference ?? s.reference} projects={s.projects} account={account} canEdit={props.canEdit ?? true} />));
+  act(() => root!.render(<SettingsScreen i18n={createI18n(props.locale ?? "fr")} reference={props.reference ?? s.reference} projects={s.projects}
+    account={props.account ?? createDemoAccountSource(settings)} canEdit={props.canEdit ?? true} {...(props.onAccountSaved ? { onAccountSaved: props.onAccountSaved } : {})} />));
   await flush();
 }
 const body = () => document.body;
@@ -143,15 +146,141 @@ describe("types de congé et jours fériés", () => {
 });
 
 describe("compte", () => {
-  it("fuseau, début de semaine et langue en lecture seule : aucune route d'écriture du compte", async () => {
+  const panel = () => body().querySelector<HTMLElement>("[role=tabpanel]")!;
+  async function choose(el: HTMLSelectElement, value: string) {
+    await act(async () => { el.value = value; el.dispatchEvent(new Event("change", { bubbles: true })); });
+  }
+  /** Source espionnée : PATCH vu (version, corps), réponse de la démo ou imposée. */
+  function spied(reply?: AccountSource["update"]) {
+    const demo = createDemoAccountSource(settings);
+    const calls: Array<{ version: number; patch: unknown }> = [];
+    const src: AccountSource = { get: vi.fn(demo.get), update: async (cur, patch) => { calls.push({ version: cur.version, patch }); return (reply ?? demo.update)(cur, patch); } };
+    return { src, calls };
+  }
+
+  it("owner ou admin : formulaire prérempli depuis GET /account (fuseau, semaine, langue, seuil), nom en lecture", async () => {
     await mount(setup());
+    await tab("Compte");
+    expect(panel().textContent).toContain("WNEXT Démo");
+    expect(field("Fuseau horaire").value).toBe("Europe/Paris");
+    expect(field("Début de semaine").value).toBe("1");
+    expect([...field("Début de semaine").options].map((o) => o.textContent)).toEqual(["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]);
+    expect(field("Langue par défaut").value).toBe("fr");
+    expect([...field("Langue par défaut").options].map((o) => o.textContent)).toEqual(["français", "anglais"]);
+    expect(field("Seuil de sous-allocation (%)").value).toBe("80");
+    expect(button("Enregistrer", panel())!.disabled).toBe(true); // rien à enregistrer
+    expect(panel().textContent).not.toContain("lecture seule");
+  });
+
+  it("enregistre semaine, langue et seuil : PATCH If-Match = version lue, seuls les champs changés, le parent est prévenu", async () => {
+    const { src, calls } = spied();
+    const saved = vi.fn();
+    await mount(setup(), { account: src, onAccountSaved: saved });
+    await tab("Compte");
+    await choose(field("Début de semaine"), "7");
+    await choose(field("Langue par défaut"), "en");
+    await type(field("Seuil de sous-allocation (%)"), "65");
+    await click(button("Enregistrer", panel()));
+    expect(calls).toEqual([{ version: 4, patch: { weekStart: 7, defaultLocale: "en", capacityThresholds: { underPercent: 65 } } }]);
+    expect(saved).toHaveBeenCalledWith(expect.objectContaining({ version: 5, weekStart: 7, defaultLocale: "en", capacityThresholds: { underPercent: 65 } }));
+    expect(panel().textContent).toContain("Réglages du compte enregistrés.");
+    expect(button("Enregistrer", panel())!.disabled).toBe(true);
+    // Écriture suivante : la nouvelle version.
+    await choose(field("Début de semaine"), "1");
+    await click(button("Enregistrer", panel()));
+    expect(calls[1]).toEqual({ version: 5, patch: { weekStart: 1 } });
+  });
+
+  it("fuseau : liste des fuseaux IANA avec recherche ; le choix part dans le PATCH", async () => {
+    const { src, calls } = spied();
+    await mount(setup(), { account: src });
+    await tab("Compte");
+    const input = field("Fuseau horaire");
+    await act(async () => {
+      input.focus();
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "new_york");
+      input.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+    });
+    await flush();
+    const option = [...document.querySelectorAll<HTMLElement>("[role=option]")].find((o) => o.textContent === "America/New_York");
+    await click(option);
+    expect(field("Fuseau horaire").value).toBe("America/New_York");
+    await click(button("Enregistrer", panel()));
+    expect(calls).toEqual([{ version: 4, patch: { timezone: "America/New_York" } }]);
+  });
+
+  it.each(["0", "101", "abc", ""])("seuil « %s » refusé avant tout envoi", async (v) => {
+    const { src, calls } = spied();
+    await mount(setup(), { account: src });
+    await tab("Compte");
+    await type(field("Seuil de sous-allocation (%)"), v);
+    await click(button("Enregistrer", panel()));
+    expect(calls).toEqual([]);
+    expect(panel().textContent).toContain("Saisissez un nombre entre 1 et 100.");
+    expect(field("Seuil de sous-allocation (%)").getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("409 VERSION_CONFLICT : message, valeurs actuelles relues, la version relue sert au prochain envoi", async () => {
+    let current: AccountSettings = { ...settings, version: 9, weekStart: 3, capacityThresholds: { underPercent: 70 } };
+    const calls: number[] = [];
+    let first = true;
+    const src: AccountSource = {
+      get: async () => ({ ok: true, value: first ? settings : current }),
+      update: async (cur, patch) => {
+        calls.push(cur.version);
+        if (first) { first = false; return { ok: false, error: { code: "VERSION_CONFLICT", params: { currentVersion: 9 } } }; }
+        current = { ...current, ...patch, version: current.version + 1 } as AccountSettings;
+        return { ok: true, value: current };
+      },
+    };
+    await mount(setup(), { account: src });
+    await tab("Compte");
+    await choose(field("Début de semaine"), "7");
+    await click(button("Enregistrer", panel()));
+    expect(panel().querySelector("[role=alert]")!.textContent).toContain("modifié entre-temps");
+    expect(field("Début de semaine").value).toBe("3");
+    expect(field("Seuil de sous-allocation (%)").value).toBe("70");
+    await choose(field("Début de semaine"), "7");
+    await click(button("Enregistrer", panel()));
+    expect(calls).toEqual([4, 9]);
+  });
+
+  it("400 sur le fuseau : message dédié ; 403 traduit", async () => {
+    const { src } = spied(async () => ({ ok: false, error: { code: "VALIDATION_FAILED", params: { field: "timezone" } } }));
+    await mount(setup(), { account: src });
+    await tab("Compte");
+    await choose(field("Début de semaine"), "2");
+    await click(button("Enregistrer", panel()));
+    expect(panel().querySelector("[role=alert]")!.textContent).toBe("Fuseau horaire inconnu du serveur.");
+    act(() => root?.unmount()); host.remove();
+    const denied = spied(async () => ({ ok: false, error: { code: "FORBIDDEN", params: {} } }));
+    await mount(setup(), { account: denied.src });
+    await tab("Compte");
+    await choose(field("Début de semaine"), "2");
+    await click(button("Enregistrer", panel()));
+    expect(panel().querySelector("[role=alert]")!.textContent).toBe("Vous n’avez pas le droit de faire cette modification.");
+  });
+
+  it("lecture seule (canEdit faux) : valeurs affichées, aucun champ ni bouton", async () => {
+    await mount(setup(), { canEdit: false });
     await tab("Compte");
     const text = body().querySelector(".wn-facts")!.textContent!;
     expect(text).toContain("Europe/Paris");
     expect(text).toContain("lundi");
     expect(text).toContain("français");
-    expect(body().querySelector("[role=tabpanel] input")).toBeNull();
-    expect(body().textContent).toContain("lecture seule");
+    expect(text).toMatch(/80\s%/);
+    expect(panel().querySelector("input, select")).toBeNull();
+    expect(button("Enregistrer", panel())).toBeUndefined();
+    expect(panel().textContent).toContain("propriétaire et les administrateurs");
+  });
+
+  it("anglais : libellés et noms des jours traduits", async () => {
+    await mount(setup(), { locale: "en" });
+    await tab("Account");
+    expect(field("Week start").value).toBe("1");
+    expect(field("Week start").options[0]!.textContent).toBe("Monday");
+    expect(field("Under-allocation threshold (%)").value).toBe("80");
+    expect(button("Save", panel())).toBeDefined();
   });
 });
 
