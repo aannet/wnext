@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { NotificationListQuery, NotificationPreferencesUpdate, type NotificationEntity, ImportPathParams, ImportQuery, ImportRequest, type ImportQuery as ImportQueryT, REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, SavedViewCreate, SavedViewListQuery, SavedViewPatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonHistoryQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT, type PersonHistoryQuery as PersonHistoryQueryT } from "@wnext/contracts";
+import { AccountPatch, NotificationListQuery, NotificationPreferencesUpdate, type NotificationEntity, ImportPathParams, ImportQuery, ImportRequest, type ImportQuery as ImportQueryT, REALTIME_TICKET_PATH, LoggedTimeCreate, LoggedTimeListQuery, LoggedTimePatch, LoggedTimeWindow, ClientCreate, ClientPatch, MilestoneCreate, MilestoneListQuery, MilestonePatch, ProjectBudgetLineCreate, ProjectBudgetLineListQuery, ProjectBudgetLinePatch, ProjectExpenseCreate, ProjectExpenseListQuery, ProjectExpensePatch, PhaseCreate, PhaseListQuery, PhasePatch, ProjectTaskCreate, ProjectTaskListQuery, ProjectTaskPatch, DepartmentCreate, DepartmentPatch, HolidayCreate, HolidayListQuery, HolidayPatch, ProjectCreate, ProjectListQuery, ProjectPatch, ReferenceListQuery, RoleCreate, RolePatch, TimeoffTypeCreate, TimeoffTypePatch, SavedViewCreate, SavedViewListQuery, SavedViewPatch, AllocationCreate, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationSplit, IfMatchHeader, ScheduleQuery, PersonCreate, PersonAllocationListQuery, PersonListQuery, ProjectAllocationListQuery, PersonHistoryQuery, PersonPatch, PersonProjectListQuery, PersonDeactivationQuery, PersonDeactivationRequest, TeamBatchAdd, TeamRemovalRequest, TimeoffCreate, TimeoffPatch, type ApiError, type HealthResponse, type ScheduleQuery as ScheduleQueryT, type PersonDeactivationQuery as PersonDeactivationQueryT, type PersonHistoryQuery as PersonHistoryQueryT } from "@wnext/contracts";
 import type { Db, RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import type { RateLimiter } from "./rate-limit";
@@ -16,6 +16,7 @@ import { runImport } from "./imports";
 import { getNotificationPreferences, listNotifications, markAllNotificationsRead, markNotificationRead, recordConflict, updateNotificationPreferences } from "./notifications";
 import { createSavedView, deleteSavedView, getSavedView, listSavedViews, updateSavedView } from "./saved-views";
 import { getMe } from "./me";
+import { getAccount, updateAccount } from "./account";
 import { getSchedule } from "./schedule";
 import { addManyToTeam, addToTeam, getTeamRemovalSummary, listTeam, removeFromTeam } from "./team";
 import { createLoggedTime, deleteLoggedTime, listLoggedTime, prefillLoggedTime, submitLoggedTime, unlockLoggedTime, updateLoggedTime } from "./logged-time";
@@ -217,6 +218,15 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       const ctx = await deps.authenticate(req.headers);
       if (!ctx) return fail("UNAUTHENTICATED", requestId);
       return { status: 200, body: await getMe(deps.db, ctx) };
+    }
+    if (url.pathname === "/api/v1/account" && (req.method === "GET" || req.method === "PATCH")) {
+      const ctx = await deps.authenticate(req.headers);
+      if (!ctx) return fail("UNAUTHENTICATED", requestId);
+      if (req.method === "GET") return { status: 200, body: await getAccount(deps.db, ctx) };
+      if (!ADMINS.has(ctx.role)) return fail("FORBIDDEN", requestId, { role: ctx.role }); // avant la validation du corps
+      const version = expectedVersion(req.headers);
+      // Pas de notification edit_conflict sur 409 : NotificationEntity ne connaît pas les comptes.
+      return { status: 200, body: await updateAccount(deps.db, ctx, version, parseJsonBody(AccountPatch, req.body)) };
     }
     if (req.method === "POST" && url.pathname === REALTIME_TICKET_PATH && deps.tickets) {
       const ctx = await deps.authenticate(req.headers);
