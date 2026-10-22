@@ -134,7 +134,7 @@
 </div>
 
 <script>
-const AS_OF = "2026-10-21";
+const AS_OF = "2026-10-23";
 
 // RECETTE — mise à jour : recopier les statuts depuis docs/recette/registre.md.
 // retours[].statut : qualifié | validé | planifié | corrigé | vérifié | rejeté | reporté (T2+)
@@ -237,7 +237,7 @@ const PHASES = [
       { t: "make check + CI (étage rapide)", s: "done" },
       { t: "Lint de frontières entre paquets (ADR-003)", s: "done" },
       { t: "Garde-fous prouvés (test affaibli, PR trop grosse, BR sans test)", s: "done" },
-      { t: "CODEOWNERS aligné sur l'arborescence", s: "done" },
+      { t: "CODEOWNERS aligné sur l'arborescence", s: "done", n: "chemins réels des données depuis RT-045 (/schema.sql, /migrations/, /tests/sql/), à confirmer par Alec" },
       { t: "Chaîne Zod → OpenAPI → client TS + check:contract", s: "done" },
       { t: "Kill-switch testé", s: "done" },
       { t: "Dashboard d'observabilité de la factory", s: "done" },
@@ -253,7 +253,7 @@ const PHASES = [
       { t: "BR-10 : récapitulatif de retrait d'équipe + confirmation", s: "done" },
       { t: "BR-24 : pourcentage (base brute) et états de capacité", s: "done" },
       { t: "Parité SQL ↔ TS sur données aléatoires", s: "done" },
-      { t: "Outbox change_log (séquence sans trou, purge ≥ 72 h)", s: "done" },
+      { t: "Outbox change_log (séquence sans trou, purge ≥ 72 h)", s: "done", n: "migration 0006 : person_ids par changement, pour filtrer le temps réel par personne (RT-048)" },
       { t: "RLS cross-tenant sur 100 % des tables", s: "done", n: "T18 : inventaire fermé + preuve table par table sous app_user" },
       { t: "Triggers BR-10 / BR-12 / BR-14", s: "done", n: "BR-12 T13, BR-14 T12 + T19 (purge_delete_log) ; BR-10 porté par l'API" },
       { t: "Répétitions d'allocations", s: "done", n: "occurrences, splitSeries (moteur) et POST /allocations/{id}/split (API)" },
@@ -271,8 +271,10 @@ const PHASES = [
       { t: "Contrat + API écriture des allocations (POST/PATCH/DELETE)", s: "done" },
       { t: "Verrou optimiste : If-Match, 409 VERSION_CONFLICT, 428", s: "done" },
       { t: "Rôles et isolation par compte (tests sous app_user)", s: "done" },
+      { t: "Visibilité du member (US-6.1) : sa seule personne en REST et en temps réel", s: "done", n: "RT-048 : scope.ts commun REST + WebSocket, autre personne = 404, resync après la migration 0006 ; trouvé par la pré-recette" },
+      { t: "Réglages du compte : GET / PATCH /account", s: "done", n: "RT-041 : owner ou admin, If-Match, fuseau validé contre pg_timezone_names" },
       { t: "Lecture du journal de changements (readChanges)", s: "done" },
-      { t: "Client TS généré, check:breaking côté requête", s: "done" },
+      { t: "Client TS généré, check:breaking côté requête", s: "done", n: "renommage de schéma en réponse refusé sauf exception relue (breaking-allowlist.json, RT-040)" },
       { t: "Contrat des événements temps réel (subscribe / changes / ready / resync / error)", s: "done" },
       { t: "WebSocket : session, rattrapage par lots, resync, serveur HTTP+WS", s: "done" },
       { t: "Écriture des personnes (POST/PATCH, désactivation sans suppression)", s: "done" },
@@ -312,15 +314,16 @@ const PHASES = [
       { t: "Grille virtualisée 300 × 12 mois", s: "done", n: "DOM recyclé, défilement continu ; banc Chromium 59,9 fps médian sur la VM (poste de référence à mesurer)" },
       { t: "Zooms jour / semaine / mois, navigation, « Aujourd'hui »", s: "done", n: "boutons et touche T à l'écran" },
       { t: "Blocs multi-jours à hauteur variable (moteur de layout)", s: "done", n: "rendus dans la grille DOM" },
-      { t: "Drag-and-drop + alternative clavier / tactile", s: "done", n: "souris, clavier, tactile (tap, appui long 400 ms), écritures optimistes ; zones de 44 px rognées sur petits blocs" },
-      { t: "Undo / redo de session", s: "done", n: "Ctrl+Z / Ctrl+Maj+Z, boutons, annonces ; découpe d'occurrence non annulable" },
+      { t: "Drag-and-drop + alternative clavier / tactile", s: "done", n: "souris, clavier, tactile (tap, appui long 400 ms, création par appui long en case vide RT-043), écritures optimistes ; création à la souris bornée à la vue, deuxième doigt annule un geste (RT-046)" },
+      { t: "Supprimer, dupliquer, scinder un bloc (US-3.2)", s: "done", n: "RT-047 : Suppr, Ctrl+D, S, Alt+glisser, menu du bloc, actions du drawer ; portée série / groupe ; annulables sauf la suppression d'une occurrence" },
+      { t: "Undo / redo de session", s: "done", n: "Ctrl+Z / Ctrl+Maj+Z, boutons, annonces ; découpe d'occurrence non annulable ; « Tout le groupe » annulable sur la liste rendue par le serveur (PO-13)" },
       { t: "Indicateurs et barres de capacité", s: "done", n: "bande en pied de ligne (confirmé, tentatif hachuré, dépassement signalé)" },
       { t: "Avertissement BR-04 dans l'UI", s: "done", n: "assistant de report ou de réduction, une action d'annulation ; écritures non atomiques" },
       { t: "Avertissement de phase BR-37 dans l'écran", s: "done" },
       { t: "Mise en page fluide (100dvh, la page ne défile plus)", s: "done" },
       { t: "i18n FR + EN", s: "done", n: "Lingui, catalogues FR/EN, pseudo-locale, lint des chaînes en dur dans make check" },
       { t: "Saisie rapide en langage simple (« Refonte 6h lun-mer »)", s: "done", n: "barre de saisie (touche / ou N), aperçu en direct, création annulable" },
-      { t: "Benchmark 60 fps, E2E Playwright, axe-core AA", s: "done", n: "test:browser 32/32, axe 0 violation ; 60 fps de référence et gate humain en attente, job CI browser non bloquant ; buildGrid 32 / 52 / 94 ms (jour / semaine / mois)" },
+      { t: "Benchmark 60 fps, E2E Playwright, axe-core AA", s: "done", n: "test:browser 89/89 le 2026-10-23 (trois specs à horloge fixe, la démo dépendant de la date), axe 0 violation ; 60 fps de référence et gate humain en attente, job CI browser non bloquant ; buildGrid 32 / 52 / 94 ms (jour / semaine / mois)" },
     ] },
   { id: "p4", name: "P4 · Congés, fériés, vues, permissions", weight: 70, status: "now",
     goal: "Fonctions autour du Schedule pour rendre le produit utilisable.",
@@ -355,7 +358,7 @@ const PHASES = [
       { t: "L-D Fenêtres superposées (Modal, Popover, Drawer)", s: "done", n: "tous les dialogues en Modal ou Popover, tests de superposition et axe" },
       { t: "L-B Coque : en-tête, navigation, connexion, utilisateur connecté", s: "done", n: "GET /me, routeur, portail OIDC, Bonjour, écritures selon le rôle" },
       { t: "L-C Densité à 3 niveaux et jauge par personne", s: "done", n: "Compacte / Standard / Aérée (12 / 8 / 6 lignes à 1920 × 1080), jauge de la période visible, densité dans les vues sauvegardées, PO-02 (zoom et position gardés)" },
-      { t: "L-E Éditeur de créneau (création, pop-in Projet / Congé, changement de projet)", s: "done", n: "pop-in modale ancrée au bloc (Q5 : double clic, Entrée ou clic sur le bloc sélectionné), « + Allocation » et bloc provisoire en zone libre, Combobox projet / tâche (BR-33), groupe BR-26, onglet Congé (BR-04), couleur du projet ; sans contrat ; PO-06 à PO-08" },
+      { t: "L-E Éditeur de créneau (création, pop-in Projet / Congé, changement de projet)", s: "done", n: "pop-in modale ancrée au bloc (Q5 : double clic, Entrée ou clic sur le bloc sélectionné), « + Allocation » et bloc provisoire en zone libre, Combobox projet / tâche (BR-33), groupe BR-26, onglet Congé (BR-04), couleur du projet ; sans contrat ; PO-06 à PO-08 levés au cadrage n°3 (L-O1, L-Q, L-P)" },
       { t: "L-F Back-office Projets, Personnes, Réglages", s: "done", n: "écrans Projets, Personnes et Réglages (liste, création, fiche dans le Drawer, horaire daté, désactivation BR-31, équipes, rôles, clients, congés, fériés) ; colonne « Accès » (L-O2) et écriture du compte (L-O3) ajoutées au cadrage n°3" },
       { t: "Cadrage de la note n°2 (15 retours, 6 lots, 8 questions)", s: "done", n: "workflow PM → Architecte, Designer, Product → CPTO ; validé par Alec le 2026-10-21 (Q12 amendée : indicateur temps réel minimaliste)" },
       { t: "Choix du kit UI : shadcn/ui (ADR-010)", s: "done", n: "décision d'Alec le 2026-10-21 ; socle Base UI (Q13) ; principes d'UX dans docs/design/design.md" },
@@ -363,11 +366,13 @@ const PHASES = [
       { t: "L-G Socle shadcn et migration des primitives (catalogue)", s: "done", n: "Base UI, alias de tokens, Button, Modal, Drawer et confirmation (RT-023), 66 boutons, champs, preflight (captures avant / après) ; Popover et Combobox déplacés en L-J et L-K" },
       { t: "L-I Grille : séparateurs, période courante, jours non ouvrés", s: "done", n: "53cec76 : hachures selon l'horaire daté de chaque personne, sam./dim. grisés en en-tête (vue jour), séparateurs gris clair, période courante (aria-current) ; RT-029 conforme, tests de non-régression" },
       { t: "L-K Éditeur de créneau en drawer", s: "done", n: "K1 65ac0cb : création et édition dans le drawer (RT-024, Q8), « Abandonner les modifications ? » (Q7) ; K2 f57c27b : Combobox sur Base UI, double clic qui ne referme plus le drawer" },
-      { t: "L-J Header, filtres et toggle de charge", s: "done", n: "dfdf1de Popover Base UI ; 283e479 en-tête en deux niveaux, puces de filtres, menu Affichage, charge par colonne (Q11), puce temps réel (Q12) ; a16463f contraste du survol (cause de l'échec intermittent de projects.spec) ; recherche Ctrl+K en attente (PO-09)" },
+      { t: "L-J Header, filtres et toggle de charge", s: "done", n: "dfdf1de Popover Base UI ; 283e479 en-tête en deux niveaux, puces de filtres, menu Affichage, charge par colonne (Q11), puce temps réel (Q12) ; a16463f contraste du survol (cause de l'échec intermittent de projects.spec) ; recherche Ctrl+K livrée en L-N (RT-038)" },
       { t: "L-L Personnes : tri et regroupement", s: "done", n: "6972de2 : tri par nom, rôle ou équipe (aria-sort), regroupement par équipe, côté client" },
       { t: "Cadrage n°3 autonome (RT-036 à RT-050, lots L-M à L-W)", s: "done", n: "exécuté sans validation intermédiaire à la demande d'Alec ; revue croisée par un second modèle avant chaque fusion ; décisions « validé (auto) » à confirmer en recette n°3 (docs/recette/recette-3-preparation.html)" },
       { t: "Supprimer, dupliquer, scinder une allocation (US-3.2, RT-047)", s: "done", n: "trouvé par la pré-recette ; Suppr, Ctrl+D, S, Alt+glisser, menu du bloc, actions du drawer, annulables" },
       { t: "Visibilité du member (US-6.1, RT-048)", s: "done", n: "REST et temps réel filtrés par personne, migration 0006 (change_log.person_ids)" },
+      { t: "Pré-recette automatisée : 4 écarts trouvés et corrigés (RT-047 à RT-050)", s: "done", n: "premier passage 24/30 (2 fragilités de test, 4 écarts du produit), dernier passage 30/30" },
+      { t: "Points ouverts du cadrage n°3 (PO-11 à PO-16) tranchés par Alec", s: "todo", n: "séries mensuelles par geste, fin de série dans le drawer, annulation de groupe, nom accessible du menu utilisateur, congé en attente du seed, langue du compte" },
       { t: "Assistant de première allocation et « Trouver quelqu'un de dispo »", s: "todo" },
       { t: "Approbation des congés", s: "defer", n: "retirée par Alec (RT-022, PO-01) : un congé posé est approuvé d'emblée (Q6)" },
       { t: "Aide des raccourcis et palette Ctrl+K", s: "part", n: "palette Ctrl+K livrée (RT-038) ; raccourcis affichés dans le menu du bloc (RT-047), pas d'aide dédiée" },
@@ -427,7 +432,7 @@ const T1pc = global;
 document.getElementById("rm").innerHTML = `
   <div class="col t1"><h3>T1 · MVP « Schedule + capacité »<span class="tag now">en cours</span></h3>
     <p class="goal" style="margin:0 0 8px">Personnes et projets, Schedule temps réel, capacité, congés et fériés, permissions simples, vues sauvegardées. <b>${T1pc} %</b> au global.</p>${T1}</div>
-  <div class="col"><h3>T2<span class="tag">non démarré</span></h3><ul><li>Timesheets</li><li>Rapports et export CSV</li><li>PM par projet</li><li>Notifications e-mail</li><li>Profil utilisateur (préférences, p. ex. densité)</li><li>V2 : jours fériés nationaux par défaut, grisés (RT-033)</li><li>V2 : congé qui scinde les créneaux existants (RT-034)</li></ul></div>
+  <div class="col"><h3>T2<span class="tag">non démarré</span></h3><ul><li>Timesheets</li><li>Rapports et export CSV</li><li>PM par projet</li><li>Notifications e-mail</li><li>Profil utilisateur (préférences, p. ex. densité, langue : PO-16)</li><li>Invitations (état « invitation envoyée » de la colonne Accès)</li><li>Rattachement d'une ligne recréée à son groupe (PO-13)</li><li>V2 : jours fériés nationaux par défaut, grisés (RT-033)</li><li>V2 : congé qui scinde les créneaux existants (RT-034)</li></ul></div>
   <div class="col"><h3>T3<span class="tag">non démarré</span></h3><ul><li>Budgets, rate cards, marge</li><li>Phases et dépenses</li><li>API v3</li><li>Mobile web puis natif</li><li>SSO</li></ul></div>
   <div class="col"><h3>T4<span class="tag">non démarré</span></h3><ul><li>Smart Assign (IA)</li><li>Talent Intelligence</li><li>MCP</li></ul></div>`;
 
