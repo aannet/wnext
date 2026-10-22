@@ -2,7 +2,7 @@
 // tap = poignées, appui long + glisser = déplacement, balayage rapide = défilement de la grille sans toucher au bloc ; case vide :
 // tap = rien, appui long + glisser = drawer de création (RT-043).
 import { expect, test, type Page } from "@playwright/test";
-import { openDemo } from "./helpers";
+import { freeCell, openDemo } from "./helpers";
 
 test.use({ hasTouch: true });
 
@@ -25,26 +25,6 @@ const pxPerDay = (page: Page) => page.evaluate(() => {
   return xs[1]! - xs[0]!;
 });
 const scrollLeft = (page: Page) => page.evaluate(() => document.querySelector('[role="grid"]')!.scrollLeft);
-/** Une case libre (ni bloc, ni congé, ni bande de capacité) d'une ligne visible, avec `room` px libres à sa droite ; nom de la personne. */
-const freeCell = (page: Page, room: number): Promise<{ x: number; y: number; person: string } | null> => page.evaluate((room) => {
-  const grid = document.querySelector('[role="grid"]')!.getBoundingClientRect();
-  const free = (x: number, y: number, r: HTMLElement) => {
-    const hit = document.elementFromPoint(x, y);
-    return !!hit && r.contains(hit) && !hit.closest(".wn-block, .wn-timeoff, .wn-cap, .wn-rowheader");
-  };
-  const rows = [...document.querySelectorAll<HTMLElement>(".wn-row")].filter((r) => r.style.display !== "none")
-    .map((r) => ({ r, box: r.getBoundingClientRect() })).filter(({ box }) => box.top > grid.top + 40 && box.bottom < grid.bottom - 10);
-  const heads = [...document.querySelectorAll<HTMLElement>('[role="columnheader"][data-from]')].map((h) => h.getBoundingClientRect())
-    .filter((h) => h.left > grid.left + 260 && h.right + room < grid.right - 80);
-  for (const { r, box } of rows) {
-    for (const h of heads) {
-      const x = h.left + h.width / 2;
-      const y = box.top + 8;
-      if (free(x, y, r) && free(x + room, y, r)) return { x, y, person: r.querySelector(".wn-person-name")!.textContent! };
-    }
-  }
-  return null;
-}, room);
 
 type Pt = { x: number; y: number };
 /** Un doigt : pose en `from`, attend `holdMs`, passe par `steps` points jusqu'à `to`, relâche (`to` absent : simple tap). */
@@ -194,6 +174,27 @@ test.describe("gestes tactiles (démo)", () => {
     ]);
     await page.waitForTimeout(300);
     await nothingCreated(page);
+  });
+
+  test("deuxième doigt pendant le déplacement armé d'un bloc : le bloc reste en place, rien n'est écrit (RT-046)", async ({ page }) => {
+    const ppd = await pxPerDay(page);
+    const b = await pickBlock(page, 3 * ppd);
+    const out = await offGrid(page);
+    const a = { id: 1, x: b.x + b.w / 2, y: b.y + b.h / 2 };
+    const ghost = page.locator(".wn-ghost");
+    const before = await scrollLeft(page);
+    await fingers(page, [
+      { pts: [a], wait: 550 },
+      ...[1, 2, 3, 4].map((i) => ({ pts: [{ ...a, x: a.x + (i * ppd) / 2 }] })),
+      { pts: [{ ...a, x: a.x + 2 * ppd }], wait: 50, check: () => expect(ghost).toBeVisible() },
+      { pts: [{ ...a, x: a.x + 2 * ppd }, { id: 2, ...out }], wait: 50, check: () => expect(ghost).toBeHidden() },
+      { pts: [{ ...a, x: a.x + 3 * ppd }], wait: 50 }, { pts: [] },
+    ]);
+    await page.waitForTimeout(300);
+    await expect(page.locator(".wn-notice")).not.toContainText("Modification enregistrée.");
+    // Après l'annulation, le doigt restant peut faire défiler la grille : on compare la position dans la piste, pas à l'écran.
+    const after = await byKey(page, b.key);
+    expect({ ...after, x: after.x + (await scrollLeft(page)) }).toEqual({ ...b, x: b.x + before });
   });
 
   test("après l'armement, glisser vers la colonne des personnes ou au-dessus de la grille : création abandonnée (RT-043, revue)", async ({ page }) => {

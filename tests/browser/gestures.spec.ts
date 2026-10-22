@@ -2,7 +2,7 @@
 // clavier (Entrée, flèche, Entrée) et choix de portée d'une série. Vérifiés par les positions et les aria-label des blocs
 // (dates relues depuis le libellé traduit), jamais par des captures.
 import { expect, test, type Page } from "@playwright/test";
-import { openDemo } from "./helpers";
+import { freeCell, openDemo } from "./helpers";
 
 interface Box { key: string; label: string; x: number; y: number; w: number; h: number }
 const GUTTER_PX = 240; // colonne des personnes (ux-ui §2.1, lot L-C)
@@ -119,6 +119,50 @@ test.describe("gestes sur les blocs (démo, édition locale)", () => {
     await page.waitForTimeout(200);
     expect(await blockByKey(page, b.key)).toEqual(b);
     await expect(notice(page)).not.toContainText("enregistrée");
+  });
+
+  test("création à la souris : relâcher hors de la zone des blocs n'ouvre rien ; revenir dans la zone ouvre le drawer (RT-046)", async ({ page }) => {
+    const ppd = await pxPerDay(page);
+    const c = (await freeCell(page, ppd))!;
+    expect(c, "une case libre visible").toBeTruthy();
+    const g = (await page.getByRole("grid").boundingBox())!;
+    const draft = page.locator(".wn-slot-draft");
+    for (const out of [{ x: g.x + 120, y: c.y }, { x: c.x, y: g.y - 10 }, { x: c.x, y: g.y + 10 }]) {
+      await drag(page, c.x, c.y, ppd, 0, false);
+      await expect(draft).toBeVisible();
+      await page.mouse.move(out.x, out.y, { steps: 6 });
+      await page.mouse.up();
+      await page.waitForTimeout(200);
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(draft).toBeHidden();
+    }
+    await drag(page, c.x, c.y, ppd, 0, false);
+    await page.mouse.move(g.x + 120, c.y, { steps: 6 });
+    await page.mouse.move(c.x + ppd, c.y, { steps: 6 });
+    await page.mouse.up();
+    await expect(page.getByRole("dialog").getByRole("heading")).toHaveText("Nouvelle allocation");
+    expect((await draft.boundingBox())!.width).toBeCloseTo(2 * ppd, 0);
+  });
+
+  test("création à la souris : glisser sur la colonne des personnes borne la plage au premier jour visible (RT-046)", async ({ page }) => {
+    const ppd = await pxPerDay(page);
+    const c = (await freeCell(page, 0))!;
+    expect(c, "une case libre visible").toBeTruthy();
+    const g = (await page.getByRole("grid").boundingBox())!;
+    const draft = page.locator(".wn-slot-draft");
+    await drag(page, c.x, c.y, -ppd, 0, false);
+    await page.mouse.move(g.x + 120, c.y, { steps: 6 });
+    await page.mouse.move(g.x + 10, c.y, { steps: 6 });
+    const box = (await draft.boundingBox())!;
+    expect(box.x).toBeGreaterThan(g.x + GUTTER_PX - ppd);
+    expect(box.x + box.width).toBeGreaterThan(c.x);
+    // Relâcher dans le premier jour visible : la plage créée commence là, pas plus tôt.
+    await page.mouse.move(g.x + GUTTER_PX + 2, c.y, { steps: 4 });
+    await page.mouse.up();
+    await expect(page.getByRole("dialog").getByRole("heading")).toHaveText("Nouvelle allocation");
+    const after = (await draft.boundingBox())!;
+    expect(after.x).toBeGreaterThan(g.x + GUTTER_PX - ppd);
+    expect(after.x).toBeLessThanOrEqual(g.x + GUTTER_PX + 2);
   });
 
   test("clavier : Entrée sur la grille, flèche droite, Entrée ; le focus reste sur le bloc", async ({ page }) => {
