@@ -1,15 +1,27 @@
-import type { PersonCreate, PersonDeactivationQuery, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonHistoryEntry, PersonHistoryList, PersonHistoryQuery, PersonPatch, PersonProject } from "@wnext/contracts";
+import type { PersonCreate, PersonDeactivationQuery, PersonDetail, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonHistoryEntry, PersonHistoryList, PersonHistoryQuery, PersonPatch, PersonProject } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
-import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor, reader } from "./reference";
-import { PROJECT_COLUMNS, PERSON_COLUMNS, toSchedulePerson, toScheduleProject, type Row, type SchedulePerson } from "./schedule";
-import { accountToday, assertProjectScope, assertWriter, idParam, isId, lockAndCheck, notFound } from "./write";
+import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor, reader, type Reader } from "./reference";
+import { PROJECT_COLUMNS, PERSON_COLUMNS, toSchedulePerson, toScheduleProject, type Row } from "./schedule";
+import { accountToday, assertProjectScope, assertWriter, idParam, isId, isWriter, lockAndCheck, notFound } from "./write";
 
 // Écriture des personnes planifiables. Mêmes principes que les allocations et les congés (rôles, verrou optimiste, RLS +
 // account_id). Pas de suppression (voir le contrat) : `active: false` désactive sans toucher aux allocations ni aux congés.
 // Ni e-mail ni coût : ces colonnes ne sont ni lues ni écrites ici.
 
 const DEFAULT_WORK_DAYS = [8, 8, 8, 8, 8, 0, 0];
+
+// RT-040 : `access` = un utilisateur du compte est lié à la personne (account_members.person_id ; RLS tenant_isolation en plus
+// de la condition sur account_id). Calculé pour toutes les routes people, servi seulement aux rôles d'écriture : la clé est
+// retirée pour member et guest. GET /schedule et la désactivation ne le portent pas (SchedulePerson).
+const DETAIL_COLUMNS = `${PERSON_COLUMNS},
+  EXISTS (SELECT 1 FROM account_members m WHERE m.account_id = people.account_id AND m.person_id = people.id) AS has_access`;
+const toPersonDetail = (r: Row): PersonDetail => ({ ...toSchedulePerson(r), access: r.has_access ? "member" : "none" });
+function forRole(ctx: RequestContext, p: PersonDetail): PersonDetail {
+  if (isWriter(ctx)) return p;
+  const { access: _omis, ...rest } = p;
+  return rest;
+}
 
 async function assertReferences(tx: Queryable, accountId: string, ref: { departmentId?: string | null; roleId?: string | null }) {
   const exists = async (sql: string, id: string, entity: string) => {
@@ -19,24 +31,24 @@ async function assertReferences(tx: Queryable, accountId: string, ref: { departm
   if (ref.roleId) await exists("SELECT 1 FROM roles WHERE id = $1::bigint AND account_id = $2::bigint", ref.roleId, "role");
 }
 
-export async function createPerson(db: Db, ctx: RequestContext, body: PersonCreate): Promise<SchedulePerson> {
+export async function createPerson(db: Db, ctx: RequestContext, body: PersonCreate): Promise<PersonDetail> {
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     await assertReferences(tx, ctx.accountId, body);
     const { rows } = await tx.query<Row>(
       `INSERT INTO people (account_id, name, people_type, department_id, role_id, country, work_days_hours, tags, avatar_url, active)
        VALUES ($1::bigint, $2, $3::people_type, $4::bigint, $5::bigint, $6, $7::numeric[], $8::text[], $9, $10::boolean)
-       RETURNING ${PERSON_COLUMNS}`,
+       RETURNING ${DETAIL_COLUMNS}`,
       [
         ctx.accountId, body.name, body.peopleType ?? "employee", body.departmentId ?? null, body.roleId ?? null, body.country ?? null,
         body.workDaysHours ?? DEFAULT_WORK_DAYS, body.tags ?? [], body.avatarUrl ?? null, body.active ?? true,
       ],
     );
-    return toSchedulePerson(rows[0]!);
+    return forRole(ctx, toPersonDetail(rows[0]!));
   });
 }
 
-export async function updatePerson(db: Db, ctx: RequestContext, id: string, expectedVersion: number, patch: PersonPatch): Promise<SchedulePerson> {
+export async function updatePerson(db: Db, ctx: RequestContext, id: string, expectedVersion: number, patch: PersonPatch): Promise<PersonDetail> {
   assertWriter(ctx);
   return withContext(db, ctx, async (tx) => {
     const cur = await lockAndCheck(tx, "people", PERSON_COLUMNS, "person", ctx.accountId, id, expectedVersion);
@@ -57,7 +69,7 @@ export async function updatePerson(db: Db, ctx: RequestContext, id: string, expe
       `UPDATE people SET name = $3, people_type = $4::people_type, department_id = $5::bigint, role_id = $6::bigint, country = $7,
               work_days_hours = $8::numeric[], tags = $9::text[], avatar_url = $10, active = $11::boolean
         WHERE id = $1::bigint AND account_id = $2::bigint AND row_version = $12::int
-        RETURNING ${PERSON_COLUMNS}`,
+        RETURNING ${DETAIL_COLUMNS}`,
       [
         id, ctx.accountId, patch.name ?? cur.name, patch.peopleType ?? cur.people_type, departmentId, roleId,
         has("country") ? patch.country : cur.country === null ? null : String(cur.country).trim(),
@@ -66,7 +78,7 @@ export async function updatePerson(db: Db, ctx: RequestContext, id: string, expe
       ],
     ).catch(historyLocked);
     if (!rows[0]) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: Number(cur.row_version) + 1 });
-    return toSchedulePerson(rows[0]);
+    return forRole(ctx, toPersonDetail(rows[0]));
   });
 }
 
@@ -209,8 +221,8 @@ export async function deactivatePerson(db: Db, ctx: RequestContext, id: string, 
 /** Sous-chaîne littérale pour ILIKE : % _ et \ perdent leur sens de joker. */
 const likeEscape = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-export const personReader = reader({
-  table: "people", columns: PERSON_COLUMNS, entity: "person", map: toSchedulePerson,
+const detailReader = reader({
+  table: "people", columns: DETAIL_COLUMNS, entity: "person", map: toPersonDetail,
   filters: (q, bind) => [
     ...(q.includeInactive ? [] : ["active"]), // comme le Schedule : les désactivées sur demande
     ...(q.departmentId ? [`department_id = ${bind(idParam("departmentId", q.departmentId))}::bigint`] : []),
@@ -219,6 +231,14 @@ export const personReader = reader({
     ...(q.search ? [`name ILIKE '%' || ${bind(likeEscape(q.search))} || '%' ESCAPE '\\'`] : []),
   ],
 });
+
+export const personReader: Reader<PersonDetail> = {
+  list: async (db, ctx, q) => {
+    const r = await detailReader.list(db, ctx, q);
+    return { ...r, items: r.items.map((p) => forRole(ctx, p)) };
+  },
+  get: async (db, ctx, id) => forRole(ctx, await detailReader.get(db, ctx, id)),
+};
 
 // `getPerson` ne filtre PAS sur `active` : une personne désactivée se lit par son id (réactivation, historique). Le reader de liste
 // ajoute le filtre, la lecture par id non.

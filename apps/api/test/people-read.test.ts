@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist";
 import { citext } from "@electric-sql/pglite/contrib/citext";
-import { PersonList, PersonProjectList, SchedulePerson } from "@wnext/contracts";
+import { PersonDetail, PersonList, PersonProjectList, SchedulePerson } from "@wnext/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { dispatch, type Db, type HttpDeps, type RequestContext } from "../src/index";
 
@@ -33,7 +33,7 @@ beforeAll(async () => {
   pg = new PGlite({ extensions: { btree_gist, citext } });
   await pg.exec(readFileSync(new URL("../../../schema.sql", import.meta.url), "utf8"));
   await pg.exec(`
-    INSERT INTO users (email) VALUES ('u@x.test');
+    INSERT INTO users (email) VALUES ('u@x.test'), ('bob@x.test'), ('b@x.test');
     INSERT INTO accounts (name) VALUES ('A'), ('B');
     INSERT INTO departments (account_id, name) VALUES (1,'Design'), (1,'Dev');
     INSERT INTO roles (account_id, name) VALUES (1,'Senior'), (1,'Junior');
@@ -43,6 +43,8 @@ beforeAll(async () => {
     INSERT INTO projects (account_id, name, status) VALUES (1,'P1','planned'), (1,'P2','planned'), (1,'P3','archived'), (1,'P4','planned'), (2,'Q','planned');
     -- BR-33 : l'utilisateur 1 (joué aussi en project_manager) gère les projets du compte 1.
     INSERT INTO account_members (account_id, user_id, role) VALUES (1, 1, 'project_manager');
+    -- RT-040 : Bob (2) a un accès dans A (utilisateur 2) ; Alice B (7) dans B (utilisateur 3).
+    INSERT INTO account_members (account_id, user_id, role, person_id) VALUES (1, 2, 'member', 2), (2, 3, 'member', 7);
     INSERT INTO project_managers (project_id, account_id, user_id) SELECT id, account_id, 1 FROM projects WHERE account_id = 1;
     INSERT INTO project_team (account_id, project_id, person_id) VALUES (1,1,1), (1,3,1), (1,4,2);
     INSERT INTO allocations (account_id, person_id, project_id, start_date, end_date, mode, hours_per_day) VALUES
@@ -161,6 +163,46 @@ describe("GET /people/{id}", () => {
     expect(err(r)).toMatchObject({ code: "NOT_FOUND", params: { entity: "person" } });
   });
   it("401 sans identité", async () => expect((await get("anon", "/api/v1/people/1")).status).toBe(401));
+});
+
+// RT-040 : `access` (PersonDetail) dit si un utilisateur du compte est lié à la personne (account_members.person_id).
+describe("access (RT-040)", () => {
+  type Item = { id: string; access?: string };
+  const items = async (who: string, qs = "") => ((await people(who, qs)).body as { items: Item[] }).items;
+  const accessById = (list: Item[]) => Object.fromEntries(list.map((p) => [p.id, p.access]));
+  it("owner, admin et project_manager : member si une ligne account_members la lie, none sinon", async () => {
+    for (const who of ["owner", "pm"]) {
+      const r = await people(who, "?includeInactive=true");
+      expect(PersonDetail.array().parse((r.body as PersonPage).items)).toHaveLength(6);
+      expect(accessById(await items(who, "?includeInactive=true")), who).toEqual({ 1: "none", 2: "member", 3: "none", 4: "none", 5: "none", 6: "none" });
+      expect((await get(who, "/api/v1/people/2")).body, who).toMatchObject({ id: "2", access: "member" });
+      expect((await get(who, "/api/v1/people/3")).body, who).toMatchObject({ id: "3", access: "none" });
+    }
+  });
+  it("member et guest : la clé est absente (liste et lecture par id)", async () => {
+    for (const who of ["member", "guest"]) {
+      for (const p of await items(who)) expect(Object.keys(p), who).not.toContain("access");
+      expect(Object.keys((await get(who, "/api/v1/people/2")).body as object), who).not.toContain("access");
+    }
+  });
+  it("isolation entre comptes : chaque compte ne voit que ses propres liens", async () => {
+    expect(accessById(await items("other"))).toEqual({ 7: "member" });
+    await pg.exec("UPDATE account_members SET person_id = NULL WHERE account_id = 2");
+    try {
+      expect(accessById(await items("other"))).toEqual({ 7: "none" });
+      expect(accessById(await items("owner"))[2]).toBe("member"); // le lien de A ne dépend pas de B
+    } finally {
+      await pg.exec("UPDATE account_members SET person_id = 7 WHERE account_id = 2");
+    }
+  });
+  it("PATCH renvoie access ; GET /schedule ne le porte jamais", async () => {
+    const cur = (await get("owner", "/api/v1/people/2")).body as { version: number };
+    const r = await dispatch(deps, { method: "PATCH", url: "/api/v1/people/2", headers: { authorization: "owner", "if-match": `"${cur.version}"` }, body: JSON.stringify({ tags: ["acces"] }) });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ id: "2", access: "member" });
+    const sched = (await get("owner", "/api/v1/schedule?from=2026-03-02&to=2026-03-06")).body as { people: object[] };
+    for (const p of sched.people) expect(Object.keys(p)).not.toContain("access");
+  });
 });
 
 describe("GET /people/{id}/projects", () => {

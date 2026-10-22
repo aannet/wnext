@@ -5,8 +5,9 @@ import type { Row } from "./schedule";
 // Briques communes des écritures (allocations, congés) : rôle, identifiants, verrou optimiste.
 
 const WRITERS = new Set<RequestContext["role"]>(["owner", "admin", "project_manager"]);
+export const isWriter = (ctx: RequestContext) => WRITERS.has(ctx.role);
 export const assertWriter = (ctx: RequestContext) => {
-  if (!WRITERS.has(ctx.role)) throw new ApiFailure("FORBIDDEN", { role: ctx.role });
+  if (!isWriter(ctx)) throw new ApiFailure("FORBIDDEN", { role: ctx.role });
 };
 const ADMINS = new Set<RequestContext["role"]>(["owner", "admin"]);
 /** Configuration du compte (départements, rôles, types de congé, fériés) : owner et admin seulement. */

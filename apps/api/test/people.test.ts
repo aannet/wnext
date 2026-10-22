@@ -4,7 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist";
 import { citext } from "@electric-sql/pglite/contrib/citext";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ScheduleResponse, SchedulePerson } from "@wnext/contracts";
+import { PersonDetail, ScheduleResponse, SchedulePerson } from "@wnext/contracts";
 import { createPerson, dispatch, readChanges, updatePerson, type Db, type HttpDeps, type RequestContext } from "../src/index";
 
 let pg: PGlite;
@@ -193,7 +193,22 @@ describe("cohérence avec la lecture et le journal", () => {
   it("GET /schedule renvoie la personne telle que la réponse d'écriture", async () => {
     const p = await made({ tags: ["zz"] });
     const sched = ScheduleResponse.parse((await send("admin", "GET", "/api/v1/schedule?from=2026-03-02&to=2026-03-06&limit=200")).body);
-    expect(sched.people.find((x) => x.id === p.id)).toEqual(p);
+    const { access, ...person } = p; // access est propre aux routes people (PersonDetail, RT-040)
+    expect(access).toBe("none");
+    expect(sched.people.find((x) => x.id === p.id)).toEqual(person);
+  });
+
+  it("access (RT-040) : none à la création, member une fois une ligne account_members liée ; absent de PersonDeactivationResult", async () => {
+    const p = await made();
+    expect(PersonDetail.parse(p)).toMatchObject({ access: "none" });
+    await pg.query("INSERT INTO users (email) VALUES ('lie@x.test')");
+    await pg.query("INSERT INTO account_members (account_id, user_id, role, person_id) SELECT 1, id, 'member', $1 FROM users WHERE email = 'lie@x.test'", [p.id]);
+    const r = await patch(p.id, 1, { name: "Liée" });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ name: "Liée", access: "member" });
+    const d = await send("admin", "POST", `/api/v1/people/${p.id}/deactivation`, { body: {} });
+    expect(d.status).toBe(200);
+    expect(Object.keys((d.body as { person: object }).person)).not.toContain("access");
   });
 
   it("les écritures apparaissent dans change_log ; un refus n'ajoute rien", async () => {
