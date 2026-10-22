@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WNEXT — Préparation de la recette n°3</title>
+<style>
+  :root { color-scheme: light; --bg:#f7f8fa; --card:#fff; --ink:#1c2330; --muted:#566074; --line:#e3e7ee; --accent:#2f5bea; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .layout { display:flex; align-items:flex-start; }
+  nav { position:sticky; top:0; width:230px; flex:none; height:100vh; overflow:auto; padding:24px 16px; border-right:1px solid var(--line); background:var(--card); }
+  nav h1 { font-size:17px; margin:0 0 4px; } nav .s { color:var(--muted); font-size:12px; margin:0 0 16px; }
+  nav a { display:block; padding:6px 10px; margin-bottom:2px; border-radius:6px; color:var(--muted); text-decoration:none; font-size:14px; }
+  nav a:hover { background:var(--bg); } nav a.active { background:#e8eefd; color:var(--accent); font-weight:600; }
+  main { flex:1; min-width:0; max-width:1000px; padding:32px 32px 80px; }
+  section { margin-bottom:44px; scroll-margin-top:16px; }
+  h2 { font-size:21px; margin:0 0 6px; } h3 { margin:0 0 6px; font-size:16px; }
+  .sub { color:var(--muted); font-weight:400; font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin-bottom:14px; }
+  .intent { border-left:4px solid var(--accent); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  .stats ul { list-style:none; margin:6px 0 0; padding:0; } .stats li { padding:2px 0; }
+  .stats .big { font-size:40px; font-weight:700; line-height:1; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; font-size:13.5px; }
+  th,td { text-align:left; vertical-align:top; padding:8px 10px; border-top:1px solid var(--line); }
+  th { background:#eef1f6; border-top:0; font-size:12.5px; }
+  .nw { white-space:nowrap; } .tw { overflow-x:auto; }
+  blockquote { margin:6px 0 0; padding:2px 0 2px 10px; border-left:3px solid var(--line); color:var(--muted); font-size:13px; }
+  .gb { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:1px 8px; border-radius:10px; border:1px solid; white-space:nowrap; }
+  .gb i { width:8px; height:8px; display:inline-block; }
+  .g2 { background:#fdf0dc; color:#8a4b00; border-color:#8a4b00; } .g2 i { background:#8a4b00; transform:rotate(45deg); }
+  .g3 { background:#fbf6d6; color:#6b5a00; border-color:#6b5a00; } .g3 i { background:#6b5a00; border-radius:50%; }
+  .g4 { background:#eef1f6; color:#445; border-color:#445; } .g4 i { border:2px solid #445; border-radius:50%; }
+  .g0 { background:#eef1f6; color:#445; border-color:#aab; font-weight:500; }
+  .reco { background:#eaf6ef; border:1px solid #1f7a4d; border-radius:8px; padding:8px 12px; }
+  .tagreco { display:inline-block; font-size:12px; font-weight:700; color:#17603c; margin-right:6px; text-transform:uppercase; }
+  .answer { border:1px dashed #98a2b3; border-radius:8px; padding:10px 12px; min-height:56px; color:var(--muted); margin:10px 0 0; }
+  .flow { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:10px 0 4px; }
+  .flow .chain { display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  .node { border:2px solid var(--accent); border-radius:8px; padding:4px 12px; font-weight:700; background:#e8eefd; }
+  .node.role { border-color:#566074; background:#f2f4f8; font-weight:600; }
+  .arrow { color:var(--muted); font-weight:700; }
+  .roles { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; }
+  .roles .card h3 { display:flex; justify-content:space-between; gap:8px; }
+  .roles .card h3 span { font-weight:500; color:var(--muted); font-size:13px; }
+  ul.plain { margin:6px 0; padding-left:20px; } ul.plain li { margin:3px 0; }
+  .hl { background:#fff7e0; border:1px solid #e0a100; border-radius:8px; padding:8px 12px; }
+  @media (max-width:880px) { .layout { display:block; } nav { position:static; width:auto; height:auto; border-right:0; border-bottom:1px solid var(--line); padding:12px 16px; } nav a { display:inline-block; } main { padding:20px 16px 60px; } }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav id="nav">
+  <h1>Recette n°3</h1><p class="s">Préparation, 2026-10-22</p>
+  <a href="#resume">Résumé</a>
+  <a href="#demarrer">Démarrer la recette</a>
+  <a href="#decisions">Décisions à confirmer</a>
+  <a href="#points">Points ouverts à trancher</a>
+  <a href="#relectures">Relectures humaines</a>
+  <a href="#prerecette">Pré-recette automatisée</a>
+  <a href="#methode">Méthode et écarts</a>
+  <a href="#suite">Suite</a>
+</nav>
+<main>
+<section id="resume">
+  <h2>Résumé</h2>
+  <p class="sub">Tout ce qu'il te faut pour la recette n°3, au bout du cadrage n°3 exécuté en autonomie. Sources : <code>docs/recette/registre.md</code> (section « Cadrage n°3 »), <code>docs/recette/scenarios.md</code>, <code>docs/handoff-2026-10-22-recette-3-prep.md</code>.</p>
+  <div class="card intent"><b>En une phrase.</b> Les 7 points ouverts de la recette n°2 sont traités, et la pré-recette automatisée a trouvé 4 écarts de plus, eux aussi corrigés : <b>15 retours</b> (RT-036 à RT-050), <b>13 lots</b>, chacun relu par un second modèle avant fusion. Il te reste à <b>confirmer ou annuler</b> 15 décisions, à <b>trancher</b> 6 points ouverts et à faire les <b>relectures humaines</b>.</div>
+  <div class="stats">
+    <div class="card"><div class="big">15</div>retours corrigés<br><span class="sub">RT-036 à RT-050, statut « validé (auto) »</span></div>
+    <div class="card"><div class="big">30/30</div>scénarios de pré-recette verts<br><span class="sub">vraie pile, seed de recette, OIDC</span></div>
+    <div class="card"><b>Contrôles sur <code>main</code></b><ul><li><code>make check</code> vert</li><li><code>test:browser</code> 89/89 (axe)</li><li><code>test:browser:oidc</code> 1/1</li><li><code>test:migrations</code> 26/26</li></ul></div>
+    <div class="card"><b>À faire par toi</b><ul><li><b>15</b> décisions à confirmer</li><li><b>6</b> points ouverts (PO-11 à PO-16)</li><li><b>9</b> commits de contrat + 1 migration à relire</li></ul></div>
+  </div>
+</section>
+
+<section id="demarrer">
+  <h2>Démarrer la recette</h2>
+  <div class="card"><ol style="margin:0;padding-left:20px">
+    <li>Arrêter ta pile du 21 octobre si elle tourne encore (Ctrl-C dans son terminal) : elle a l'ancien code.</li>
+    <li><code>npm run dev:recette:seed</code> : compte « WNEXT Recette » sur une base dédiée (<code>.dev-pg-recette/</code>), ta base <code>.dev-pg</code> n'est pas touchée. Compte vide : <code>npm run dev:recette:vide</code>.</li>
+    <li>Ouvrir <code>http://localhost:5173/</code>, « Se connecter », choisir un compte : <b>Alec</b> (owner), Admin Recette, <b>Camille Roy</b> (member), <b>Nadia Benali</b> (chef de projet, gère REF-01, co-gère SITE-01), Invité Recette (guest), Admin Autre Société (autre compte).</li>
+    <li>Jouer les scénarios de <code>docs/recette/scenarios.md</code> (R-01 à R-32) ; noter tes retours en vrac dans <code>docs/recette/notes/</code>, comme d'habitude.</li>
+  </ol></div>
+</section>
+
+<section id="decisions">
+  <h2>Décisions à confirmer</h2>
+  <p class="sub">Prises sans toi, avec l'option la plus réversible. Pour chacune : confirme, ou dis ce que tu veux à la place.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Id</th><th>Ce qui a été décidé et livré</th><th>Où le voir</th><th>Lot</th></tr></thead>
+  <tbody>
+<tr><td class="nw"><b>RT-036</b></td><td>Fiche personne : jours de la grille horaire abrégés (« dim. »), nom complet lu par les lecteurs d'écran.</td><td>Personnes &gt; une fiche</td><td>L-M</td></tr>
+<tr><td class="nw"><b>RT-037</b></td><td>Derniers composants natifs passés sur Base UI. La liste de la saisie rapide s'affiche sous le champ (pas en fenêtre flottante, qui masquait la page aux lecteurs d'écran).</td><td>Partout ; saisie rapide (/)</td><td>L-M</td></tr>
+<tr><td class="nw"><b>RT-038</b></td><td>Recherche Ctrl+K : personne (défile, met en évidence ; si un filtre la masque, confirmation puis « Rétablir les filtres ») ou projet (ouvre sa fiche). Rien n'est enregistré dans les vues.</td><td>Planning, bouton « Rechercher » (R-26)</td><td>L-N</td></tr>
+<tr><td class="nw"><b>RT-039</b></td><td>Un co-gestionnaire voit ses projets dans l'éditeur (champ <code>managerUserIds</code>).</td><td>Connexion Nadia (R-29)</td><td>L-O1</td></tr>
+<tr><td class="nw"><b>RT-040</b></td><td>Colonne « Accès » (A un accès / Sans accès), visible pour owner, admin et chef de projet seulement. « Invitation envoyée » en T2 : pas de table d'invitations.</td><td>Personnes (R-28)</td><td>L-O2</td></tr>
+<tr><td class="nw"><b>RT-041</b></td><td>Réglages &gt; Compte éditable par owner et admin : fuseau, début de semaine, langue (fr, en), seuil de sous-allocation.</td><td>Réglages &gt; Compte (R-27)</td><td>L-O3</td></tr>
+<tr><td class="nw"><b>RT-042</b></td><td>À l'enregistrement dans le drawer : série « Cette occurrence » (scission, non annulable) ou « Toute la série » ; groupe « Cette ligne » ou « Tout le groupe ». Série mensuelle déplacée seulement depuis sa première occurrence.</td><td>R-31, R-32</td><td>L-P</td></tr>
+<tr><td class="nw"><b>RT-043</b></td><td>Au toucher, un appui long sur une case vide crée un créneau ; deux doigts ou sortie de la grille abandonnent.</td><td>Tablette (R-30)</td><td>L-Q</td></tr>
+<tr><td class="nw"><b>RT-044</b></td><td>Seed de recette, compte vide, scénarios R-01 à R-32 à jour, pré-recette <code>npm run test:recette</code>.</td><td>Ce dossier</td><td>L-R</td></tr>
+<tr><td class="nw"><b>RT-045</b></td><td>CODEOWNERS vise <code>/schema.sql</code>, <code>/migrations/</code>, <code>/tests/sql/</code> au lieu de chemins inexistants.</td><td><code>.github/CODEOWNERS</code></td><td>L-S</td></tr>
+<tr><td class="nw"><b>RT-046</b></td><td>À la souris, relâcher hors de la grille abandonne la création (on peut revenir dans la grille avant de relâcher) ; au toucher, un deuxième doigt annule un déplacement.</td><td>Planning</td><td>L-T</td></tr>
+<tr><td class="nw"><b>RT-047</b></td><td>Supprimer (Suppr, sans confirmation, Ctrl+Z annule), dupliquer (Ctrl+D : copie juste après ; « Dupliquer… » du drawer vers plusieurs personnes ; Alt+glisser), scinder (S ou « Scinder… », date au milieu par défaut). Une ligne de groupe recréée par Ctrl+Z sort de son groupe.</td><td>Clic droit sur un bloc, drawer (R-17)</td><td>L-U</td></tr>
+<tr><td class="nw"><b>RT-048</b></td><td>Un member ne voit que sa propre personne, à l'écran, dans l'API (autre personne : 404) et en temps réel ; sans personne liée : « Vous n'avez accès qu'à votre propre planning ». Migration 0006.</td><td>Connexion Camille (R-24)</td><td>L-V</td></tr>
+<tr><td class="nw"><b>RT-049</b></td><td>Un drawer ouvert par « Nouveau congé » ou « + Allocation » rend le focus à ce bouton.</td><td>R-05</td><td>L-W</td></tr>
+<tr><td class="nw"><b>RT-050</b></td><td>En densité standard et aérée, noms et blocs grossissent de nouveau (régression de RT-006).</td><td>Menu Affichage (R-03)</td><td>L-W</td></tr>
+  </tbody></table></div>
+</section>
+
+<section id="points">
+  <h2>Points ouverts à trancher</h2>
+  <p class="sub">Relevés pendant l'exécution, non traités. Ma recommandation est en vert.</p>
+<div class="card"><h3>PO-11 <span class="sub">(gestes, séries mensuelles)</span></h3><p>Déplacer une occurrence d'une série mensuelle par un geste décale toute la série en jours, depuis n'importe quelle occurrence (non réversible en fin de mois). Le drawer, lui, ne le permet que depuis la première occurrence.</p><p class="reco"><span class="tagreco">Recommandation</span> Aligner les gestes sur la règle du drawer (petit lot).</p></div>
+<div class="card"><h3>PO-12 <span class="sub">(drawer, fin de série)</span></h3><p>Dans le drawer, la fin d'une occurrence ne peut pas dépasser la fin de série, alors qu'un geste le permet.</p><p class="reco"><span class="tagreco">Recommandation</span> Autoriser dans le drawer avec « Toute la série » (la fin de série suit), comme le geste.</p></div>
+<div class="card"><h3>PO-13 <span class="sub">(annulation de groupe)</span></h3><p>« Tout le groupe » n'est pas annulable si une ligne n'a pas pu être relue (annoncé) ; une ligne recréée par Ctrl+Z sort de son groupe.</p><p class="reco"><span class="tagreco">Recommandation</span> Garder en l'état pour le MVP, route de rattachement en T2 si le besoin apparaît.</p></div>
+<div class="card"><h3>PO-14 <span class="sub">(accessibilité, menu utilisateur)</span></h3><p>Le bouton affiche des initiales, son nom accessible est « Menu utilisateur de … » : axe le signale en mode OIDC.</p><p class="reco"><span class="tagreco">Recommandation</span> Correctif d'accessibilité dans le prochain lot.</p></div>
+<div class="card"><h3>PO-15 <span class="sub">(seed)</span></h3><p>Le seed garde un congé « en attente » (Chloé Bernard), que l'écran ne peut plus créer (RT-022).</p><p class="reco"><span class="tagreco">Recommandation</span> Le garder : il vérifie qu'un congé existant en attente reste lisible.</p></div>
+<div class="card"><h3>PO-16 <span class="sub">(langue)</span></h3><p>Changer la langue par défaut du compte ne change pas la langue de l'écran, qui vient de <code>?lang=</code>.</p><p class="reco"><span class="tagreco">Recommandation</span> Langue de l'utilisateur d'abord, puis celle du compte, puis le navigateur (petit lot).</p></div>
+</section>
+
+<section id="relectures">
+  <h2>Relectures humaines</h2>
+  <div class="card"><ul class="plain">
+    <li><b>Commits de contrat (CODEOWNERS)</b> : <code>ce25e1f</code> (L-H, en attente depuis la recette n°2), <code>562dc2b</code> (managerUserIds), <code>329634a</code> puis <code>94d52e6</code> (access ; le premier contient encore un contrôle de rupture trop permissif, annulé par le second), <code>c77071d</code> (/account), <code>4694afa</code> et <code>18030ac</code> (périmètre du member, descriptions), <code>a69d28e</code> et <code>3b7b5ec</code> (option <code>Prefer</code> du DELETE de groupe). Tous additifs ; <code>check:breaking</code> vert.</li>
+    <li><b>Migration</b> <code>migrations/0006_change_log_person.sql</code> : colonne <code>change_log.person_ids</code>, triggers <code>log_change</code> et <code>log_team_change</code> réécrits ; suite dédiée <code>tests/migrations/change-log-person.test.ts</code>.</li>
+    <li><b>CODEOWNERS</b> (<code>55a3456</code>) et la liste d'exceptions <code>packages/contracts-tools/breaking-allowlist.json</code>.</li>
+    <li><b>Tests SQL</b> : <code>docs/review/relecture-tests-sql.md</code> (toujours en attente).</li>
+  </ul></div>
+</section>
+
+<section id="prerecette">
+  <h2>Pré-recette automatisée</h2>
+  <div class="card"><p style="margin-top:0"><code>npm run test:recette</code> rejoue R-01 à R-32 dans Chromium contre la vraie pile (seed de recette, OIDC, base temporaire neuve). Dernier passage sur <code>main</code> le 2026-10-22 : <b>30 tests verts</b> ; R-06 (compte vide) et R-21 (import CSV) ne sont pas automatisés.</p>
+  <p>Le premier passage avait donné 24 verts et 6 rouges : 2 fragilités du test (corrigées) et 4 vrais écarts du produit, devenus RT-047 à RT-050 et corrigés.</p>
+  <p style="margin-bottom:0">Elle ne remplace pas ton passage : la perception visuelle, le tactile réel (iOS, Android), le multi-onglets et l'ergonomie restent à toi. La colonne « Statut » de <code>scenarios.md</code> est pour toi.</p></div>
+</section>
+
+<section id="methode">
+  <h2>Méthode et écarts</h2>
+  <div class="card"><ul class="plain">
+    <li>Un lot = un sous-agent dans un worktree (Opus pour contrat, grille, gestes, sécurité ; Sonnet pour écrans et scripts), tests d'abord, <code>make check</code> vert, puis revue croisée par GPT-6.1 Sol. <b>9 lots sur 12 ont été renvoyés</b> au moins une fois par la revue, avec de vrais défauts corrigés avant fusion.</li>
+    <li><b>Écarts</b> : la seconde relecture des correctifs de L-P n'a pas pu être faite (crédit du fournisseur épuisé un moment) ; L-W (deux petits correctifs) a été fait par l'orchestrateur sans revue croisée ; le plafond de deux agents en parallèle a été dépassé deux fois brièvement, sans incident mémoire.</li>
+    <li>Ta base <code>.dev-pg</code> n'a jamais été touchée : tous les tests ont tourné sur des bases temporaires ou des worktrees. Elle recevra la migration 0006 à ton prochain lancement.</li>
+  </ul></div>
+</section>
+
+<section id="suite">
+  <h2>Suite</h2>
+  <div class="card"><ol style="margin:0;padding-left:20px">
+    <li>Ta recette n°3 et tes notes dans <code>docs/recette/notes/</code>.</li>
+    <li>Cadrage de tes notes (RT-051 et suivants), avec tes réponses aux décisions et aux points ouverts de ce dossier.</li>
+    <li>Gate P6 : registre sans retour bloquant ni majeur ouvert, scénarios passés à la main.</li>
+  </ol></div>
+</section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll("#nav a")];
+const secs=links.map(a=>document.querySelector(a.getAttribute("href")));
+const onScroll=()=>{let cur=0;secs.forEach((s,i)=>{if(s&&s.getBoundingClientRect().top<120)cur=i;});links.forEach((a,i)=>a.classList.toggle("active",i===cur));};
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+</script>
+</body>
+</html>

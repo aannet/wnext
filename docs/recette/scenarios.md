@@ -39,7 +39,7 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 
 ### R-03 — Densité d'affichage à 3 niveaux
 - **Couvre** : ux-ui §2.1-2.2, dossier §4.1 principe 6 ; RT-005, RT-006, RT-007 ; Q1, Q2.
-- **Faisable** : oui pour constater l'écart (RT-050 ouvert : en densité aérée, noms et blocs ne grossissent pas).
+- **Faisable** : oui (RT-050 corrigé : noms et blocs grossissent à chaque niveau).
 - **Préconditions** : seed de recette (17 personnes actives), fenêtre du navigateur en 1920 × 1080.
 - **Étant donné** le Planning en densité « Standard ». **Quand** j'ouvre le menu « Affichage » et choisis « Compacte », « Standard » puis « Aérée » (groupe « Densité »). **Alors** le nombre de lignes entières visibles diminue à chaque niveau, la grille occupe toute la hauteur, et en « Aérée » le nom de la personne et les blocs grossissent (RT-006).
 - **Quand** je recharge la page. **Alors** la densité est conservée (Q2 : stockage local, puis vues sauvegardées).
@@ -54,7 +54,7 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 
 ### R-05 — Les formulaires s'ouvrent en fenêtre superposée
 - **Couvre** : ux-ui §3.4 ; RT-009, RT-023 ; `docs/design/design.md`.
-- **Faisable** : oui pour constater l'écart (RT-049 ouvert : le focus n'est pas rendu au bouton « Nouveau congé » après Échap).
+- **Faisable** : oui (RT-049 corrigé : le focus revient au bouton qui a ouvert le drawer).
 - **Préconditions** : connecté en Alec sur le Planning.
 - **Quand** j'ouvre successivement « Nouveau congé » (drawer), « Importer » (« Importer un fichier CSV »), la cloche « Notifications » et, par clic droit sur un bloc de Camille Roy, « Retirer Camille Roy du projet Refonte… ». **Alors** chacun s'ouvre dans une fenêtre superposée (drawer, modale ou popover), jamais dans un panneau inséré dans la page.
 - **Attendu** : Échap (ou Annuler / Fermer) ferme la fenêtre ; **le focus revient au déclencheur** ; la grille derrière ne se décale pas ; rien n'est retiré après Échap sur le dialogue de retrait.
@@ -148,10 +148,10 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 
 ### R-17 — Déplacer, étirer, dupliquer, supprimer, annuler
 - **Couvre** : US-3.2 ; fonction existante.
-- **Faisable** : oui pour déplacer, étirer et annuler ; **bloqué : RT-047** pour dupliquer, scinder et supprimer (absents du menu du bloc, de la touche Suppr et du drawer ; correction en cours).
+- **Faisable** : oui (RT-047 corrigé : Suppr / Retour arrière, Ctrl+D, S, Alt+glisser, menu du bloc et actions du drawer).
 - **Préconditions** : bloc « Refonte » de Camille Roy, lundi à mercredi S+2.
 - **Quand** je déplace le bloc d'un jour (flèche droite, Entrée), l'étire d'un jour (Maj+flèche droite, Entrée) puis d'un jour à la poignée droite à la souris. **Alors** « Modification enregistrée. » à chaque geste ; Ctrl+Z annule dans l'ordre inverse (« Redimensionnement annulé. », « Déplacement annulé. »).
-- **Quand** j'ouvre le menu du bloc (clic droit). **Alors** (cible RT-047) « Dupliquer », « Scinder » et « Supprimer » y figurent ; Suppr supprime le bloc focalisé ; Ctrl+Z annule la suppression ; la scission conserve projet, tâche et notes.
+- **Quand** j'ouvre le menu du bloc (clic droit). **Alors** « Dupliquer », « Scinder… » et « Supprimer » y figurent, avec leur raccourci ; Suppr supprime le bloc focalisé ; Ctrl+Z annule la suppression ; la scission conserve projet, tâche et notes.
 - **Attendu** : la découpe d'une occurrence de série n'est pas annulable (connu, annoncé : voir R-31).
 
 ### R-18 — Congé posé sur des allocations existantes (BR-04)
@@ -205,9 +205,9 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 
 ### R-24 — Rôles et isolation
 - **Couvre** : US-6.1, BR-33.
-- **Faisable** : oui pour le Guest, le chef de projet et l'isolation de compte ; **bloqué : RT-048** pour le Member (il voit encore tout le planning, API comprise ; correction en cours).
+- **Faisable** : oui (RT-048 corrigé : le Member ne voit que sa personne liée).
 - **Préconditions** : comptes de l'IdP local : Camille Roy (member), Invité Recette (guest), Nadia Benali (project_manager : gère `REF-01`, co-gère `SITE-01`), Admin Autre Société (second compte).
-- **Alors** le Member n'a aucun bouton d'écriture (« + Allocation », « Nouveau congé », « Importer »), l'API refuse ses écritures (403) et (cible RT-048) il ne voit que ses assignations, API et temps réel. Le Guest n'a aucune écriture. Nadia écrit sur `REF-01` et `SITE-01`, refusée (403, `FORBIDDEN`) sur `MOB-01`. Le second compte ne voit que « Agathe Collin », « Bruno Nguyen » et le projet `SEC-01`, jamais une donnée du premier (404 sur ses ids).
+- **Alors** le Member n'a aucun bouton d'écriture (« + Allocation », « Nouveau congé », « Importer »), l'API refuse ses écritures (403) et il ne voit que ses assignations, API et temps réel (une autre personne : 404). Le Guest n'a aucune écriture. Nadia écrit sur `REF-01` et `SITE-01`, refusée (403, `FORBIDDEN`) sur `MOB-01`. Le second compte ne voit que « Agathe Collin », « Bruno Nguyen » et le projet `SEC-01`, jamais une donnée du premier (404 sur ses ids).
 
 ### R-25 — Conflit d'édition concurrent
 - **Couvre** : US-3.5.
@@ -268,15 +268,15 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 
 ## Suivi
 
-La colonne « Pré-recette auto » vient de `npm run test:recette` (`tests/browser/recette.spec.ts`, premier passage sur ce seed) ; elle ne remplace pas votre passage : la colonne « Statut » reste à vous.
+La colonne « Pré-recette auto » vient de `npm run test:recette` (`tests/browser/recette.spec.ts`, dernier passage le 2026-10-22 sur `main` : 30 tests verts ; R-06 et R-21 non automatisés) ; elle ne remplace pas votre passage : la colonne « Statut » reste à vous.
 
 | Id | Titre | Faisable aujourd'hui | Pré-recette auto | Statut |
 |---|---|---|---|---|
 | R-01 | Accès protégé par une connexion | oui | OK | — |
 | R-02 | En-tête applicatif et utilisateur connecté | oui | OK | — |
-| R-03 | Densité d'affichage à 3 niveaux | oui (écart attendu : RT-050) | KO → RT-050 | — |
+| R-03 | Densité d'affichage à 3 niveaux | oui | OK (RT-050 corrigé) | — |
 | R-04 | Jauge d'allocation par personne | oui | OK | — |
-| R-05 | Formulaires en fenêtre superposée | oui (écart attendu : RT-049) | KO → RT-049 | — |
+| R-05 | Formulaires en fenêtre superposée | oui | OK (RT-049 corrigé) | — |
 | R-06 | Première allocation depuis un compte vide | oui (compte vide) | non automatisé | — |
 | R-07 | Création d'une personne | oui | OK | — |
 | R-08 | Création client et projet | oui | OK | — |
@@ -288,14 +288,14 @@ La colonne « Pré-recette auto » vient de `npm run test:recette` (`tests/brows
 | R-14 | Couleur du projet depuis le bloc | oui | OK | — |
 | R-15 | Surbooking détecté et résolu | oui (sans « Trouver quelqu'un ») | OK | — |
 | R-16 | Jeu chiffré de capacité | oui | OK | — |
-| R-17 | Déplacer, étirer, dupliquer, supprimer, annuler | partiel : bloqué : RT-047 | KO → RT-047 | — |
+| R-17 | Déplacer, étirer, dupliquer, supprimer, annuler | oui | OK (RT-047 corrigé) | — |
 | R-18 | Congé sur allocations (BR-04) | oui | OK | — |
 | R-19 | Fériés par pays | oui | OK | — |
 | R-20 | Retrait d'équipe (BR-10) | oui | OK | — |
 | R-21 | Import CSV | oui | non automatisé | — |
 | R-22 | Recherche, filtres, vues | oui | OK | — |
-| R-23 | Notifications in-app | oui | test corrigé | — |
-| R-24 | Rôles et isolation | partiel : bloqué : RT-048 (Member) | KO → RT-048 | — |
+| R-23 | Notifications in-app | oui | OK | — |
+| R-24 | Rôles et isolation | oui | OK (RT-048 corrigé) | — |
 | R-25 | Conflit d'édition concurrent | oui | OK | — |
 | R-26 | Palette de recherche Ctrl+K | oui | OK | — |
 | R-27 | Réglages > Compte : début de semaine | oui | OK | — |
@@ -303,6 +303,6 @@ La colonne « Pré-recette auto » vient de `npm run test:recette` (`tests/brows
 | R-29 | Co-gestion de projet | oui | OK | — |
 | R-30 | Appui long tactile | oui | OK | — |
 | R-31 | Portée d'une série | oui | OK | — |
-| R-32 | Portée d'un groupe | oui | test corrigé | — |
+| R-32 | Portée d'un groupe | oui | OK | — |
 
 Ces statuts de pré-recette seront mis à jour après le dernier passage.
