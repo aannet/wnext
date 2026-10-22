@@ -174,3 +174,17 @@ test("fiche personne : aucun libellé de la grille horaire ne déborde du drawer
   expect(overflows).toEqual([]);
   await expect(fiche.getByLabel("dimanche")).toBeVisible(); // nom long conservé comme nom accessible
 });
+
+test("colonne Accès (RT-040) : « A un accès » ou « Sans accès », triable, axe propre", async ({ page }) => {
+  await page.goto("/personnes?demo=1&lang=fr");
+  const access = page.getByRole("columnheader", { name: "Accès" });
+  await expect(access).toBeVisible();
+  await expect(page.getByRole("row", { name: /Personne 1 / }).first()).toContainText("A un accès"); // démo : une personne sur quatre
+  await expect(page.getByRole("row", { name: /Personne 2 / }).first()).toContainText("Sans accès");
+  await access.getByRole("button").click();
+  await expect(access).toHaveAttribute("aria-sort", "ascending");
+  await expect(page.locator("tbody tr").first()).toContainText("A un accès");
+  await access.getByRole("button").click();
+  await expect(page.locator("tbody tr").first()).toContainText("Sans accès");
+  await noViolations(page, "personnes-acces");
+});
