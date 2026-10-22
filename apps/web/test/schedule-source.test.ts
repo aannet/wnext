@@ -307,7 +307,7 @@ describe("temps réel", () => {
 describe("liste complète des projets (saisie rapide)", () => {
   const project = (id: string, name: string) => ({
     id, version: 1, name, projectCode: null, color: "#3B82F6", status: "in_progress", nonBillable: false, startDate: null, endDate: null,
-    projectManagerId: null, tags: [], notes: null,
+    projectManagerId: null, tags: [], notes: null, managerUserIds: [],
   });
   const projectsApi = (names: () => string[][]) => live((q, path) => {
     if (path !== "/api/v1/projects") return { status: 200, body: pageOf(q) };

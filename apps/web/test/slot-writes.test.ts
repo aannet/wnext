@@ -101,7 +101,7 @@ describe("source branchée sur l'API", () => {
         return json(200, { ...data([alloc("a")], [project("1")]), window: { from: u.searchParams.get("from"), to: u.searchParams.get("to") } });
       }
       if (u.pathname === "/api/v1/projects") {
-        return json(200, { items: [project("1"), project("2", { color: "#16A34A" })].map((p) => ({ ...p, projectManagerId: null, clientId: null, tags: [], notes: null })), page: { nextCursor: null, total: 2 } });
+        return json(200, { items: [project("1"), project("2", { color: "#16A34A" })].map((p) => ({ ...p, projectManagerId: null, managerUserIds: [], clientId: null, tags: [], notes: null })), page: { nextCursor: null, total: 2 } });
       }
       if (u.pathname === "/api/v1/allocation-groups") {
         await gate;

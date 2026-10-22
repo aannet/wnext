@@ -275,7 +275,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
       const res = await opts.api.listProjects!({ limit: pageLimit, ...(cursor ? { cursor } : {}) });
       if (!res.ok) throw new SourceError(errorCodeOf(res.status, res.error));
       for (const p of res.data.items) {
-        const { projectManagerId: _m, clientId: _c, tags: _t, notes: _n, ...shape } = p;
+        const { projectManagerId: _m, clientId: _c, tags: _t, notes: _n, managerUserIds: _u, ...shape } = p;
         knownProjects.set(p.id, shape);
       }
       out.push(...res.data.items.map((p) => ({ id: p.id, name: p.name })));

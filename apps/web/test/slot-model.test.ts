@@ -70,14 +70,28 @@ describe("création", () => {
 describe("droits (BR-33) et référentiel", () => {
   const me = (role: "owner" | "admin" | "project_manager" | "member", person: string | null = "p9") => ({ role, person: person ? { id: person, name: "Moi" } : null });
   const list = [
-    { id: "1", name: "Zèbre", status: "in_progress" as const, projectManagerId: "p9" },
-    { id: "2", name: "Écluse", status: "planned" as const, projectManagerId: "p1" },
-    { id: "3", name: "Archive", status: "archived" as const, projectManagerId: "p9" },
+    { id: "1", name: "Zèbre", status: "in_progress" as const, projectManagerId: "p9", managerUserIds: [] },
+    { id: "2", name: "Écluse", status: "planned" as const, projectManagerId: "p1", managerUserIds: [] },
+    { id: "3", name: "Archive", status: "archived" as const, projectManagerId: "p9", managerUserIds: [] },
   ];
 
   it("owner et admin : tout ; project_manager : ses projets ; member : aucun ; sans profil : tout", () => {
     expect([me("owner"), me("admin"), me("project_manager"), me("member"), undefined].map((m) => list.filter((p) => canWriteProject(m, p)).map((p) => p.id)))
       .toEqual([["1", "2", "3"], ["1", "2", "3"], ["1", "3"], [], ["1", "2", "3"]]);
+  });
+
+  it("project_manager co-gestionnaire (managerUserIds = user_id) : le projet est proposé, comme assertProjectScope (RT-039)", () => {
+    const co = [
+      { id: "4", name: "Co-géré", status: "in_progress" as const, projectManagerId: "p1", managerUserIds: ["u7"] },
+      { id: "5", name: "Étranger", status: "in_progress" as const, projectManagerId: null, managerUserIds: ["u8"] },
+      { id: "6", name: "Sans chef", status: "planned" as const, projectManagerId: null, managerUserIds: ["u7", "u8"] },
+    ];
+    const pm = { ...me("project_manager", null), user: { id: "u7", name: "Moi", email: "moi@x.test" } };
+    expect(co.filter((p) => canWriteProject(pm, p)).map((p) => p.id)).toEqual(["4", "6"]);
+    expect(projectOptions(co, pm, null).map((p) => p.id)).toEqual(["4", "6"]);
+    // user_id et person id sont deux espaces distincts : un person id égal à un user_id ne donne rien
+    expect(canWriteProject({ ...me("project_manager", "u7"), user: { id: "u9", name: "Moi", email: "moi@x.test" } }, co[0]!)).toBe(false);
+    expect(canWriteProject({ ...me("member"), user: { id: "u7", name: "Moi", email: "moi@x.test" } }, co[0]!)).toBe(false);
   });
 
   it("options : sans archivés, autorisées, triées ; le projet courant reste proposé", () => {

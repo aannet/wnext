@@ -48,7 +48,7 @@ export interface SlotEditorOptions {
   editor?: ScheduleEditor | undefined;
   history?: History | undefined;
   catalog?: SlotCatalog | undefined;
-  me?: Pick<Me, "role" | "person"> | undefined;
+  me?: (Pick<Me, "role" | "person"> & Partial<Pick<Me, "user">>) | undefined;
   announce(text: string): void;
   /** Pop-in fermée, tout de suite : retirer le bloc provisoire. */
   onDraftDone(draft: number): void;

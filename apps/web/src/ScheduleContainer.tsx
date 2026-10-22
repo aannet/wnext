@@ -40,7 +40,7 @@ export interface ScheduleContainerProps {
   /** Référentiel des projets de la pop-in du créneau (projets autorisés, tâches, couleur) ; absent : projets de la source. */
   catalog?: SlotCatalog;
   /** Utilisateur connecté : projets proposés selon ses droits (BR-33). */
-  me?: Pick<Me, "role" | "person">;
+  me?: Pick<Me, "role" | "person"> & Partial<Pick<Me, "user">>;
 }
 
 const SHOWN_ERRORS = new Set<SourceErrorCode>(["UNAUTHENTICATED", "FORBIDDEN", "RATE_LIMITED"]);

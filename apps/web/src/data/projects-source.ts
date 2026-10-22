@@ -137,7 +137,7 @@ export function createDemoProjectsSource(schedule: ScheduleResponse, hooks: Demo
     { id: nextId(), version: 1, name: "Globex", shortName: null, tags: [] },
   ];
   const projects: ProjectDetail[] = schedule.projects.map((p, i) => ({
-    ...p, projectManagerId: null, clientId: i % 3 === 0 ? clients[0]!.id : i % 3 === 1 ? clients[1]!.id : null, tags: [], notes: null,
+    ...p, projectManagerId: null, managerUserIds: [], clientId: i % 3 === 0 ? clients[0]!.id : i % 3 === 1 ? clients[1]!.id : null, tags: [], notes: null,
   }));
   const tasks: ProjectTask[] = seedTasks.map((t) => ({ ...t }));
   const phases: Phase[] = (schedule.phases ?? []).map((ph, i) => ({
@@ -178,7 +178,7 @@ export function createDemoProjectsSource(schedule: ScheduleResponse, hooks: Demo
       const bad = validate(input, input.projectCode, null);
       if (bad) return bad as ProjectsResult<ProjectDetail>;
       if (!knownClient(input.clientId)) return fail("NOT_FOUND", { entity: "client" });
-      const p: ProjectDetail = { id: nextId(), version: 1, nonBillable: false, projectManagerId: null, tags: [], notes: null, ...input };
+      const p: ProjectDetail = { id: nextId(), version: 1, nonBillable: false, projectManagerId: null, managerUserIds: [], tags: [], notes: null, ...input };
       projects.push(p);
       hooks.onProject(p);
       return ok({ ...p });

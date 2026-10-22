@@ -97,23 +97,28 @@ export function createBody(d: SlotDraft): CreateRequestBody {
   return { kind: "group", body: { ...common, members: d.personIds.map((personId) => ({ personId })) } };
 }
 
+/** Profil utile aux droits d'écriture ; `user` absent (tests, écran seul) : seule la chefferie de projet compte. */
+export type ProjectViewer = Pick<Me, "role" | "person"> & Partial<Pick<Me, "user">>;
+
 /**
  * BR-33 (confort d'affichage, l'API reste juge) : owner et admin écrivent sur tous les projets, un project_manager sur ceux
- * dont il est le chef de projet (la co-gestion, table project_managers, n'est pas exposée : PO-06), member et guest sur aucun.
+ * dont il est le chef de projet (projectManagerId = sa personne) ou co-gestionnaire (son user_id dans managerUserIds, table
+ * project_managers : PO-06, RT-039), comme assertProjectScope côté API ; member et guest sur aucun.
  * Sans profil connu (tests, écran seul) : tout est proposé.
  */
-export function canWriteProject(me: Pick<Me, "role" | "person"> | undefined, p: Pick<ProjectDetail, "projectManagerId">): boolean {
+export function canWriteProject(me: ProjectViewer | undefined, p: Pick<ProjectDetail, "projectManagerId" | "managerUserIds">): boolean {
   if (!me) return true;
   if (me.role === "owner" || me.role === "admin") return true;
-  return me.role === "project_manager" && p.projectManagerId !== null && p.projectManagerId === me.person?.id;
+  if (me.role !== "project_manager") return false;
+  return (p.projectManagerId !== null && p.projectManagerId === me.person?.id) || (me.user !== undefined && p.managerUserIds.includes(me.user.id));
 }
 
 export interface ProjectOption { id: string; name: string; color: string | null }
 
 /** Projets proposés : non archivés et autorisés, triés par nom ; le projet courant du bloc reste toujours proposé. */
 export function projectOptions(
-  list: readonly (Pick<ProjectDetail, "id" | "name" | "status" | "projectManagerId"> & { color?: string })[],
-  me: Pick<Me, "role" | "person"> | undefined, currentId: string | null,
+  list: readonly (Pick<ProjectDetail, "id" | "name" | "status" | "projectManagerId" | "managerUserIds"> & { color?: string })[],
+  me: ProjectViewer | undefined, currentId: string | null,
 ): ProjectOption[] {
   return list
     .filter((p) => p.id === currentId || (p.status !== "archived" && canWriteProject(me, p)))

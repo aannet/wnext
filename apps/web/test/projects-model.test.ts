@@ -4,7 +4,7 @@ import { canEditProjects, diffOf, errorKey, filterProjects, inputOf, NO_CLIENT, 
 
 const project = (over: Partial<ProjectDetail> = {}): ProjectDetail => ({
   id: "1", version: 1, name: "Refonte Site", projectCode: "WEB-1", color: "#3B82F6", status: "planned", nonBillable: false,
-  startDate: null, endDate: null, projectManagerId: null, clientId: null, tags: [], notes: null, ...over,
+  startDate: null, endDate: null, projectManagerId: null, managerUserIds: [], clientId: null, tags: [], notes: null, ...over,
 });
 const clients: Client[] = [{ id: "c1", version: 1, name: "Acme", shortName: null, tags: [] }];
 
