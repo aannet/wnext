@@ -182,3 +182,77 @@ test("clic sur le voile : formulaire intact, le drawer se ferme ; modifié, « A
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect.poll(async () => (await rowBlocks(page)).find((x) => x.key === b.key)?.label).toBe(b.label);
 });
+
+// Portée à l'enregistrement (RT-042, PO-08, lot L-P) : série ouverte sur une occurrence -> « Cette occurrence » ne change
+// qu'elle (découpe annoncée non annulable) ; groupe -> « Tout le groupe » change chaque ligne, Ctrl+Z les rend toutes.
+const labels = (page: Page) => page.evaluate(() => [...document.querySelectorAll<HTMLElement>(".wn-block[data-key]")]
+  .filter((e) => e.style.display !== "none").map((e) => e.getAttribute("aria-label") ?? ""));
+const frDay = (iso: string) => new Intl.DateTimeFormat("fr", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
+
+test("série : le drawer s'ouvre sur l'occurrence, « Cette occurrence » ne change qu'elle ; axe propre sur l'étape", async ({ page }) => {
+  await openDemo(page);
+  const g = (await page.getByRole("grid").boundingBox())!;
+  let b: Box | undefined;
+  for (let i = 0; i < 6 && !b; i++) {
+    b = (await rowBlocks(page, i)).find((x) => x.label.includes("chaque semaine") && !/:0$/.test(x.key) && x.x >= g.x + GUTTER_PX + 8 && x.x + x.w <= g.x + g.width - 8);
+  }
+  expect(b, "une occurrence (rang >= 1) d'une série visible").toBeTruthy();
+  const series = (await labels(page)).filter((l) => l.includes("chaque semaine")).length;
+  const others = (await labels(page)).filter((l) => l !== b!.label);
+
+  await page.locator(`.wn-block[data-key="${b!.key}"]`).dblclick();
+  await expect(dialog(page).getByText("Série répétée : les dates sont celles de cette occurrence.", { exact: false })).toBeVisible();
+  const start = await dialog(page).getByRole("textbox", { name: "Du", exact: true }).inputValue();
+  expect(b!.label).toContain(frDay(start));
+  await dialog(page).getByRole("spinbutton", { name: "Heures par jour" }).fill("3");
+  await dialog(page).getByRole("button", { name: "Enregistrer" }).click();
+  const group = dialog(page).getByRole("radiogroup", { name: "Cette allocation se répète. Que modifier ?" });
+  await expect(group).toBeVisible();
+  await expect(group.getByRole("radio", { name: "Cette occurrence" })).toBeFocused();
+  await expect(group.getByRole("radio", { name: "Cette occurrence" })).toBeChecked();
+  await axe(page);
+  await dialog(page).getByRole("button", { name: "Confirmer" }).click();
+  await expect(dialog(page)).toHaveCount(0);
+  await expect(notice(page)).toHaveText(/^Occurrence modifiée\. La découpe d’une occurrence ne peut pas être annulée\./);
+  const expected = b!.label.replace(", chaque semaine", "").replace(/, \d+ h/, ", 3 h");
+  await expect.poll(async () => (await labels(page)).includes(expected)).toBe(true);
+  // Les autres occurrences de la série gardent leur charge et leur répétition : une seule est sortie de la série.
+  expect((await labels(page)).filter((l) => l.includes("chaque semaine")).length).toBe(series - 1);
+  for (const l of others) expect(await labels(page)).toContain(l);
+});
+
+test("groupe : « Tout le groupe » change chaque ligne ; Ctrl+Z les rend toutes", async ({ page }) => {
+  await openDemo(page);
+  const cell = await freeCell(page);
+  expect(cell, "une case libre visible").toBeTruthy();
+  await page.mouse.click(cell!.x, cell!.y);
+  await dialog(page).getByRole("searchbox", { name: "Rechercher une personne" }).fill(cell!.other);
+  await dialog(page).getByRole("checkbox", { name: cell!.other, exact: true }).check();
+  await dialog(page).getByRole("combobox", { name: "Projet" }).fill("Projet C");
+  await page.keyboard.press("Enter");
+  await dialog(page).getByRole("button", { name: "Créer" }).click();
+  await expect(notice(page)).toHaveText(/^2 allocations créées \(groupe\)\./);
+  const beforeC = await blockCount(page, "Projet C, ");
+  const beforeD = await blockCount(page, "Projet D, ");
+
+  const key = await page.evaluate(({ x, y }) => (document.elementFromPoint(x, y)?.closest(".wn-block") as HTMLElement | null)?.dataset.key ?? null, cell!);
+  expect(key, "le bloc créé sous la case").toBeTruthy();
+  await page.locator(`.wn-block[data-key="${key}"]`).dblclick();
+  await dialog(page).getByRole("combobox", { name: "Projet" }).fill("Projet D");
+  await page.keyboard.press("Enter");
+  await dialog(page).getByRole("button", { name: "Enregistrer" }).click();
+  const group = dialog(page).getByRole("radiogroup", { name: "Cette allocation fait partie d’un groupe de 2 personnes. Que modifier ?" });
+  await expect(group.getByRole("radio", { name: "Cette ligne" })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(group.getByRole("radio", { name: "Tout le groupe" })).toBeChecked();
+  await axe(page);
+  await dialog(page).getByRole("button", { name: "Confirmer" }).click();
+  await expect(dialog(page)).toHaveCount(0);
+  await expect(notice(page)).toHaveText(/^Groupe modifié : 2 allocations\. Ctrl\+Z annule\./);
+  await expect.poll(() => blockCount(page, "Projet D, ")).toBe(beforeD + 2);
+  expect(await blockCount(page, "Projet C, ")).toBe(beforeC - 2);
+
+  await page.keyboard.press("Control+z");
+  await expect.poll(() => blockCount(page, "Projet C, ")).toBe(beforeC);
+  expect(await blockCount(page, "Projet D, ")).toBe(beforeD);
+});
