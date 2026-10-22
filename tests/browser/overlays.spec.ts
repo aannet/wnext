@@ -5,6 +5,10 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openDemo } from "./helpers";
 
+// Démo relative à « aujourd'hui » : à certaines dates (ex. vendredi 23 octobre 2026), aucun bloc convenable ne commence dans
+// la vue. L'horloge de la page part d'un jeudi connu (le temps s'écoule ensuite normalement) : tests indépendants de la date.
+test.beforeEach(async ({ page }) => { await page.clock.install({ time: new Date("2026-10-22T10:00:00+02:00") }); });
+
 const GUTTER_PX = 240; // colonne des personnes (ux-ui §2.1, lot L-C)
 
 const firstRowBlock = (page: Page): Promise<string> => page.evaluate((gutter) => {
