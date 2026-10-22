@@ -327,6 +327,10 @@ describe("DELETE /allocations/{id}/group — « tous »", () => {
     const g2 = await create({ ...base, load: h(1), members: [{ personId: "1" }, { personId: "2" }] });
     const r2 = await dispatch(deps, { method: "DELETE", url: `/api/v1/allocations/${g2.items[0]!.id}/group`, headers: { authorization: "pm", "if-match": "\"1\"", prefer: "return=minimal" }, body: undefined });
     expect([r2.status, r2.body]).toEqual([204, undefined]);
+    // Liste de préférences (RFC 7240) : return=representation y suffit.
+    const g3 = await create({ ...base, load: h(1), members: [{ personId: "1" }, { personId: "2" }] });
+    const r3 = await dispatch(deps, { method: "DELETE", url: `/api/v1/allocations/${g3.items[0]!.id}/group`, headers: { authorization: "pm", "if-match": "\"1\"", prefer: "respond-async, Return=Representation" }, body: undefined });
+    expect([r3.status, AllocationGroup.parse(r3.body).items.length]).toEqual([200, 2]);
   });
 
   it("supprimée une fois, la seconde demande est un 404 allocation", async () => {
