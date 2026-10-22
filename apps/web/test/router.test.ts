@@ -2,14 +2,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { createRouter, hrefOf, pathOf, routeOf, ROUTE_IDS } from "../src/shell/router";
 
+const apply = (url: string) => { const [p, q = ""] = url.split("?"); env0.location.pathname = p!; env0.location.search = q ? `?${q}` : ""; };
+let env0: ReturnType<typeof fakeEnv>;
 function fakeEnv(path = "/", search = "") {
   const env = {
     location: { pathname: path, search },
     pushed: [] as string[],
-    history: { pushState: (_s: unknown, _u: string, url: string) => { env.pushed.push(url); const [p, q = ""] = url.split("?"); env.location.pathname = p!; env.location.search = q ? `?${q}` : ""; } },
+    replaced: [] as string[],
+    history: {
+      pushState: (_s: unknown, _u: string, url: string) => { env.pushed.push(url); apply(url); },
+      replaceState: (_s: unknown, _u: string, url: string) => { env.replaced.push(url); apply(url); },
+    },
     pop: () => {},
     onPopState: (fn: () => void) => { env.pop = fn; return () => {}; },
   };
+  env0 = env;
   return env;
 }
 
@@ -63,5 +70,44 @@ describe("createRouter", () => {
 
   it("href garde la requête (lien copiable, ouverture dans un nouvel onglet)", () => {
     expect(createRouter(fakeEnv("/", "?lang=en")).href("settings")).toBe("/reglages?lang=en");
+  });
+});
+
+describe("paramètres propres à une page (?projet=, RT-038)", () => {
+  it("navigate avec paramètres : ajoutés à la requête courante, lus par param(), notifie même sur la page courante", () => {
+    const env = fakeEnv("/", "?demo=1&lang=en");
+    const router = createRouter(env);
+    const seen = vi.fn();
+    router.subscribe(seen);
+    router.navigate("projects", { projet: "p 7" });
+    expect(env.pushed).toEqual(["/projets?demo=1&lang=en&projet=p+7"]);
+    expect(router.param("projet")).toBe("p 7");
+    expect(router.param("absent")).toBeNull();
+    expect(seen).toHaveBeenCalledTimes(1);
+    router.navigate("projects", { projet: "8" });
+    expect(env.pushed.at(-1)).toBe("/projets?demo=1&lang=en&projet=8");
+    expect(seen).toHaveBeenCalledTimes(2);
+  });
+
+  it("le paramètre ne suit pas vers une autre page, ni dans les liens", () => {
+    const env = fakeEnv("/projets", "?demo=1&projet=7");
+    const router = createRouter(env);
+    expect(router.href("people")).toBe("/personnes?demo=1");
+    router.navigate("planning");
+    expect(env.pushed).toEqual(["/?demo=1"]);
+    expect(router.param("projet")).toBeNull();
+  });
+
+  it("clearParam : retire le paramètre par replaceState (pas d'entrée d'historique, pas de notification)", () => {
+    const env = fakeEnv("/projets", "?demo=1&projet=7");
+    const router = createRouter(env);
+    const seen = vi.fn();
+    router.subscribe(seen);
+    router.clearParam("projet");
+    expect(env.replaced).toEqual(["/projets?demo=1"]);
+    expect(env.pushed).toEqual([]);
+    expect(seen).not.toHaveBeenCalled();
+    router.clearParam("projet");
+    expect(env.replaced).toHaveLength(1);
   });
 });

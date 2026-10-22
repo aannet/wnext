@@ -1,11 +1,25 @@
 // Routeur minimal sur l'History API (pas de bibliothèque) : quatre pages, un chemin chacune. La requête (?lang=, ?demo=1) est
-// conservée d'une page à l'autre ; l'ancre est abandonnée. Précédent / suivant du navigateur : événement popstate.
+// conservée d'une page à l'autre (sauf les paramètres propres à une page, PAGE_PARAMS) ; l'ancre est abandonnée. Précédent / suivant du navigateur : événement popstate.
 // Logique pure et testable : l'environnement (location, history, popstate) est injecté.
 
 export type RouteId = "planning" | "projects" | "people" | "settings";
 export const ROUTE_IDS: readonly RouteId[] = ["planning", "projects", "people", "settings"];
 
 const PATHS: Record<RouteId, string> = { planning: "/", projects: "/projets", people: "/personnes", settings: "/reglages" };
+
+/** Paramètres de requête qui n'ont de sens que sur la page où ils sont posés (?projet= : fiche à ouvrir) : jamais reportés ailleurs. */
+export const PAGE_PARAMS: readonly string[] = ["projet"];
+
+/** Requête sans les paramètres propres à une page, puis avec `params` ; inchangée (même texte) s'il n'y a rien à faire. */
+export function carriedSearch(search: string, params: Readonly<Record<string, string>> = {}): string {
+  const q = new URLSearchParams(search);
+  const extra = Object.entries(params);
+  if (extra.length === 0 && !PAGE_PARAMS.some((k) => q.has(k))) return search;
+  for (const k of PAGE_PARAMS) q.delete(k);
+  for (const [k, v] of extra) q.set(k, v);
+  const out = q.toString();
+  return out ? `?${out}` : "";
+}
 
 /** Page d'un chemin (barre finale tolérée), null si inconnu. */
 export function routeOf(pathname: string): RouteId | null {
@@ -24,7 +38,7 @@ export function hrefOf(id: RouteId, search = ""): string {
 
 export interface RouterEnv {
   location: { pathname: string; search: string };
-  history: { pushState(state: unknown, unused: string, url: string): void };
+  history: { pushState(state: unknown, unused: string, url: string): void; replaceState(state: unknown, unused: string, url: string): void };
   /** Abonne au retour en arrière / en avant du navigateur ; rend le désabonnement. */
   onPopState(fn: () => void): () => void;
 }
@@ -32,8 +46,12 @@ export interface RouterEnv {
 export interface Router {
   /** Page courante ; null : chemin inconnu. */
   current(): RouteId | null;
-  /** Va à une page (nouvelle entrée d'historique) ; sans effet si c'est déjà la page courante. */
-  navigate(id: RouteId): void;
+  /** Va à une page (nouvelle entrée d'historique), avec des paramètres propres à la page ; sans effet si c'est déjà la page courante et sans paramètre. */
+  navigate(id: RouteId, params?: Readonly<Record<string, string>>): void;
+  /** Valeur d'un paramètre de la requête courante, null s'il est absent. */
+  param(name: string): string | null;
+  /** Retire un paramètre de la requête courante sans entrée d'historique ni notification (fiche ouverte : l'adresse ne la rouvrirait plus). */
+  clearParam(name: string): void;
   subscribe(fn: () => void): () => void;
   /** Adresse d'une page avec la requête courante (pour les liens). */
   href(id: RouteId): string;
@@ -45,11 +63,19 @@ export function createRouter(env: RouterEnv): Router {
   env.onPopState(notify);
   return {
     current: () => routeOf(env.location.pathname),
-    href: (id) => hrefOf(id, env.location.search),
-    navigate(id) {
-      if (routeOf(env.location.pathname) === id) return;
-      env.history.pushState({}, "", hrefOf(id, env.location.search));
+    href: (id) => hrefOf(id, carriedSearch(env.location.search)),
+    navigate(id, params) {
+      if (routeOf(env.location.pathname) === id && !params) return;
+      env.history.pushState({}, "", hrefOf(id, carriedSearch(env.location.search, params)));
       notify();
+    },
+    param: (name) => new URLSearchParams(env.location.search).get(name),
+    clearParam(name) {
+      const q = new URLSearchParams(env.location.search);
+      if (!q.has(name)) return;
+      q.delete(name);
+      const out = q.toString();
+      env.history.replaceState({}, "", env.location.pathname + (out ? `?${out}` : ""));
     },
     subscribe(fn) {
       listeners.add(fn);
