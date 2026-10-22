@@ -253,6 +253,103 @@ describe("onglet Congé (RT-017) et couleur (RT-018)", () => {
   });
 });
 
+describe("portée à l'enregistrement : série et groupe (RT-042, PO-08)", () => {
+  const series = () => alloc("s", { startDate: "2026-10-20", endDate: "2026-10-20", repeatState: "daily", repeatEndDate: "2026-10-23" });
+  const group = () => [alloc("g1", { groupId: "G" }), alloc("g2", { personId: "2", groupId: "G" })];
+  const legend = () => dialog()!.querySelector("[role=radiogroup]") && dialog()!.querySelector("legend")?.textContent;
+  const radio = (label: string) => [...dialog()!.querySelectorAll("label")].find((l) => l.textContent?.startsWith(label))?.querySelector<HTMLElement>("[role=radio]");
+  const checked = () => dialog()!.querySelector<HTMLElement>("[role=radio][aria-checked=true]")?.closest("label")?.textContent;
+  const pick = async (label: string) => { act(() => radio(label)!.click()); await flush(); };
+  const rows = (src: ReturnType<typeof mount>["src"]) => src.getState().data!.allocations
+    .map((a) => `${a.startDate}..${a.endDate} ${a.repeatState === "none" ? "-" : `${a.repeatState}->${a.repeatEndDate}`} ${a.hoursPerDay}h p${a.projectId}`).sort();
+
+  it("série ouverte sur une occurrence : ses dates ; « Cette occurrence » choisie et focalisée ; Confirmer la découpe, annoncée non annulable", async () => {
+    const { src, history } = mount([series()]);
+    await dblclick(block("s:1"));
+    expect([field("Du").value, field("Au").value]).toEqual(["2026-10-21", "2026-10-21"]);
+    type(field("Heures par jour"), "4");
+    await submit();
+    expect(legend()).toBe("Cette allocation se répète. Que modifier ?");
+    expect(checked()).toBe("Cette occurrence");
+    expect(document.activeElement).toBe(radio("Cette occurrence"));
+    expect(rows(src)).toEqual(["2026-10-20..2026-10-20 daily->2026-10-23 8h p1"]);
+    await click("Confirmer");
+    expect(dialog()).toBeNull();
+    expect(rows(src)).toEqual([
+      "2026-10-20..2026-10-20 daily->2026-10-20 8h p1", "2026-10-21..2026-10-21 - 4h p1", "2026-10-22..2026-10-22 daily->2026-10-23 8h p1",
+    ]);
+    expect(notice()).toBe("Occurrence modifiée. La découpe d’une occurrence ne peut pas être annulée.");
+    expect(history.getState().canUndo).toBe(false);
+  });
+
+  it("« Toute la série » : la série se décale comme l'occurrence ; Ctrl+Z la rend", async () => {
+    const { src, history } = mount([series()]);
+    await dblclick(block("s:1"));
+    type(field("Du"), "2026-10-22");
+    type(field("Au"), "2026-10-22");
+    await submit();
+    await pick("Toute la série");
+    await click("Confirmer");
+    expect(rows(src)).toEqual(["2026-10-21..2026-10-21 daily->2026-10-23 8h p1"]);
+    expect(notice()).toBe("Allocation modifiée. Ctrl+Z annule.");
+    await act(async () => { await history.undo(); });
+    expect(rows(src)).toEqual(["2026-10-20..2026-10-20 daily->2026-10-23 8h p1"]);
+  });
+
+  it("Échap ou Retour dans l'étape : retour au formulaire, sans question ni écriture ; rien de changé : pas d'étape", async () => {
+    const { src } = mount([series()]);
+    await dblclick(block("s:1"));
+    type(field("Heures par jour"), "4");
+    await submit();
+    key(dialog()!, "Escape");
+    await flush();
+    expect(document.body.querySelector("[role=alertdialog]")).toBeNull();
+    expect(field("Heures par jour").value).toBe("4");
+    expect(document.activeElement?.textContent).toBe("Enregistrer");
+    await submit();
+    await click("Retour");
+    expect(field("Heures par jour").value).toBe("4");
+    type(field("Heures par jour"), "8");
+    await submit();
+    expect(dialog()).toBeNull();
+    expect(rows(src)).toEqual(["2026-10-20..2026-10-20 daily->2026-10-23 8h p1"]);
+  });
+
+  it("ligne d'un groupe : « Cette ligne » par défaut ; « Tout le groupe » change chaque ligne ; Ctrl+Z les rend toutes", async () => {
+    const { src, history } = mount(group());
+    await dblclick(block("g1:0"));
+    await choose("Projet", "aud");
+    await submit();
+    expect(legend()).toBe("Cette allocation fait partie d’un groupe de 2 personnes. Que modifier ?");
+    expect(checked()).toBe("Cette ligne");
+    await pick("Tout le groupe");
+    await click("Confirmer");
+    expect(dialog()).toBeNull();
+    expect(src.getState().data!.allocations.map((a) => [a.id, a.projectId])).toEqual([["g1", "2"], ["g2", "2"]]);
+    expect(notice()).toBe("Groupe modifié : 2 allocations. Ctrl+Z annule.");
+    await act(async () => { await history.undo(); });
+    expect(src.getState().data!.allocations.map((a) => [a.id, a.projectId])).toEqual([["g1", "1"], ["g2", "1"]]);
+  });
+
+  it("groupe : charge et statut changés ensemble, « Tout le groupe » indisponible (raison donnée) ; charge seule : pas d'étape, cette ligne", async () => {
+    const { src } = mount(group());
+    await dblclick(block("g1:0"));
+    type(field("Heures par jour"), "6");
+    type(field("Statut"), "tentative");
+    await submit();
+    expect(radio("Tout le groupe")!.getAttribute("aria-disabled")).toBe("true");
+    expect(dialog()!.textContent).toContain("Indisponible : la personne et la charge sont propres à chaque ligne.");
+    await click("Confirmer");
+    expect(src.getState().data!.allocations.map((a) => [a.id, a.hoursPerDay, a.status])).toEqual([["g1", 6, "tentative"], ["g2", 8, "confirmed"]]);
+
+    await dblclick(block("g2:0"));
+    type(field("Heures par jour"), "3");
+    await submit();
+    expect(dialog()).toBeNull();
+    expect(src.getState().data!.allocations.map((a) => [a.id, a.hoursPerDay])).toEqual([["g1", 6], ["g2", 3]]);
+  });
+});
+
 describe("éditeur en drawer (RT-024, Q8) et formulaire modifié (Q7)", () => {
   const alert = () => document.body.querySelector<HTMLElement>("[role=alertdialog]");
 

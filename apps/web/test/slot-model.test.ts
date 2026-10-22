@@ -5,7 +5,7 @@ import type { ScheduleResponse } from "@wnext/contracts";
 import { describe, expect, it } from "vitest";
 import { createI18n } from "../src/i18n";
 import {
-  canWriteProject, createBody, createDraft, editDraft, editPatch, projectOptions, searchOptions, slotErrorKey, slotIssues, slotOverloads,
+  canWriteProject, createBody, createDraft, editDraft, editPatch, occurrenceOf, projectOptions, scopePlan, searchOptions, slotErrorKey, slotIssues, slotOverloads,
 } from "../src/schedule/slot-model";
 
 type Alloc = ScheduleResponse["allocations"][number];
@@ -53,6 +53,59 @@ describe("patch d'édition", () => {
   it("changer de mode : mode, quantité du nouveau mode et l'autre à null ; une note vidée devient null", () => {
     const a = alloc({ notes: "x" });
     expect(editPatch(a, { ...editDraft(a), mode: "percentage", percent: "50", notes: " " })).toEqual({ mode: "percentage", percent: 50, hoursPerDay: null, notes: null });
+  });
+});
+
+describe("portée d'une série et d'un groupe (RT-042, PO-08)", () => {
+  const series = alloc({ repeatState: "weekly", repeatEndDate: "2026-11-10" });
+
+  it("occurrence d'une série par son rang : dates (fin tronquée à la fin de série) ; hors série : null", () => {
+    expect(occurrenceOf(series, 0)).toEqual({ index: 0, startDate: "2026-10-20", endDate: "2026-10-21" });
+    expect(occurrenceOf(series, 1)).toEqual({ index: 1, startDate: "2026-10-27", endDate: "2026-10-28" });
+    expect(occurrenceOf(series, 3)).toEqual({ index: 3, startDate: "2026-11-10", endDate: "2026-11-10" });
+    expect(occurrenceOf(series, 4)).toBeNull();
+    expect(occurrenceOf(alloc(), 0)).toBeNull();
+    expect(editDraft(series, occurrenceOf(series, 1))).toMatchObject({ startDate: "2026-10-27", endDate: "2026-10-28" });
+  });
+
+  it("série : « cette occurrence » ou « toute la série » ; les dates de l'occurrence décalent la série d'autant", () => {
+    const occ = occurrenceOf(series, 1);
+    const d = editDraft(series, occ);
+    expect(scopePlan(series, occ, d, true)).toEqual({ patch: {}, occurrencePatch: {}, options: [] });
+    expect(scopePlan(series, occ, { ...d, hours: "6" }, true)).toEqual({
+      patch: { hoursPerDay: 6 }, occurrencePatch: { hoursPerDay: 6 },
+      options: [{ scope: "occurrence", blocked: null }, { scope: "series", blocked: null }],
+    });
+    expect(scopePlan(series, occ, { ...d, startDate: "2026-10-28", endDate: "2026-10-30" }, true)).toMatchObject({
+      patch: { startDate: "2026-10-21", endDate: "2026-10-23" }, occurrencePatch: { startDate: "2026-10-28", endDate: "2026-10-30" },
+    });
+  });
+
+  it("série non découpable (blocs qui se chevauchent) : « cette occurrence » indisponible, avec la raison", () => {
+    const daily = alloc({ repeatState: "daily", repeatEndDate: "2026-10-30" });
+    const occ = occurrenceOf(daily, 2);
+    expect(scopePlan(daily, occ, { ...editDraft(daily, occ), hours: "6" }, true).options)
+      .toEqual([{ scope: "occurrence", blocked: "overlapping" }, { scope: "series", blocked: null }]);
+  });
+
+  it("groupe : « cette ligne » ou « tout le groupe » pour les champs communs ; personne ou charge seules : pas d'étape ; mêlées : groupe indisponible", () => {
+    const g = alloc({ groupId: "G" });
+    const d = editDraft(g);
+    expect(scopePlan(g, null, { ...d, projectId: "2", taskId: null }, true))
+      .toEqual({ patch: { projectId: "2", taskId: null }, occurrencePatch: null, options: [{ scope: "line", blocked: null }, { scope: "group", blocked: null }] });
+    expect(scopePlan(g, null, { ...d, hours: "6" }, true).options).toEqual([]);
+    expect(scopePlan(g, null, { ...d, personIds: ["2"] }, true).options).toEqual([]);
+    expect(scopePlan(g, null, { ...d, hours: "6", status: "tentative" }, true).options)
+      .toEqual([{ scope: "line", blocked: null }, { scope: "group", blocked: "per_line" }]);
+    expect(scopePlan(g, null, { ...d, projectId: "2" }, false).options).toEqual([]);
+    expect(scopePlan(alloc(), null, { ...editDraft(alloc()), projectId: "2" }, true).options).toEqual([]);
+  });
+
+  it("série dans un groupe : occurrence, série (cette ligne) ou tout le groupe", () => {
+    const sg = { ...series, groupId: "G" };
+    const occ = occurrenceOf(sg, 1);
+    expect(scopePlan(sg, occ, { ...editDraft(sg, occ), notes: "x" }, true).options.map((o) => o.scope)).toEqual(["occurrence", "series", "group"]);
+    expect(scopePlan(sg, occ, { ...editDraft(sg, occ), hours: "2" }, true).options.map((o) => o.scope)).toEqual(["occurrence", "series"]);
   });
 });
 

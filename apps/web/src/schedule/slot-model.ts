@@ -1,12 +1,15 @@
 // Modèle pur de la pop-in du créneau (RT-011, RT-014 à RT-016) : brouillon d'une allocation (édition ou création), contrôles,
 // patch d'édition (champs changés seulement, If-Match posé par la source), corps de création (une personne : POST
 // /allocations ; plusieurs : groupe BR-26), droits sur les projets (BR-33), recherche dans le référentiel, surcharge (BR-01,
-// signalée, jamais bloquante) et clés des erreurs (codes stables traduits, jamais le texte de l'API).
+// signalée, jamais bloquante) et clés des erreurs (codes stables traduits, jamais le texte de l'API). Portée d'une écriture
+// (RT-042, PO-08) : série ouverte sur une occurrence (« cette occurrence » ou « toute la série ») et ligne d'un groupe
+// (« cette ligne » ou « tout le groupe », champs communs seulement).
 import type { Me, ProjectDetail } from "@wnext/contracts";
 import type { ScheduleResponse } from "@wnext/contracts";
 import { AllocationGroupMax } from "@wnext/contracts";
+import { addDays, addMonths, dayNumber, expandOccurrences } from "@wnext/engine";
 import type { AllocationCreate, AllocationGroupCreate } from "../api/client.gen";
-import type { Allocation, AllocationEdit, EditError } from "../data/allocation-edits";
+import { localSplit, type Allocation, type AllocationEdit, type EditError } from "../data/allocation-edits";
 import { allocationFromCreate } from "../data/record-edits";
 import type { MessageKey } from "../i18n";
 import { editWarnings } from "./edit-warnings";
@@ -39,9 +42,21 @@ export function createDraft(personId: string | null, startDate: string, endDate:
   };
 }
 
-export function editDraft(a: Allocation): SlotDraft {
+/** Occurrence d'une série ouverte dans la pop-in : son rang et ses dates (fin tronquée à la fin de série). */
+export interface SlotOccurrence { index: number; startDate: string; endDate: string }
+
+/** Occurrence de rang `index` d'une série ; null hors série ou au-delà de la fin de série. */
+export function occurrenceOf(a: Allocation, index: number): SlotOccurrence | null {
+  if (a.repeatState === "none" || index < 0) return null;
+  const start = a.repeatState === "monthly" ? addMonths(a.startDate, index) : addDays(a.startDate, index * (a.repeatState === "daily" ? 1 : 7));
+  const o = expandOccurrences(a, start, start).find((x) => x.index === index);
+  return o ? { index, startDate: o.startDate, endDate: o.endDate } : null;
+}
+
+/** Brouillon d'édition ; ouvert sur une occurrence d'une série, ses dates sont celles de l'occurrence. */
+export function editDraft(a: Allocation, occ: SlotOccurrence | null = null): SlotDraft {
   return {
-    allocationId: a.id, personIds: [a.personId], projectId: a.projectId, taskId: a.taskId, startDate: a.startDate, endDate: a.endDate,
+    allocationId: a.id, personIds: [a.personId], projectId: a.projectId, taskId: a.taskId, startDate: occ?.startDate ?? a.startDate, endDate: occ?.endDate ?? a.endDate,
     mode: a.mode, hours: String(a.hoursPerDay ?? DEFAULT_HOURS), percent: String(a.percent ?? 100), status: a.status, notes: a.notes ?? "",
   };
 }
@@ -83,6 +98,51 @@ export function editPatch(a: Allocation, d: SlotDraft): AllocationEdit {
   const notes = d.notes.trim() === "" ? null : d.notes;
   if (notes !== (a.notes ?? null)) p.notes = notes;
   return p;
+}
+
+export type SlotScope = "occurrence" | "series" | "line" | "group";
+/** Choix indisponible : occurrence non découpable (raison du moteur) ou groupe avec personne / charge changées (per_line). */
+export type ScopeBlocker = "overlapping" | "monthly_clamped" | "other" | "per_line";
+export interface ScopeOption { scope: SlotScope; blocked: ScopeBlocker | null }
+export interface ScopePlan {
+  /** Patch de l'allocation : toute la série, la ligne, ou chaque ligne du groupe. */
+  patch: AllocationEdit;
+  /** Patch de la seule occurrence (série ouverte sur une occurrence), null sinon. */
+  occurrencePatch: AllocationEdit | null;
+  /** Choix de portée ; vide : pas d'étape, `patch` s'applique à l'allocation. */
+  options: ScopeOption[];
+}
+
+const PER_LINE = ["personId", "hoursPerDay", "percent", "mode"] as const;
+
+/**
+ * Portée d'une édition (RT-042, PO-08). Le brouillon est comparé à ce qu'affichait la pop-in (l'occurrence pour une série) :
+ *  * série : « cette occurrence » (découpe, BR-25 ; indisponible si le moteur ne sait pas la découper) ou « toute la série »,
+ *    dont les dates bougent d'autant que celles de l'occurrence (comme un geste) ;
+ *  * ligne d'un groupe (BR-26), si l'éditeur sait écrire un groupe (`group`) et qu'un champ commun change : « cette ligne »
+ *    ou « tout le groupe ». Le PATCH de groupe ne porte ni personne ni charge (propres à chaque ligne) : si l'une d'elles
+ *    change aussi, « tout le groupe » est indisponible (rien n'est appliqué en partie). Personne ou charge seules : la ligne,
+ *    sans étape.
+ */
+export function scopePlan(a: Allocation, occ: SlotOccurrence | null, d: SlotDraft, group: boolean): ScopePlan {
+  const shown = occ ? { ...a, startDate: occ.startDate, endDate: occ.endDate } : a;
+  const diff = editPatch(shown, d);
+  if (Object.keys(diff).length === 0) return { patch: {}, occurrencePatch: occ && {}, options: [] };
+  const patch: AllocationEdit = { ...diff };
+  if (occ && diff.startDate !== undefined) patch.startDate = addDays(a.startDate, dayNumber(diff.startDate) - dayNumber(occ.startDate));
+  if (occ && diff.endDate !== undefined) patch.endDate = addDays(a.endDate, dayNumber(diff.endDate) - dayNumber(occ.endDate));
+  const options: ScopeOption[] = [];
+  if (occ) {
+    const split = localSplit(a, occ.index, diff, (n) => `scope-${n}`);
+    const blocked: ScopeBlocker | null = split.ok ? null : split.reason === "overlapping" || split.reason === "monthly_clamped" ? split.reason : "other";
+    options.push({ scope: "occurrence", blocked }, { scope: "series", blocked: null });
+  }
+  const common = Object.keys(diff).some((k) => !(PER_LINE as readonly string[]).includes(k));
+  if (a.groupId !== null && group && common) {
+    if (!occ) options.push({ scope: "line", blocked: null });
+    options.push({ scope: "group", blocked: PER_LINE.some((k) => diff[k] !== undefined) ? "per_line" : null });
+  }
+  return { patch, occurrencePatch: occ ? diff : null, options };
 }
 
 export type CreateRequestBody = { kind: "one"; body: AllocationCreate } | { kind: "group"; body: AllocationGroupCreate };

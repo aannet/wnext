@@ -10,22 +10,32 @@
 //    avec la personne et la plage du créneau. Ouvert directement (touche C, bouton, congé cliqué), la pop-in s'y place.
 //  * Onglets APG : role tablist, flèches gauche / droite (activation automatique), Début / Fin. Pas d'onglets pour un congé
 //    existant ni pendant l'avertissement BR-04.
+//  * Portée (RT-042, PO-08) : une série s'ouvre sur l'occurrence cliquée (ses dates). À l'enregistrement, une étape du
+//    drawer demande « Cette occurrence » (découpe BR-25, non annulable : annoncé) ou « Toute la série » (dates décalées
+//    d'autant) ; une ligne de groupe (BR-26), « Cette ligne » ou « Tout le groupe » (PATCH de groupe, annulable ligne par
+//    ligne ; indisponible, avec la raison, si la personne ou la charge change aussi). Rien qui dépende de la portée : pas
+//    d'étape. Radio choisi focalisé à l'entrée ; Échap ou Retour revient au formulaire.
 //  * Échap, clic sur le voile ou Annuler : rien n'est écrit ; l'appelant retire le bloc provisoire et rend le focus
 //    (onClosed). Dans l'avertissement ou l'assistant BR-04, Échap revient d'une étape sans question.
+//  * La couleur du projet (RT-018) est une écriture du projet, hors de l'historique d'annulation (Ctrl+Z) du Planning.
 import type { I18n } from "@lingui/core";
 import type { Me, ProjectDetail, ProjectTask, ScheduleResponse } from "@wnext/contracts";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AllocationCreate } from "../api/client.gen";
-import type { Allocation, ScheduleEditor } from "../data/allocation-edits";
+import { patched, type Allocation, type ScheduleEditor } from "../data/allocation-edits";
 import type { ProjectsResult, ProjectPatchInput } from "../data/projects-source";
 import { groupMembers } from "../data/record-edits";
 import type { GroupOutcome, ScheduleSource } from "../data/schedule-source";
-import { Button, Drawer, Tabs, TabsContent, TabsList, TabsTrigger } from "../design";
+import { Button, Drawer, RadioGroup, RadioItem, Tabs, TabsContent, TabsList, TabsTrigger } from "../design";
 import type { MessageKey } from "../i18n";
 import { scheduleProjectOf } from "../projects/projects-model";
-import type { FocusTarget } from "./edits-ui";
+import { editWarnings } from "./edit-warnings";
+import { writeWarnings, type FocusTarget } from "./edits-ui";
 import type { History } from "./history";
-import { canWriteProject, createBody, createDraft, editDraft, editPatch, projectOptions, slotErrorKey, slotIssues, slotOverloads, type SlotDraft } from "./slot-model";
+import {
+  canWriteProject, createBody, createDraft, editDraft, occurrenceOf, projectOptions, scopePlan, slotErrorKey, slotIssues, slotOverloads,
+  type ScopePlan, type SlotDraft, type SlotOccurrence, type SlotScope,
+} from "./slot-model";
 import { SlotForm } from "./slot-form";
 import { useTimeoffEdits } from "./timeoff-ui";
 
@@ -37,7 +47,7 @@ export interface SlotCatalog {
 }
 
 export type SlotRecords = Pick<ScheduleSource, "getState" | "updateAllocation" | "splitOccurrence" | "createTimeoff" | "updateTimeoff" | "deleteTimeoff"
-  | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "projectChanged">>
+  | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "projectChanged" | "updateAllocationGroup">>
   & { createAllocationGroup?(body: Parameters<ScheduleSource["createAllocationGroup"]>[0]): Promise<GroupOutcome> };
 
 export interface SlotEditorOptions {
@@ -57,11 +67,20 @@ export interface SlotEditorOptions {
 }
 
 type Tab = "allocation" | "timeoff";
-/** `initial` : brouillon à l'ouverture, repère du formulaire modifié (Q7). */
-interface State { tab: Tab; draft: SlotDraft; initial: SlotDraft; key: string | null; draftId: number | null; error: string | null; tried: boolean; color: string | null }
+/** Étape de portée (RT-042) : plan des écritures et choix courant. */
+interface ScopeStep { plan: ScopePlan; value: SlotScope }
+/**
+ * `initial` : brouillon à l'ouverture, repère du formulaire modifié (Q7). `occ` : occurrence ouverte d'une série (null
+ * sinon). `scope` : étape de portée affichée (null : formulaire).
+ */
+interface State {
+  tab: Tab; draft: SlotDraft; initial: SlotDraft; key: string | null; draftId: number | null; error: string | null; tried: boolean; color: string | null;
+  occ: SlotOccurrence | null; scope: ScopeStep | null;
+}
 
 export interface SlotEditor {
-  openEdit(r: { key: string; allocationId: string }): void;
+  /** `occurrence` : rang de l'occurrence d'une série (absent : celui de la clé `allocation:rang`). */
+  openEdit(r: { key: string; allocationId: string; occurrence?: number | null }): void;
   openCreate(r: { personId: string | null; startDate: string; endDate: string; draft: number | null }): void;
   openTimeoffAt(personId: string, date: string): void;
   openTimeoffEdit(id: string): void;
@@ -70,6 +89,9 @@ export interface SlotEditor {
 }
 
 const TABS: readonly Tab[] = ["allocation", "timeoff"];
+
+/** Focus initial de l'étape de portée : le radio choisi (le drawer reste monté, son focus initial ne se rejoue pas). */
+const focusChecked = (el: HTMLElement | null) => { el?.querySelector<HTMLElement>("[role=radio][aria-checked=true]")?.focus({ preventScroll: true }); };
 
 export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   const { i18n, data, records } = o;
@@ -145,19 +167,18 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
     if (!s || !records || busy.current) return;
     const issues = slotIssues(s.draft, current);
     if (issues.length) { show({ ...s, tried: true }); return; }
+    if (current) {
+      const plan = scopePlan(current, s.occ, s.draft, writer().updateAllocationGroup !== undefined);
+      const first = plan.options.find((x) => x.blocked === null);
+      if (first) show({ ...s, scope: { plan, value: first.scope } });
+      else if (Object.keys(plan.patch).length === 0) finish();
+      else await write(s, current, plan, s.occ ? "series" : "line");
+      return;
+    }
     const overloads = slotOverloads(records.getState().data ?? data, s.draft, current);
     const warning = overloads.length ? [t("schedule.slot.overload", { people: overloads.map(nameOf).join(", "), count: overloads.length })] : [];
     busy.current = true;
     try {
-      if (current) {
-        const patch = editPatch(current, s.draft);
-        if (Object.keys(patch).length === 0) { finish(); return; }
-        const out = await (o.editor ?? records).updateAllocation(current.id, patch);
-        if (!out.ok) { show({ ...s, error: t(slotErrorKey(out.error)) }); return; }
-        optsRef.current.announce([t("schedule.slot.saved"), ...warning].join(" "));
-        finish({ personId: s.draft.personIds[0]!, startDate: s.draft.startDate, endDate: s.draft.endDate });
-        return;
-      }
       const req = createBody(s.draft);
       let created: { id: string; body: AllocationCreate }[];
       if (req.kind === "one") {
@@ -176,6 +197,80 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
     } finally {
       busy.current = false;
     }
+  }
+
+  const writer = () => (o.editor ?? records)!;
+
+  /** Écriture d'une édition à la portée choisie ; refus : retour au formulaire avec le message traduit. */
+  async function write(s: State, a: Allocation, plan: ScopePlan, scope: SlotScope) {
+    if (busy.current || !records) return;
+    busy.current = true;
+    try {
+      const w = writer();
+      const state = records.getState().data ?? data;
+      const lines = scope === "group" ? state.allocations.filter((x) => x.groupId === a.groupId) : [];
+      const out = scope === "occurrence" ? await w.splitOccurrence(a.id, s.occ!.index, plan.occurrencePatch ?? {})
+        : scope === "group" ? await w.updateAllocationGroup!(a.id, plan.patch)
+        : await w.updateAllocation(a.id, plan.patch);
+      if (!out.ok) { show({ ...s, scope: null, error: t(slotErrorKey(out.error)) }); return; }
+      // Surcharge (BR-01, signalée) sur l'état d'avant l'écriture, à la portée écrite.
+      const over = scope === "group"
+        ? lines.filter((x) => editWarnings(state, patched(x, plan.patch)).includes("OVERLOAD")).map((x) => x.personId)
+        : writeWarnings(state, { allocation: a, occurrence: s.occ?.index ?? null, patch: plan.patch, occurrencePatch: plan.occurrencePatch }, scope === "occurrence" ? "one" : "all")
+          .includes("OVERLOAD") ? [plan.patch.personId ?? a.personId] : [];
+      const warning = over.length ? [t("schedule.slot.overload", { people: over.map(nameOf).join(", "), count: over.length })] : [];
+      const saved = scope === "occurrence" ? [t("schedule.slot.saved.occurrence"), ...(o.history ? [t("schedule.edit.split.notUndoable")] : [])]
+        : scope === "group" ? [t("schedule.slot.saved.group", { count: lines.length })]
+        : [t("schedule.slot.saved")];
+      optsRef.current.announce([...saved, ...warning].join(" "));
+      finish({ personId: s.draft.personIds[0]!, startDate: s.draft.startDate, endDate: s.draft.endDate });
+    } finally {
+      busy.current = false;
+    }
+  }
+
+  /** Retour de l'étape de portée au formulaire (Échap, Retour) : le focus va au bouton Enregistrer. */
+  const refocus = useRef(false);
+  function back() {
+    const s = stateRef.current;
+    if (!s?.scope) return;
+    refocus.current = true;
+    show({ ...s, scope: null });
+  }
+  useEffect(() => {
+    if (!refocus.current || state?.scope !== null) return;
+    refocus.current = false;
+    document.querySelector<HTMLElement>(`button[form="${ids}-form"]`)?.focus({ preventScroll: true });
+  }, [state?.scope]);
+
+  function renderScope(s: State, step: ScopeStep): { body: ReactNode; footer: ReactNode } {
+    const a = current!;
+    const count = new Set(data.allocations.filter((x) => x.groupId !== null && x.groupId === a.groupId).map((x) => x.personId)).size;
+    const legend = step.plan.options.some((x) => x.scope === "occurrence") ? t("schedule.edit.series.title") : t("schedule.slot.scope.group.title", { count });
+    const body = (
+      <fieldset className="wn-choice">
+        <legend id={`${ids}-scope`}>{legend}</legend>
+        <RadioGroup ref={focusChecked} aria-labelledby={`${ids}-scope`} value={step.value} className="flex flex-col gap-(--space-2)"
+          onValueChange={(v) => setState((x) => x?.scope ? { ...x, scope: { ...x.scope, value: v as SlotScope } } : x)}>
+          {step.plan.options.map((x) => (
+            <div key={x.scope}>
+              <label className="inline-flex items-center gap-2">
+                <RadioItem value={x.scope} disabled={x.blocked !== null} {...(x.blocked ? { "aria-describedby": `${ids}-why-${x.scope}` } : {})} />
+                {t(`schedule.slot.scope.${x.scope}`)}
+              </label>
+              {x.blocked && <p id={`${ids}-why-${x.scope}`} className="wn-muted m-0 ml-6">{t(`schedule.slot.scope.blocked.${x.blocked}`)}</p>}
+            </div>
+          ))}
+        </RadioGroup>
+      </fieldset>
+    );
+    const footer = (
+      <>
+        <Button onClick={back}>{t("schedule.slot.scope.back")}</Button>
+        <Button variant="primary" onClick={() => void write(s, a, step.plan, step.value)}>{t("schedule.slot.scope.confirm")}</Button>
+      </>
+    );
+    return { body, footer };
   }
 
   async function applyColor() {
@@ -224,13 +319,13 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   let element: ReactNode = null;
   if (state) {
     const off = state.tab === "timeoff" ? timeoffs.view : null;
-    const alloc = state.tab === "allocation" ? renderAllocation(state) : null;
+    const alloc = state.tab !== "allocation" ? null : state.scope ? renderScope(state, state.scope) : renderAllocation(state);
     const title = off ? off.title : t(state.draft.allocationId === null ? "schedule.slot.title.create" : "schedule.slot.title.edit");
-    const tabs = state.tab === "allocation" || off?.creating === true;
+    const tabs = (state.tab === "allocation" && state.scope === null) || off?.creating === true;
     const content = off?.body ?? alloc?.body;
     const dirty = state.color !== null || JSON.stringify(state.draft) !== JSON.stringify(state.initial) || off?.dirty === true;
     element = (
-      <Drawer title={title} closeLabel={t("dialog.close")} onClose={() => finish()} {...(off?.nested ? { onEscape: off.back } : {})}
+      <Drawer title={title} closeLabel={t("dialog.close")} onClose={() => finish()} {...(off?.nested ? { onEscape: off.back } : state.scope ? { onEscape: back } : {})}
         unsaved={{ dirty, title: t("dialog.discard.title"), keep: t("dialog.discard.keep"), discard: t("dialog.discard.discard") }}
         className="wn-slot wn-timeoff-dialog" footer={off?.footer ?? alloc?.footer} {...(off?.describedBy ? { describedBy: off.describedBy } : {})}>
         {tabs ? (
@@ -245,14 +340,16 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
     );
   }
 
-  const base = (draft: SlotDraft, tab: Tab, key: string | null, draftId: number | null): State =>
-    ({ tab, draft, initial: draft, key, draftId, error: null, tried: false, color: null });
+  const base = (draft: SlotDraft, tab: Tab, key: string | null, draftId: number | null, occ: SlotOccurrence | null = null): State =>
+    ({ tab, draft, initial: draft, key, draftId, error: null, tried: false, color: null, occ, scope: null });
   return {
     openEdit(r) {
       const a = records && data.allocations.find((x) => x.id === r.allocationId);
       if (!a || stateRef.current?.key === r.key) return;
       timeoffs.reset();
-      show(base(editDraft(a), "allocation", r.key, null));
+      const index = a.repeatState === "none" ? null : r.occurrence ?? Number(r.key.split(":")[1] ?? 0);
+      const occ = index === null ? null : occurrenceOf(a, index);
+      show(base(editDraft(a, occ), "allocation", r.key, null, occ));
     },
     openCreate(r) {
       if (!records) { if (r.draft !== null) optsRef.current.onDraftDone(r.draft); return; }

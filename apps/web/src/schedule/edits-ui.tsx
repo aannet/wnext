@@ -5,7 +5,7 @@ import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import type { GestureBlock } from "@wnext/engine";
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { localSplit, patched, type Allocation, type EditError, type EditOutcome, type ScheduleEditor } from "../data/allocation-edits";
+import { localSplit, patched, type Allocation, type AllocationEdit, type EditError, type EditOutcome, type ScheduleEditor } from "../data/allocation-edits";
 import { Button, Modal, Popover, type Rect } from "../design";
 import type { MessageKey } from "../i18n";
 import type { EditRequest } from "./block-editor";
@@ -30,7 +30,9 @@ interface Choice { req: EditRequest; unsupported: string | null; done?(): void }
  * (avant / après) qui remplace l'allocation d'origine pour la surcharge. Découpe refusée : aucun avertissement (l'écriture
  * échouera aussi).
  */
-export function writeWarnings(s: ScheduleResponse, req: EditRequest, kind: "one" | "all"): EditWarning[] {
+export function writeWarnings(
+  s: ScheduleResponse, req: Pick<EditRequest, "allocation" | "occurrence"> & { patch: AllocationEdit; occurrencePatch: AllocationEdit | null }, kind: "one" | "all",
+): EditWarning[] {
   if (kind === "all" || req.occurrence === null) return editWarnings(s, patched(req.allocation, req.patch));
   const local = localSplit(req.allocation, req.occurrence, req.occurrencePatch ?? {}, (n) => `${req.allocation.id}:split-${n}`);
   if (!local.ok) return [];
