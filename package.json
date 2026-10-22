@@ -33,6 +33,7 @@
     "test:schemathesis": "node tests/schemathesis/run.mjs",
     "test:browser": "playwright test -c tests/browser/playwright.config.ts",
     "test:browser:oidc": "playwright test -c tests/browser/playwright.oidc.config.ts",
+    "test:recette": "playwright test -c tests/browser/playwright.recette.config.ts",
     "bench:browser": "node tests/browser/bench.mjs",
     "scan": "node scripts/scan/scan.mjs",
     "load:realtime": "node tests/load/run.mjs",

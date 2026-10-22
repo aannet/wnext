@@ -9,6 +9,7 @@ export const PORT = Number(process.env.WNEXT_BROWSER_PORT ?? 5183);
 export default defineConfig({
   testDir: fileURLToPath(new URL(".", import.meta.url)),
   testMatch: "*.spec.ts",
+  testIgnore: "recette.spec.ts", // la pré-recette vise la vraie pile : playwright.recette.config.ts
   outputDir: fileURLToPath(new URL("./out/results", import.meta.url)),
   workers: 1,
   fullyParallel: false,
