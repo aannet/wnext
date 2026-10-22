@@ -31,6 +31,8 @@ import { buildGrid, visibleRows, type GridBlock, type GridCap, type GridGauge, t
 /** Largeur de la colonne des personnes (gouttière collée à gauche : avatar, nom, rôle, département, jauge ; ux-ui §2.1). */
 export const GUTTER_PX = 240;
 export const HEADER_PX = 32;
+/** Durée de la mise en évidence d'une ligne retrouvée par la recherche (RT-038). */
+export const HIGHLIGHT_MS = 2400;
 /** Pas de la fenêtre horizontale rendue (et marge de chaque côté de la vue). */
 export const QUANTUM_PX = 256;
 /** Défilement clavier (flèches) : une unité d'en-tête. */
@@ -92,6 +94,11 @@ export interface Scroller {
   density(): Density;
   /** Nouvelles hauteurs de ligne ; la personne en haut de la vue y reste. */
   setDensity(d: Density): void;
+  /**
+   * Amène la ligne d'une personne dans la vue (défilement vertical seul, rien si elle est déjà entièrement visible) et la met en
+   * évidence quelques secondes. False si elle n'est pas dans le modèle (écartée par les filtres) : rien ne bouge.
+   */
+  revealPerson(personId: string): boolean;
   resize(widthPx: number, heightPx: number): void;
   today(): void;
   step(dir: -1 | 1): void;
@@ -150,6 +157,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
   let idlePending = false;
   let anim: { c0: number; c1: number; t0: number } | null = null;
   let timer: unknown = null;
+  let highlightTimer: unknown = null;
   let latest: Viewport | null = null;
   let headerKey = "";
   let labels = new Map<string, string>();
@@ -355,6 +363,20 @@ export function createScroller(o: ScrollerOptions): Scroller {
       if (next) root.scrollTop = Math.round(next.top + frac * next.heightPx);
       paint(root.scrollLeft);
     },
+    revealPerson(personId) {
+      const row = model?.rows.find((r) => r.personId === personId);
+      if (!row) return false;
+      // La surface commence sous l'en-tête de dates : la ligne est entièrement visible entre scrollTop et scrollTop + hauteur.
+      const y = root.scrollTop;
+      const visible = row.top >= y && HEADER_PX + row.top + row.heightPx <= y + heightPx;
+      if (!visible) root.scrollTop = Math.max(0, Math.round(row.top + (row.heightPx - (heightPx - HEADER_PX)) / 2));
+      grid.setHighlight(personId);
+      if (highlightTimer !== null) clock.clearTimer(highlightTimer);
+      highlightTimer = clock.setTimer(() => { highlightTimer = null; if (!destroyed) grid.setHighlight(null); }, HIGHLIGHT_MS);
+      paint(root.scrollLeft);
+      schedule();
+      return true;
+    },
     today: () => animateTo(dayNumber(today) + 0.5),
     step(dir) {
       const base = anim ? viewFor(anim.c1) : current();
@@ -391,6 +413,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
       destroyed = true;
       if (frameId) clock.caf(frameId);
       if (timer !== null) clock.clearTimer(timer);
+      if (highlightTimer !== null) clock.clearTimer(highlightTimer);
       root.removeEventListener("scroll", onScroll);
       root.removeEventListener("wheel", stopAnim);
       root.removeEventListener("pointerdown", stopAnim);

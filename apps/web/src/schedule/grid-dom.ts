@@ -35,6 +35,8 @@ interface HeadEl {
 interface RowEl {
   el: HTMLDivElement; header: HTMLDivElement; head: HeadEl; index: number; model: GridModel | null; span: string; blocks: Map<string, BlockEl>; caps: Map<string, CapEl>;
   offs: Map<string, OffEl>; top: number; h: number;
+  /** Personne de la ligne (data-person) et mise en évidence écrite. */
+  person: string; lit: boolean;
   /** Fond hachuré des jours non travaillés et dernière valeur écrite. */
   nonWork: HTMLDivElement; nonWorkBg: string;
 }
@@ -45,6 +47,8 @@ export interface Horizontal { surfaceWidth: number; originX: number; left: numbe
 export interface GridRenderer {
   /** `period` : jours visibles, période de la jauge par personne (absente : toute la tranche du modèle). */
   render(model: GridModel, scrollTop: number, viewHeight: number, h?: Horizontal, period?: { from: string; to: string }): void;
+  /** Met une ligne en évidence (attribut data-highlight, aussi sur une ligne dessinée plus tard) ; null l'éteint. */
+  setHighlight(personId: string | null): void;
   /** Bloc affiché qui contient `target` (ou l'une de ses poignées), avec sa ligne ; null hors bloc. */
   blockAt(target: EventTarget | null): { block: GridBlock; row: GridRow; el: HTMLElement } | null;
   /** Congé affiché qui contient `target`, avec sa ligne ; null hors congé. */
@@ -123,6 +127,7 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
   let blocksCreated = 0;
   let capsCreated = 0;
   let size = "";
+  let highlighted: string | null = null;
 
   const takeRow = (): RowEl => {
     const r = freeRows.pop();
@@ -153,7 +158,7 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     el.appendChild(nonWork);
     surface.appendChild(el);
     const head: HeadEl = { avatar, name, role, dept, gauge, fill, value, v: {}, g: {}, key: "", model: null };
-    return { el, header, head, index: -1, model: null, span: "", blocks: new Map(), caps: new Map(), offs: new Map(), top: NaN, h: NaN, nonWork, nonWorkBg: "" };
+    return { el, header, head, index: -1, model: null, span: "", blocks: new Map(), caps: new Map(), offs: new Map(), top: NaN, h: NaN, nonWork, nonWorkBg: "", person: "", lit: false };
   };
   const releaseRow = (r: RowEl) => {
     for (const b of r.blocks.values()) releaseBlock(b);
@@ -313,6 +318,12 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     b.v = { ...g, x };
   };
 
+  const light = (r: RowEl) => {
+    const on = highlighted !== null && r.person === highlighted;
+    if (on === r.lit) return;
+    r.lit = on;
+    r.el.toggleAttribute("data-highlight", on);
+  };
   const bindRow = (r: RowEl, model: GridModel, index: number, h: Horizontal) => {
     const span = `${h.originX}:${h.left}:${h.right}`;
     if (r.model === model && r.index === index && r.span === span) return;
@@ -322,6 +333,8 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     r.span = span;
     if (r.top !== row.top) { r.el.style.transform = `translateY(${row.top}px)`; r.top = row.top; }
     if (r.h !== row.heightPx) { r.el.style.height = `${row.heightPx}px`; r.h = row.heightPx; }
+    if (r.person !== row.personId) { r.person = row.personId; r.el.setAttribute("data-person", row.personId); }
+    light(r);
     const hv = r.head.v;
     if (hv.name !== row.name) { r.head.name.data = row.name; hv.name = row.name; }
     if (hv.initials !== row.initials) { r.head.avatar.textContent = row.initials; hv.initials = row.initials; }
@@ -395,6 +408,10 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
         bindRow(r, model, i, h);
         bindGauge(r, model, period ?? model);
       }
+    },
+    setHighlight(personId) {
+      highlighted = personId;
+      for (const r of active.values()) light(r);
     },
     blockAt(target) {
       const el = target instanceof Element ? target.closest(".wn-block") : null;

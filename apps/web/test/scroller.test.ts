@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { createClient, type FetchResponse } from "../src/api/client.gen";
 import { createScheduleSource } from "../src/data/schedule-source";
 import { buildGrid } from "../src/schedule/grid-model";
-import { GUTTER_PX, createScroller, type Clock, type ScrollerOptions } from "../src/schedule/scroller";
+import { GUTTER_PX, HEADER_PX, HIGHLIGHT_MS, createScroller, type Clock, type ScrollerOptions } from "../src/schedule/scroller";
 
 const TODAY = "2026-10-20";
 const DAY = DEFAULT_PX_PER_DAY.day;
@@ -334,5 +334,56 @@ describe("navigation", () => {
     h.s.destroy();
     expect(h.root.childElementCount).toBe(0);
     expect(h.m.pendingFrames()).toBe(0);
+  });
+});
+
+describe("revealPerson (palette de recherche, RT-038)", () => {
+  const rowOf = (h: ReturnType<typeof setup>, id: string) => h.root.querySelector<HTMLElement>(`.wn-row[data-person="${id}"]`);
+
+  it("personne lointaine : le défilement vertical l'amène dans la vue, sa ligne est dessinée et mise en évidence", () => {
+    const h = setup();
+    expect(rowOf(h, "55")).toBeNull();
+    expect(h.s.revealPerson("55")).toBe(true);
+    const row = h.s.host.model()!.rows.find((r) => r.personId === "55")!;
+    // La ligne est entièrement sous l'en-tête de dates et dans la fenêtre.
+    expect(h.root.scrollTop).toBeLessThanOrEqual(row.top);
+    expect(h.root.scrollTop + 480).toBeGreaterThanOrEqual(HEADER_PX + row.top + row.heightPx);
+    const el = rowOf(h, "55");
+    expect(el).not.toBeNull();
+    expect(el!.hasAttribute("data-highlight")).toBe(true);
+    expect(h.root.querySelectorAll(".wn-row[data-highlight]")).toHaveLength(1);
+  });
+
+  it("le défilement horizontal ne bouge pas, la mise en évidence s'éteint seule", () => {
+    const h = setup();
+    const left = h.root.scrollLeft;
+    h.s.revealPerson("40");
+    expect(h.root.scrollLeft).toBe(left);
+    h.m.frame(HIGHLIGHT_MS + 50);
+    expect(h.root.querySelectorAll(".wn-row[data-highlight]")).toHaveLength(0);
+  });
+
+  it("ligne déjà visible : la vue ne bouge pas, la ligne est quand même mise en évidence", () => {
+    const h = setup();
+    expect(h.s.revealPerson("2")).toBe(true);
+    expect(h.root.scrollTop).toBe(0);
+    expect(rowOf(h, "2")!.hasAttribute("data-highlight")).toBe(true);
+  });
+
+  it("personne absente du modèle (écartée par les filtres) : false, rien ne bouge ni ne s'allume", () => {
+    const h = setup();
+    expect(h.s.revealPerson("999")).toBe(false);
+    expect(h.root.scrollTop).toBe(0);
+    expect(h.root.querySelectorAll(".wn-row[data-highlight]")).toHaveLength(0);
+  });
+
+  it("une deuxième recherche déplace la mise en évidence ; recycler la ligne ne la laisse pas sur une autre personne", () => {
+    const h = setup();
+    h.s.revealPerson("55");
+    h.s.revealPerson("3");
+    const lit = [...h.root.querySelectorAll<HTMLElement>(".wn-row[data-highlight]")].map((e) => e.dataset.person);
+    expect(lit).toEqual(["3"]);
+    h.scrollTo(h.root.scrollLeft, 1500);
+    for (const e of h.root.querySelectorAll<HTMLElement>(".wn-row[data-highlight]")) expect(e.dataset.person).toBe("3");
   });
 });

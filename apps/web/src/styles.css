@@ -55,6 +55,12 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-schedule > .wn-grid { flex: 1; min-height: 0; overflow: auto; }
 .wn-grid { position: relative; border: 1px solid var(--border); }
 .wn-row { contain: strict; border-bottom: 1px solid var(--color-border-subtle); }
+/* Ligne retrouvée par la recherche (RT-038) : teinte d'accent et filet, retirés par le défilement après quelques secondes ; l'éclat
+   (animation) n'existe que si le mouvement est permis, sinon la teinte fixe suffit. */
+.wn-row[data-highlight] { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 0 0 0 2px var(--accent); }
+.wn-row[data-highlight] .wn-rowheader { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+@media (prefers-reduced-motion: no-preference) { .wn-row[data-highlight] { animation: wn-row-flash 1.2s ease-out; } }
+@keyframes wn-row-flash { from { background: color-mix(in srgb, var(--accent) 35%, transparent); } }
 /* Densité (RT-005, RT-006 ; schedule/density.ts pour les hauteurs) : tailles de la colonne de gauche et des blocs, sur
    l'échelle typographique des tokens. Compacte = l'écran d'avant le réglage ; aérée : tout grossit, pas seulement la ligne. */
 .wn-schedule, .wn-grid { --wn-avatar: 24px; --wn-name-size: var(--text-body); --wn-meta-size: var(--text-caption); --wn-gauge-h: 4px; --wn-block-size: var(--text-label); --wn-head-pad: 6px; }
