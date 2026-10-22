@@ -8,7 +8,7 @@ import type { I18n } from "@lingui/core";
 import type { Notification, NotificationType } from "@wnext/contracts";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { NotificationsSource } from "../data/notifications-source";
-import { Button, Popover } from "../design";
+import { Button, PopoverPanel, PopoverTrigger } from "../design";
 import type { MessageKey } from "../i18n";
 
 const TYPES: readonly NotificationType[] = ["allocation_changed", "timeoff_decided", "edit_conflict"];
@@ -25,24 +25,24 @@ export function notificationText(i18n: I18n, n: Notification, day: (iso: string)
   return { title, details: parts.join(" · ") };
 }
 
-export function NotificationBell({ i18n, source, open, onToggle, buttonRef }: {
-  i18n: I18n; source: NotificationsSource; open: boolean; onToggle(): void; buttonRef: React.RefObject<HTMLButtonElement | null>;
+export function NotificationBell({ i18n, source, buttonRef }: {
+  i18n: I18n; source: NotificationsSource; buttonRef: React.RefObject<HTMLButtonElement | null>;
 }) {
   const state = useSyncExternalStore(source.subscribe, source.getState);
   useEffect(() => { void source.refresh(); }, [source]);
   const count = state.unreadCount;
   return (
     <>
-      <button ref={buttonRef} type="button" className="wn-notifications-open" aria-expanded={open} aria-controls="wn-notifications-panel" onClick={onToggle}>
+      <PopoverTrigger ref={buttonRef} className="wn-notifications-open">
         {i18n._("notifications.open")}
         {count > 0 && <span className="wn-badge" aria-hidden="true">{count > 99 ? "99+" : count}</span>}
-      </button>
+      </PopoverTrigger>
       <span className="wn-visually-hidden" aria-live="polite" data-testid="notifications-live">{i18n._("notifications.badge", { count })}</span>
     </>
   );
 }
 
-export function NotificationsPanel({ i18n, source, anchor, onClose }: { i18n: I18n; source: NotificationsSource; anchor: HTMLElement; onClose(): void }) {
+export function NotificationsPanel({ i18n, source, onClose }: { i18n: I18n; source: NotificationsSource; onClose(): void }) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const state = useSyncExternalStore(source.subscribe, source.getState);
   const [busy, setBusy] = useState(false);
@@ -53,7 +53,7 @@ export function NotificationsPanel({ i18n, source, anchor, onClose }: { i18n: I1
   const run = async (fn: () => Promise<void>) => { setBusy(true); try { await fn(); } finally { setBusy(false); } };
 
   return (
-    <Popover id="wn-notifications-panel" className="wn-notifications" anchor={anchor} labelledBy="wn-notifications-title" busy={busy} onClose={onClose}>
+    <PopoverPanel id="wn-notifications-panel" className="wn-notifications" labelledBy="wn-notifications-title" busy={busy}>
       <h2 id="wn-notifications-title" tabIndex={-1} ref={title}>{t("notifications.title")}</h2>
       {state.error && <p role="alert" className="wn-dialog-error">{t("notifications.error")}</p>}
       {state.loaded && state.items.length === 0 && <p>{t("notifications.empty")}</p>}
@@ -94,6 +94,6 @@ export function NotificationsPanel({ i18n, source, anchor, onClose }: { i18n: I1
           })}
         </fieldset>
       )}
-    </Popover>
+    </PopoverPanel>
   );
 }

@@ -78,7 +78,7 @@ describe("en-tête applicatif", () => {
     expect(host.querySelector("main h1")!.textContent).toBe("Page introuvable");
   });
 
-  it("menu utilisateur : avatar seul sans session ; avec onLogout, bouton de menu, Déconnexion, Échap rend le focus", () => {
+  it("menu utilisateur : avatar seul sans session ; avec onLogout, bouton de menu, Déconnexion, Échap rend le focus", async () => {
     mount({});
     expect(host.querySelector(".wn-avatar-button")).toBeNull();
     act(() => root!.unmount()); host.remove();
@@ -89,15 +89,16 @@ describe("en-tête applicatif", () => {
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     click(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
-    const item = host.querySelector<HTMLElement>("[role=menu] [role=menuitem]")!;
+    const item = document.querySelector<HTMLElement>("[role=menu] [role=menuitem]")!; // le menu est dans un portail (Base UI)
     expect(item.textContent).toBe("Déconnexion");
     expect(document.activeElement).toBe(item);
-    expect(host.querySelector(".wn-user-identity")!.textContent).toContain("alec@wnext.test");
+    expect(document.querySelector("[role=menu]")!.textContent).toContain("alec@wnext.test");
     act(() => { item.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
-    expect(host.querySelector("[role=menu]")).toBeNull();
+    expect(document.querySelector("[role=menu]")).toBeNull();
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); }); // Base UI rend le focus après la fermeture
     expect(document.activeElement).toBe(trigger);
     click(trigger);
-    click(host.querySelector("[role=menuitem]"));
+    click(document.querySelector("[role=menuitem]"));
     expect(onLogout).toHaveBeenCalledTimes(1);
   });
 });

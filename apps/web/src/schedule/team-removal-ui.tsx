@@ -11,6 +11,7 @@ import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { EditError } from "../data/allocation-edits";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "../design";
 import { confirmationOf, type RemovalSummary, type TeamRemovalEditor } from "../data/team-removal";
 import type { MessageKey } from "../i18n";
 import { TeamRemovalDialog } from "../team/team-removal-dialog";
@@ -69,16 +70,6 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
     return () => { document.removeEventListener("contextmenu", onMenu); document.removeEventListener("keydown", onKey); };
   }, [editor, gridRef]);
 
-  // Menu ouvert : un appui ailleurs le ferme (sans voler le focus).
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuOpen = step?.kind === "menu";
-  useEffect(() => {
-    if (!menuOpen) return;
-    const away = (e: PointerEvent) => { if (!(e.target instanceof Node && menuRef.current?.contains(e.target))) setStep(null); };
-    document.addEventListener("pointerdown", away, true);
-    return () => document.removeEventListener("pointerdown", away, true);
-  }, [menuOpen]);
-
   /** Ferme et rend le focus au bloc (encore là) ou à la grille. */
   const close = (key?: string) => {
     setStep(null);
@@ -125,12 +116,16 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
   if (step?.kind === "menu") {
     const { target } = step;
     element = (
-      <div ref={menuRef} role="menu" aria-label={t("schedule.removal.menu.label")} className="wn-menu" style={{ position: "fixed", left: step.x, top: step.y }}
-        onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); close(target.key); } }}>
-        <button type="button" role="menuitem" autoFocus onClick={() => void openDialog(target)}>
-          {t("schedule.removal.menu.item", names(target))}
-        </button>
-      </div>
+      <DropdownMenu open onOpenChange={(open, details) => {
+        if (open || details.reason === "item-press") return;
+        if (details.reason === "outside-press") setStep(null); // sans voler le focus
+        else close(target.key);
+      }}>
+        <DropdownMenuContent point={{ x: step.x, y: step.y }} align="start" aria-label={t("schedule.removal.menu.label")}
+          onKeyDown={(e) => { if (e.key === "Tab") { e.preventDefault(); close(target.key); } }}>
+          <DropdownMenuItem onClick={() => void openDialog(target)}>{t("schedule.removal.menu.item", names(target))}</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   } else if (step?.kind === "dialog") {
     const { target, summary } = step;
