@@ -87,4 +87,59 @@ describe("Planning après écriture du compte (accountChanged)", () => {
     expect(urls.length).toBeGreaterThan(loaded);
     expect(src.getState().data!.account).toEqual(next);
   });
+
+  /** Fetch du Schedule dont chaque réponse attend qu'on la libère, avec le compte voulu. */
+  function deferred() {
+    const pending: Array<(account: ScheduleResponse["account"]) => void> = [];
+    const fetch = (url: string) => new Promise<FetchResponse>((res) => {
+      const q = new URL(url, "http://x").searchParams;
+      pending.push((account) => res({ status: 200, json: async () => ({
+        window: { from: q.get("from")!, to: q.get("to")! }, changeCursor: "5", page: { nextCursor: null, total: 0 }, account,
+        people: [], allocations: [], timeoffs: [], holidays: [], projects: [], timeoffTypes: [], departments: [], roles: [],
+      } satisfies ScheduleResponse) }));
+    });
+    const src = createScheduleSource({ api: createClient({ baseUrl: "", fetch }) });
+    src.setViewport(viewAt("2026-10-19", "day", 960));
+    return { src, pending };
+  }
+  const old: ScheduleResponse["account"] = { weekStart: 1, capacityThresholds: { underPercent: 80 }, timezone: "Europe/Paris" };
+
+  it("API : une réponse /schedule partie avant l'écriture et arrivée après n'écrase pas les nouveaux réglages ni ne repeuple le cache", async () => {
+    const { src, pending } = deferred();
+    src.start();
+    await flush();
+    pending.shift()!(old); // premier chargement
+    await flush();
+    src.setViewport(viewAt("2027-03-01", "day", 960)); // un bloc en vol, parti avant l'écriture
+    await flush();
+    expect(pending.length).toBe(1);
+    const late = pending.shift()!;
+    src.accountChanged!(next);
+    expect(src.getState().data!.account).toEqual(next);
+    await flush();
+    expect(pending.length).toBe(1); // relecture du visible relancée
+    late(old);
+    await flush();
+    expect(src.getState().data!.account).toEqual(next);
+    pending.shift()!(next);
+    await flush();
+    expect(src.getState().data!.account).toEqual(next);
+    expect(src.getState().loading).toBe(false);
+  });
+
+  it("API : même sans compte encore chargé, la première réponse en vol est écartée et la vue relue", async () => {
+    const { src, pending } = deferred();
+    src.start();
+    await flush();
+    const first = pending.shift()!;
+    src.accountChanged!(next);
+    await flush();
+    expect(pending.length).toBe(1);
+    first(old);
+    await flush();
+    expect(src.getState().data).toBeNull();
+    pending.shift()!(next);
+    await flush();
+    expect(src.getState().data!.account).toEqual(next);
+  });
 });

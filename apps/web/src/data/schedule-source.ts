@@ -88,7 +88,8 @@ export interface ScheduleSource extends ScheduleEditor, RecordEditor, TeamRemova
   directoryRemoved?(kind: "people" | "departments" | "roles" | "timeoff_types" | "holidays", id: string): void;
   /**
    * Réglages du compte écrits (Réglages > Compte, RT-041 ; pas de temps réel pour le compte) : semaine, seuil et fuseau appliqués
-   * tout de suite ; sur l'API, les blocs chargés sont aussi oubliés pour que le Schedule soit relu (au retour sur le Planning).
+   * tout de suite ; sur l'API, les requêtes en vol sont écartées et les blocs chargés oubliés, pour que le Schedule soit relu
+   * (tout de suite si le Planning est affiché, sinon à son retour).
    */
   accountChanged?(account: ScheduleResponse["account"]): void;
   /** Démo seulement : désactivation d'une personne (BR-31), allocations futures réaffectées ou supprimées. */
@@ -552,9 +553,13 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
       refresh();
     },
     accountChanged(account) {
-      if (!store.account) return;
-      store = { ...store, account };
-      refresh();
+      // Les réponses parties avant l'écriture portent l'ancien compte : nouvelle époque, elles sont ignorées à l'arrivée.
+      epoch++;
+      inflight = new Map();
+      if (store.account) {
+        store = { ...store, account };
+        refresh();
+      }
       store = { ...store, windows: new Set() };
       if (started) quiet(load(false));
     },
