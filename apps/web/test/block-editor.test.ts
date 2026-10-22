@@ -6,7 +6,7 @@ import type { ScheduleResponse } from "@wnext/contracts";
 import { DEFAULT_PX_PER_DAY, HOURS_STEP, addDays } from "@wnext/engine";
 import { describe, expect, it } from "vitest";
 import { patched } from "../src/data/allocation-edits";
-import { createBlockEditor, type EditRequest } from "../src/schedule/block-editor";
+import { createBlockEditor, type BlockEditorOptions, type EditRequest } from "../src/schedule/block-editor";
 import { DENSITY_METRICS, type Density } from "../src/schedule/density";
 import { CAP_PX, ROW_UNIT_PX } from "../src/schedule/grid-model";
 import { GUTTER_PX, createScroller, type Clock } from "../src/schedule/scroller";
@@ -39,7 +39,7 @@ const BASE = [
   alloc("3", "3", { mode: "percentage", hoursPerDay: null, percent: 50 } as Partial<Alloc>),
 ];
 
-function setup(onCommit: (r: EditRequest) => void | Promise<unknown> = () => {}, schedule?: Record<string, unknown>, density?: Density) {
+function setup(onCommit: (r: EditRequest) => void | Promise<unknown> = () => {}, schedule?: Record<string, unknown>, density?: Density, extra: Partial<BlockEditorOptions> = {}) {
   const root = document.createElement("div");
   document.body.appendChild(root);
   const frames: (() => void)[] = [];
@@ -49,13 +49,13 @@ function setup(onCommit: (r: EditRequest) => void | Promise<unknown> = () => {},
   const commits: EditRequest[] = [];
   const previews: (string | null)[] = [];
   const ed = createBlockEditor({
-    root, host: s.host, clock, onCommit: (r) => { commits.push(r); return onCommit(r); },
+    ...extra, root, host: s.host, clock, onCommit: (r) => { commits.push(r); return onCommit(r); },
     onPreview: (p) => previews.push(p && `${p.draft.personId}:${p.draft.startDate}..${p.draft.endDate}:${p.draft.hoursPerDay ?? p.draft.percent}`),
   });
   const block = (key: string) => root.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`)!;
   const ghost = () => root.querySelector<HTMLElement>(".wn-ghost");
-  const ptr = (type: string, target: EventTarget, x: number, y: number) => {
-    const e = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 });
+  const ptr = (type: string, target: EventTarget, x: number, y: number, mods: MouseEventInit = {}) => {
+    const e = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, ...mods });
     Object.defineProperty(e, "pointerId", { value: 1 });
     target.dispatchEvent(e);
   };
@@ -77,6 +77,25 @@ function setup(onCommit: (r: EditRequest) => void | Promise<unknown> = () => {},
 }
 
 describe("pointeur", () => {
+  it("Alt + glisser (RT-047) : copie à la place du fantôme, le bloc ne bouge pas ; sans Alt ou sans onCopy : déplacement", () => {
+    const copies: string[] = [];
+    const h = setup(() => {}, undefined, undefined, { onCopy: (r) => copies.push(`${r.allocation.id}:${r.key}:${r.draft.personId}:${r.draft.startDate}..${r.draft.endDate}`) });
+    h.ptr("pointerdown", h.block("1:0"), 0, 0, { altKey: true });
+    h.ptr("pointermove", document, 2 * DAY + 10, ROW);
+    h.frame();
+    expect(h.ghost()!.style.display).toBe("");
+    h.ptr("pointerup", document, 2 * DAY + 10, ROW);
+    expect([copies, h.commits.length, h.ghost()!.style.display]).toEqual([["1:1:0:2:2026-10-22..2026-10-23"], 0, "none"]);
+    h.drag(h.block("1:0"), DAY, 0);
+    expect([copies.length, h.commits.length]).toEqual([1, 1]);
+    const plain = setup();
+    plain.ptr("pointerdown", plain.block("1:0"), 0, 0, { altKey: true });
+    plain.ptr("pointermove", document, DAY, 0);
+    plain.frame();
+    plain.ptr("pointerup", document, DAY, 0);
+    expect(plain.commits.map((c) => c.patch)).toEqual([{ startDate: "2026-10-21", endDate: "2026-10-22" }]);
+  });
+
   it("glisser de deux jours : fantôme pendant le geste, patch des dates à la fin", () => {
     const h = setup();
     const b = h.block("1:0");

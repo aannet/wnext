@@ -26,6 +26,8 @@
 //    en-tête, blocs, congés, bande de capacité) : un bloc provisoire (.wn-slot-draft) couvre la plage, puis onCreate ; il reste
 //    affiché jusqu'à clearDraft (pop-in fermée : créée ou annulée). Échap pendant le glisser annule. À la souris (RT-046), la plage
 //    est bornée aux jours visibles (pas de défilement automatique) et relâcher hors de la zone des blocs abandonne la création.
+//  * Alt + glisser à la souris (RT-047, convention Float) : copie au lieu de déplacer ; le bloc reste en place, le fantôme montre
+//    la copie et onCopy reçoit sa place (personne, dates) au lâcher. Sans onCopy, ou au toucher : un déplacement.
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
   applyGesture, dayNumber, expandOccurrences, fromDayNumber, keyGesture, pointerGesture, referenceHours, workDaysHoursOn, type BlockPatch, type Gesture, type GestureBlock,
@@ -83,7 +85,11 @@ export interface BlockEditorOptions {
   onOpen?(r: OpenRequest): void;
   /** Plage d'un bloc provisoire posé en zone libre (RT-015) ; absent : pas de création au pointeur. */
   onCreate?(r: CreateRequest): void;
+  /** Alt + glisser (RT-047) : copie du bloc (de l'occurrence pour une série) à la place du fantôme ; absent : déplacement. */
+  onCopy?(r: CopyRequest): void;
 }
+
+export interface CopyRequest { allocation: Allocation; key: string; draft: GestureBlock }
 
 export interface OpenRequest { key: string; allocationId: string; occurrence: number | null; el: HTMLElement }
 export interface CreateRequest {
@@ -99,6 +105,8 @@ export interface BlockEditor {
   busy(): boolean;
   /** Retire le bloc provisoire `draft` (tous s'il est absent). */
   clearDraft(draft?: number): void;
+  /** Sélectionne le bloc de clé `key` (null : aucun), comme un clic. */
+  select(key: string | null): void;
   destroy(): void;
 }
 
@@ -112,6 +120,8 @@ interface Drag extends Session {
   wasSelected: boolean; el: HTMLElement;
   /** Geste au doigt : un deuxième doigt l'annule (RT-046). */
   touch: boolean;
+  /** Alt + glisser : copie au lieu de déplacer (RT-047). */
+  copy: boolean;
 }
 /** `touch` : création par appui long (RT-043), abandonnée si le doigt sort de la zone des blocs ou si un deuxième doigt se pose. */
 interface Creating { pointerId: number; personId: string; anchor: number; day: number; touch: boolean }
@@ -415,7 +425,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     select(p.hit.block.key);
     p.hit.el.classList.add("wn-armed");
     vibrate();
-    drag = { ...s, kind: "move", pointerId: p.pointerId, x0: p.cx, y0: p.cy, cx: p.cx, cy: p.cy, sd0: host.scrollDay(), st0: root.scrollTop, started: false, wasSelected: false, el: p.hit.el, touch: true };
+    drag = { ...s, kind: "move", pointerId: p.pointerId, x0: p.cx, y0: p.cy, cx: p.cx, cy: p.cy, sd0: host.scrollDay(), st0: root.scrollTop, started: false, wasSelected: false, el: p.hit.el, touch: true, copy: false };
     try { p.hit.el.setPointerCapture?.(p.pointerId); } catch { /* pointeur déjà relâché */ }
   }
   function vibrate() { try { navigator.vibrate?.(15); } catch { /* indisponible */ } }
@@ -480,10 +490,12 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   }
   function beginDrag(e: PointerEvent, hit: Hit, s: Session) {
     const handle = (e.target as Element).closest?.("[data-handle]")?.getAttribute("data-handle");
+    const kind = (handle && KINDS[handle]) || "move";
+    const touch = e.pointerType === "touch";
     drag = {
-      ...s, kind: (handle && KINDS[handle]) || "move", pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY,
+      ...s, kind, pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY,
       sd0: host.scrollDay(), st0: root.scrollTop, started: false, wasSelected: selectedKey === hit.block.key, el: hit.el,
-      touch: e.pointerType === "touch",
+      touch, copy: kind === "move" && !touch && e.altKey && o.onCopy !== undefined,
     };
     try { hit.el.setPointerCapture?.(e.pointerId); } catch { /* pointeur déjà relâché */ }
     listen();
@@ -527,6 +539,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     drag.cy = e.clientY;
     update(drag);
     const d = endDrag()!;
+    if (d.started && d.copy) { hideGhost(); o.onCopy!({ allocation: d.alloc, key: d.key, draft: d.occ }); return; }
     if (d.started) { commit(d, "pointer"); return; }
     // Clic sans glisser (Q5) : sélectionne ; sur un bloc déjà sélectionné, ouvre la pop-in.
     select(d.key);
@@ -636,6 +649,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   return {
     busy: () => drag !== null || pending !== null || kb !== null || creating !== null || frozen,
     clearDraft,
+    select,
     destroy() {
       cancelPending();
       endDrag();
