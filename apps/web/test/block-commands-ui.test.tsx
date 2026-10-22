@@ -41,7 +41,7 @@ const clock: Partial<Clock> = { raf: () => 0, caf: () => {}, now: () => 0, idle:
 const flush = async () => { for (let i = 0; i < 6; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); }); };
 afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; document.body.innerHTML = ""; });
 
-interface Opts { readOnly?: boolean; me?: Pick<Me, "role" | "person">; managers?: Record<string, string>; wrap?(src: ReturnType<typeof createDemoSource>): void }
+interface Opts { readOnly?: boolean; noCatalog?: boolean; me?: Pick<Me, "role" | "person">; managers?: Record<string, string>; wrap?(src: ReturnType<typeof createDemoSource>): void }
 function mount(allocations: Alloc[], o: Opts = {}) {
   const initial = data(allocations);
   const src = createDemoSource(initial);
@@ -57,7 +57,7 @@ function mount(allocations: Alloc[], o: Opts = {}) {
   root = createRoot(host);
   const render = () => act(() => root!.render(
     <ScheduleScreen i18n={createI18n("fr")} data={src.getState().data!} today={TODAY} widthPx={GUTTER_PX + 960} heightPx={480} clock={clock}
-      {...(o.readOnly ? {} : { editor: history.editor, history, records: src, catalog })} {...(o.me ? { me: o.me } : {})} />));
+      {...(o.readOnly ? {} : { editor: history.editor, history, records: src, ...(o.noCatalog ? {} : { catalog }) })} {...(o.me ? { me: o.me } : {})} />));
   render();
   src.subscribe(() => { queueMicrotask(render); });
   const rows = () => src.getState().data!.allocations;
@@ -301,6 +301,30 @@ describe("lecture seule (BR-33)", () => {
     for (const k of [{ key: "Delete" }, { key: "d", ctrlKey: true }, { key: "s" }]) expect((await press(block("a:0"), k)).defaultPrevented).toBe(false);
     rightClick(block("a:0"));
     expect([menu(), dialog(), blocks().length]).toEqual([null, null, 1]);
+  });
+
+  it("chef de projet sans référentiel des projets : droits inconnus, aucune commande (refus par défaut)", async () => {
+    const { rows } = mount([alloc("a")], { me: { role: "project_manager", person: { id: "p9", name: "Moi" } }, noCatalog: true });
+    await flush();
+    block("a:0").focus();
+    expect((await press(block("a:0"), { key: "Delete" })).defaultPrevented).toBe(false);
+    rightClick(block("a:0"));
+    expect([rows().length, menu()]).toEqual([1, null]);
+  });
+
+  it("chef de projet : droits relus quand la liste des projets change (il devient gestionnaire du projet)", async () => {
+    const managers: Record<string, string> = { "2": "p9" };
+    const { src, rows } = mount([alloc("a")], { me: { role: "project_manager", person: { id: "p9", name: "Moi" } }, managers });
+    await flush();
+    block("a:0").focus();
+    await press(block("a:0"), { key: "Delete" });
+    expect(rows()).toHaveLength(1);
+    managers["1"] = "p9";
+    act(() => { src.projectChanged!({ ...src.getState().data!.projects[0]!, version: 2 }); });
+    await flush();
+    block("a:0").focus();
+    await press(block("a:0"), { key: "Delete" });
+    expect(rows()).toHaveLength(0);
   });
 
   it("chef de projet : commandes sur ses projets seulement (ni menu, ni touches, ni boutons du drawer ailleurs)", async () => {

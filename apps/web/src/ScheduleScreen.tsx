@@ -260,21 +260,24 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   const blocksRef = useRef<BlockEditor | null>(null);
   /** Bouton de l'en-tête qui a ouvert le drawer (« Nouveau congé », « + Allocation ») : il retrouve le focus à la fermeture (RT-049). */
   const slotOpener = useRef<HTMLElement | null>(null);
-  // Projets du référentiel pour les droits d'un chef de projet (BR-33) : lus une fois ; tant qu'ils manquent, pas de commande.
+  // Projets du référentiel pour les droits d'un chef de projet (BR-33) : lus au montage et relus quand la liste des projets change
+  // (source temps réel, écran Projets) ; tant qu'ils manquent (ou sans référentiel), aucune commande : refus par défaut.
   const [managed, setManaged] = useState<ProjectDetail[] | null>(null);
   const pm = me?.role === "project_manager" && catalog !== undefined;
   useEffect(() => {
     if (!pm) return;
     let alive = true;
-    void catalog!.listProjects().then((r) => { if (alive && r.ok) setManaged(r.value); });
-    return () => { alive = false; };
+    let seq = 0; // une relecture plus ancienne, arrivée en retard, n'écrase pas la dernière
+    const load = () => { const n = ++seq; void catalog!.listProjects().then((r) => { if (alive && n === seq && r.ok) setManaged(r.value); }); };
+    load();
+    const off = records?.onProjectsChange?.(load);
+    return () => { alive = false; off?.(); };
   }, [pm]);
   /** Commandes d'un bloc permises (RT-047) : écritures fournies et droits sur le projet (BR-33 ; l'API reste juge). */
   const writable = (a: Allocation | undefined): a is Allocation => {
     if (!a || !editor || !records) return false;
     if (!me || me.role === "owner" || me.role === "admin") return true;
     if (me.role !== "project_manager") return false;
-    if (!catalog) return true;
     const p = managed?.find((x) => x.id === a.projectId);
     return p !== undefined && canWriteProject(me, p);
   };
