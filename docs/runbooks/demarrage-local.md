@@ -37,6 +37,30 @@ VITE_AUTH_MODE=oidc npm run dev -w @wnext/web
 
 Les autres comptes du jeu d'essai (`DEV_USERS` de `scripts/dev-seed.mjs`) servent à voir les droits par rôle : **Admin Dev** (admin : Réglages et Importer visibles), **Membre Dev** (member : ni Réglages ni Importer, planning en lecture seule). Le compte Alec est ajouté à chaque démarrage de `dev:stack`, y compris sur une base `.dev-pg/` semée avant ce lot. Le mode par défaut des tests reste `dev` (en-têtes `x-dev-*`, identité `VITE_DEV_*` = Admin Dev) ; `?demo=1` ouvre le planning sans API ni connexion, en tant que « Alec » fictif.
 
+## Recette avec le jeu de données de recette (RT-044)
+
+```
+npm run dev:recette:seed              # = dev:recette --seed=recette ; --reset repart d'une base de recette vide
+npm run dev:stack -- --oidc --seed=recette   # pile seule, sans l'écran
+```
+
+Le seed (`scripts/seed-recette.mjs`) vit dans un répertoire de données **dédié** `.dev-pg-recette/` (ignoré par git) : la base `.dev-pg/` d'Alec n'est jamais lue ni modifiée, et `--reset` ne supprime que le répertoire du profil choisi. Mêmes ports que `dev:recette` (Postgres 54329, API 3000, IdP 3010, Vite 5173) : on ne peut donc pas faire tourner les deux piles en même temps (« le port ... est déjà utilisé »). Le seed est idempotent (relancer ne change rien, les identités OIDC sont complétées) et refuse une base qui contient déjà un autre compte.
+
+Contenu : compte « WNEXT Recette » (lundi, Europe/Paris), 4 équipes, 16 personnes actives + 1 placeholder + 1 désactivée (Karim travaille le samedi, Élodie à temps partiel, Thomas a un horaire daté BR-19 : 4 jours à partir du lundi S+3), 3 clients, 7 projets dont 1 tentatif (`REF-01`, `SITE-01`...), ~70 allocations (heures et %, une série hebdomadaire, un groupe multi-personnes BR-26, sur- et sous-allocations), congés (journée, demi-journée, en attente), un férié France, du temps loggé. Un second compte « Autre Société » sert à l'isolation. Les dates sont relatives au lundi de la semaine du semis (S0).
+
+Comptes de connexion (page de choix de l'IdP local, aucun mot de passe) :
+
+| Nom | Sujet OIDC | E-mail | Rôle | Personne liée | Compte |
+|---|---|---|---|---|---|
+| Alec | `dev-alec` | `alec@wnext.test` | owner | aucune | WNEXT Recette |
+| Admin Recette | `recette-admin` | `admin@wnext.test` | admin | aucune | WNEXT Recette |
+| Camille Roy | `recette-camille` | `camille.roy@wnext.test` | member | Camille Roy | WNEXT Recette |
+| Nadia Benali | `recette-nadia` | `nadia.benali@wnext.test` | project_manager (gère `REF-01`, co-gère `SITE-01`) | Nadia Benali | WNEXT Recette |
+| Invité Recette | `recette-invite` | `invite@wnext.test` | guest | aucune | WNEXT Recette |
+| Admin Autre Société | `recette-autre` | `autre@wnext.test` | admin | aucune | Autre Société |
+
+Les 12 autres personnes actives n'ont aucun accès de connexion (cas RT-040).
+
 ## API seule contre un Postgres existant
 
 ```
