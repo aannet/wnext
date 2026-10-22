@@ -5,10 +5,12 @@
 //    quantité du nouveau mode).
 //  * Changer de projet sans préciser phase et tâche les remet à zéro, comme l'API (resolvePatch).
 //  * « Cette occurrence » (BR-25, décision 10 : découpe, pas d'exceptions) : les trois morceaux de splitSeries du moteur,
-//    l'occurrence et la suite portant des ids temporaires jusqu'à la réponse.
+//    l'occurrence et la suite portant des ids temporaires jusqu'à la réponse. Le patch de l'occurrence porte tous les champs
+//    de la pop-in sauf la répétition (OccurrencePatch du contrat).
+//  * « Tout le groupe » (BR-26, RT-042) : champs communs seulement (AllocationGroupPatch : ni personne ni charge).
 import type { ApiError, ScheduleResponse } from "@wnext/contracts";
 import { SeriesSplitError, splitSeries, type BlockPatch, type GestureBlock, type SeriesSplitCode } from "@wnext/engine";
-import type { AllocationPatch, AllocationSplit } from "../api/client.gen";
+import type { AllocationGroupPatch, AllocationPatch, AllocationSplit } from "../api/client.gen";
 
 export type Allocation = ScheduleResponse["allocations"][number];
 
@@ -21,11 +23,16 @@ export type AllocationEdit = BlockPatch & {
   projectId?: string; phaseId?: string | null; taskId?: string | null; status?: Allocation["status"]; notes?: string | null; mode?: Allocation["mode"];
 };
 
+/** Patch de toutes les lignes d'un groupe : champs communs, sans personne ni charge (propres à chaque ligne). */
+export type AllocationGroupEdit = Omit<AllocationEdit, "personId" | "hoursPerDay" | "percent" | "mode">;
+
 export interface ScheduleEditor {
   /** Modifie l'allocation (ou toute la série) : optimiste, puis PATCH avec la version lue. */
   updateAllocation(id: string, patch: AllocationEdit): Promise<EditOutcome>;
   /** Modifie une seule occurrence (rang `index`) d'une série : découpe en avant / occurrence / après. */
-  splitOccurrence(id: string, index: number, patch: BlockPatch): Promise<EditOutcome>;
+  splitOccurrence(id: string, index: number, patch: AllocationEdit): Promise<EditOutcome>;
+  /** Modifie toutes les lignes du groupe de l'allocation `id` (BR-26) : optimiste, puis PATCH /allocations/{id}/group, If-Match de `id`. */
+  updateAllocationGroup?(id: string, patch: AllocationGroupEdit): Promise<EditOutcome>;
 }
 
 /** Bloc du moteur pour une allocation (ou une occurrence : dates de l'occurrence, sans répétition). */
@@ -55,9 +62,15 @@ export function toApiPatch(p: AllocationEdit): AllocationPatch {
 }
 
 /** Corps de la découpe : la répétition n'est jamais modifiée sur une occurrence isolée (contrat strict). */
-export function toSplitBody(occurrenceDate: string, p: BlockPatch): AllocationSplit {
+export function toSplitBody(occurrenceDate: string, p: AllocationEdit): AllocationSplit {
   const { repeatEndDate: _r, ...rest } = toApiPatch(p);
   return Object.keys(rest).length ? { occurrenceDate, patch: rest } : { occurrenceDate };
+}
+
+/** Corps du PATCH de groupe : les champs communs tels quels (le type écarte déjà personne et charge). */
+export function toGroupBody(p: AllocationGroupEdit): AllocationGroupPatch {
+  const { personId: _p, hoursPerDay: _h, percent: _c, mode: _m, ...rest } = p as AllocationEdit;
+  return rest;
 }
 
 /** Allocation après le patch (même version : l'état optimiste porte encore la version lue). */
@@ -90,7 +103,7 @@ export interface LocalSplit {
 const REASONS: Partial<Record<SeriesSplitCode, string>> = { SERIES_OVERLAPPING: "overlapping", SERIES_MONTHLY_CLAMPED: "monthly_clamped" };
 
 /** Découpe locale (optimiste) ; un refus typé du moteur (SeriesSplitError) rend le code du contrat et sa raison. */
-export function localSplit(a: Allocation, index: number, p: BlockPatch, tempId: (n: 1 | 2) => string):
+export function localSplit(a: Allocation, index: number, p: AllocationEdit, tempId: (n: 1 | 2) => string):
   { ok: true; split: LocalSplit } | { ok: false; error: EditError; reason?: string } {
   let s: ReturnType<typeof splitSeries<Allocation>>;
   try {

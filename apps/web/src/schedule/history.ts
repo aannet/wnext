@@ -12,6 +12,11 @@
 //    l'occurrence 0) : un échec au milieu laisserait la série dans un état qu'aucune action ne décrit. Sans endpoint
 //    « fusion » côté API, la découpe n'entre pas dans la pile, et les actions antérieures sur la série en sont retirées
 //    (elles décriraient une ligne que la découpe a changée). L'écran l'annonce.
+//  * « Tout le groupe » (BR-26, RT-042) : une action, une opération « mise à jour » par ligne du groupe (champs d'avant de
+//    chacune, lus avant l'écriture par `readGroup`). Le rejeu repasse ligne par ligne par updateAllocation (If-Match de chaque
+//    ligne) : pas d'endpoint de groupe « champs d'avant par ligne », et les lignes peuvent différer (projet, dates). Non
+//    atomique : un conflit sur une ligne abandonne l'action, les lignes déjà rejouées le restent (comme toute action à
+//    plusieurs opérations). Seules les lignes chargées dans le magasin sont connues (un groupe partage ses dates).
 //  * `record(action)` : actions arbitraires (créations, suppressions du lot E). Les opérations autres qu'une mise à jour
 //    d'allocation passent par `execute` ; une recréation rend son nouvel id, remappé dans la pile (remapId).
 //  * `invalidate(entity, ids)` : changement venu d'ailleurs (écho temps réel d'une autre source) : seules les actions qui
@@ -20,7 +25,7 @@ import {
   emptyUndo, dropFailedStep, invalidateUndo, recordAction, redoStep, remapId, undoStep,
   type Action, type Op, type UndoState,
 } from "@wnext/engine";
-import { patched, type Allocation, type AllocationEdit, type EditError, type EditOutcome, type ScheduleEditor } from "../data/allocation-edits";
+import { patched, type Allocation, type AllocationEdit, type AllocationGroupEdit, type EditError, type EditOutcome, type ScheduleEditor } from "../data/allocation-edits";
 import type { ScheduleSource } from "../data/schedule-source";
 import { executeRecordOp } from "./timeoff-flow";
 
@@ -31,6 +36,8 @@ export interface HistoryOptions {
   editor: ScheduleEditor;
   /** État courant d'une allocation dans le magasin (champs d'avant d'une écriture). */
   read(id: string): Allocation | undefined;
+  /** Lignes d'un groupe (BR-26) dans le magasin ; absent : pas d'annulation des écritures de groupe. */
+  readGroup?(groupId: string): Allocation[];
   /** Opérations hors mise à jour d'allocation (lot E) ; absent : UNSUPPORTED. */
   execute?(op: Op): Promise<ExecOutcome>;
   now?(): number;
@@ -163,6 +170,16 @@ export function createHistory(opts: HistoryOptions): History {
       if (out.ok) set(invalidateUndo(undo, ALLOCATIONS, [id]));
       return out;
     },
+    // Absent si l'éditeur d'origine n'écrit pas de groupe : la pop-in ne propose alors pas « tout le groupe ».
+    ...(opts.editor.updateAllocationGroup && {
+      async updateAllocationGroup(id: string, patch: AllocationGroupEdit) {
+        const head = opts.read(id);
+        const lines = head?.groupId ? opts.readGroup?.(head.groupId) ?? [] : [];
+        const out = await opts.editor.updateAllocationGroup!(id, patch);
+        if (out.ok && head) record({ label: labelOf(patch, head), ops: lines.map((a) => updateOp(a, patch)) });
+        return out;
+      },
+    }),
   };
 
   return {
@@ -187,6 +204,7 @@ export function createHistory(opts: HistoryOptions): History {
 export function historyForSource(source: ScheduleSource, opts: Omit<HistoryOptions, "editor" | "read"> = {}): { history: History; connect(): () => void } {
   const history = createHistory({
     execute: executeRecordOp(source), ...opts, editor: source, read: (id) => source.getState().data?.allocations.find((a) => a.id === id),
+    readGroup: (groupId) => source.getState().data?.allocations.filter((a) => a.groupId === groupId) ?? [],
   });
   return { history, connect: () => source.onForeignChange((kind, ids) => history.invalidate(kind, ids)) };
 }

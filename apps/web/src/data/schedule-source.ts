@@ -21,9 +21,11 @@
 //  * Congés et allocations créées / supprimées (record-edits) : même chemin optimiste ; une création rend l'id du serveur.
 //  * Pop-in du créneau (RT-014 à RT-016) : changement de projet (le projet d'arrivée, connu par listProjects, entre dans le
 //    magasin pour colorer le bloc), création de groupe (BR-26, POST /allocation-groups : N lignes optimistes, tout ou rien),
-//    projet modifié ailleurs dans l'écran (couleur, RT-018) appliqué tout de suite aux blocs.
+//    projet modifié ailleurs dans l'écran (couleur, RT-018) appliqué tout de suite aux blocs. « Tout le groupe » (BR-26,
+//    RT-042) : chaque ligne du groupe présente dans le magasin est optimiste, PATCH /allocations/{id}/group avec la version
+//    de la ligne désignée ; refus : retour arrière de toutes les lignes (et relecture de chacune sur conflit).
 import { ErrorCode, type ApiError, type ScheduleResponse } from "@wnext/contracts";
-import { loadChunks, mergeChunks, neighborDays, type BlockPatch, type Viewport } from "@wnext/engine";
+import { loadChunks, mergeChunks, neighborDays, type Viewport } from "@wnext/engine";
 import type { createClient } from "../api/client.gen";
 import { RealtimeAuthError, createRealtimeClient, ticketFrom, type RealtimeClient, type RealtimeClientOptions, type RealtimeStatus } from "../realtime/client";
 import {
@@ -31,13 +33,13 @@ import {
   type Kind, type ScheduleStore, type Tables,
 } from "../schedule/store";
 import type { AllocationGroupCreate } from "../api/client.gen";
-import { localSplit, patched, toApiPatch, toSplitBody, type AllocationEdit, type EditOutcome, type ScheduleEditor } from "./allocation-edits";
+import { localSplit, patched, toApiPatch, toGroupBody, toSplitBody, type AllocationEdit, type AllocationGroupEdit, type EditOutcome, type ScheduleEditor } from "./allocation-edits";
 import { allocationFromCreate, groupMembers, patchedTimeoff, timeoffFromCreate, type CreateOutcome, type RecordEditor } from "./record-edits";
 import { summaryFromParams, type TeamRemovalEditor } from "./team-removal";
 
 type Client = ReturnType<typeof createClient>;
 /** Lecture obligatoire ; écritures optionnelles (absentes : les gestes rendent UNSUPPORTED). */
-export type ScheduleApi = Pick<Client, "getSchedule" | "createRealtimeTicket"> & Partial<Pick<Client, "getAllocation" | "updateAllocation" | "splitAllocation">>
+export type ScheduleApi = Pick<Client, "getSchedule" | "createRealtimeTicket"> & Partial<Pick<Client, "getAllocation" | "updateAllocation" | "splitAllocation" | "updateAllocationGroup">>
   & Partial<Pick<Client, "createTimeoff" | "updateTimeoff" | "deleteTimeoff" | "createAllocation" | "deleteAllocation" | "listLoggedTime" | "listProjects">>
   & Partial<Pick<Client, "getTeamRemovalSummary" | "removeFromTeam" | "createAllocationGroup">>;
 export type SourceErrorCode = ApiError["code"];
@@ -400,7 +402,31 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     return out;
   }
 
-  async function splitOccurrence(id: string, index: number, patch: BlockPatch): Promise<EditOutcome> {
+  async function updateAllocationGroup(id: string, patch: AllocationGroupEdit): Promise<EditOutcome> {
+    const cur = store.tables.allocations.get(id);
+    const api = opts.api.updateAllocationGroup;
+    if (!api) return fail("UNSUPPORTED");
+    if (!cur || cur.groupId === null) return fail("NOT_FOUND");
+    const lines = [...store.tables.allocations.values()].filter((a) => a.groupId === cur.groupId);
+    if (lines.some((a) => busy(a.id))) return fail("BUSY");
+    ensureProject(patch.projectId);
+    const n = ++seq;
+    const ms = lines.map((a, i) => {
+      const m = `group-edit-${n}-${i}`;
+      store = applyOptimistic(store, m, "allocations", a.id, patched(a, patch));
+      return m;
+    });
+    refresh();
+    const out = await write(ms, () => api({ path: { id }, headers: { "If-Match": `"${cur.version}"` }, body: toGroupBody(patch) }), (d) => {
+      const byId = new Map(d.items.map((x) => [x.id, x]));
+      // Une ligne absente de la réponse (sortie du groupe entre-temps) garde son état d'avant : la relecture la corrigera.
+      lines.forEach((a, i) => { store = byId.has(a.id) ? confirmOptimistic(store, ms[i]!, byId.get(a.id)!) : rollbackOptimistic(store, ms[i]!); });
+    });
+    if (!out.ok && (out.error === "VERSION_CONFLICT" || out.error === "NOT_FOUND")) for (const a of lines) await reread(a.id);
+    return out;
+  }
+
+  async function splitOccurrence(id: string, index: number, patch: AllocationEdit): Promise<EditOutcome> {
     const cur = store.tables.allocations.get(id);
     const api = opts.api.splitAllocation;
     if (!api) return fail("UNSUPPORTED");
@@ -570,6 +596,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     },
     updateAllocation,
     splitOccurrence,
+    updateAllocationGroup,
     onForeignChange(l) {
       foreignListeners.add(l);
       return () => foreignListeners.delete(l);

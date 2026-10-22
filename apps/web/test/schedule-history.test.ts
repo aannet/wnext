@@ -176,6 +176,53 @@ describe("invalidation et découpe", () => {
   });
 });
 
+describe("« Tout le groupe » (BR-26, RT-042)", () => {
+  const group = () => [alloc("1", { groupId: "G" }), alloc("2", { personId: "2", groupId: "G", projectId: "2" }), alloc("3", { personId: "2" })];
+  function groupSetup() {
+    const m = memoryEditor(group());
+    const updateAllocationGroup = vi.fn(async (id: string, patch: BlockPatch): Promise<EditOutcome> => {
+      const g = m.rows.get(id)?.groupId;
+      if (!g) return { ok: false, error: "NOT_FOUND" };
+      for (const a of [...m.rows.values()]) if (a.groupId === g) m.rows.set(a.id, { ...patched(a, patch), version: a.version + 1 });
+      return { ok: true };
+    });
+    const editor = { ...m.editor, updateAllocationGroup };
+    const h = createHistory({ editor, read: m.read, readGroup: (g) => [...m.rows.values()].filter((a) => a.groupId === g), now: () => 1000 });
+    return { ...m, h, updateAllocationGroup };
+  }
+
+  it("une action, une op par ligne du groupe (champs d'avant de chaque ligne) ; undo rejoue chaque ligne, redo aussi", async () => {
+    const t = groupSetup();
+    expect(await t.h.editor.updateAllocationGroup!("1", { startDate: "2026-10-22", endDate: "2026-10-23" })).toEqual({ ok: true });
+    expect(t.updateAllocationGroup).toHaveBeenCalledWith("1", { startDate: "2026-10-22", endDate: "2026-10-23" });
+    expect(t.h.getState()).toMatchObject({ canUndo: true, undoLabel: "allocation.move" });
+    await t.h.undo();
+    expect(t.editor.updateAllocation.mock.calls).toEqual([
+      ["2", { startDate: "2026-10-20", endDate: "2026-10-21" }],
+      ["1", { startDate: "2026-10-20", endDate: "2026-10-21" }],
+    ]);
+    expect([...t.rows.values()].map((a) => [a.id, a.startDate])).toEqual([["1", "2026-10-20"], ["2", "2026-10-20"], ["3", "2026-10-20"]]);
+    await t.h.redo();
+    expect([...t.rows.values()].map((a) => a.startDate)).toEqual(["2026-10-22", "2026-10-22", "2026-10-20"]);
+  });
+
+  it("projet changé pour tout le groupe : chaque ligne rend son propre projet d'origine", async () => {
+    const t = groupSetup();
+    await t.h.editor.updateAllocationGroup!("2", { projectId: "3" });
+    expect(t.h.getState().undoLabel).toBe("allocation.edit");
+    await t.h.undo();
+    expect([...t.rows.values()].map((a) => a.projectId)).toEqual(["1", "2", "1"]);
+  });
+
+  it("échec : rien d'enregistré ; éditeur sans écriture de groupe : pas d'écriture de groupe proposée", async () => {
+    const t = groupSetup();
+    expect(await t.h.editor.updateAllocationGroup!("3", { projectId: "3" })).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(t.h.getState().canUndo).toBe(false);
+    const plain = setup(group());
+    expect(plain.h.editor.updateAllocationGroup).toBeUndefined();
+  });
+});
+
 describe("record : actions arbitraires (créations, suppressions du lot E)", () => {
   it("undo d'une création = suppression ; redo = recréation sous un nouvel id, remappé dans la pile", async () => {
     const execute = vi.fn(async (op: { kind: string; id: string }) => (op.kind === "create" ? { ok: true as const, id: "new-9" } : { ok: true as const }));

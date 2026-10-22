@@ -5,7 +5,7 @@ import type { ScheduleResponse } from "@wnext/contracts";
 import { viewAt } from "@wnext/engine";
 import { describe, expect, it } from "vitest";
 import { createClient, type FetchResponse } from "../src/api/client.gen";
-import { patched, toApiPatch } from "../src/data/allocation-edits";
+import { patched, toApiPatch, toSplitBody } from "../src/data/allocation-edits";
 import { createDemoSource } from "../src/data/demo-source";
 import { createScheduleSource } from "../src/data/schedule-source";
 import { historyForSource, labelOf } from "../src/schedule/history";
@@ -83,6 +83,86 @@ describe("groupe (BR-26) et projet d'arrivée en démo", () => {
     expect(src.getState().data!.projects.map((p) => p.id)).toEqual(["1"]);
     await src.updateAllocation("a", { projectId: "3" });
     expect(src.getState().data!.projects.find((p) => p.id === "3")?.color).toBe("#9333EA");
+  });
+});
+
+describe("portée d'une série et d'un groupe (RT-042) : écritures", () => {
+  it("découpe d'une occurrence avec les champs de la pop-in (projet, tâche, statut, note, mode) : corps du contrat", () => {
+    expect(toSplitBody("2026-10-27", { projectId: "2", taskId: null, status: "tentative", notes: "x", mode: "percentage", percent: 50, hoursPerDay: null }))
+      .toEqual({ occurrenceDate: "2026-10-27", patch: { projectId: "2", taskId: null, status: "tentative", notes: "x", load: { mode: "percentage", percent: 50 } } });
+  });
+
+  it("démo : « cette occurrence » porte le projet et la note, la série garde les siens", async () => {
+    const src = createDemoSource(data([alloc("s", { startDate: "2026-10-20", endDate: "2026-10-20", repeatState: "weekly", repeatEndDate: "2026-11-10" })]));
+    expect(await src.splitOccurrence("s", 1, { projectId: "2", notes: "seule" })).toEqual({ ok: true });
+    const rows = src.getState().data!.allocations;
+    expect(rows.map((a) => [a.startDate, a.projectId, a.notes, a.repeatState])).toEqual([
+      ["2026-10-20", "1", null, "weekly"], ["2026-10-27", "2", "seule", "none"], ["2026-11-03", "1", null, "weekly"],
+    ]);
+  });
+
+  it("démo : « tout le groupe » modifie chaque ligne du groupe (version + 1), pas les autres ; hors groupe : NOT_FOUND", async () => {
+    const src = createDemoSource(data([alloc("a", { groupId: "G" }), alloc("b", { personId: "2", groupId: "G", hoursPerDay: 4 }), alloc("c")]));
+    expect(await src.updateAllocationGroup!("a", { projectId: "2", taskId: null })).toEqual({ ok: true });
+    const rows = src.getState().data!.allocations;
+    expect(rows.map((a) => [a.id, a.projectId, a.hoursPerDay, a.version])).toEqual([["a", "2", 8, 2], ["b", "2", 4, 2], ["c", "1", 8, 1]]);
+    expect(await src.updateAllocationGroup!("c", { projectId: "2" })).toEqual({ ok: false, error: "NOT_FOUND" });
+  });
+});
+
+describe("source branchée sur l'API : « tout le groupe » (RT-042)", () => {
+  const flush = async () => { for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r)); };
+  function setup(status: number) {
+    const calls: { path: string; method: string; headers: Record<string, string>; body: unknown }[] = [];
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => { release = r; });
+    const rows = [alloc("a", { groupId: "G" }), alloc("b", { personId: "2", groupId: "G" }), alloc("c")];
+    const fetch = async (url: string, init?: { method?: string; body?: string; headers?: Record<string, string> }): Promise<FetchResponse> => {
+      const u = new URL(url, "http://x");
+      const method = init?.method ?? "GET";
+      calls.push({ path: u.pathname, method, headers: init?.headers ?? {}, body: init?.body ? JSON.parse(init.body) : undefined });
+      const json = (s: number, body: unknown): FetchResponse => ({ status: s, json: async () => body });
+      if (u.pathname === "/api/v1/schedule") return json(200, { ...data(rows), window: { from: u.searchParams.get("from"), to: u.searchParams.get("to") } });
+      if (u.pathname === "/api/v1/allocations/a/group" && method === "PATCH") {
+        await gate;
+        return status === 200
+          ? json(200, { groupId: "G", items: rows.slice(0, 2).map((a) => ({ ...a, projectId: "2", phaseId: null, taskId: null, version: 2 })) })
+          : json(409, { code: "VERSION_CONFLICT", params: { currentVersion: 2 } });
+      }
+      if (u.pathname.startsWith("/api/v1/allocations/") && method === "GET") {
+        const id = u.pathname.split("/").at(-1)!;
+        return json(200, { ...rows.find((a) => a.id === id)!, version: 2, notes: "relu" });
+      }
+      return json(404, { code: "NOT_FOUND" });
+    };
+    const src = createScheduleSource({ api: createClient({ baseUrl: "", fetch }) });
+    src.setViewport(viewAt("2026-10-20", "day", 960));
+    src.start();
+    return { src, calls, release };
+  }
+  const now = (src: ReturnType<typeof createScheduleSource>) => src.getState().data!.allocations.map((a) => [a.id, a.projectId, a.version, a.notes]);
+
+  it("lignes du groupe optimistes tout de suite, PATCH /allocations/{id}/group avec If-Match de la ligne désignée, réponse appliquée", async () => {
+    const { src, calls, release } = setup(200);
+    await flush();
+    const p = src.updateAllocationGroup!("a", { projectId: "2" });
+    expect(now(src)).toEqual([["a", "2", 1, null], ["b", "2", 1, null], ["c", "1", 1, null]]);
+    expect(await src.updateAllocationGroup!("b", { projectId: "1" })).toEqual({ ok: false, error: "BUSY" });
+    release();
+    expect(await p).toEqual({ ok: true });
+    const call = calls.find((c) => c.path === "/api/v1/allocations/a/group")!;
+    expect([call.method, call.headers["If-Match"], call.body]).toEqual(["PATCH", "\"1\"", { projectId: "2" }]);
+    expect(now(src)).toEqual([["a", "2", 2, null], ["b", "2", 2, null], ["c", "1", 1, null]]);
+  });
+
+  it("409 : retour arrière de toutes les lignes, puis relecture du groupe ; code stable rendu", async () => {
+    const { src, release } = setup(409);
+    await flush();
+    const p = src.updateAllocationGroup!("a", { projectId: "2" });
+    release();
+    expect(await p).toEqual({ ok: false, error: "VERSION_CONFLICT" });
+    await flush();
+    expect(now(src)).toEqual([["a", "1", 2, "relu"], ["b", "1", 2, "relu"], ["c", "1", 1, null]]);
   });
 });
 

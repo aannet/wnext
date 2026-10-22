@@ -3,7 +3,7 @@
 // Congés et allocations (record-edits) aussi ; le chevauchement de congés est refusé comme par l'API (TIMEOFF_OVERLAP).
 // Aucun temps saisi en démo. Retrait d'un projet (BR-10) : récapitulatif et confirmation calculés localement (team-removal).
 // Pop-in du créneau : changement de projet (le projet d'arrivée, connu de la démo, entre dans le magasin), groupe (BR-26 :
-// une ligne par personne, même groupId).
+// une ligne par personne, même groupId ; « tout le groupe » : chaque ligne du groupe, version + 1).
 import type { ScheduleResponse } from "@wnext/contracts";
 import { emptyStore, ingestSchedule, remove, snapshot, upsert, type ScheduleStore } from "../schedule/store";
 import { localSplit, patched, type EditOutcome } from "./allocation-edits";
@@ -80,6 +80,13 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
       if (!a) return { ok: false, error: "NOT_FOUND" };
       ensureProject(patch.projectId);
       store = upsert(store, "allocations", { ...patched(a, patch), version: a.version + 1 });
+      return changed();
+    },
+    async updateAllocationGroup(id, patch) {
+      const g = store.tables.allocations.get(id)?.groupId;
+      if (!g) return { ok: false, error: "NOT_FOUND" };
+      ensureProject(patch.projectId);
+      for (const a of [...store.tables.allocations.values()]) if (a.groupId === g) store = upsert(store, "allocations", { ...patched(a, patch), version: a.version + 1 });
       return changed();
     },
     async createTimeoff(body) {
