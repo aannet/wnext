@@ -11,6 +11,7 @@
 //    sélectionné et le glisser armé (wn-armed, vibration, touchmove annulé). Bloc sélectionné ou poignée : glisser tout de suite.
 //    Sur une case libre, même règle : un tap ne crée rien, l'appui long pose le bloc provisoire de la création (vibration,
 //    touchmove annulé), le glisser l'étend, relâcher demande la création (RT-043). Pas de menu contextuel pendant l'appui long.
+//    Un deuxième doigt (n'importe où) abandonne l'appui long en attente ou la création ; sortir de la zone des blocs aussi.
 //    pointercancel (le navigateur reprend le défilement) abandonne proprement l'aperçu.
 //  * Clavier, sur le bloc focalisé : équivalents du moteur (keyGesture), cumulés dans un brouillon ; Entrée valide, Échap
 //    annule ; chaque pas est rendu à l'appelant pour l'annonce aria-live.
@@ -108,7 +109,8 @@ interface Drag extends Session {
   /** Le bloc était déjà sélectionné au début du geste : un clic sans glisser ouvre la pop-in (Q5). */
   wasSelected: boolean; el: HTMLElement;
 }
-interface Creating { pointerId: number; personId: string; anchor: number; day: number }
+/** `touch` : création par appui long (RT-043), abandonnée si le doigt sort de la zone des blocs ou si un deuxième doigt se pose. */
+interface Creating { pointerId: number; personId: string; anchor: number; day: number; touch: boolean }
 
 const KINDS: Record<string, Gesture["kind"]> = { start: "resizeStart", end: "resizeEnd", height: "height" };
 const THRESHOLD_PX = 3;
@@ -267,12 +269,12 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     const slot = freeSlotAt(e.target, e.clientX, e.clientY);
     if (!slot) return false;
     e.preventDefault();
-    startCreate(e.pointerId, slot);
+    startCreate(e.pointerId, slot, false);
     listen();
     return true;
   }
-  function startCreate(pointerId: number, slot: Slot) {
-    creating = { pointerId, personId: slot.row.personId, anchor: slot.day, day: slot.day };
+  function startCreate(pointerId: number, slot: Slot, touch: boolean) {
+    creating = { pointerId, personId: slot.row.personId, anchor: slot.day, day: slot.day, touch };
     draftId++;
     showDraft(creating);
   }
@@ -395,7 +397,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     pending = null;
     if (p.slot) {
       select(null);
-      startCreate(p.pointerId, p.slot);
+      startCreate(p.pointerId, p.slot, true);
       vibrate();
       return;
     }
@@ -409,7 +411,28 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   }
   function vibrate() { try { navigator.vibrate?.(15); } catch { /* indisponible */ } }
 
+  /** Zone des blocs visible (hors colonne des personnes et en-tête) ; sans mise en page (rectangle vide), tout point y est. */
+  function inBlocks(x: number, y: number): boolean {
+    const r = root.getBoundingClientRect();
+    if (!r.width || !r.height) return true;
+    return x >= r.left + GUTTER_PX && x < r.right && y >= r.top + HEADER_PX && y < r.bottom;
+  }
+
+  // Contacts tactiles posés, suivis sur tout le document (un deuxième doigt peut se poser hors de la grille) : dès le deuxième,
+  // l'appui long en attente ou la création au toucher est abandonné (pincement, défilement à deux doigts).
+  const touches = new Set<number>();
+  function onAnyDown(e: PointerEvent) {
+    if (e.pointerType !== "touch") return;
+    if (e.isPrimary === true) touches.clear(); // premier doigt d'une nouvelle séquence : oublie un contact perdu
+    touches.add(e.pointerId);
+    if (touches.size < 2) return;
+    cancelPending();
+    if (creating?.touch) endCreate(false);
+  }
+  function onAnyUp(e: PointerEvent) { if (e.pointerType === "touch") touches.delete(e.pointerId); }
+
   function onDownTouch(e: PointerEvent) {
+    if (touches.size > 1) return;
     const hit = host.blockAt(e.target);
     if (kb) cancelKeyboard();
     const onHandle = !!(e.target as Element).closest?.("[data-handle]");
@@ -452,6 +475,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   }
   function onMove(e: PointerEvent) {
     if (creating && e.pointerId === creating.pointerId) {
+      if (creating.touch && !inBlocks(e.clientX, e.clientY)) { endCreate(false); return; }
       const day = dayAt(e.clientX);
       if (day !== null && day !== creating.day) { creating.day = day; showDraft(creating); }
       return;
@@ -476,7 +500,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       hit?.el.focus({ preventScroll: true });
       return;
     }
-    if (creating && e.pointerId === creating.pointerId) { endCreate(true); return; }
+    if (creating && e.pointerId === creating.pointerId) { endCreate(!creating.touch || inBlocks(e.clientX, e.clientY)); return; }
     if (!drag || e.pointerId !== drag.pointerId) return;
     drag.cx = e.clientX;
     drag.cy = e.clientY;
@@ -578,6 +602,9 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     select(hit.block.key);
     open({ key: hit.block.key, allocationId: hit.block.allocationId, el: hit.el });
   }
+  doc.addEventListener("pointerdown", onAnyDown, true);
+  doc.addEventListener("pointerup", onAnyUp, true);
+  doc.addEventListener("pointercancel", onAnyUp, true);
   root.addEventListener("dblclick", onDblClick);
   root.addEventListener("contextmenu", onContextMenu);
   root.addEventListener("pointerover", onOver);
@@ -593,6 +620,9 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       endDrag();
       creating = null;
       draftEl?.remove();
+      doc.removeEventListener("pointerdown", onAnyDown, true);
+      doc.removeEventListener("pointerup", onAnyUp, true);
+      doc.removeEventListener("pointercancel", onAnyUp, true);
       root.removeEventListener("dblclick", onDblClick);
       observer?.disconnect();
       root.removeEventListener("contextmenu", onContextMenu);

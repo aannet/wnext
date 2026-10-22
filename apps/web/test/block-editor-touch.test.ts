@@ -5,7 +5,7 @@ import type { ScheduleResponse } from "@wnext/contracts";
 import { DEFAULT_PX_PER_DAY } from "@wnext/engine";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBlockEditor, type CreateRequest, type EditRequest } from "../src/schedule/block-editor";
-import { GUTTER_PX, createScroller, type Clock } from "../src/schedule/scroller";
+import { GUTTER_PX, HEADER_PX, createScroller, type Clock } from "../src/schedule/scroller";
 
 const DAY = DEFAULT_PX_PER_DAY.day;
 type Alloc = ScheduleResponse["allocations"][number];
@@ -37,9 +37,9 @@ function setup(enabled = true) {
   });
   const block = (key: string) => root.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`)!;
   const ghost = () => root.querySelector<HTMLElement>(".wn-ghost");
-  const ptr = (type: string, target: EventTarget, x: number, y: number, pointerType = "touch") => {
+  const ptr = (type: string, target: EventTarget, x: number, y: number, pointerType = "touch", pointerId = 7) => {
     const e = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 });
-    Object.defineProperty(e, "pointerId", { value: 7 });
+    Object.defineProperty(e, "pointerId", { value: pointerId });
     Object.defineProperty(e, "pointerType", { value: pointerType });
     target.dispatchEvent(e);
   };
@@ -48,7 +48,13 @@ function setup(enabled = true) {
   const xOf = (date: string) => s.host.xOfDate(date) + 5;
   const draft = () => root.querySelector<HTMLElement>(".wn-slot-draft");
   const range = () => creates.map((c) => [c.personId, c.startDate, c.endDate]);
-  return { root, s, ed, commits, creates, block, ghost, ptr, frame, row, xOf, draft, range };
+  /** Mise en page simulée (jsdom pose la surface en (0, 0)) : grille de GUTTER_PX + 960 × 480 px, surface sous l'en-tête et décalée
+   *  du défilement horizontal, comme dans le navigateur. `left()` : bord gauche de la grille dans la fenêtre. */
+  const left = () => root.scrollLeft;
+  const layout = () => { root.getBoundingClientRect = () => new DOMRect(left(), -HEADER_PX, GUTTER_PX + 960, 480); };
+  /** Plus de bloc provisoire visible. */
+  const noDraft = () => !draft() || draft()!.style.display === "none";
+  return { root, s, ed, commits, creates, block, ghost, ptr, frame, row, xOf, draft, range, layout, left, noDraft };
 }
 
 beforeEach(() => { vi.useFakeTimers(); });
@@ -232,5 +238,150 @@ describe("toucher : création en case libre (RT-043, PO-07)", () => {
     vi.advanceTimersByTime(1000);
     h.ptr("pointerup", document, h.xOf("2026-10-23"), 5);
     expect([h.creates.length, h.draft()]).toEqual([0, null]);
+  });
+});
+
+describe("toucher : création en case libre, annulations (RT-043, revue croisée)", () => {
+  const X = (h: ReturnType<typeof setup>) => h.xOf("2026-10-23");
+  const nothing = (h: ReturnType<typeof setup>) => {
+    expect([h.creates.length, h.noDraft(), h.ed.busy()]).toEqual([0, true, false]);
+  };
+
+  it("deuxième contact avant l'armement, même hors grille : minuteur annulé, rien n'est créé", () => {
+    const h = setup();
+    h.ptr("pointerdown", h.row(), X(h), 5);
+    h.ptr("pointerdown", document.body, 900, 700, "touch", 8);
+    vi.advanceTimersByTime(1000);
+    h.ptr("pointerup", document, X(h), 5);
+    h.ptr("pointerup", document, 900, 700, "touch", 8);
+    nothing(h);
+  });
+
+  it("deuxième contact après l'armement, même hors grille : bloc provisoire retiré, relâcher ne crée rien", () => {
+    const h = setup();
+    h.ptr("pointerdown", h.row(), X(h), 5);
+    vi.advanceTimersByTime(401);
+    expect(h.draft()!.style.display).toBe("");
+    h.ptr("pointerdown", document.body, 900, 700, "touch", 8);
+    expect(h.noDraft()).toBe(true);
+    h.ptr("pointerup", document, X(h), 5);
+    h.ptr("pointerup", document, 900, 700, "touch", 8);
+    nothing(h);
+  });
+
+  it("pincement sur deux cases libres : rien n'est armé, ni par le premier doigt ni par le second resté posé", () => {
+    const h = setup();
+    h.ptr("pointerdown", h.row(), X(h), 5);
+    h.ptr("pointerdown", h.row(), h.xOf("2026-10-27"), 5, "touch", 8);
+    h.ptr("pointermove", document, X(h) - 3, 5);
+    h.ptr("pointermove", document, h.xOf("2026-10-27") + 3, 5, "touch", 8);
+    vi.advanceTimersByTime(1000);
+    h.ptr("pointerup", document, X(h) - 3, 5);
+    vi.advanceTimersByTime(1000);
+    h.ptr("pointerup", document, h.xOf("2026-10-27") + 3, 5, "touch", 8);
+    nothing(h);
+    // Les contacts relâchés sont oubliés : un nouvel appui long crée de nouveau.
+    h.ptr("pointerdown", h.row(), X(h), 5);
+    vi.advanceTimersByTime(401);
+    h.ptr("pointerup", document, X(h), 5);
+    expect(h.range()).toEqual([["1", "2026-10-23", "2026-10-23"]]);
+  });
+
+  it("deuxième contact pendant l'appui long sur un bloc : minuteur annulé, rien n'est armé", () => {
+    const h = setup();
+    const b = h.block("1:0");
+    h.ptr("pointerdown", b, 0, 0);
+    h.ptr("pointerdown", document.body, 900, 700, "touch", 8);
+    vi.advanceTimersByTime(1000);
+    expect(b.classList.contains("wn-armed")).toBe(false);
+    h.ptr("pointerup", document, 0, 0);
+    h.ptr("pointerup", document, 900, 700, "touch", 8);
+    expect(h.commits).toHaveLength(0);
+  });
+
+  it("après l'armement, sortir de la zone des blocs vers la droite : création abandonnée", () => {
+    const h = setup();
+    h.layout();
+    h.ptr("pointerdown", h.row(), X(h), 5);
+    vi.advanceTimersByTime(401);
+    h.ptr("pointermove", document, h.xOf("2026-10-24"), 5);
+    expect(h.draft()!.style.display).toBe("");
+    h.ptr("pointermove", document, h.left() + GUTTER_PX + 970, 5);
+    expect(h.noDraft()).toBe(true);
+    h.ptr("pointermove", document, h.xOf("2026-10-24"), 5);
+    h.ptr("pointerup", document, h.xOf("2026-10-24"), 5);
+    nothing(h);
+  });
+
+  it("après l'armement, sortir vers la colonne des personnes : création abandonnée", () => {
+    const h = setup();
+    h.layout();
+    h.ptr("pointerdown", h.row(), X(h), 5);
+    vi.advanceTimersByTime(401);
+    h.ptr("pointermove", document, h.left() + GUTTER_PX - 10, 5);
+    h.ptr("pointerup", document, h.left() + GUTTER_PX - 10, 5);
+    nothing(h);
+  });
+
+  it("après l'armement, sortir vers le bas puis vers l'en-tête : création abandonnée", () => {
+    const h = setup();
+    h.layout();
+    h.ptr("pointerdown", h.row(), X(h), 5);
+    vi.advanceTimersByTime(401);
+    h.ptr("pointermove", document, X(h), 480 - HEADER_PX + 10);
+    expect(h.noDraft()).toBe(true);
+    h.ptr("pointerup", document, X(h), 5);
+    nothing(h);
+    h.ptr("pointerdown", h.row(), X(h), 5);
+    vi.advanceTimersByTime(401);
+    h.ptr("pointermove", document, X(h), -10);
+    h.ptr("pointerup", document, X(h), -10);
+    nothing(h);
+  });
+
+  it("relâcher hors de la zone des blocs sans mouvement signalé : rien n'est créé", () => {
+    const h = setup();
+    h.layout();
+    h.ptr("pointerdown", h.row(), X(h), 5);
+    vi.advanceTimersByTime(401);
+    h.ptr("pointerup", document, X(h), 600);
+    nothing(h);
+  });
+
+  it("dans la zone des blocs, changer de ligne ne fait rien perdre : la création reste sur la ligne de départ", () => {
+    const h = setup();
+    h.layout();
+    h.ptr("pointerdown", h.row(), X(h), 5);
+    vi.advanceTimersByTime(401);
+    h.ptr("pointermove", document, h.xOf("2026-10-24"), 200);
+    h.ptr("pointerup", document, h.xOf("2026-10-24"), 200);
+    expect(h.range()).toEqual([["1", "2026-10-23", "2026-10-24"]]);
+  });
+
+  it("pointercancel avant l'armement sur une case libre : minuteur annulé, rien n'est créé", () => {
+    const h = setup();
+    h.ptr("pointerdown", h.row(), X(h), 5);
+    h.ptr("pointercancel", document, X(h), 5);
+    vi.advanceTimersByTime(1000);
+    h.ptr("pointerup", document, X(h), 5);
+    nothing(h);
+  });
+
+  it("démontage pendant l'appui long ou la création : aucune création tardive, aucun bloc provisoire restant", () => {
+    const h = setup();
+    h.ptr("pointerdown", h.row(), X(h), 5);
+    h.ed.destroy();
+    vi.advanceTimersByTime(1000);
+    h.ptr("pointerup", document, X(h), 5);
+    expect([h.creates.length, h.draft()]).toEqual([0, null]);
+
+    const k = setup();
+    k.ptr("pointerdown", k.row(), X(k), 5);
+    vi.advanceTimersByTime(401);
+    expect(k.draft()).not.toBeNull();
+    k.ed.destroy();
+    k.ptr("pointerup", document, X(k), 5);
+    vi.advanceTimersByTime(1000);
+    expect([k.creates.length, k.draft()]).toEqual([0, null]);
   });
 });
