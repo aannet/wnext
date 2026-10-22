@@ -4,7 +4,7 @@
 import type { ScheduleResponse } from "@wnext/contracts";
 import { DEFAULT_PX_PER_DAY } from "@wnext/engine";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createBlockEditor, type EditRequest } from "../src/schedule/block-editor";
+import { createBlockEditor, type CreateRequest, type EditRequest } from "../src/schedule/block-editor";
 import { GUTTER_PX, createScroller, type Clock } from "../src/schedule/scroller";
 
 const DAY = DEFAULT_PX_PER_DAY.day;
@@ -23,7 +23,7 @@ const data = (allocations: Alloc[]): ScheduleResponse => ({
   projects: [{ id: "1", version: 1, name: "Refonte", projectCode: null, color: "#3B82F6", status: "in_progress", nonBillable: false, startDate: null, endDate: null }],
 }) as ScheduleResponse;
 
-function setup() {
+function setup(enabled = true) {
   const root = document.createElement("div");
   document.body.appendChild(root);
   const frames: (() => void)[] = [];
@@ -31,7 +31,10 @@ function setup() {
   const frame = () => { for (const f of frames.splice(0)) f(); };
   const s = createScroller({ root, data: data([alloc("1", "1"), alloc("2", "2")]), today: "2026-10-20", widthPx: GUTTER_PX + 960, heightPx: 480, label: (c) => c.from, clock, reducedMotion: () => true });
   const commits: EditRequest[] = [];
-  const ed = createBlockEditor({ root, host: s.host, clock: { raf: clock.raf, caf: clock.caf }, onCommit: (r) => { commits.push(r); } });
+  const creates: CreateRequest[] = [];
+  const ed = createBlockEditor({
+    root, host: s.host, clock: { raf: clock.raf, caf: clock.caf }, enabled: () => enabled, onCommit: (r) => { commits.push(r); }, onCreate: (r) => { creates.push(r); },
+  });
   const block = (key: string) => root.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`)!;
   const ghost = () => root.querySelector<HTMLElement>(".wn-ghost");
   const ptr = (type: string, target: EventTarget, x: number, y: number, pointerType = "touch") => {
@@ -40,7 +43,12 @@ function setup() {
     Object.defineProperty(e, "pointerType", { value: pointerType });
     target.dispatchEvent(e);
   };
-  return { root, s, ed, commits, block, ghost, ptr, frame };
+  /** Case libre : ligne de la personne 1 (jsdom place la grille en (0, 0)), abscisse au milieu du jour. */
+  const row = () => root.querySelector<HTMLElement>(".wn-row")!;
+  const xOf = (date: string) => s.host.xOfDate(date) + 5;
+  const draft = () => root.querySelector<HTMLElement>(".wn-slot-draft");
+  const range = () => creates.map((c) => [c.personId, c.startDate, c.endDate]);
+  return { root, s, ed, commits, creates, block, ghost, ptr, frame, row, xOf, draft, range };
 }
 
 beforeEach(() => { vi.useFakeTimers(); });
@@ -145,5 +153,84 @@ describe("toucher", () => {
     h.ptr("pointerup", document, DAY + 5, 0, "mouse");
     expect(h.commits).toHaveLength(1);
     expect(b.classList.contains("wn-selected")).toBe(false);
+  });
+});
+
+describe("toucher : création en case libre (RT-043, PO-07)", () => {
+  it("appui long sur une case libre : bloc provisoire (vibration), relâcher demande la création pour la personne et le jour", () => {
+    const h = setup();
+    const vibrate = vi.fn();
+    Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });
+    h.ptr("pointerdown", h.row(), h.xOf("2026-10-23"), 5);
+    vi.advanceTimersByTime(399);
+    expect(h.draft()).toBeNull();
+    vi.advanceTimersByTime(2);
+    expect(h.draft()!.style.display).toBe("");
+    expect(vibrate).toHaveBeenCalledOnce();
+    expect(h.creates).toHaveLength(0);
+    h.ptr("pointerup", document, h.xOf("2026-10-23"), 5);
+    expect(h.range()).toEqual([["1", "2026-10-23", "2026-10-23"]]);
+    expect(h.draft()!.style.display).toBe("");
+    expect(h.ed.busy()).toBe(false);
+  });
+
+  it("appui long puis glisser : la plage s'étend jusqu'au jour atteint", () => {
+    const h = setup();
+    h.ptr("pointerdown", h.row(), h.xOf("2026-10-23"), 5);
+    vi.advanceTimersByTime(401);
+    h.ptr("pointermove", document, h.xOf("2026-10-26"), 5);
+    expect(h.draft()!.style.width).toBe(`${4 * h.s.host.pxPerDay()}px`);
+    h.ptr("pointerup", document, h.xOf("2026-10-26"), 5);
+    expect(h.range()).toEqual([["1", "2026-10-23", "2026-10-26"]]);
+  });
+
+  it("tap sur une case libre : rien n'est créé", () => {
+    const h = setup();
+    h.ptr("pointerdown", h.row(), h.xOf("2026-10-23"), 5);
+    vi.advanceTimersByTime(200);
+    h.ptr("pointerup", document, h.xOf("2026-10-23"), 5);
+    vi.advanceTimersByTime(1000);
+    expect([h.creates.length, h.draft()]).toEqual([0, null]);
+    expect(h.ed.busy()).toBe(false);
+  });
+
+  it("glisser avant l'armement : défilement natif, rien n'est créé", () => {
+    const h = setup();
+    h.ptr("pointerdown", h.row(), h.xOf("2026-10-23"), 5);
+    h.ptr("pointermove", document, h.xOf("2026-10-23") + 20, 5);
+    vi.advanceTimersByTime(1000);
+    h.ptr("pointerup", document, h.xOf("2026-10-23") + 20, 5);
+    expect([h.creates.length, h.draft()]).toEqual([0, null]);
+    expect(h.ed.busy()).toBe(false);
+  });
+
+  it("pendant l'appui long et la création : ni menu contextuel ni défilement ; avant l'armement le doigt défile", () => {
+    const h = setup();
+    const touchmove = () => { const e = new Event("touchmove", { cancelable: true }); document.dispatchEvent(e); return e.defaultPrevented; };
+    const contextmenu = () => { const e = new MouseEvent("contextmenu", { bubbles: true, cancelable: true }); h.row().dispatchEvent(e); return e.defaultPrevented; };
+    h.ptr("pointerdown", h.row(), h.xOf("2026-10-23"), 5);
+    expect([touchmove(), contextmenu()]).toEqual([false, true]);
+    vi.advanceTimersByTime(401);
+    expect([touchmove(), contextmenu()]).toEqual([true, true]);
+    h.ptr("pointerup", document, h.xOf("2026-10-23"), 5);
+    expect([touchmove(), contextmenu()]).toEqual([false, false]);
+  });
+
+  it("pointercancel pendant la création : bloc provisoire retiré, rien n'est créé", () => {
+    const h = setup();
+    h.ptr("pointerdown", h.row(), h.xOf("2026-10-23"), 5);
+    vi.advanceTimersByTime(401);
+    h.ptr("pointercancel", document, h.xOf("2026-10-23"), 5);
+    expect(h.creates).toHaveLength(0);
+    expect(h.draft()!.style.display).toBe("none");
+    expect(h.ed.busy()).toBe(false);
+  });
+
+  it("lecture seule : l'appui long sur une case libre ne crée rien", () => {
+    const h = setup(false);
+    h.ptr("pointerdown", h.row(), h.xOf("2026-10-23"), 5);
+    vi.advanceTimersByTime(1000);
+    h.ptr("pointerup", document, h.xOf("2026-10-23"), 5);
+    expect([h.creates.length, h.draft()]).toEqual([0, null]);
   });
 });

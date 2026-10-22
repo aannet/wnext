@@ -9,6 +9,8 @@
 //    voir styles.css) ; un tap ailleurs désélectionne. Sur un bloc non sélectionné, le doigt pan (touch-action: pan-x pan-y) : un
 //    mouvement de plus de 8 px abandonne le geste et laisse défiler la grille ; sans bouger pendant 400 ms (appui long), le bloc est
 //    sélectionné et le glisser armé (wn-armed, vibration, touchmove annulé). Bloc sélectionné ou poignée : glisser tout de suite.
+//    Sur une case libre, même règle : un tap ne crée rien, l'appui long pose le bloc provisoire de la création (vibration,
+//    touchmove annulé), le glisser l'étend, relâcher demande la création (RT-043). Pas de menu contextuel pendant l'appui long.
 //    pointercancel (le navigateur reprend le défilement) abandonne proprement l'aperçu.
 //  * Clavier, sur le bloc focalisé : équivalents du moteur (keyGesture), cumulés dans un brouillon ; Entrée valide, Échap
 //    annule ; chaque pas est rendu à l'appelant pour l'annonce aria-live.
@@ -18,9 +20,9 @@
 //    surface (défilement vertical compris).
 //  * Pop-in du créneau (RT-013, Q5) : un clic (souris) sélectionne le bloc comme un tap ; double clic, Entrée sur le bloc
 //    focalisé (sans brouillon clavier) ou clic sur le bloc déjà sélectionné : onOpen. Un glisser reste un geste.
-//  * Création (RT-015, souris) : clic ou glisser dans une zone libre d'une ligne (hors en-tête, blocs, congés, bande de
-//    capacité) : un bloc provisoire (.wn-slot-draft) couvre la plage, puis onCreate ; il reste affiché jusqu'à clearDraft
-//    (pop-in fermée : créée ou annulée). Échap pendant le glisser annule.
+//  * Création (RT-015 à la souris, RT-043 au toucher par appui long) : clic ou glisser dans une zone libre d'une ligne (hors
+//    en-tête, blocs, congés, bande de capacité) : un bloc provisoire (.wn-slot-draft) couvre la plage, puis onCreate ; il reste
+//    affiché jusqu'à clearDraft (pop-in fermée : créée ou annulée). Échap pendant le glisser annule.
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
   applyGesture, dayNumber, expandOccurrences, fromDayNumber, keyGesture, pointerGesture, referenceHours, workDaysHoursOn, type BlockPatch, type Gesture, type GestureBlock,
@@ -113,7 +115,9 @@ const THRESHOLD_PX = 3;
 /** Mouvement toléré pendant l'appui long : au-delà, c'est un défilement. */
 const SLOP_PX = 8;
 type Hit = NonNullable<ReturnType<EditHost["blockAt"]>>;
-interface Pending { pointerId: number; x0: number; y0: number; cx: number; cy: number; hit: Hit | null; timer: unknown }
+type Slot = { row: GridRow; day: number };
+/** Appui en attente au toucher : sur un bloc (`hit`) ou sur une case libre (`slot`, création RT-043). */
+interface Pending { pointerId: number; x0: number; y0: number; cx: number; cy: number; hit: Hit | null; slot: Slot | null; timer: unknown }
 const step = (b: GestureBlock, g: Gesture): GestureBlock => ({ ...b, ...(applyGesture(b, g)?.patch ?? {}) });
 
 export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
@@ -215,7 +219,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   // ---------- création en zone libre (RT-015) ----------
 
   /** Ligne et jour sous le pointeur, si c'est une zone libre de la grille ; null sinon. */
-  function freeSlotAt(target: EventTarget | null, clientX: number, clientY: number): { row: GridRow; day: number } | null {
+  function freeSlotAt(target: EventTarget | null, clientX: number, clientY: number): Slot | null {
     const m = host.model();
     if (!m || !(target instanceof Element) || !host.surface.contains(target)) return null;
     if (target.closest(".wn-rowheader, .wn-block, .wn-timeoff, .wn-cap, [data-handle]")) return null;
@@ -263,11 +267,14 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     const slot = freeSlotAt(e.target, e.clientX, e.clientY);
     if (!slot) return false;
     e.preventDefault();
-    creating = { pointerId: e.pointerId, personId: slot.row.personId, anchor: slot.day, day: slot.day };
-    draftId++;
-    showDraft(creating);
+    startCreate(e.pointerId, slot);
     listen();
     return true;
+  }
+  function startCreate(pointerId: number, slot: Slot) {
+    creating = { pointerId, personId: slot.row.personId, anchor: slot.day, day: slot.day };
+    draftId++;
+    showDraft(creating);
   }
   function endCreate(commit: boolean) {
     const c = creating;
@@ -351,8 +358,8 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     doc.removeEventListener("keydown", onDocKey, true);
     doc.removeEventListener("touchmove", onTouchMove, true);
   }
-  /** Glisser armé : le navigateur ne doit plus défiler (touch-action n'est pas relu en cours de geste). */
-  function onTouchMove(e: TouchEvent) { if (drag && e.cancelable) e.preventDefault(); }
+  /** Glisser armé ou création : le navigateur ne doit plus défiler (touch-action n'est pas relu en cours de geste). */
+  function onTouchMove(e: TouchEvent) { if ((drag || creating) && e.cancelable) e.preventDefault(); }
 
   // ---------- toucher : sélection, appui long ----------
 
@@ -386,14 +393,21 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
 
   function arm(p: Pending) {
     pending = null;
+    if (p.slot) {
+      select(null);
+      startCreate(p.pointerId, p.slot);
+      vibrate();
+      return;
+    }
     const s = p.hit && session(p.hit);
     if (!p.hit || !s) { unlisten(); return; }
     select(p.hit.block.key);
     p.hit.el.classList.add("wn-armed");
-    try { navigator.vibrate?.(15); } catch { /* indisponible */ }
+    vibrate();
     drag = { ...s, kind: "move", pointerId: p.pointerId, x0: p.cx, y0: p.cy, cx: p.cx, cy: p.cy, sd0: host.scrollDay(), st0: root.scrollTop, started: false, wasSelected: false, el: p.hit.el };
     try { p.hit.el.setPointerCapture?.(p.pointerId); } catch { /* pointeur déjà relâché */ }
   }
+  function vibrate() { try { navigator.vibrate?.(15); } catch { /* indisponible */ } }
 
   function onDownTouch(e: PointerEvent) {
     const hit = host.blockAt(e.target);
@@ -404,9 +418,11 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       if (s) beginDrag(e, hit, s);
       return;
     }
-    const p: Pending = { pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY, hit, timer: undefined };
+    // Pas de preventDefault : tant que l'appui long n'est pas armé, le doigt fait défiler la grille.
+    const slot = !hit && o.onCreate ? freeSlotAt(e.target, e.clientX, e.clientY) : null;
+    const p: Pending = { pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY, hit, slot, timer: undefined };
     pending = p;
-    if (hit) p.timer = setTimer(() => { if (pending === p) arm(p); }, o.longPressMs ?? 400);
+    if (hit || slot) p.timer = setTimer(() => { if (pending === p) arm(p); }, o.longPressMs ?? 400);
     listen();
   }
 
@@ -554,8 +570,8 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     if (hit && handles[0]!.parentNode !== hit.el) hit.el.append(...handles);
   }
 
-  /** Pas de menu contextuel du navigateur pendant un appui long ou un glisser au toucher. */
-  function onContextMenu(e: Event) { if (pending || drag) e.preventDefault(); }
+  /** Pas de menu contextuel du navigateur pendant un appui long, un glisser ou une création au toucher. */
+  function onContextMenu(e: Event) { if (pending || drag || creating) e.preventDefault(); }
   function onDblClick(e: MouseEvent) {
     const hit = host.blockAt(e.target);
     if (!hit || drag || frozen) return;
