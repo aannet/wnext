@@ -9,6 +9,10 @@ import { Id, Version } from "./common";
 //    de GET /schedule, qui en est le point de départ).
 //  * Rejouer un message déjà vu est inoffensif (idempotence par `version`).
 //  * Le contexte du compte vient de la session à la connexion, jamais d'un champ du message.
+//  * Filtrage par abonné (US-6.1) : même règle que le REST. Un `member` ne reçoit que les changements de SA personne liée pour les
+//    entités par personne (people, allocations, timeoffs, logged_time, project_team) ; les référentiels lui parviennent comme aux
+//    autres rôles. Sans personne liée, aucun changement par personne. Le rattrapage (subscribe) applique le même filtre ; le
+//    `cursor` de `ready` est la tête du journal (les changements filtrés sont sautés, pas rejoués).
 //  * `v` est la version du protocole ; un changement cassant l'incrémente (jamais de réinterprétation silencieuse).
 //  * Refus à l'upgrade (avant toute trame, donc en HTTP, sans corps) :
 //      401 : non authentifié. Le client se ré-authentifie ; il ne réessaie pas tel quel.
@@ -64,7 +68,7 @@ export type RealtimeTicket = z.infer<typeof RealtimeTicket>;
  *  * `project_team` n'a pas d'identifiant propre : `id` est celui du PROJET et le message signifie « l'équipe de ce projet a
  *    changé, recharge-la » (toujours `op = update` tant que le projet existe ; sa suppression est portée par `projects`).
  *    Sa `version` est le `seq` du message (monotone par compte), non la version du projet.
- *  * `logged_time` : temps saisi, lisible par tout membre comme le Schedule (réalisé face au planifié).
+ *  * `logged_time` : temps saisi, lisible comme le Schedule (réalisé face au planifié ; member : le sien seulement).
  */
 export const ChangeEntity = z
   .enum([

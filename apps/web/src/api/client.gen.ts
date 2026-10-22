@@ -1132,7 +1132,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as RealtimeTicket }
         : { ok: false, status: res.status, error: body as ApiError };
     },
-    /** Fenetre du Schedule (personnes, allocations, conges, feries, projets) (GET /api/v1/schedule) */
+    /** Fenetre du Schedule (personnes, allocations, conges, feries, projets ; member : sa seule personne liee et ses donnees, aucune personne liee = listes vides) (GET /api/v1/schedule) */
     async getSchedule(query: {
       from: string;
       to: string;
@@ -1150,7 +1150,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as ScheduleResponse }
         : { ok: false, status: res.status, error: body as ApiError };
     },
-    /** Lire une allocation (avec sa version ; tout membre authentifie) (GET /api/v1/allocations/{id}) */
+    /** Lire une allocation (avec sa version ; tout membre authentifie ; member : sa seule personne liee, autre personne = 404) (GET /api/v1/allocations/{id}) */
     async getAllocation(input: {
       path: {
         id: Id;
@@ -1193,7 +1193,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as void }
         : { ok: false, status: res.status, error: body as ApiError };
     },
-    /** Allocations d'un projet sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie) (GET /api/v1/projects/{projectId}/allocations) */
+    /** Allocations d'un projet sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie ; member : les siennes seulement) (GET /api/v1/projects/{projectId}/allocations) */
     async listProjectAllocations(input: {
       path: {
         projectId: Id;
@@ -1321,7 +1321,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as void }
         : { ok: false, status: res.status, error: body as ApiError };
     },
-    /** Lister les temps saisis d'une personne sur une fenetre (tout membre authentifie) (GET /api/v1/logged-time) */
+    /** Lister les temps saisis d'une personne sur une fenetre (tout membre authentifie ; member : sa seule personne liee, autre personne = 404) (GET /api/v1/logged-time) */
     async listLoggedTime(query: {
       personId: Id;
       from: string;
@@ -1410,7 +1410,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as LoggedTime }
         : { ok: false, status: res.status, error: body as ApiError };
     },
-    /** Lister les personnes (pagine, tri par id ; actives par defaut ; tout membre authentifie) (GET /api/v1/people) */
+    /** Lister les personnes (pagine, tri par id ; actives par defaut ; tout membre authentifie ; member : sa seule personne liee) (GET /api/v1/people) */
     async listPeople(query: {
       limit?: number;
       cursor?: string;
@@ -1436,7 +1436,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as PersonDetail }
         : { ok: false, status: res.status, error: body as ApiError };
     },
-    /** Lire une personne (desactivee comprise, avec sa version ; tout membre authentifie) (GET /api/v1/people/{id}) */
+    /** Lire une personne (desactivee comprise, avec sa version ; tout membre authentifie ; member : sa seule personne liee, autre personne = 404) (GET /api/v1/people/{id}) */
     async getPerson(input: {
       path: {
         id: Id;
@@ -1464,7 +1464,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as PersonDetail }
         : { ok: false, status: res.status, error: body as ApiError };
     },
-    /** Projets d'une personne : equipe ou allocations (pagine, tri par id de projet ; archives exclus par defaut ; tout membre authentifie) (GET /api/v1/people/{id}/projects) */
+    /** Projets d'une personne : equipe ou allocations (pagine, tri par id de projet ; archives exclus par defaut ; tout membre authentifie ; member : sa seule personne liee, autre personne = 404) (GET /api/v1/people/{id}/projects) */
     async listPersonProjects(input: {
       path: {
         id: Id;
@@ -1481,7 +1481,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as PersonProjectList }
         : { ok: false, status: res.status, error: body as ApiError };
     },
-    /** Historique date d'une personne : periodes de l'horaire, du departement et du role (BR-19 ; pagine, tri par id ; tout membre authentifie) (GET /api/v1/people/{id}/history) */
+    /** Historique date d'une personne : periodes de l'horaire, du departement et du role (BR-19 ; pagine, tri par id ; tout membre authentifie ; member : sa seule personne liee, autre personne = 404) (GET /api/v1/people/{id}/history) */
     async listPersonHistory(input: {
       path: {
         id: Id;
@@ -1526,7 +1526,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as PersonDeactivationResult }
         : { ok: false, status: res.status, error: body as ApiError };
     },
-    /** Allocations d'une personne sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie) (GET /api/v1/people/{id}/allocations) */
+    /** Allocations d'une personne sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie ; member : sa seule personne liee, autre personne = 404) (GET /api/v1/people/{id}/allocations) */
     async listPersonAllocations(input: {
       path: {
         id: Id;
@@ -1573,7 +1573,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
         ? { ok: true, status: res.status, data: body as TeamRemovalResult }
         : { ok: false, status: res.status, error: body as ApiError };
     },
-    /** Equipe d'un projet (pagine, tri par personId ; tout membre authentifie) (GET /api/v1/projects/{projectId}/team) */
+    /** Equipe d'un projet (pagine, tri par personId ; tout membre authentifie ; member : sa seule personne liee) (GET /api/v1/projects/{projectId}/team) */
     async listProjectTeam(input: {
       path: {
         projectId: Id;

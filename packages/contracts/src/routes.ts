@@ -189,7 +189,7 @@ export const routes: RouteContract[] = [
     method: "get",
     path: "/api/v1/schedule",
     operationId: "getSchedule",
-    summary: "Fenetre du Schedule (personnes, allocations, conges, feries, projets)",
+    summary: "Fenetre du Schedule (personnes, allocations, conges, feries, projets ; member : sa seule personne liee et ses donnees, aucune personne liee = listes vides)",
     query: ScheduleQuery,
     responses: {
       200: { description: "Fenetre demandee", schema: ScheduleResponse },
@@ -202,7 +202,7 @@ export const routes: RouteContract[] = [
     method: "get",
     path: "/api/v1/allocations/{id}",
     operationId: "getAllocation",
-    summary: "Lire une allocation (avec sa version ; tout membre authentifie)",
+    summary: "Lire une allocation (avec sa version ; tout membre authentifie ; member : sa seule personne liee, autre personne = 404)",
     params: AllocationPathParams,
     responses: {
       200: { description: "Allocation", schema: ScheduleAllocation },
@@ -215,7 +215,7 @@ export const routes: RouteContract[] = [
     method: "get",
     path: "/api/v1/projects/{projectId}/allocations",
     operationId: "listProjectAllocations",
-    summary: "Allocations d'un projet sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie)",
+    summary: "Allocations d'un projet sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie ; member : les siennes seulement)",
     params: ProjectPathParams,
     query: ProjectAllocationListQuery,
     responses: {
@@ -406,7 +406,7 @@ export const routes: RouteContract[] = [
     method: "get",
     path: "/api/v1/logged-time",
     operationId: "listLoggedTime",
-    summary: "Lister les temps saisis d'une personne sur une fenetre (tout membre authentifie)",
+    summary: "Lister les temps saisis d'une personne sur une fenetre (tout membre authentifie ; member : sa seule personne liee, autre personne = 404)",
     query: LoggedTimeListQuery,
     responses: {
       200: { description: "Temps saisis de la fenetre", schema: LoggedTimeList },
@@ -521,7 +521,7 @@ export const routes: RouteContract[] = [
     method: "get",
     path: "/api/v1/people",
     operationId: "listPeople",
-    summary: "Lister les personnes (pagine, tri par id ; actives par defaut ; tout membre authentifie)",
+    summary: "Lister les personnes (pagine, tri par id ; actives par defaut ; tout membre authentifie ; member : sa seule personne liee)",
     query: PersonListQuery,
     responses: {
       200: { description: "Page de personnes (items, page.nextCursor, page.total)", schema: PersonList },
@@ -534,7 +534,7 @@ export const routes: RouteContract[] = [
     method: "get",
     path: "/api/v1/people/{id}",
     operationId: "getPerson",
-    summary: "Lire une personne (desactivee comprise, avec sa version ; tout membre authentifie)",
+    summary: "Lire une personne (desactivee comprise, avec sa version ; tout membre authentifie ; member : sa seule personne liee, autre personne = 404)",
     params: PersonPathParams,
     responses: {
       200: { description: "Personne", schema: PersonDetail },
@@ -547,7 +547,7 @@ export const routes: RouteContract[] = [
     method: "get",
     path: "/api/v1/people/{id}/projects",
     operationId: "listPersonProjects",
-    summary: "Projets d'une personne : equipe ou allocations (pagine, tri par id de projet ; archives exclus par defaut ; tout membre authentifie)",
+    summary: "Projets d'une personne : equipe ou allocations (pagine, tri par id de projet ; archives exclus par defaut ; tout membre authentifie ; member : sa seule personne liee, autre personne = 404)",
     params: PersonPathParams,
     query: PersonProjectListQuery,
     responses: {
@@ -562,7 +562,7 @@ export const routes: RouteContract[] = [
     method: "get",
     path: "/api/v1/people/{id}/history",
     operationId: "listPersonHistory",
-    summary: "Historique date d'une personne : periodes de l'horaire, du departement et du role (BR-19 ; pagine, tri par id ; tout membre authentifie)",
+    summary: "Historique date d'une personne : periodes de l'horaire, du departement et du role (BR-19 ; pagine, tri par id ; tout membre authentifie ; member : sa seule personne liee, autre personne = 404)",
     params: PersonPathParams,
     query: PersonHistoryQuery,
     responses: {
@@ -612,7 +612,7 @@ export const routes: RouteContract[] = [
     method: "get",
     path: "/api/v1/people/{id}/allocations",
     operationId: "listPersonAllocations",
-    summary: "Allocations d'une personne sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie)",
+    summary: "Allocations d'une personne sur une fenetre (chevauchement ; pagine, tri par id ; tout membre authentifie ; member : sa seule personne liee, autre personne = 404)",
     params: PersonPathParams,
     query: PersonAllocationListQuery,
     responses: {
@@ -694,7 +694,7 @@ export const routes: RouteContract[] = [
     method: "get",
     path: "/api/v1/projects/{projectId}/team",
     operationId: "listProjectTeam",
-    summary: "Equipe d'un projet (pagine, tri par personId ; tout membre authentifie)",
+    summary: "Equipe d'un projet (pagine, tri par personId ; tout membre authentifie ; member : sa seule personne liee)",
     params: TeamProjectPathParams,
     query: ReferenceListQuery,
     responses: {
