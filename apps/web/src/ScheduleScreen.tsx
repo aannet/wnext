@@ -22,9 +22,12 @@
 //    appliqués côté client aux lignes (schedule/view-filters) ; seule la grille reçoit les données filtrées, les éditeurs gardent
 //    les données complètes.
 //  * Recherche (RT-038, schedule/search-ui) : bouton « Rechercher » du niveau 1 et raccourci Ctrl+K (Cmd+K sur Mac), ignoré
-//    dans une autre fenêtre modale. Une personne choisie est amenée dans la vue et mise en évidence (Scroller.revealPerson),
-//    focus à la grille, annoncé ; si un filtre la masque, ses critères sont retirés d'abord (le tri est gardé). Un projet choisi
-//    est confié à `onOpenProject` (écran Projets). Rien n'est enregistré dans les vues.
+//    dans une autre fenêtre modale, dans une zone de texte (textarea, contenteditable) et quand l'événement est déjà traité. Une
+//    personne choisie est amenée dans la vue et mise en évidence (Scroller.revealPerson), focus à la grille, annoncé. Si un filtre la
+//    masque, la palette demande confirmation ; confirmée, les critères sont retirés (le tri est gardé) et la barre des filtres propose
+//    « Rétablir les filtres » (les critères d'avant, à l'identique) jusqu'au prochain changement de filtre ou de vue. Cela n'a rien
+//    à voir avec l'historique des allocations (Ctrl+Z). Un projet choisi est confié à `onOpenProject` (écran Projets). Rien n'est
+//    enregistré dans les vues.
 //  * Retrait d'un projet (BR-10, schedule/team-removal-ui) si la source le permet : menu contextuel d'un bloc.
 //  * En-tête en deux niveaux (RT-025) : niveau 1 = titre, vue sauvegardée, statut et actions de création ; niveau 2 (barre
 //    d'outils) = Filtres (compteur, puces, panneau dépliable, schedule/filters-ui), annuler / rétablir, navigation, zoom,
@@ -113,6 +116,12 @@ function ownsUndo(t: EventTarget | null): boolean {
   return t.isContentEditable || t.matches("input, textarea, select") || t.closest("[role=dialog]") !== null;
 }
 
+/** Cible dans une zone de texte multiligne ou un élément contenteditable : Ctrl+K y garde son sens d'édition. */
+function inTextArea(t: EventTarget | null): boolean {
+  if (!(t instanceof HTMLElement)) return false;
+  return t.isContentEditable || t.closest('textarea, [contenteditable]:not([contenteditable="false"])') !== null;
+}
+
 /** Raccourci d'historique d'un événement clavier (Ctrl ou Cmd, sans Alt), ou null. */
 export function historyShortcut(e: Pick<globalThis.KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">): HistoryDirection | null {
   if (!(e.ctrlKey || e.metaKey) || e.altKey) return null;
@@ -138,6 +147,9 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   const densityRef = useRef(density);
   densityRef.current = density;
   const [filters, setFilters] = useState<ViewFilters>({});
+  /** Critères retirés par la recherche, à rétablir à l'identique ; effacés au prochain changement de filtre ou de vue. */
+  const [removedFilters, setRemovedFilters] = useState<ViewFilters | null>(null);
+  const changeFilters = (f: ViewFilters) => { setRemovedFilters(null); setFilters(f); };
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
   /** Charge chiffrée dans chaque colonne de temps (Q11) : en mémoire seulement, jamais enregistrée. */
@@ -220,6 +232,8 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (!isSearchShortcut(e)) return;
       if (searchOpenRef.current) { e.preventDefault(); return; }
+      // Événement déjà traité, ou zone de texte où la touche sert à l'édition (un champ simple, lui, ouvre la palette).
+      if (e.defaultPrevented || inTextArea(e.target)) return;
       // Une autre fenêtre modale (pop-in, import, confirmation) garde le clavier ; un menu ancré (aria-modal=false) ne le garde pas.
       if (document.querySelector('[role="dialog"]:not([aria-modal="false"]), [role="alertdialog"]')) return;
       e.preventDefault();
@@ -360,9 +374,17 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   const pickSearch = (item: SearchItem) => {
     setSearchOpen(false);
     if (item.kind === "project") { onOpenProject?.(item.id); return; }
+    // La palette a déjà obtenu la confirmation d'une personne masquée.
     const cleared = hiddenIds.has(item.id);
     pendingReveal.current = { id: item.id, name: item.name, cleared };
-    if (cleared) setFilters(clearCriteria);
+    if (cleared) { setRemovedFilters(filters); setFilters(clearCriteria(filters)); }
+  };
+  const restoreFilters = () => {
+    if (!removedFilters) return;
+    setFilters(removedFilters);
+    setRemovedFilters(null);
+    gridRef.current?.focus({ preventScroll: true }); // le bouton disparaît : le focus ne reste pas perdu
+    editsRef.current.announce(t("schedule.filters.restored"));
   };
   const zoomTo = (z: Zoom) => { scroller.current?.setZoom(z); setZoom(z); };
   const densityTo = (d: Density) => { scroller.current?.setDensity(d); setDensityState(d); storeDensity(d); };
@@ -392,12 +414,12 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     <div className="wn-schedule" data-density={density} {...(showLoad ? { "data-load": "on" } : {})}>
       <div className="wn-subheader">
         {heading}
-        {views && <ViewsBar i18n={i18n} shownCount={shown.people.length} source={views} filters={filters} zoom={zoom} density={density} onFilters={setFilters} onZoom={zoomTo} onDensity={densityTo} />}
+        {views && <ViewsBar i18n={i18n} shownCount={shown.people.length} source={views} filters={filters} zoom={zoom} density={density} onFilters={changeFilters} onZoom={zoomTo} onDensity={densityTo} />}
         <div className="wn-subheader-end">
           {actions}
           <Button ref={searchButton} type="button" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" onClick={() => setSearchOpen(true)}>
             {t("schedule.search.open")}
-            <kbd className="rounded-sm border border-solid border-input bg-muted px-1 font-[inherit] text-caption text-muted-foreground">{searchShortcutLabel()}</kbd>
+            <kbd data-shortcut="" className="rounded-sm border border-solid border-input bg-muted px-1 font-[inherit] text-caption text-muted-foreground">{searchShortcutLabel()}</kbd>
           </Button>
           {records && (
             <>
@@ -411,7 +433,8 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
         {views && (
           <>
             <FiltersButton i18n={i18n} filters={filters} expanded={filtersOpen} controls={`${uid}-filters`} onToggle={() => setFiltersOpen((o) => !o)} />
-            <FilterChips i18n={i18n} data={data} filters={filters} onFilters={setFilters} />
+            <FilterChips i18n={i18n} data={data} filters={filters} onFilters={changeFilters} />
+            {removedFilters && <Button type="button" onClick={restoreFilters}>{t("schedule.filters.restore")}</Button>}
           </>
         )}
         <div className="wn-toolbar-spacer" />
@@ -438,7 +461,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
         <Button ref={displayButton} type="button" aria-haspopup="dialog" aria-expanded={displayOpen} onClick={() => setDisplayOpen((o) => !o)}>{t("schedule.display")}</Button>
         <span className="wn-people-count">{t("schedule.people.count", { count: shown.people.length })}</span>
       </div>
-      {views && filtersOpen && <FiltersPanel i18n={i18n} data={data} filters={filters} onFilters={setFilters} id={`${uid}-filters`} />}
+      {views && filtersOpen && <FiltersPanel i18n={i18n} data={data} filters={filters} onFilters={changeFilters} id={`${uid}-filters`} />}
       {displayOpen && displayButton.current && (
         <Popover anchor={displayButton.current} label={t("schedule.display")} className="wn-display-menu" onClose={() => setDisplayOpen(false)}>
           <RadioGroup aria-label={t("schedule.density.label")} value={density} onValueChange={(v) => densityTo(v as Density)}

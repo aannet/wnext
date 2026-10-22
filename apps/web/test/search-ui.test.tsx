@@ -122,6 +122,56 @@ describe("raccourci et bouton", () => {
   });
 });
 
+describe("Ctrl+K selon l'endroit où se trouve le focus", () => {
+  async function pressOn(el: HTMLElement) {
+    const ev = new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true, cancelable: true });
+    await act(async () => { el.dispatchEvent(ev); });
+    await flush();
+    return ev;
+  }
+  const outside = (el: HTMLElement) => { document.body.appendChild(el); return el; };
+
+  it("dans un champ de saisie (input) : la palette s'ouvre", async () => {
+    await mount();
+    const field = outside(document.createElement("input"));
+    field.focus();
+    const ev = await pressOn(field);
+    expect(dialog()).not.toBeNull();
+    expect(ev.defaultPrevented).toBe(true);
+    field.remove();
+  });
+
+  it("dans une zone de texte (textarea) ou un élément contenteditable : ignoré, la touche garde son sens d'édition", async () => {
+    await mount();
+    const area = outside(document.createElement("textarea"));
+    const ev1 = await pressOn(area);
+    const editable = outside(document.createElement("div"));
+    editable.setAttribute("contenteditable", "true");
+    const inner = editable.appendChild(document.createElement("span"));
+    const ev2 = await pressOn(inner);
+    expect([dialog(), ev1.defaultPrevented, ev2.defaultPrevented]).toEqual([null, false, false]);
+    area.remove(); editable.remove();
+  });
+
+  it("contenteditable=\"false\" n'est pas une zone d'édition", async () => {
+    await mount();
+    const frozen = outside(document.createElement("div"));
+    frozen.setAttribute("contenteditable", "false");
+    await pressOn(frozen);
+    expect(dialog()).not.toBeNull();
+    frozen.remove();
+  });
+
+  it("événement déjà traité (defaultPrevented) : ignoré", async () => {
+    await mount();
+    const target = outside(document.createElement("button"));
+    target.addEventListener("keydown", (e) => e.preventDefault());
+    await pressOn(target);
+    expect(dialog()).toBeNull();
+    target.remove();
+  });
+});
+
 describe("résultats", () => {
   it("« per » : personnes, sans casse ni accents ; sans onOpenProject, pas de groupe Projets", async () => {
     await mount();
@@ -133,6 +183,23 @@ describe("résultats", () => {
     await type("projet");
     expect(optionTexts()).toEqual([]);
     expect(dialog()!.textContent).toContain("Aucun résultat");
+  });
+
+  it("sans résultat : aria-expanded du champ à false, « Aucun résultat » dans une région de statut qui reste la même ; il redevient true avec des résultats", async () => {
+    await mount();
+    await press(document.body, { key: "k", ctrlKey: true });
+    await flush();
+    expect(input().getAttribute("aria-expanded")).toBe("true");
+    const status = dialog()!.querySelector('[role="status"]')!;
+    expect(status.textContent).toBe("");
+    await type("zzz");
+    expect(input().getAttribute("aria-expanded")).toBe("false");
+    expect(dialog()!.querySelector('[role="listbox"]')).toBeNull();
+    expect(dialog()!.querySelector('[role="status"]')).toBe(status); // même nœud : la région existait avant le texte, il est annoncé
+    expect(status.textContent).toBe("Aucun résultat");
+    await type("personne 1");
+    expect(input().getAttribute("aria-expanded")).toBe("true");
+    expect(status.textContent).toBe("");
   });
 
   it("avec onOpenProject : groupes Personnes puis Projets", async () => {
@@ -183,9 +250,8 @@ describe("choix", () => {
     expect(lit()).toEqual(["33"]);
   });
 
-  it("personne masquée par un filtre : l'option le dit ; la choisir retire les filtres, puis montre la ligne", async () => {
-    await mount({ views: true });
-    // Filtre « Département » : la personne 2 (département 2) est écartée.
+  /** Filtre « Département : Produit » posé par le panneau : la personne 2 (département 2) est écartée. */
+  async function filterOnProduct() {
     const filtersButton = [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] button")].find((b) => /^Filtres/.test(b.textContent ?? ""))!;
     await act(async () => { filtersButton.click(); });
     const select = [...host.querySelectorAll<HTMLElement>(".wn-filter")].find((l) => l.firstElementChild?.textContent === "Département")!.querySelector("select")!;
@@ -194,8 +260,12 @@ describe("choix", () => {
       select.dispatchEvent(new Event("change", { bubbles: true }));
     });
     await flush();
-    const count = () => Number(/(\d+) personnes?/.exec(host.querySelector("[role=toolbar]")!.textContent!)![1]);
-    expect(count()).toBe(14);
+    return select;
+  }
+  const count = () => Number(/(\d+) personnes?/.exec(host.querySelector("[role=toolbar]")!.textContent!)![1]);
+  const dialogButton = (label: string | RegExp) => [...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find((b) => (typeof label === "string" ? b.textContent === label : label.test(b.textContent ?? "")));
+  const restoreButton = () => [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] button")].find((b) => b.textContent === "Rétablir les filtres");
+  async function searchHidden() {
     await press(document.body, { key: "k", ctrlKey: true });
     await flush();
     await type("personne 2");
@@ -204,10 +274,121 @@ describe("choix", () => {
     expect(options().find((o) => o.textContent === "Personne 4")).toBeUndefined();
     await act(async () => { two!.click(); });
     await flush();
+  }
+
+  it("personne masquée par un filtre : l'option le dit ; la choisir demande confirmation, sans toucher aux filtres ni à la grille", async () => {
+    await mount({ views: true });
+    await filterOnProduct();
+    expect(count()).toBe(14);
+    await searchHidden();
+    expect(dialog()!.textContent).toContain("Personne 2 est masquée par les filtres actuels");
+    expect(dialogButton("Retirer les filtres et afficher Personne 2")).toBeDefined();
+    expect(document.activeElement).toBe(dialogButton("Retirer les filtres et afficher Personne 2"));
+    expect(count()).toBe(14);
+    expect(lit()).toEqual([]);
+    expect(restoreButton()).toBeUndefined();
+  });
+
+  it("Annuler (ou Échap) : retour à la liste, même recherche, focus dans le champ ; filtres intacts", async () => {
+    await mount({ views: true });
+    await filterOnProduct();
+    await searchHidden();
+    await act(async () => { dialogButton("Annuler")!.click(); });
+    await flush();
+    expect(dialog()).not.toBeNull();
+    expect(input().value).toBe("personne 2");
+    expect(document.activeElement).toBe(input());
+    expect(count()).toBe(14);
+    // Deuxième tentative, abandonnée par Échap : une étape en arrière, la fenêtre reste ouverte.
+    await act(async () => { options().find((o) => o.textContent!.startsWith("Personne 2masquée"))!.click(); });
+    await flush();
+    await press(document.activeElement!, { key: "Escape" });
+    await flush();
+    expect(dialog()).not.toBeNull();
+    expect(document.activeElement).toBe(input());
+    expect(count()).toBe(14);
+    expect(restoreButton()).toBeUndefined();
+    await press(input(), { key: "Escape" });
+    await flush();
+    expect(dialog()).toBeNull();
+  });
+
+  it("confirmer : filtres retirés, ligne montrée et annoncée ; « Rétablir les filtres » restaure exactement les critères d'avant", async () => {
+    await mount({ views: true });
+    const select = await filterOnProduct();
+    await searchHidden();
+    await act(async () => { dialogButton("Retirer les filtres et afficher Personne 2")!.click(); });
+    await flush();
+    expect(dialog()).toBeNull();
     expect(count()).toBe(40);
     expect(host.querySelector(".wn-chip")).toBeNull();
     expect(lit()).toEqual(["2"]);
+    expect(document.activeElement).toBe(grid());
     expect(announced()).toContain("filtres retirés");
+    expect(restoreButton()).toBeDefined();
+    await act(async () => { restoreButton()!.click(); });
+    await flush();
+    expect(count()).toBe(14);
+    expect([...select.selectedOptions].map((o) => o.textContent)).toEqual(["Produit"]);
+    expect(host.querySelector(".wn-chip")!.textContent).toContain("Produit");
+    expect(restoreButton()).toBeUndefined();
+    expect(announced()).toContain("Filtres rétablis");
+  });
+
+  it("« Rétablir les filtres » disparaît au prochain changement de filtre", async () => {
+    await mount({ views: true });
+    const select = await filterOnProduct();
+    await searchHidden();
+    await act(async () => { dialogButton(/^Retirer les filtres/)!.click(); });
+    await flush();
+    expect(restoreButton()).toBeDefined();
+    await act(async () => {
+      for (const o of select.options) o.selected = o.textContent === "Design";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await flush();
+    expect(restoreButton()).toBeUndefined();
+    expect(count()).toBe(13);
+  });
+
+  it("vue sauvegardée : « modifiée » après le retrait, état d'origine après le rétablissement ; un changement de vue enterre le bouton", async () => {
+    await mount({ views: true });
+    const viewSelect = () => host.querySelector<HTMLSelectElement>(".wn-views-row select")!;
+    const modified = () => host.querySelector(".wn-views-modified");
+    const choose = async (id: string) => {
+      await act(async () => { viewSelect().value = id; viewSelect().dispatchEvent(new Event("change", { bubbles: true })); });
+      await flush();
+    };
+    await choose("demo-view-1"); // Design seniors : département 2, rôle 1
+    const before = count();
+    expect(before).toBeLessThan(40);
+    expect(modified()).toBeNull();
+    await press(document.body, { key: "k", ctrlKey: true });
+    await flush();
+    await type("personne 1");
+    const hidden = options().find((o) => o.textContent === "Personne 1masquée par les filtres")!;
+    await act(async () => { hidden.click(); });
+    await flush();
+    await act(async () => { dialogButton(/^Retirer les filtres/)!.click(); });
+    await flush();
+    expect(count()).toBe(40);
+    expect(modified()).not.toBeNull();
+    await act(async () => { restoreButton()!.click(); });
+    await flush();
+    expect(count()).toBe(before);
+    expect(modified()).toBeNull();
+    expect(viewSelect().value).toBe("demo-view-1");
+    // Nouveau retrait puis changement de vue : plus rien à rétablir.
+    await press(document.body, { key: "k", ctrlKey: true });
+    await flush();
+    await type("personne 1");
+    await act(async () => { options().find((o) => o.textContent === "Personne 1masquée par les filtres")!.click(); });
+    await flush();
+    await act(async () => { dialogButton(/^Retirer les filtres/)!.click(); });
+    await flush();
+    expect(restoreButton()).toBeDefined();
+    await choose("demo-view-3");
+    expect(restoreButton()).toBeUndefined();
   });
 
   it("projet : confié à onOpenProject avec son identifiant, rien n'est défilé", async () => {
