@@ -3,13 +3,16 @@
 // traduits et la création.
 //  * Focus par « / » ou « N » (écran), Échap pour sortir. La personne n'est pas dans la grammaire du moteur : sélecteur
 //    obligatoire, prérempli avec la personne du bloc focalisé.
-//  * Projet ambigu : liste déroulante (combobox ARIA, flèches haut / bas, Entrée choisit, Échap la ferme).
+//  * Projet ambigu : liste déroulante sur l'Autocomplete de Base UI (combobox ARIA, flèches haut / bas, Entrée choisit, Échap la
+//    ferme). Les candidats viennent de l'analyse de la phrase et non du texte tapé : liste statique (`mode="none"`), ouverte et
+//    fermée par l'état d'ici, et le champ garde la phrase (choisir un candidat ne la réécrit pas).
 //  * Entrée valide : création optimiste (createAllocation, retour arrière si refus), enregistrée dans l'historique
 //    (annulable par Ctrl+Z), annoncée ; refus : message traduit dans la barre et annonce.
 //  * Sans quantité : 8 h par jour (défaut du moteur), signalé.
 import type { I18n } from "@lingui/core";
 import type { ScheduleResponse } from "@wnext/contracts";
 import { parseQuickEntry, type QuickDraft, type QuickLocale } from "@wnext/engine";
+import { Autocomplete } from "@base-ui/react/autocomplete";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { AllocationCreate } from "../api/client.gen";
 import type { EditError } from "../data/allocation-edits";
@@ -53,8 +56,7 @@ export const QuickEntry = forwardRef<QuickEntryHandle, QuickEntryProps>(function
   const [text, setText] = useState("");
   const [personId, setPersonId] = useState("");
   const [chosen, setChosen] = useState<string | null>(null);
-  const [active, setActive] = useState(0);
-  const [listOpen, setListOpen] = useState(true);
+    const [listOpen, setListOpen] = useState(true);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const busy = useRef(false);
@@ -91,11 +93,10 @@ export const QuickEntry = forwardRef<QuickEntryHandle, QuickEntryProps>(function
   ];
   const body = allocationBodyOf(draft, personId);
   const showList = draft.projectId === null && draft.candidates.length > 1 && listOpen;
-  const optionId = (i: number) => `wn-quick-opt-${i}`;
   const projectName = projects.find((p) => p.id === draft.projectId)?.name ?? "";
   const personName = data.people.find((p) => p.id === personId)?.name ?? "";
 
-  const change = (v: string) => { setText(v); setChosen(null); setActive(0); setListOpen(true); setError(""); };
+  const change = (v: string) => { setText(v); setChosen(null); setListOpen(true); setError(""); };
 
   async function submit() {
     if (!body || busy.current) return;
@@ -121,14 +122,9 @@ export const QuickEntry = forwardRef<QuickEntryHandle, QuickEntryProps>(function
     if (e.key === "Escape") {
       e.preventDefault();
       if (showList) setListOpen(false); else onExit();
-    } else if (showList && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+    } else if (e.key === "Enter" && e.target === inputRef.current && !showList) {
       e.preventDefault();
-      const n = draft.candidates.length;
-      setActive((a) => (a + (e.key === "ArrowDown" ? 1 : n - 1)) % n);
-    } else if (e.key === "Enter" && e.target === inputRef.current) {
-      e.preventDefault();
-      if (showList) setChosen(draft.candidates[active]?.id ?? null);
-      else void submit();
+      void submit();
     }
   };
 
@@ -141,20 +137,24 @@ export const QuickEntry = forwardRef<QuickEntryHandle, QuickEntryProps>(function
           {data.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
       </label>
-      <div className="wn-quick-field">
-        <input ref={inputRef} type="text" role="combobox" aria-label={t("schedule.quick.input")} placeholder={t("schedule.quick.placeholder")}
-          aria-autocomplete="list" aria-expanded={showList} aria-controls="wn-quick-list" aria-describedby="wn-quick-preview"
-          aria-activedescendant={showList ? optionId(active) : undefined} aria-keyshortcuts="/ N" autoComplete="off"
-          value={text} onChange={(e) => change(e.target.value)} />
-        {showList && (
-          <ul id="wn-quick-list" role="listbox" aria-label={t("schedule.quick.candidates")} className="wn-quick-list">
-            {draft.candidates.map((c, i) => (
-              <li key={c.id} id={optionId(i)} role="option" aria-selected={i === active}
-                onMouseDown={(e) => { e.preventDefault(); setChosen(c.id); inputRef.current?.focus(); }}>{c.name}</li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <Autocomplete.Root<{ id: string; name: string }>
+        inline items={draft.candidates} mode="none" autoHighlight="always" value={text} open={showList} itemToStringValue={(c) => c.id}
+        onOpenChange={(open) => { if (!open) setListOpen(false); }}
+        onValueChange={(v, details) => { if (details.reason === "input-change") change(v); }}
+      >
+        <div className="wn-quick-field">
+          <Autocomplete.Input ref={inputRef} aria-label={t("schedule.quick.input")} placeholder={t("schedule.quick.placeholder")}
+            aria-describedby="wn-quick-preview" aria-keyshortcuts="/ N" autoComplete="off" aria-expanded={showList} />
+          {showList && (
+            <Autocomplete.List id="wn-quick-list" aria-label={t("schedule.quick.candidates")}
+              className="absolute inset-x-0 z-(--z-menu) m-0 mt-0.5 list-none overflow-hidden rounded-md border border-solid border-input bg-popover p-0 text-popover-foreground shadow-popover outline-none">
+              {(c: { id: string; name: string }) => (
+                <Autocomplete.Item key={c.id} value={c} onClick={() => { setChosen(c.id); inputRef.current?.focus(); }} className="cursor-pointer px-2 py-1 outline-none select-none data-highlighted:bg-focus data-highlighted:text-on-focus">{c.name}</Autocomplete.Item>
+              )}
+            </Autocomplete.List>
+          )}
+        </div>
+      </Autocomplete.Root>
       <Button type="button" disabled={!body} onClick={() => void submit()}>{t("schedule.quick.submit")}</Button>
       <div id="wn-quick-preview" className="wn-quick-preview">
         {body && draft.startDate && draft.endDate && (

@@ -58,6 +58,8 @@ async function mount(opts: { allocations?: Alloc[]; records?: boolean; locale?: 
 const mine = (src: Source) => src.getState().data!.allocations;
 const input = () => host.querySelector<HTMLInputElement>('input[role="combobox"]')!;
 const preview = () => host.querySelector("#wn-quick-preview")!.textContent!;
+/** Identifiant de la n-ième option : généré par Base UI. */
+const optionId = (i: number) => host.querySelectorAll('[role="option"]')[i]?.id;
 const options = () => [...host.querySelectorAll('[role="option"]')].map((o) => o.textContent);
 const press = (target: EventTarget, init: KeyboardEventInit) =>
   act(() => { target.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init })); });
@@ -67,7 +69,7 @@ const grid = () => host.querySelector<HTMLElement>("[role=grid]")!;
 function type(value: string) {
   act(() => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input(), value);
-    input().dispatchEvent(new Event("input", { bubbles: true }));
+    input().dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
   });
 }
 function pickPerson(id: string) {
@@ -114,17 +116,22 @@ describe("saisie rapide", () => {
     await mount();
     pickPerson("1");
     type("refo lun");
+    await flush(); // la liste est dans un portail (Base UI) : montée au rendu suivant
     expect(options()).toEqual(["Refonte", "Refonte Mobile"]);
     expect(input().getAttribute("aria-expanded")).toBe("true");
-    expect(input().getAttribute("aria-activedescendant")).toBe("wn-quick-opt-0");
+    expect(input().getAttribute("aria-activedescendant")).toBe(optionId(0));
     press(input(), { key: "ArrowDown" });
-    expect(input().getAttribute("aria-activedescendant")).toBe("wn-quick-opt-1");
-    expect(host.querySelectorAll('[aria-selected="true"]')).toHaveLength(1);
+    await flush();
+    expect(input().getAttribute("aria-activedescendant")).toBe(optionId(1));
+    expect(host.querySelectorAll('[role="option"][data-highlighted]')).toHaveLength(1);
     press(input(), { key: "Enter" });
+    await flush();
     expect(options()).toEqual([]);
     expect(preview()).toContain("Refonte Mobile, Alice");
     type("refo lun");
+    await flush();
     press(input(), { key: "Escape" });
+    await flush();
     expect(options()).toEqual([]);
     expect(input().getAttribute("aria-expanded")).toBe("false");
   });
