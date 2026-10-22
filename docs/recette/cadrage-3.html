@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WNEXT — Cadrage n°3 (autonome)</title>
+<style>
+  :root { color-scheme: light; --bg:#f7f8fa; --card:#fff; --ink:#1c2330; --muted:#566074; --line:#e3e7ee; --accent:#2f5bea; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .layout { display:flex; align-items:flex-start; }
+  nav { position:sticky; top:0; width:230px; flex:none; height:100vh; overflow:auto; padding:24px 16px; border-right:1px solid var(--line); background:var(--card); }
+  nav h1 { font-size:17px; margin:0 0 4px; } nav .s { color:var(--muted); font-size:12px; margin:0 0 16px; }
+  nav a { display:block; padding:6px 10px; margin-bottom:2px; border-radius:6px; color:var(--muted); text-decoration:none; font-size:14px; }
+  nav a:hover { background:var(--bg); } nav a.active { background:#e8eefd; color:var(--accent); font-weight:600; }
+  main { flex:1; min-width:0; max-width:1000px; padding:32px 32px 80px; }
+  section { margin-bottom:44px; scroll-margin-top:16px; }
+  h2 { font-size:21px; margin:0 0 6px; } h3 { margin:0 0 6px; font-size:16px; }
+  .sub { color:var(--muted); font-weight:400; font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin-bottom:14px; }
+  .intent { border-left:4px solid var(--accent); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  .stats ul { list-style:none; margin:6px 0 0; padding:0; } .stats li { padding:2px 0; }
+  .stats .big { font-size:40px; font-weight:700; line-height:1; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; font-size:13.5px; }
+  th,td { text-align:left; vertical-align:top; padding:8px 10px; border-top:1px solid var(--line); }
+  th { background:#eef1f6; border-top:0; font-size:12.5px; }
+  .nw { white-space:nowrap; } .tw { overflow-x:auto; }
+  blockquote { margin:6px 0 0; padding:2px 0 2px 10px; border-left:3px solid var(--line); color:var(--muted); font-size:13px; }
+  .gb { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:1px 8px; border-radius:10px; border:1px solid; white-space:nowrap; }
+  .gb i { width:8px; height:8px; display:inline-block; }
+  .g2 { background:#fdf0dc; color:#8a4b00; border-color:#8a4b00; } .g2 i { background:#8a4b00; transform:rotate(45deg); }
+  .g3 { background:#fbf6d6; color:#6b5a00; border-color:#6b5a00; } .g3 i { background:#6b5a00; border-radius:50%; }
+  .g4 { background:#eef1f6; color:#445; border-color:#445; } .g4 i { border:2px solid #445; border-radius:50%; }
+  .g0 { background:#eef1f6; color:#445; border-color:#aab; font-weight:500; }
+  .reco { background:#eaf6ef; border:1px solid #1f7a4d; border-radius:8px; padding:8px 12px; }
+  .tagreco { display:inline-block; font-size:12px; font-weight:700; color:#17603c; margin-right:6px; text-transform:uppercase; }
+  .answer { border:1px dashed #98a2b3; border-radius:8px; padding:10px 12px; min-height:56px; color:var(--muted); margin:10px 0 0; }
+  .flow { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:10px 0 4px; }
+  .flow .chain { display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  .node { border:2px solid var(--accent); border-radius:8px; padding:4px 12px; font-weight:700; background:#e8eefd; }
+  .node.role { border-color:#566074; background:#f2f4f8; font-weight:600; }
+  .arrow { color:var(--muted); font-weight:700; }
+  .roles { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; }
+  .roles .card h3 { display:flex; justify-content:space-between; gap:8px; }
+  .roles .card h3 span { font-weight:500; color:var(--muted); font-size:13px; }
+  ul.plain { margin:6px 0; padding-left:20px; } ul.plain li { margin:3px 0; }
+  .hl { background:#fff7e0; border:1px solid #e0a100; border-radius:8px; padding:8px 12px; }
+  @media (max-width:880px) { .layout { display:block; } nav { position:static; width:auto; height:auto; border-right:0; border-bottom:1px solid var(--line); padding:12px 16px; } nav a { display:inline-block; } main { padding:20px 16px 60px; } }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav id="nav">
+  <h1>Cadrage n°3</h1><p class="s">Autonome, 2026-10-22</p>
+  <a href="#resume">Résumé</a>
+  <a href="#mode">Mode autonome</a>
+  <a href="#decisions">Décisions autonomes</a>
+  <a href="#lots">Lots et vagues</a>
+  <a href="#humain">Reste à l'humain</a>
+  <a href="#suite">Suite</a>
+</nav>
+<main>
+<section id="resume">
+  <h2>Résumé</h2>
+  <p class="sub">Cadrage sans note : il reprend les points ouverts PO-04 à PO-10 et les restes de la recette n°2 (<code>docs/handoff-2026-10-22-recette-2.md</code>). Source : <code>docs/recette/registre.md</code>, vérifié dans le code de <code>main</code> à <code>4f66900</code>.</p>
+  <div class="card intent"><b>Intention.</b> Alec a demandé le 2026-10-22 de finaliser la recette <b>sans validation intermédiaire</b> et de ne faire qu'une recette, à la fin. Les <b>10 retours</b> RT-036 à RT-045 sont au statut <b>« validé (auto) »</b> : la recommandation CPTO est appliquée et sera <b>confirmée ou annulée à la recette n°3</b>.</div>
+  <div class="stats">
+    <div class="card"><div class="big">10</div>retours, 10 lots, 5 vagues<br><span class="sub">3 lots de contrat (ajouts sans rupture)</span></div>
+    <div class="card"><b>Par origine</b><ul><li><b>7</b> points ouverts (PO-04 à PO-10)</li><li><b>1</b> suite de RT-021 (composants natifs)</li><li><b>1</b> recette (seed, scénarios)</li><li><b>1</b> CODEOWNERS</li></ul></div>
+    <div class="card"><b>Par gravité</b><ul><li><span class="gb g2"><i></i>majeure</span> <b>5</b></li><li><span class="gb g3"><i></i>mineure</span> <b>5</b></li></ul><span class="sub">Aucun retour bloquant.</span></div>
+  </div>
+</section>
+
+<section id="mode">
+  <h2>Mode autonome</h2>
+  <p class="sub">Trois garde-fous remplacent la validation d'Alec avant les lots.</p>
+  <div class="flow" role="img" aria-label="Cadrage CPTO, puis lots en worktree, test rouge d'abord, make check, revue croisée par un autre modèle, fusion dans main, puis pré-recette automatisée et recette d'Alec">
+    <div class="chain"><span class="node">CPTO : cadrage</span><span class="arrow">→</span><span class="node role">Lot (test rouge d'abord)</span><span class="arrow">→</span><span class="node">make check</span><span class="arrow">→</span><span class="node role">Revue croisée</span><span class="arrow">→</span><span class="node">main</span><span class="arrow">→</span><span class="node role">Alec : recette n°3</span></div>
+  </div>
+  <div class="card"><ul class="plain">
+    <li><b>Option la plus réversible</b> : aucune migration, aucun changement de <code>schema.sql</code> (gelé) ; le contrat est étendu par ajout (champ ou route), jamais modifié. Un point qui exigerait une migration passe en <code>reporté (T2)</code>.</li>
+    <li><b>Revue croisée</b> : avant chaque fusion, le diff est relu par un modèle d'une autre famille (spec, ADR, <code>design.md</code>, test rouge avant le correctif).</li>
+    <li><b>Règle d'arrêt</b> : <code>make check</code> rouge après 3 tentatives, le lot est annulé et passe en <code>reporté</code> avec sa raison. Rien n'interrompt la file pour une question.</li>
+  </ul></div>
+</section>
+
+<section id="decisions">
+  <h2>Décisions autonomes</h2>
+  <p class="sub">À confirmer ou annuler pendant la recette n°3. Le détail est dans le registre.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Id</th><th>Origine</th><th>Décision</th><th>Gravité</th><th>Lot</th></tr></thead>
+  <tbody>
+<tr id="rt-036"><td class="nw"><b>RT-036</b></td><td>PO-10</td><td>Grille horaire de la fiche personne : jours abrégés, nom long en nom accessible, libellés contraints à leur colonne.</td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-M</td></tr>
+<tr id="rt-037"><td class="nw"><b>RT-037</b></td><td>RT-021</td><td>Composants encore natifs passés sur Base UI : onglets, groupes radio, bascules, menu de l'avatar, menu BR-10, cloche, liens de tableau, liste de la saisie rapide.</td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-M</td></tr>
+<tr id="rt-038"><td class="nw"><b>RT-038</b></td><td>PO-09</td><td>Palette Ctrl+K : chercher une <b>personne</b> (défile jusqu'à sa ligne, la met en évidence ; si un filtre la masque, le dit et propose de le retirer) ou un <b>projet</b> (ouvre sa fiche). Côté client, non enregistrée dans les vues, sans contrat.</td><td><span class="gb g2"><i></i>majeure</span></td><td class="nw">L-N</td></tr>
+<tr id="rt-039"><td class="nw"><b>RT-039</b></td><td>PO-06</td><td>Champ <code>managerUserIds</code> dans les projets : un co-gestionnaire voit ses projets dans l'éditeur (BR-33). L'API reste juge.</td><td><span class="gb g2"><i></i>majeure</span></td><td class="nw">L-O1</td></tr>
+<tr id="rt-040"><td class="nw"><b>RT-040</b></td><td>PO-04</td><td>Colonne « Accès » (<code>member</code> ou <code>none</code>), servie à owner, admin et chef de projet. « Invitation envoyée » en T2 : pas de table d'invitations.</td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-O2</td></tr>
+<tr id="rt-041"><td class="nw"><b>RT-041</b></td><td>PO-05</td><td><code>GET</code> et <code>PATCH /account</code> (owner ou admin, <code>If-Match</code>) : fuseau, début de semaine, langue (fr, en), seuil de sous-allocation. Réglages &gt; Compte éditable.</td><td><span class="gb g2"><i></i>majeure</span></td><td class="nw">L-O3</td></tr>
+<tr id="rt-042"><td class="nw"><b>RT-042</b></td><td>PO-08</td><td>Portée à l'enregistrement dans le drawer : série (« cette occurrence », par scission, ou « toute la série ») ; groupe (« cette ligne » ou « tout le groupe »).</td><td><span class="gb g2"><i></i>majeure</span></td><td class="nw">L-P</td></tr>
+<tr id="rt-043"><td class="nw"><b>RT-043</b></td><td>PO-07</td><td>Appui long sur une case libre au toucher : bloc provisoire, glisser pour étendre, relâcher ouvre le drawer.</td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-Q</td></tr>
+<tr id="rt-044"><td class="nw"><b>RT-044</b></td><td>scénarios</td><td>Seed de recette, <code>scenarios.md</code> remis à jour, pré-recette automatisée (<code>recette.spec.ts</code>).</td><td><span class="gb g2"><i></i>majeure</span></td><td class="nw">L-R</td></tr>
+<tr id="rt-045"><td class="nw"><b>RT-045</b></td><td>handoff</td><td>CODEOWNERS : chemins réels <code>/schema.sql</code>, <code>/migrations/</code>, <code>/tests/sql/</code>.</td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-S</td></tr>
+  </tbody></table></div>
+</section>
+
+<section id="lots">
+  <h2>Lots et vagues</h2>
+  <p class="sub">Au plus deux lots en parallèle (mémoire de la VM), un seul lot de contrat à la fois, jamais deux lots sur <code>ScheduleScreen.tsx</code> ensemble.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Vague</th><th>Lots</th><th>Modèles</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>L-M (PO-10, natifs) ∥ L-R1 (seed)</td><td>Sonnet ∥ Sonnet</td></tr>
+    <tr><td>2</td><td>L-O1 (<code>managerUserIds</code>) ∥ L-N (Ctrl+K)</td><td>Opus puis Sonnet ∥ Sonnet</td></tr>
+    <tr><td>3</td><td>L-O2 (Accès) ∥ L-P (portée)</td><td>Opus puis Sonnet ∥ Opus</td></tr>
+    <tr><td>4</td><td>L-O3 (<code>PATCH /account</code>) ∥ L-Q (appui long)</td><td>Opus puis Sonnet ∥ Opus</td></tr>
+    <tr><td>5</td><td>L-R2 (scénarios, pré-recette) puis L-S (CODEOWNERS, docs)</td><td>Sonnet, Haiku</td></tr>
+  </tbody></table></div>
+  <p class="sub">Revue croisée de chaque diff : GPT-6.1 Sol. Ordre des contrats : ajouts de champs d'abord (PO-06, PO-04), nouvelle route ensuite (PO-05).</p>
+</section>
+
+<section id="humain">
+  <h2>Reste à l'humain</h2>
+  <div class="card"><ul class="plain">
+    <li>Confirmer ou annuler chaque décision autonome (RT-036 à RT-045).</li>
+    <li>Relire les commits de contrat (CODEOWNERS) : <code>ce25e1f</code> (L-H) et ceux de L-O1, L-O2, L-O3.</li>
+    <li>Relire les tests SQL (<code>docs/review/relecture-tests-sql.md</code>).</li>
+  </ul></div>
+</section>
+
+<section id="suite">
+  <h2>Suite</h2>
+  <div class="card"><ol style="margin:0;padding-left:20px">
+    <li>Exécution des vagues 1 à 5, suivie dans <code>docs/avancement.html</code>.</li>
+    <li>Contrôle final : <code>make check</code>, tests navigateur (démo et OIDC), pré-recette automatisée.</li>
+    <li>Dossier <code>docs/recette/recette-3-preparation.html</code>, puis recette n°3 par Alec avec <code>npm run dev:recette</code>.</li>
+  </ol></div>
+</section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll("#nav a")];
+const secs=links.map(a=>document.querySelector(a.getAttribute("href")));
+const onScroll=()=>{let cur=0;secs.forEach((s,i)=>{if(s&&s.getBoundingClientRect().top<120)cur=i;});links.forEach((a,i)=>a.classList.toggle("active",i===cur));};
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+</script>
+</body>
+</html>

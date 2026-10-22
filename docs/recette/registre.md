@@ -96,6 +96,42 @@ Tri PM : les retours sont réordonnés par dépendance (kit et retrait d'abord, 
 
 **Décisions rattachées** : RT-020 (kit shadcn/ui, ADR-010) ; RT-022 (retrait de PO-01) ; RT-033 et RT-034 en V2 = T2 (dossier §5.6 amendé).
 
+## Cadrage n°3 — autonome (2026-10-22, `cadrage-3.html`)
+
+Mode décidé par Alec le 2026-10-22 : finaliser les points ouverts **sans validation intermédiaire**, recette unique à la fin. Les points ouverts PO-04 à PO-10, les composants encore natifs, le seed de recette et CODEOWNERS deviennent RT-036 à RT-045. Statut **`validé (auto)`** : recommandation CPTO appliquée sans réponse d'Alec, **à confirmer ou annuler à la recette n°3**. Garde-fous : option la plus réversible (aucune migration, contrat étendu sans rupture), test rouge avant chaque correctif, revue croisée du diff par un modèle d'une autre famille avant chaque fusion, lot annulé et `reporté` si `make check` reste rouge après 3 tentatives. Commits de contrat : relecture CODEOWNERS regroupée à la fin. Analyse vérifiée dans le code de `main` à `4f66900`.
+
+| ID | Retour | Origine | Nature | Décision autonome (CPTO) | Gravité | Lot | Contrat | Statut |
+|---|---|---|---|---|---|---|---|---|
+| RT-036 | Fiche personne : les libellés de la grille horaire débordent du drawer de 420 px | PO-10 | graphique | Jours abrégés (`Intl`, style `short`), nom long en nom accessible ; libellés contraints à leur colonne ; test navigateur « aucun libellé hors du drawer » | mineure | L-M | non | validé (auto) |
+| RT-037 | Composants encore natifs : onglets (créneau, Projets, Réglages), groupes radio (densité, couleur, BR-04, désactivation), bascules, menu de l'avatar, menu BR-10, cloche, liens de tableau, liste de la saisie rapide | RT-021 (suite), handoff recette n°2 | évolution | Migration sur Base UI (Tabs, RadioGroup, Switch, Menu, Popover.Trigger, Button variante lien, Autocomplete) derrière les API actuelles ; comportements existants (clavier, Échap, focus) gardés comme référence | mineure | L-M | non | validé (auto) |
+| RT-038 | Recherche Ctrl+K du niveau 1 de l'en-tête, sans objet défini | PO-09 | évolution | Palette de commande (Ctrl+K ou ⌘K, bouton « Rechercher ») : **personnes** (défile jusqu'à la ligne et la met en évidence ; si un filtre la masque, le dit et propose de le retirer) et **projets** (ouvre la fiche projet par `/projets?projet=<id>`). Recherche côté client sur les listes chargées, sans casse ni accents ; non enregistrée dans les vues ; aucun contrat | majeure | L-N | non | validé (auto) |
+| RT-039 | Un co-gestionnaire (`project_managers`) ne voit pas ses projets dans l'éditeur (BR-33) | PO-06 | anomalie | Champ `managerUserIds` (user_id triés) dans `ProjectDetail` (`GET /projects`, réponses de création et modification) ; l'écran reproduit `assertProjectScope` (`projectManagerId` = ma personne **ou** mon user dans `managerUserIds`) ; l'API reste juge | majeure | L-O1 | oui (ajout de champ) | validé (auto) |
+| RT-040 | Colonne « Accès » de l'écran Personnes | PO-04 | manque | Champ `access` (`member` \| `none`) via `account_members.person_id`, dans un `PersonDetail` propre aux routes people (pas dans `/schedule`) ; servi à owner, admin et chef de projet, omis pour les autres rôles ; « invitation envoyée » reportée en T2 (aucune table d'invitations, schéma gelé) | mineure | L-O2 | oui (ajout de champ) | validé (auto) |
+| RT-041 | Réglages > Compte en lecture seule | PO-05 | manque | `GET /api/v1/account` et `PATCH /api/v1/account` (owner ou admin, `If-Match`, `VERSION_CONFLICT`) : fuseau (validé contre `pg_timezone_names`), début de semaine, langue (`fr` \| `en`), seuil de sous-allocation (1-100) ; écran éditable pour l'admin, relecture de `/me` et du Planning après écriture ; pas de diffusion temps réel (`accounts` n'a pas de `change_log`) | majeure | L-O3 | oui (nouvelle route) | validé (auto) |
+| RT-042 | Éditeur de créneau : portée d'une série et d'un groupe | PO-08 | manque | À l'enregistrement, étape de choix dans le drawer : série « cette occurrence » (scission, non annulable, annoncé) ou « toute la série » ; groupe « cette ligne » ou « tout le groupe » (`PATCH /allocations/{id}/group`, route existante, annulable). Couleur de projet hors annulation : inchangé, documenté | majeure | L-P | non | validé (auto) |
+| RT-043 | Création d'un créneau au toucher dans une case vide | PO-07 | ergonomie | Appui long sur une case libre : bloc provisoire, glisser pour étendre, relâcher ouvre le drawer de création ; le défilement au doigt reste inchangé hors appui long | mineure | L-Q | non | validé (auto) |
+| RT-044 | Recette : `scenarios.md` périmé (27 « bloqué »), seed de recette annoncé « à venir » | `scenarios.md` | manque | `scripts/seed-recette.mjs` (≥ 14 personnes, séries, groupes, congés, co-gestion, compte vide) branché sur `dev:recette` ; `scenarios.md` remis à jour ; `tests/browser/recette.spec.ts` rejoue R-01 à R-25 quand c'est automatisable (pré-recette, résultat consigné) | majeure | L-R | non | validé (auto) |
+| RT-045 | CODEOWNERS vise `/db/migrations/` et `/db/rls/`, qui n'existent pas | handoff recette n°2 | décision | Chemins réels : `/schema.sql`, `/migrations/`, `/tests/sql/` (@cpto @dba-humain) ; commit séparé | mineure | L-S | non | validé (auto) |
+
+Restent sans décision autonome : la relecture humaine des commits de contrat (CODEOWNERS) et celle des tests SQL (`docs/review/relecture-tests-sql.md`). PO-02 (pile d'annulation non conservée hors du Planning) reste en l'état, déjà motivé.
+
+## Lots (cadrage n°3)
+
+Exécution par vagues, au plus deux lots en parallèle (worktrees), un seul lot de contrat à la fois, jamais deux lots sur `ScheduleScreen.tsx` en même temps. Fusion dans `main` après `make check` vert et revue croisée.
+
+| Vague | Lot | Retours | Modèle | Contrat |
+|---|---|---|---|---|
+| 1 | L-M — PO-10 et composants natifs restants | RT-036, RT-037 | Sonnet | non |
+| 1 | L-R1 — seed de recette | RT-044 | Sonnet | non |
+| 2 | L-O1 — `managerUserIds` | RT-039 | Opus (contrat), Sonnet | oui |
+| 2 | L-N — palette Ctrl+K | RT-038 | Sonnet | non |
+| 3 | L-O2 — colonne « Accès » | RT-040 | Opus (contrat), Sonnet | oui |
+| 3 | L-P — portée série et groupe | RT-042 | Opus | non |
+| 4 | L-O3 — `PATCH /account` | RT-041 | Opus (contrat), Sonnet | oui |
+| 4 | L-Q — appui long | RT-043 | Opus | non |
+| 5 | L-R2 — scénarios et pré-recette automatisée | RT-044 | Sonnet | non |
+| 5 | L-S — CODEOWNERS et documentation | RT-045 | Haiku | non |
+
 ## Retours hors note (recette, 2026-10-21)
 
 Retours constatés pendant la recette, sans note d'Alec : ils suivent le même cycle de vie.
