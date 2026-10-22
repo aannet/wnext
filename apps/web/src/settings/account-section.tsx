@@ -1,7 +1,8 @@
 // Compte (Réglages, RT-041) : fuseau, début de semaine, langue par défaut et seuil de sous-allocation, lus par GET /account.
 // Owner et admin les modifient (PATCH, If-Match = version lue ; seuls les champs changés partent) ; les autres rôles les lisent.
-// VERSION_CONFLICT : message, valeurs actuelles relues (la modification est à refaire). Après une écriture réussie, `onSaved`
-// laisse l'appelant relire /me et mettre à jour le Planning (pas de temps réel pour le compte). Le nom reste en lecture.
+// VERSION_CONFLICT : message, valeurs actuelles relues (la modification est à refaire). Après une écriture réussie comme après
+// la relecture d'un conflit, `onSaved` reçoit les réglages du serveur et laisse l'appelant relire /me et mettre à jour le
+// Planning (pas de temps réel pour le compte). Le nom reste en lecture.
 import type { I18n } from "@lingui/core";
 import type { AccountPatch, AccountSettings } from "@wnext/contracts";
 import { useId, useMemo, useState } from "react";
@@ -87,15 +88,15 @@ export function AccountSection({ i18n, source, canEdit, onSaved }: AccountSectio
     <section className="wn-clients" aria-labelledby={`${id}-h`}>
       {title}
       <AccountForm i18n={i18n} settings={settings} source={source} langName={langName}
-        onSaved={(s) => { loaded.update(() => s); onSaved?.(s); }}
-        onConflict={(s) => loaded.update(() => s)} />
+        onSaved={(s) => { loaded.update(() => s); onSaved?.(s); }} />
     </section>
   );
 }
 
-function AccountForm({ i18n, settings, source, langName, onSaved, onConflict }: {
+function AccountForm({ i18n, settings, source, langName, onSaved }: {
   i18n: I18n; settings: AccountSettings; source: AccountSource; langName(code: string): string;
-  onSaved(s: AccountSettings): void; onConflict(s: AccountSettings): void;
+  /** Réglages du serveur à jour (écriture réussie ou relecture après conflit) : parent, /me et Planning. */
+  onSaved(s: AccountSettings): void;
 }) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const id = useId();
@@ -132,7 +133,7 @@ function AccountForm({ i18n, settings, source, langName, onSaved, onConflict }: 
       const fresh = await source.get();
       setBusy(false);
       setError("settings.account.error.conflict");
-      if (fresh.ok) { setV(valuesOf(fresh.value)); onConflict(fresh.value); }
+      if (fresh.ok) { setV(valuesOf(fresh.value)); onSaved(fresh.value); }
       return;
     }
     setBusy(false);

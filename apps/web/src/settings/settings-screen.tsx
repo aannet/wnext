@@ -22,7 +22,7 @@ export interface SettingsScreenProps {
   projects: ProjectsSource;
   /** Réglages du compte (GET et PATCH /account). */
   account: AccountSource;
-  /** Réglages du compte enregistrés : l'appelant relit /me et met à jour le Planning (pas de temps réel pour le compte). */
+  /** Réglages du compte enregistrés, ou relus après un conflit : l’appelant relit /me et met à jour le Planning (pas de temps réel pour le compte). */
   onAccountSaved?(settings: AccountSettings): void;
   canEdit: boolean;
 }

@@ -7,7 +7,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { demoSchedule } from "../src/demo";
-import { createDemoAccountSource, type AccountSource } from "../src/data/account-source";
+import { createDemoAccountSource, meAccountOf, scheduleAccountOf, type AccountSource } from "../src/data/account-source";
+import { createDemoSource } from "../src/data/demo-source";
 import { createDemoDirectory, type ReferenceSource } from "../src/data/people-source";
 import { createDemoProjectsSource } from "../src/data/projects-source";
 import { createI18n } from "../src/i18n";
@@ -243,6 +244,26 @@ describe("compte", () => {
     await choose(field("Début de semaine"), "7");
     await click(button("Enregistrer", panel()));
     expect(calls).toEqual([4, 9]);
+  });
+
+  it("409 : la relecture est propagée comme une écriture réussie, /me et le Planning restent cohérents avec le formulaire", async () => {
+    // Le compte a été changé ailleurs (version 9, dimanche, 60 %, Tokyo) ; câblage de main.tsx : /me et la source du Planning.
+    const server: AccountSettings = { ...settings, version: 9, weekStart: 7, timezone: "Asia/Tokyo", capacityThresholds: { underPercent: 60 } };
+    const src: AccountSource = {
+      get: (() => { let n = 0; return async () => ({ ok: true as const, value: n++ === 0 ? settings : server }); })(),
+      update: async () => ({ ok: false, error: { code: "VERSION_CONFLICT", params: { currentVersion: 9 } } }),
+    };
+    const planning = createDemoSource(demoSchedule(TODAY, 4));
+    let me = meAccountOf(settings);
+    const saved = vi.fn((s: AccountSettings) => { me = meAccountOf(s); planning.accountChanged!(scheduleAccountOf(s)); });
+    await mount(setup(), { account: src, onAccountSaved: saved });
+    await tab("Compte");
+    await choose(field("Début de semaine"), "3");
+    await click(button("Enregistrer", panel()));
+    expect(saved).toHaveBeenCalledWith(server);
+    expect(field("Début de semaine").value).toBe("7");
+    expect(me).toEqual({ id: "1", name: "WNEXT Démo", timezone: "Asia/Tokyo", weekStart: 7, defaultLocale: "fr" });
+    expect(planning.getState().data!.account).toEqual({ weekStart: 7, capacityThresholds: { underPercent: 60 }, timezone: "Asia/Tokyo" });
   });
 
   it("400 sur le fuseau : message dédié ; 403 traduit", async () => {
