@@ -230,7 +230,7 @@ export const fr = {
   "schedule.delete.group.title": "Cette allocation fait partie d’un groupe de {count} personnes. Que supprimer ?",
   "schedule.delete.confirm": "Supprimer",
   "schedule.delete.done": "{count, plural, one {Allocation supprimée.} other {# allocations supprimées.}} Ctrl+Z annule.",
-  "schedule.delete.notUndoable": "{count, plural, one {Allocation supprimée.} other {# allocations supprimées.}} Une ligne du groupe hors de la vue n’a pas pu être relue avant : cette suppression ne peut pas être annulée.",
+  "schedule.delete.notUndoable": "{count, plural, one {Allocation supprimée.} other {# allocations supprimées.}} Le serveur n’a pas confirmé la liste des lignes supprimées : cette suppression ne peut pas être annulée.",
   "schedule.delete.occurrence": "Occurrence supprimée. La suppression d’une occurrence ne peut pas être annulée.",
   "schedule.duplicate.done": "Allocation dupliquée. Ctrl+Z annule.",
   "schedule.split.title": "Scinder l’allocation",

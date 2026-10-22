@@ -2,7 +2,7 @@
 // (elles ne s'enregistrent pas elles-mêmes) puis UNE action d'annulation (BR-40) décrivant ce qui a été écrit.
 //  * Supprimer : allocation seule, ligne d'un groupe ou toute une série -> DELETE, annulable (recréation sous un nouvel id,
 //    hors groupe : aucune route ne rattache une ligne à un groupe) ; tout le groupe -> DELETE /allocations/{id}/group, annulable
-//    si chaque ligne a pu être lue avant (sinon non annulable, et les actions qui touchent ces lignes sont retirées) ; une
+//    si le serveur a rendu toutes les lignes supprimées (sinon non annulable, et les actions qui touchent ces lignes sont retirées) ; une
 //    occurrence -> découpe (BR-25), non annulable comme toute découpe (voir history.ts).
 //  * Dupliquer : copie juste après le bloc (ou l'occurrence), même personne, même durée en jours calendaires (comme le
 //    déplacement), mêmes champs, sans répétition.

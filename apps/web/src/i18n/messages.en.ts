@@ -231,7 +231,7 @@ export const en: Record<MessageKey, string> = {
   "schedule.delete.group.title": "This allocation is part of a group of {count} people. What should be deleted?",
   "schedule.delete.confirm": "Delete",
   "schedule.delete.done": "{count, plural, one {Allocation deleted.} other {# allocations deleted.}} Ctrl+Z undoes it.",
-  "schedule.delete.notUndoable": "{count, plural, one {Allocation deleted.} other {# allocations deleted.}} A group line outside the view could not be read beforehand: this deletion cannot be undone.",
+  "schedule.delete.notUndoable": "{count, plural, one {Allocation deleted.} other {# allocations deleted.}} The server did not confirm which lines were deleted: this deletion cannot be undone.",
   "schedule.delete.occurrence": "Occurrence deleted. Deleting an occurrence cannot be undone.",
   "schedule.duplicate.done": "Allocation duplicated. Ctrl+Z undoes it.",
   "schedule.split.title": "Split allocation",
