@@ -22,7 +22,8 @@ test("clic droit sur un bloc : récapitulatif puis retrait ; les blocs de ce pro
   const others = blocks.filter((b) => projectOf(b.label) !== project);
 
   await page.locator(`.wn-block[data-key="${target!.key}"]`).click({ button: "right" });
-  const item = page.getByRole("menuitem");
+  // Les commandes du bloc (RT-047) précèdent le retrait dans le menu.
+  const item = page.getByRole("menuitem", { name: /^Retirer / });
   await expect(item).toHaveText(new RegExp(`^Retirer Personne 1 du projet ${project}…$`));
   await item.click();
 
@@ -45,7 +46,7 @@ test("clavier : Maj+F10 sur un bloc ouvre le menu, Échap le referme et rend le 
   const block = page.locator(`.wn-block[data-key="${target.key}"]`);
   await block.focus();
   await page.keyboard.press("Shift+F10");
-  await expect(page.getByRole("menuitem")).toBeFocused();
+  await expect(page.getByRole("menuitem").first()).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toHaveCount(0);
   await expect(block).toBeFocused();

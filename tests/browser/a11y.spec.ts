@@ -54,4 +54,12 @@ test.describe("axe-core", () => {
     await expect(page.getByRole("listbox")).toBeVisible();
     await scan(page, "fr-saisie-rapide");
   });
+  test("FR, menu contextuel d'un bloc ouvert (commandes RT-047 et retrait BR-10)", async ({ page }) => {
+    await openDemo(page);
+    await page.locator(".wn-block[data-key]").first().click({ button: "right" });
+    await expect(page.getByRole("menuitem").first()).toBeFocused();
+    // Les gardes de focus de Base UI (span aria-hidden focalisables autour du portail) sont un mécanisme du menu, pas du contenu.
+    const r = await new AxeBuilder({ page }).include('[role="menu"]').withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"]).analyze();
+    expect(r.violations.map((v) => `${v.impact} ${v.id}: ${v.help}`)).toEqual([]);
+  });
 });

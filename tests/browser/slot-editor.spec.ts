@@ -256,3 +256,65 @@ test("groupe : « Tout le groupe » change chaque ligne ; Ctrl+Z les rend toutes
   await expect.poll(() => blockCount(page, "Projet C, ")).toBe(beforeC);
   expect(await blockCount(page, "Projet D, ")).toBe(beforeD);
 });
+
+// Commandes d'un bloc dans le drawer (RT-047, US-3.2).
+test("drawer : « Dupliquer… » ouvre la création préremplie ; une seconde personne cochée : deux copies (groupe), Ctrl+Z les retire", async ({ page }) => {
+  await openDemo(page);
+  const b = await plainBlock(page);
+  const names = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>(".wn-row")].filter((r) => r.style.display !== "none")
+    .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).slice(0, 2).map((r) => r.querySelector(".wn-person-name")!.textContent!));
+  /** Blocs identiques à l'original (projet, dates, charge) sur les deux premières lignes. */
+  const count = () => page.evaluate(({ l, n }) => [...document.querySelectorAll<HTMLElement>(".wn-row")]
+    .filter((r) => r.style.display !== "none" && n.includes(r.querySelector(".wn-person-name")?.textContent ?? ""))
+    .flatMap((r) => [...r.querySelectorAll<HTMLElement>(".wn-block[data-key]")])
+    .filter((e) => e.style.display !== "none" && e.getAttribute("aria-label") === l).length, { l: b.label, n: names });
+  const before = await count();
+  await page.locator(`.wn-block[data-key="${b.key}"]`).dblclick();
+  const actions = dialog(page).getByRole("group", { name: "Actions sur l’allocation" });
+  await expect(actions.getByRole("button")).toHaveText(b.label.includes(" du ") ? ["Dupliquer…", "Scinder…", "Supprimer"] : ["Dupliquer…", "Supprimer"]);
+  await actions.getByRole("button", { name: "Dupliquer…" }).click();
+  await expect(dialog(page).getByRole("heading")).toHaveText("Nouvelle allocation");
+  await expect(dialog(page).getByRole("checkbox", { name: names[0]!, exact: true })).toBeChecked();
+  await dialog(page).getByRole("searchbox", { name: "Rechercher une personne" }).fill(names[1]!);
+  await dialog(page).getByRole("checkbox", { name: names[1]!, exact: true }).check();
+  await dialog(page).getByRole("button", { name: "Créer" }).click();
+  await expect(dialog(page)).toHaveCount(0);
+  await expect(notice(page)).toHaveText(/^2 allocations créées \(groupe\)\. Ctrl\+Z annule\./);
+  await expect.poll(count).toBe(before + 2);
+  await page.keyboard.press("Control+z");
+  await expect.poll(count).toBe(before);
+});
+
+test("étapes « Supprimer » (série : cette occurrence ou toute la série) et « Scinder » : axe propre, Échap ferme et rend le focus au bloc", async ({ page }) => {
+  await openDemo(page);
+  const g = (await page.getByRole("grid").boundingBox())!;
+  let s: Box | undefined;
+  for (let i = 0; i < 6 && !s; i++) s = (await rowBlocks(page, i)).find((x) => x.label.includes("chaque semaine") && x.x >= g.x + GUTTER_PX + 8 && x.x + x.w <= g.x + g.width - 8);
+  expect(s, "une occurrence de série visible").toBeTruthy();
+  const series = page.locator(`.wn-block[data-key="${s!.key}"]`);
+  await series.focus();
+  await page.keyboard.press("Delete");
+  await expect(dialog(page).getByRole("heading")).toHaveText("Supprimer l’allocation");
+  const group = dialog(page).getByRole("radiogroup", { name: "Cette allocation se répète. Que supprimer ?" });
+  await expect(group.getByRole("radio", { name: "Cette occurrence" })).toBeFocused();
+  await expect(dialog(page).getByRole("button", { name: "Supprimer", exact: true })).toBeVisible();
+  await axe(page);
+  await page.keyboard.press("Escape");
+  await expect(dialog(page)).toHaveCount(0);
+  await expect(series).toBeFocused();
+
+  const b = await plainBlock(page);
+  const block = page.locator(`.wn-block[data-key="${b.key}"]`);
+  await block.focus();
+  await page.keyboard.press("s");
+  if (!b.label.includes(" du ")) {
+    await expect(notice(page)).toHaveText("Impossible de scinder un bloc d’un seul jour.");
+    return;
+  }
+  await expect(dialog(page).getByRole("heading")).toHaveText("Scinder l’allocation");
+  await expect(dialog(page).getByText(/^Première partie : du .+ ; seconde partie : du .+$/)).toBeVisible();
+  await axe(page);
+  await page.keyboard.press("Escape");
+  await expect(dialog(page)).toHaveCount(0);
+  await expect(block).toBeFocused();
+});

@@ -165,6 +165,47 @@ test.describe("gestes sur les blocs (démo, édition locale)", () => {
     expect(after.x).toBeLessThanOrEqual(g.x + GUTTER_PX + 2);
   });
 
+  test("Alt + glisser copie le bloc (RT-047) : l'original reste, la copie prend la place du fantôme ; Ctrl+Z la retire", async ({ page }) => {
+    const ppd = await pxPerDay(page);
+    const b = await pickBlock(page, simple, 3 * ppd);
+    const before = (await datesOf(page, b.label))!;
+    const project = b.label.split(",")[0]!;
+    const copies = async () => {
+      const out: string[] = [];
+      for (const x of await allBlocks(page)) {
+        const d = x.key !== b.key && x.label.startsWith(`${project},`) ? await datesOf(page, x.label) : null;
+        if (d && d.start === shift(before.start, 3) && d.end === shift(before.end, 3)) out.push(x.key);
+      }
+      return out.length;
+    };
+    const already = await copies();
+    await page.keyboard.down("Alt");
+    await drag(page, b.x + b.w / 2, b.y + 4, 3 * ppd, 0);
+    await page.keyboard.up("Alt");
+    await expect(notice(page)).toHaveText("Allocation dupliquée. Ctrl+Z annule.");
+    expect((await blockByKey(page, b.key))?.label).toBe(b.label);
+    await expect.poll(copies).toBe(already + 1);
+    await page.keyboard.press("Control+z");
+    await expect(notice(page)).toHaveText("Duplication annulée.");
+    await expect.poll(copies).toBe(already);
+  });
+
+  test("menu contextuel d'un bloc (RT-047) : Dupliquer, Supprimer, puis le retrait du projet ; Supprimer retire le bloc, Ctrl+Z le rend", async ({ page }) => {
+    const b = await pickBlock(page, simple);
+    await page.locator(`.wn-block[data-key="${b.key}"]`).click({ button: "right" });
+    const menu = page.getByRole("menu");
+    await expect(menu.getByRole("menuitem").first()).toBeFocused();
+    await expect(menu.getByRole("menuitem", { name: "Dupliquer", exact: true })).toHaveAttribute("aria-keyshortcuts", "Control+D Meta+D");
+    await expect(menu.getByRole("menuitem", { name: "Supprimer", exact: true })).toHaveAttribute("aria-keyshortcuts", "Delete Backspace");
+    await expect(menu.getByRole("menuitem").last()).toHaveText(/^Retirer .+ du projet .+…$/);
+    await menu.getByRole("menuitem", { name: "Supprimer", exact: true }).click();
+    await expect(notice(page)).toHaveText("Allocation supprimée. Ctrl+Z annule.");
+    await expect.poll(async () => (await blockByKey(page, b.key)) === null).toBe(true);
+    await page.keyboard.press("Control+z");
+    await expect(notice(page)).toHaveText("Suppression annulée.");
+    await expect.poll(async () => (await allBlocks(page)).some((x) => x.label === b.label && Math.abs(x.x - b.x) < 1)).toBe(true);
+  });
+
   test("clavier : Entrée sur la grille, flèche droite, Entrée ; le focus reste sur le bloc", async ({ page }) => {
     await page.getByRole("grid").focus();
     await page.keyboard.press("Enter");
