@@ -298,17 +298,17 @@ describe("clients", () => {
   it("liste, crée et renomme un client", async () => {
     await mount(demo());
     await click(byText("[role=tab]", "Clients"));
-    const names = () => [...document.body.querySelectorAll("#wn-tabpanel-clients .wn-row-name")].map((e) => e.textContent);
+    const names = () => [...document.body.querySelectorAll("[role=tabpanel]:not([hidden]) .wn-row-name")].map((e) => e.textContent);
     expect(names()).toEqual(["Acme", "Globex"]);
     await type(field("Nouveau client"), "Initech");
-    await click(byText("#wn-tabpanel-clients button[type=submit]", "Ajouter"));
+    await click(byText("[role=tabpanel]:not([hidden]) button[type=submit]", "Ajouter"));
     expect(names()).toEqual(["Acme", "Globex", "Initech"]);
     await click(button("Renommer Initech"));
     await type(field("Nouveau nom du client Initech"), "Initrode");
-    await click(byText("#wn-tabpanel-clients button[type=submit]", "Enregistrer"));
+    await click(byText("[role=tabpanel]:not([hidden]) button[type=submit]", "Enregistrer"));
     expect(names()).toEqual(["Acme", "Globex", "Initrode"]);
     await type(field("Nouveau client"), "acme");
-    await click(byText("#wn-tabpanel-clients button[type=submit]", "Ajouter"));
+    await click(byText("[role=tabpanel]:not([hidden]) button[type=submit]", "Ajouter"));
     expect(alerts().join(" ")).toContain("Un client porte déjà ce nom");
   });
 });
@@ -324,7 +324,7 @@ describe("droits (member, guest : lecture seule)", () => {
     expect(button("Ajouter")).toBeUndefined();
     expect(button(/^Retirer /)).toBeUndefined();
     await click(byText("[role=tab]", "Clients"));
-    expect(host.querySelector("#wn-tabpanel-clients form")).toBeNull();
+    expect(host.querySelector("[role=tabpanel]:not([hidden]) form")).toBeNull();
   });
 
   it("vide : pas d'action de création pour un lecteur", async () => {

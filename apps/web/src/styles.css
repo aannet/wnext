@@ -144,7 +144,6 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 
 /* Pop-in du créneau (RT-011 à RT-018) : Popover large, onglets, formulaire en grille (repris du congé), Combobox avec recherche,
    personnes à cocher, pied d'actions. */
-.wn-slot .wn-tabs { margin: 0 0 var(--space-2); border-bottom: 1px solid var(--border); }
 .wn-slot-wide { grid-column: 1 / -1; }
 .wn-slot-overload { color: var(--color-danger-text); }
 .wn-slot-swatch { display: inline-block; width: 10px; height: 10px; margin-right: var(--space-2); border-radius: 2px; vertical-align: baseline; }
@@ -257,10 +256,7 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 /* Écran Projets (lot L-F1) : liste filtrable, fiche dans le Drawer commun, formulaires. */
 .wn-projects { overflow: auto; }
 .wn-projects .wn-subheader { padding-top: 0; }
-.wn-tabs { display: flex; gap: var(--space-1); }
-.wn-tabs [role="tab"] { padding: var(--space-2) var(--space-3); border: 0; border-bottom: 2px solid transparent; background: none; font: inherit; color: var(--text-muted); cursor: pointer; }
-.wn-tabs [role="tab"][aria-selected="true"] { border-bottom-color: var(--accent); color: var(--text); font-weight: var(--font-weight-semibold); }
-.wn-tabs [role="tab"]:focus-visible, .wn-link-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.wn-link-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .wn-projects-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); align-items: start; }
 .wn-projects-body.wn-with-panel { grid-template-columns: minmax(0, 1fr) minmax(320px, 440px); }
 @media (max-width: 880px) { .wn-projects-body.wn-with-panel { grid-template-columns: minmax(0, 1fr); } }

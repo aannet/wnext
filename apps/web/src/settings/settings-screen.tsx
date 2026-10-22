@@ -13,7 +13,7 @@ import { AccountSection } from "./account-section";
 import { HolidaysSection } from "./holidays-section";
 import { NamedListSection } from "./named-list-section";
 import { TimeoffTypesSection } from "./timeoff-types-section";
-import { Button } from "../design";
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "../design";
 
 export interface SettingsScreenProps {
   i18n: I18n;
@@ -34,29 +34,15 @@ export function SettingsScreen({ i18n, reference, projects, account, canEdit }: 
   const t = (k: MessageKey) => i18n._(k);
   const [tab, setTab] = useState<Tab>("teams");
   const clients = useLoad(() => projects.listClients(), "settings-clients");
-  const move = (from: Tab, delta: number) => {
-    const next = TABS[(TABS.indexOf(from) + delta + TABS.length) % TABS.length]!;
-    setTab(next);
-    document.getElementById(`wn-stab-${next}`)?.focus();
-  };
   return (
-    <main className="wn-page wn-settings">
+    <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} render={<main className="wn-page wn-settings" />}>
       <div className="wn-subheader">
         <h1 tabIndex={-1} className="wn-subheader-title">{t("shell.nav.settings")}</h1>
-        <div role="tablist" aria-label={t("settings.tabs.label")} className="wn-tabs">
-          {TABS.map((id) => (
-            <button key={id} type="button" role="tab" id={`wn-stab-${id}`} aria-selected={tab === id} aria-controls={`wn-stabpanel-${id}`} tabIndex={tab === id ? 0 : -1}
-              onClick={() => setTab(id)}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowRight") { e.preventDefault(); move(id, 1); }
-                else if (e.key === "ArrowLeft") { e.preventDefault(); move(id, -1); }
-              }}>
-              {t(TAB_KEY[id])}
-            </button>
-          ))}
-        </div>
+        <TabsList aria-label={t("settings.tabs.label")}>
+          {TABS.map((id) => <TabsTrigger key={id} value={id}>{t(TAB_KEY[id])}</TabsTrigger>)}
+        </TabsList>
       </div>
-      <div role="tabpanel" id={`wn-stabpanel-${tab}`} aria-labelledby={`wn-stab-${tab}`}>
+      <TabsContent value={tab}>
         {tab === "teams" && <NamedListSection i18n={i18n} store={reference.departments} canEdit={canEdit} headingKey="settings.teams.title" newLabel="settings.teams.new" empty="settings.teams.empty" />}
         {tab === "roles" && <NamedListSection i18n={i18n} store={reference.roles} canEdit={canEdit} headingKey="settings.roles.title" newLabel="settings.roles.new" empty="settings.roles.empty" />}
         {tab === "clients" && (clients.state.status === "ready"
@@ -69,7 +55,7 @@ export function SettingsScreen({ i18n, reference, projects, account, canEdit }: 
         {tab === "timeoff" && <TimeoffTypesSection i18n={i18n} store={reference.timeoffTypes} canEdit={canEdit} />}
         {tab === "holidays" && <HolidaysSection i18n={i18n} store={reference.holidays} canEdit={canEdit} />}
         {tab === "account" && <AccountSection i18n={i18n} account={account} />}
-      </div>
-    </main>
+      </TabsContent>
+    </Tabs>
   );
 }

@@ -7,7 +7,7 @@ import type { Client, ProjectDetail } from "@wnext/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectsSource } from "../data/projects-source";
 import type { TeamRemovalEditor } from "../data/team-removal";
-import { Button, Drawer } from "../design";
+import { Button, Drawer, Tabs, TabsContent, TabsList, TabsTrigger } from "../design";
 import { suggestColor } from "../design/project-palette";
 import type { MessageKey } from "../i18n";
 import { ClientsSection } from "./clients-section";
@@ -58,22 +58,14 @@ export function ProjectsScreen({ i18n, source, canEdit, editor }: ProjectsScreen
   const upsertProject = (p: ProjectDetail) => projects.update((d) => (d.some((x) => x.id === p.id) ? d.map((x) => (x.id === p.id ? p : x)) : [...d, p]));
   const addClient = (c: Client) => clients.update((d) => (d.some((x) => x.id === c.id) ? d : [...d, c]));
 
-  const tabButton = (id: Tab, label: MessageKey) => (
-    <button type="button" role="tab" id={`wn-tab-${id}`} aria-selected={tab === id} aria-controls={`wn-tabpanel-${id}`} tabIndex={tab === id ? 0 : -1}
-      onClick={() => setTab(id)}
-      onKeyDown={(e) => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); const n = id === "projects" ? "clients" : "projects"; setTab(n); document.getElementById(`wn-tab-${n}`)?.focus(); } }}>
-      {t(label)}
-    </button>
-  );
-
   return (
-    <main className="wn-page wn-projects">
+    <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} render={<main className="wn-page wn-projects" />}>
       <div className="wn-subheader">
         <h1 tabIndex={-1} className="wn-subheader-title">{t("shell.nav.projects")}</h1>
-        <div role="tablist" aria-label={t("projects.tabs.label")} className="wn-tabs">
-          {tabButton("projects", "projects.tabs.projects")}
-          {tabButton("clients", "projects.tabs.clients")}
-        </div>
+        <TabsList aria-label={t("projects.tabs.label")}>
+          <TabsTrigger value="projects">{t("projects.tabs.projects")}</TabsTrigger>
+          <TabsTrigger value="clients">{t("projects.tabs.clients")}</TabsTrigger>
+        </TabsList>
         {tab === "projects" && canEdit && (
           <Button type="button" variant="primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("projects.new")}</Button>
         )}
@@ -87,18 +79,18 @@ export function ProjectsScreen({ i18n, source, canEdit, editor }: ProjectsScreen
       {ready && (
         <div className="wn-projects-body">
           <div className="wn-projects-main">
-            <div role="tabpanel" id="wn-tabpanel-projects" aria-labelledby="wn-tab-projects" hidden={tab !== "projects"}>
+            <TabsContent value="projects" keepMounted>
               <Filters i18n={i18n} filters={filters} clients={clientList} onChange={setFilters} />
               {shown.length === 0 ? (
                 <EmptyState i18n={i18n} filtered={all.length > 0} canEdit={canEdit} onCreate={(el) => open({ kind: "create" }, el)} onReset={() => setFilters(NO_FILTERS)} />
               ) : (
                 <ProjectTable i18n={i18n} projects={shown} clients={clientList} currentId={side.kind === "project" ? side.id : null} onOpen={(p, el) => open({ kind: "project", id: p.id }, el)} />
               )}
-            </div>
-            <div role="tabpanel" id="wn-tabpanel-clients" aria-labelledby="wn-tab-clients" hidden={tab !== "clients"}>
+            </TabsContent>
+            <TabsContent value="clients" keepMounted>
               <ClientsSection i18n={i18n} source={source} clients={clientList} canEdit={canEdit}
                 onCreated={addClient} onRenamed={(c) => clients.update((d) => d.map((x) => (x.id === c.id ? c : x)))} />
-            </div>
+            </TabsContent>
           </div>
           {tab === "projects" && side.kind === "create" && (
             <CreatePanel i18n={i18n} source={source} clients={clientList} others={all} onClose={close}
@@ -110,7 +102,7 @@ export function ProjectsScreen({ i18n, source, canEdit, editor }: ProjectsScreen
           )}
         </div>
       )}
-    </main>
+    </Tabs>
   );
 }
 

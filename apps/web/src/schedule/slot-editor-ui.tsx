@@ -14,13 +14,13 @@
 //    (onClosed). Dans l'avertissement ou l'assistant BR-04, Échap revient d'une étape sans question.
 import type { I18n } from "@lingui/core";
 import type { Me, ProjectDetail, ProjectTask, ScheduleResponse } from "@wnext/contracts";
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AllocationCreate } from "../api/client.gen";
 import type { Allocation, ScheduleEditor } from "../data/allocation-edits";
 import type { ProjectsResult, ProjectPatchInput } from "../data/projects-source";
 import { groupMembers } from "../data/record-edits";
 import type { GroupOutcome, ScheduleSource } from "../data/schedule-source";
-import { Button, Drawer } from "../design";
+import { Button, Drawer, Tabs, TabsContent, TabsList, TabsTrigger } from "../design";
 import type { MessageKey } from "../i18n";
 import { scheduleProjectOf } from "../projects/projects-model";
 import type { FocusTarget } from "./edits-ui";
@@ -79,7 +79,6 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   stateRef.current = state;
   const busy = useRef(false);
   const ids = useId();
-  const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
   const optsRef = useRef(o);
   optsRef.current = o;
 
@@ -141,16 +140,6 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
     else timeoffs.reset();
     show({ ...s, tab });
   }
-  const onTabKey = (e: KeyboardEvent) => {
-    const i = TABS.indexOf(state!.tab);
-    const next = e.key === "ArrowLeft" ? TABS[(i + TABS.length - 1) % TABS.length] : e.key === "ArrowRight" ? TABS[(i + 1) % TABS.length]
-      : e.key === "Home" ? TABS[0] : e.key === "End" ? TABS[TABS.length - 1] : undefined;
-    if (!next) return;
-    e.preventDefault();
-    selectTab(next);
-    tabRefs.current[next]?.focus();
-  };
-
   async function submit() {
     const s = stateRef.current;
     if (!s || !records || busy.current) return;
@@ -238,25 +227,20 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
     const alloc = state.tab === "allocation" ? renderAllocation(state) : null;
     const title = off ? off.title : t(state.draft.allocationId === null ? "schedule.slot.title.create" : "schedule.slot.title.edit");
     const tabs = state.tab === "allocation" || off?.creating === true;
-    const panel = `${ids}-panel`;
     const content = off?.body ?? alloc?.body;
     const dirty = state.color !== null || JSON.stringify(state.draft) !== JSON.stringify(state.initial) || off?.dirty === true;
     element = (
       <Drawer title={title} closeLabel={t("dialog.close")} onClose={() => finish()} {...(off?.nested ? { onEscape: off.back } : {})}
         unsaved={{ dirty, title: t("dialog.discard.title"), keep: t("dialog.discard.keep"), discard: t("dialog.discard.discard") }}
         className="wn-slot wn-timeoff-dialog" footer={off?.footer ?? alloc?.footer} {...(off?.describedBy ? { describedBy: off.describedBy } : {})}>
-        {tabs && (
-          <div role="tablist" aria-label={t("schedule.slot.tabs.label")} className="wn-tabs" onKeyDown={onTabKey}>
-            {TABS.map((tab) => (
-              <button key={tab} ref={(el) => { tabRefs.current[tab] = el; }} type="button" role="tab" id={`${ids}-tab-${tab}`}
-                aria-selected={state.tab === tab} aria-controls={state.tab === tab ? panel : undefined} tabIndex={state.tab === tab ? 0 : -1}
-                onClick={() => selectTab(tab)}>
-                {t(`schedule.slot.tab.${tab}`)}
-              </button>
-            ))}
-          </div>
-        )}
-        {tabs ? <div role="tabpanel" id={panel} aria-labelledby={`${ids}-tab-${state.tab}`}>{content}</div> : content}
+        {tabs ? (
+          <Tabs value={state.tab} onValueChange={(v) => selectTab(v as Tab)}>
+            <TabsList aria-label={t("schedule.slot.tabs.label")} className="mb-(--space-2) border-b border-solid border-border">
+              {TABS.map((tab) => <TabsTrigger key={tab} value={tab}>{t(`schedule.slot.tab.${tab}`)}</TabsTrigger>)}
+            </TabsList>
+            <TabsContent value={state.tab}>{content}</TabsContent>
+          </Tabs>
+        ) : content}
       </Drawer>
     );
   }
