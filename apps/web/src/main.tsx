@@ -43,6 +43,13 @@ const widthPx = window.innerWidth;
 const heightPx = window.innerHeight;
 const root = createRoot(document.getElementById("root")!);
 const router = browserRouter();
+/** Fiche d'un projet choisi dans la recherche du Planning : /projets?projet=<id>. */
+const openProject = (id: string) => router.navigate("projects", { projet: id });
+/** Écran Projets : fiche demandée par l'adresse (une seule fois) ; l'adresse ne la porte plus ensuite. */
+const projectsProps = () => {
+  const id = router.param("projet");
+  return id ? { openProjectId: id, onOpenProjectHandled: () => router.clearParam("projet") } : {};
+};
 
 function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, session?: OidcSession) {
   let show: (me: MeState) => void = () => {};
@@ -62,10 +69,10 @@ function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, sessio
     <App i18n={i18n} router={router} me={me} notifications={notifications} onRetry={load}
       {...(session ? { onLogout: () => void session.logout() } : {})} {...(reconnect ? { onReconnect: reconnect } : {})}
       renderPlanning={(user) => (
-        <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} readOnly={!canEditSchedule(user)} memory={memory} catalog={projects} me={user}
+        <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} readOnly={!canEditSchedule(user)} memory={memory} catalog={projects} me={user} onOpenProject={openProject}
           {...(reconnect ? { onReconnect: reconnect } : {})} {...(canAdminister(user) ? { imports } : {})} />
       )}
-      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} />}
+      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} {...projectsProps()} />}
       renderPeople={(user) => (
         <PeopleScreen i18n={i18n} source={people} reference={reference} account={user.account} canEdit={canEditPeople(user)} {...(canAdminister(user) ? { imports } : {})} />
       )}
@@ -92,8 +99,8 @@ if (params.get("demo") === "1") {
   const memory: ScheduleMemory = {};
   root.render(
     <App i18n={i18n} router={router} me={{ status: "ready", me }} notifications={createDemoNotificationsSource(demoNotifications(today))}
-      renderPlanning={(user) => <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} imports={imports} memory={memory} catalog={projects} me={user} />}
-      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} />}
+      renderPlanning={(user) => <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} imports={imports} memory={memory} catalog={projects} me={user} onOpenProject={openProject} />}
+      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} {...projectsProps()} />}
       renderPeople={(user) => <PeopleScreen i18n={i18n} source={directory.people} reference={directory.reference} account={user.account} canEdit={canEditPeople(user)} imports={imports} />}
       renderSettings={(user) => <SettingsScreen i18n={i18n} reference={directory.reference} projects={projects} account={user.account} canEdit={canAdminister(user)} />} />,
   );

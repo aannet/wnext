@@ -21,6 +21,10 @@
 //  * Vues sauvegardées (schedule/views-ui) si une source de vues est fournie : filtres (département, rôle, projet, personne, tri)
 //    appliqués côté client aux lignes (schedule/view-filters) ; seule la grille reçoit les données filtrées, les éditeurs gardent
 //    les données complètes.
+//  * Recherche (RT-038, schedule/search-ui) : bouton « Rechercher » du niveau 1 et raccourci Ctrl+K (Cmd+K sur Mac), ignoré
+//    dans une autre fenêtre modale. Une personne choisie est amenée dans la vue et mise en évidence (Scroller.revealPerson),
+//    focus à la grille, annoncé ; si un filtre la masque, ses critères sont retirés d'abord (le tri est gardé). Un projet choisi
+//    est confié à `onOpenProject` (écran Projets). Rien n'est enregistré dans les vues.
 //  * Retrait d'un projet (BR-10, schedule/team-removal-ui) si la source le permet : menu contextuel d'un bloc.
 //  * En-tête en deux niveaux (RT-025) : niveau 1 = titre, vue sauvegardée, statut et actions de création ; niveau 2 (barre
 //    d'outils) = Filtres (compteur, puces, panneau dépliable, schedule/filters-ui), annuler / rétablir, navigation, zoom,
@@ -49,7 +53,9 @@ import type { History, HistoryDirection, HistoryResult, HistoryState } from "./s
 import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
 import { useSlotEditor, type SlotCatalog } from "./schedule/slot-editor-ui";
 import { QuickEntry, type QuickEntryHandle } from "./schedule/quick-entry-ui";
-import { applyViewFilters, type ViewFilters } from "./schedule/view-filters";
+import { applyViewFilters, clearCriteria, type ViewFilters } from "./schedule/view-filters";
+import { isSearchShortcut, SearchPalette, searchShortcutLabel } from "./schedule/search-ui";
+import type { SearchItem } from "./schedule/search-model";
 import { DENSITIES, readStoredDensity, storeDensity, type Density } from "./schedule/density";
 import { gaugeLabeler } from "./schedule/gauge-label";
 import { ViewsBar } from "./schedule/views-ui";
@@ -75,6 +81,8 @@ export interface ScheduleScreenProps {
   history?: History;
   /** Vues sauvegardées (filtres nommés) ; absent : ni barre de vues ni filtres. */
   views?: ViewsSource;
+  /** Ouvre la fiche d'un projet choisi dans la recherche (écran Projets) ; absent : la recherche ne propose que des personnes. */
+  onOpenProject?(projectId: string): void;
   /** Titre de l'écran (h1), en tête du sous-header ; absent : sous-header sans titre. */
   heading?: ReactNode;
   /** Zone à droite du sous-header (statut, import) ; absent : rien. */
@@ -123,7 +131,7 @@ function headerFormatter(locale: string) {
   return (c: HeaderCell) => fmt[c.kind].format(new Date(`${c.from}T00:00:00Z`));
 }
 
-export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, heightPx: initialHeightPx, onViewChange, clock, editor, history, records, views, heading, actions, memory, catalog, me }: ScheduleScreenProps) {
+export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, heightPx: initialHeightPx, onViewChange, clock, editor, history, records, views, heading, actions, memory, catalog, me, onOpenProject }: ScheduleScreenProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [zoom, setZoom] = useState<Zoom>(memory?.zoom ?? "day");
   const [density, setDensityState] = useState<Density>(() => readStoredDensity());
@@ -135,9 +143,21 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   /** Charge chiffrée dans chaque colonne de temps (Q11) : en mémoire seulement, jamais enregistrée. */
   const [showLoad, setShowLoad] = useState(false);
   const displayButton = useRef<HTMLButtonElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchOpenRef = useRef(false);
+  searchOpenRef.current = searchOpen;
+  const searchButton = useRef<HTMLButtonElement>(null);
+  /** Personne choisie dans la recherche, à montrer dès que les lignes affichées sont à jour. */
+  const pendingReveal = useRef<{ id: string; name: string; cleared: boolean } | null>(null);
   const uid = useId();
   // Lignes affichées : personnes filtrées (et triées) ; `data` reste la référence des éditeurs et des listes de choix.
   const shown = useMemo(() => applyViewFilters(data, filters), [data, filters]);
+  const hiddenIds = useMemo(() => {
+    const visible = new Set(shown.people.map((p) => p.id));
+    return new Set(data.people.filter((p) => !visible.has(p.id)).map((p) => p.id));
+  }, [data.people, shown]);
+  const searchPeople = useMemo(() => data.people.map((p) => ({ id: p.id, name: p.name })), [data.people]);
+  const searchProjects = useMemo(() => data.projects.map((p) => ({ id: p.id, name: p.name, color: p.color ?? null })), [data.projects]);
   const gridRef = useRef<HTMLDivElement>(null);
   const scroller = useRef<Scroller | null>(null);
   const viewChange = useRef(onViewChange);
@@ -196,6 +216,18 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [history]);
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (!isSearchShortcut(e)) return;
+      if (searchOpenRef.current) { e.preventDefault(); return; }
+      // Une autre fenêtre modale (pop-in, import, confirmation) garde le clavier ; un menu ancré (aria-modal=false) ne le garde pas.
+      if (document.querySelector('[role="dialog"]:not([aria-modal="false"]), [role="alertdialog"]')) return;
+      e.preventDefault();
+      setSearchOpen(true);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
   const dataRef = useRef(data);
   dataRef.current = data;
   const blocksRef = useRef<BlockEditor | null>(null);
@@ -295,7 +327,14 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     const p = pendingFocus.current;
     pendingFocus.current = null;
     if (p) focusAt(p.key, p.at);
+    revealPending();
   }, [shown]);
+  // Fenêtre refermée : la personne choisie est montrée ; sans choix, le focus ne reste pas perdu sur le corps de la page.
+  useEffect(() => {
+    if (searchOpen) return;
+    if (pendingReveal.current) revealPending();
+    else if (document.activeElement === document.body && searchButton.current?.isConnected) searchButton.current.focus({ preventScroll: true });
+  }, [searchOpen]);
   useEffect(() => { scroller.current?.resize(widthPx, heightPx); }, [widthPx, heightPx]);
   useEffect(() => {
     const el = gridRef.current;
@@ -310,6 +349,21 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     return () => ro.disconnect();
   }, []);
 
+  function revealPending() {
+    const p = pendingReveal.current;
+    if (!p) return;
+    pendingReveal.current = null;
+    if (!scroller.current?.revealPerson(p.id)) return;
+    gridRef.current?.focus({ preventScroll: true });
+    editsRef.current.announce(t(p.cleared ? "schedule.search.revealed.cleared" : "schedule.search.revealed", { name: p.name }));
+  }
+  const pickSearch = (item: SearchItem) => {
+    setSearchOpen(false);
+    if (item.kind === "project") { onOpenProject?.(item.id); return; }
+    const cleared = hiddenIds.has(item.id);
+    pendingReveal.current = { id: item.id, name: item.name, cleared };
+    if (cleared) setFilters(clearCriteria);
+  };
   const zoomTo = (z: Zoom) => { scroller.current?.setZoom(z); setZoom(z); };
   const densityTo = (d: Density) => { scroller.current?.setDensity(d); setDensityState(d); storeDensity(d); };
   const onKeyDown = (e: KeyboardEvent) => {
@@ -341,6 +395,10 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
         {views && <ViewsBar i18n={i18n} shownCount={shown.people.length} source={views} filters={filters} zoom={zoom} density={density} onFilters={setFilters} onZoom={zoomTo} onDensity={densityTo} />}
         <div className="wn-subheader-end">
           {actions}
+          <Button ref={searchButton} type="button" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" onClick={() => setSearchOpen(true)}>
+            {t("schedule.search.open")}
+            <kbd className="rounded-sm border border-solid border-input bg-muted px-1 font-[inherit] text-caption text-muted-foreground">{searchShortcutLabel()}</kbd>
+          </Button>
           {records && (
             <>
               <Button type="button" aria-keyshortcuts="C" aria-haspopup="dialog" onClick={() => openTimeoffAt(document.activeElement)}>{t("schedule.timeoff.new")}</Button>
@@ -398,6 +456,10 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
         onClick={(e) => { const off = records && scroller.current?.host.timeoffAt?.(e.target); if (off) slot.openTimeoffEdit(off.timeoff.timeoffId); }}
         onDoubleClick={records ? onDoubleClick : undefined}
         className="wn-grid" />
+      {searchOpen && (
+        <SearchPalette i18n={i18n} people={searchPeople} hiddenIds={hiddenIds} onPick={pickSearch} onClose={() => setSearchOpen(false)}
+          {...(onOpenProject ? { projects: searchProjects, ...(records?.listProjects ? { listProjects: records.listProjects } : {}) } : {})} />
+      )}
       {slot.element}
       {removal.element}
       {edits.element}

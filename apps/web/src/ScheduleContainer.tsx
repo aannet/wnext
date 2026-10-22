@@ -41,6 +41,8 @@ export interface ScheduleContainerProps {
   catalog?: SlotCatalog;
   /** Utilisateur connecté : projets proposés selon ses droits (BR-33). */
   me?: Pick<Me, "role" | "person"> & Partial<Pick<Me, "user">>;
+  /** Ouvre la fiche d'un projet choisi dans la recherche (écran Projets) ; absent : la recherche ne propose que des personnes. */
+  onOpenProject?(projectId: string): void;
 }
 
 const SHOWN_ERRORS = new Set<SourceErrorCode>(["UNAUTHENTICATED", "FORBIDDEN", "RATE_LIMITED"]);
@@ -63,7 +65,7 @@ export function RealtimeStatus({ i18n, state }: { i18n: I18n; state: ScheduleSou
 const TODAY_CHECK_MS = 60_000;
 const systemNow = () => new Date();
 
-export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onReconnect, imports, readOnly = false, memory, catalog, me }: ScheduleContainerProps) {
+export function ScheduleContainer({ i18n, source, views, now = systemNow, widthPx, heightPx, onReconnect, imports, readOnly = false, memory, catalog, me, onOpenProject }: ScheduleContainerProps) {
   const t = (k: MessageKey) => i18n._(k);
   const state = useSyncExternalStore(source.subscribe, source.getState);
   const timezone = state.data?.account.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -113,7 +115,7 @@ export function ScheduleContainer({ i18n, source, views, now = systemNow, widthP
       {imports && importing && <ImportDialog i18n={i18n} source={imports} onClose={closeImport} />}
       <ScheduleScreen i18n={i18n} data={state.data} today={today} widthPx={widthPx} heightPx={heightPx} onViewChange={source.setViewport}
         {...(readOnly ? {} : { editor: undo.history.editor, history: undo.history, records: source, ...(catalog ? { catalog } : {}) })} {...(views ? { views } : {})} {...(memory ? { memory } : {})}
-        {...(me ? { me } : {})}
+        {...(me ? { me } : {})} {...(onOpenProject ? { onOpenProject } : {})}
         heading={title}
         actions={(
           <div className="wn-statusbar">

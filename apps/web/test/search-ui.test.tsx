@@ -1,0 +1,225 @@
+// @vitest-environment jsdom
+// Palette de recherche du Planning (RT-038) : Ctrl+K / ⌘K et bouton, résultats groupés, personne lointaine amenée dans la vue et
+// mise en évidence, personne masquée par un filtre (filtres retirés puis ligne montrée), projet confié à onOpenProject, Échap,
+// raccourci ignoré dans une autre fenêtre modale, FR et EN.
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ScheduleScreen } from "../src/ScheduleScreen";
+import { demoSchedule } from "../src/demo";
+import { createDemoViewsSource, demoSeedViews } from "../src/data/views-source";
+import { createI18n } from "../src/i18n";
+import { isSearchShortcut, searchShortcutLabel } from "../src/schedule/search-ui";
+import { GUTTER_PX, type Clock } from "../src/schedule/scroller";
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const TODAY = "2026-10-20";
+let root: Root | null = null;
+let host: HTMLElement;
+const frames: (() => void)[] = [];
+const clock: Partial<Clock> = { raf: (cb) => (frames.push(cb), frames.length), caf: () => {}, now: () => 0, idle: () => {}, setTimer: () => 0, clearTimer: () => {} };
+const flush = async () => { for (let i = 0; i < 6; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); }); };
+const memory = () => { const m = new Map<string, string>(); return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) }; };
+afterEach(() => { act(() => root?.unmount()); host?.remove(); root = null; frames.length = 0; });
+
+async function mount(opts: { onOpenProject?: (id: string) => void; locale?: "fr" | "en"; views?: boolean } = {}) {
+  host = document.createElement("div");
+  document.body.appendChild(host);
+  root = createRoot(host);
+  const data = demoSchedule(TODAY, 40);
+  const views = opts.views ? createDemoViewsSource(demoSeedViews(), memory()) : undefined;
+  act(() => root!.render(
+    <ScheduleScreen i18n={createI18n(opts.locale ?? "fr")} data={data} today={TODAY} widthPx={GUTTER_PX + 960} heightPx={480} clock={clock}
+      {...(views ? { views } : {})} {...(opts.onOpenProject ? { onOpenProject: opts.onOpenProject } : {})} />));
+  await flush();
+}
+
+const dialog = () => document.body.querySelector<HTMLElement>('[role="dialog"]');
+const input = () => document.body.querySelector<HTMLInputElement>('input[role="combobox"]')!;
+const options = () => [...document.body.querySelectorAll<HTMLElement>('[role="option"]')];
+const optionTexts = () => options().map((o) => o.textContent);
+const groupLabels = () => [...document.body.querySelectorAll('[role="group"][aria-labelledby]')].map((g) => document.getElementById(g.getAttribute("aria-labelledby")!)?.textContent);
+const grid = () => host.querySelector<HTMLElement>("[role=grid]")!;
+const searchButton = () => [...host.querySelectorAll<HTMLButtonElement>(".wn-subheader button")].find((b) => /^(Rechercher|Search)/.test(b.textContent ?? ""))!;
+const press = (target: EventTarget, init: KeyboardEventInit) =>
+  act(() => { target.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init })); });
+async function type(value: string) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input(), value);
+    input().dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+  });
+  await flush();
+}
+const lit = () => [...host.querySelectorAll<HTMLElement>(".wn-row[data-highlight]")].map((e) => e.dataset.person);
+const announced = () => host.querySelector("[aria-live]")?.textContent ?? "";
+
+describe("raccourci et bouton", () => {
+  it("isSearchShortcut : Ctrl+K et ⌘K, ni Alt ni Maj ; libellé du bouton selon la plateforme", () => {
+    const k = (init: Partial<KeyboardEvent>) => isSearchShortcut({ key: "k", ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...init });
+    expect([k({ ctrlKey: true }), k({ metaKey: true }), k({ ctrlKey: true, key: "K" })]).toEqual([true, true, true]);
+    expect([k({}), k({ ctrlKey: true, altKey: true }), k({ ctrlKey: true, shiftKey: true }), k({ ctrlKey: true, key: "j" })]).toEqual([false, false, false, false]);
+    expect([searchShortcutLabel("MacIntel"), searchShortcutLabel("Linux x86_64")]).toEqual(["⌘K", "Ctrl K"]);
+  });
+
+  it("le bouton « Rechercher » du niveau 1 affiche le raccourci et ouvre la fenêtre, focus dans le champ", async () => {
+    await mount();
+    expect(searchButton().textContent).toMatch(/^Rechercher(Ctrl K|⌘K)$/);
+    expect(searchButton().getAttribute("aria-keyshortcuts")).toBe("Control+K Meta+K");
+    await act(async () => { searchButton().click(); });
+    await flush();
+    expect(dialog()).not.toBeNull();
+    expect(dialog()!.textContent).toContain("Rechercher");
+    expect(document.activeElement).toBe(input());
+  });
+
+  it("Ctrl+K ouvre la fenêtre depuis la grille ; Échap la ferme et rend le focus à la grille", async () => {
+    await mount();
+    act(() => grid().focus());
+    await press(grid(), { key: "k", ctrlKey: true });
+    await flush();
+    expect(dialog()).not.toBeNull();
+    expect(document.activeElement).toBe(input());
+    await press(input(), { key: "Escape" });
+    await flush();
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(grid());
+  });
+
+  it("⌘K aussi ; un deuxième Ctrl+K dans la fenêtre ne la referme pas ni n'en ouvre une autre", async () => {
+    await mount();
+    await press(document.body, { key: "k", metaKey: true });
+    await flush();
+    await press(input(), { key: "k", ctrlKey: true });
+    await flush();
+    expect(document.body.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+  });
+
+  it("sans focus dans la page, Échap rend le focus au bouton « Rechercher »", async () => {
+    await mount();
+    await press(document.body, { key: "k", ctrlKey: true });
+    await flush();
+    await press(input(), { key: "Escape" });
+    await flush();
+    expect(document.activeElement).toBe(searchButton());
+  });
+
+  it("ignoré quand une autre fenêtre modale est ouverte ; un menu ancré (aria-modal=false) ne le bloque pas", async () => {
+    await mount();
+    const modal = document.createElement("div");
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    document.body.appendChild(modal);
+    const ev = new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true, cancelable: true });
+    await act(async () => { document.body.dispatchEvent(ev); });
+    expect(ev.defaultPrevented).toBe(false);
+    expect(document.body.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    modal.setAttribute("aria-modal", "false");
+    await press(document.body, { key: "k", ctrlKey: true });
+    await flush();
+    expect(document.body.querySelectorAll('[role="dialog"]')).toHaveLength(2);
+    modal.remove();
+  });
+});
+
+describe("résultats", () => {
+  it("« per » : personnes, sans casse ni accents ; sans onOpenProject, pas de groupe Projets", async () => {
+    await mount();
+    await press(document.body, { key: "k", ctrlKey: true });
+    await flush();
+    await type("PERSONNE 4");
+    expect(optionTexts()).toEqual(["Personne 14", "Personne 24", "Personne 34", "Personne 4", "Personne 40"]);
+    expect(groupLabels()).toEqual(["Personnes"]);
+    await type("projet");
+    expect(optionTexts()).toEqual([]);
+    expect(dialog()!.textContent).toContain("Aucun résultat");
+  });
+
+  it("avec onOpenProject : groupes Personnes puis Projets", async () => {
+    await mount({ onOpenProject: () => {} });
+    await press(document.body, { key: "k", ctrlKey: true });
+    await flush();
+    await type("p");
+    expect(groupLabels()).toEqual(["Personnes", "Projets"]);
+    await type("projet c");
+    expect(optionTexts()).toEqual(["Projet C"]);
+  });
+
+  it("EN : titre, groupes et état vide traduits", async () => {
+    await mount({ locale: "en", onOpenProject: () => {} });
+    await press(document.body, { key: "k", ctrlKey: true });
+    await flush();
+    await type("p");
+    expect(groupLabels()).toEqual(["People", "Projects"]);
+    await type("zzz");
+    expect(dialog()!.textContent).toContain("No results");
+  });
+});
+
+describe("choix", () => {
+  it("personne lointaine (Entrée) : fenêtre fermée, ligne dessinée et en évidence, focus à la grille, annonce", async () => {
+    await mount();
+    expect(host.querySelector('.wn-row[data-person="40"]')).toBeNull();
+    await press(document.body, { key: "k", ctrlKey: true });
+    await flush();
+    await type("personne 40");
+    expect(optionTexts()).toEqual(["Personne 40"]);
+    await press(input(), { key: "Enter" });
+    await flush();
+    expect(dialog()).toBeNull();
+    expect(lit()).toEqual(["40"]);
+    expect(grid().scrollTop).toBeGreaterThan(0);
+    expect(document.activeElement).toBe(grid());
+    expect(announced()).toContain("Personne 40 : ligne affichée dans le planning");
+  });
+
+  it("personne choisie au clic : même effet", async () => {
+    await mount();
+    await press(document.body, { key: "k", ctrlKey: true });
+    await flush();
+    await type("personne 33");
+    await act(async () => { options()[0]!.click(); });
+    await flush();
+    expect(lit()).toEqual(["33"]);
+  });
+
+  it("personne masquée par un filtre : l'option le dit ; la choisir retire les filtres, puis montre la ligne", async () => {
+    await mount({ views: true });
+    // Filtre « Département » : la personne 2 (département 2) est écartée.
+    const filtersButton = [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] button")].find((b) => /^Filtres/.test(b.textContent ?? ""))!;
+    await act(async () => { filtersButton.click(); });
+    const select = [...host.querySelectorAll<HTMLElement>(".wn-filter")].find((l) => l.firstElementChild?.textContent === "Département")!.querySelector("select")!;
+    await act(async () => {
+      for (const o of select.options) o.selected = o.textContent === "Produit";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await flush();
+    const count = () => Number(/(\d+) personnes?/.exec(host.querySelector("[role=toolbar]")!.textContent!)![1]);
+    expect(count()).toBe(14);
+    await press(document.body, { key: "k", ctrlKey: true });
+    await flush();
+    await type("personne 2");
+    const two = options().find((o) => o.textContent!.startsWith("Personne 2masquée"));
+    expect(two?.textContent).toBe("Personne 2masquée par les filtres");
+    expect(options().find((o) => o.textContent === "Personne 4")).toBeUndefined();
+    await act(async () => { two!.click(); });
+    await flush();
+    expect(count()).toBe(40);
+    expect(host.querySelector(".wn-chip")).toBeNull();
+    expect(lit()).toEqual(["2"]);
+    expect(announced()).toContain("filtres retirés");
+  });
+
+  it("projet : confié à onOpenProject avec son identifiant, rien n'est défilé", async () => {
+    const open = vi.fn();
+    await mount({ onOpenProject: open });
+    await press(document.body, { key: "k", ctrlKey: true });
+    await flush();
+    await type("projet c");
+    await press(input(), { key: "Enter" });
+    await flush();
+    expect(open).toHaveBeenCalledWith("3");
+    expect(lit()).toEqual([]);
+    expect(dialog()).toBeNull();
+  });
+});
