@@ -5,7 +5,7 @@
 import type { ScheduleResponse } from "@wnext/contracts";
 import { describe, expect, it } from "vitest";
 import { createBlockEditor, type CreateRequest, type EditRequest, type OpenRequest } from "../src/schedule/block-editor";
-import { GUTTER_PX, createScroller, type Clock } from "../src/schedule/scroller";
+import { GUTTER_PX, HEADER_PX, createScroller, type Clock } from "../src/schedule/scroller";
 
 type Alloc = ScheduleResponse["allocations"][number];
 const alloc = (id: string, personId: string, over: Partial<Alloc> = {}) => ({
@@ -53,7 +53,15 @@ function setup(enabled = true) {
   /** Abscisse (fenêtre) du milieu d'un jour : jsdom place la grille en (0, 0). */
   const xOf = (date: string) => s.host.xOfDate(date) + 5;
   const row = () => root.querySelector<HTMLElement>(".wn-row")!;
-  return { root, s, ed, commits, opens, creates, block, draft, ptr, click, key, frame, xOf, row };
+  /** Mise en page simulée comme dans block-editor-touch.test.ts : grille de GUTTER_PX + 960 × 480 px décalée du défilement. */
+  const left = () => root.scrollLeft;
+  const layout = () => { root.getBoundingClientRect = () => new DOMRect(left(), -HEADER_PX, GUTTER_PX + 960, 480); };
+  /** Bornes (fenêtre) du bloc provisoire affiché. */
+  const draftSpan = () => {
+    const x = Number(/translate\(([-\d.]+)px/.exec(draft()!.style.transform)![1]);
+    return { from: x, to: x + parseFloat(draft()!.style.width) };
+  };
+  return { root, s, ed, commits, opens, creates, block, draft, ptr, click, key, frame, xOf, row, left, layout, draftSpan };
 }
 
 describe("Q5 : sélection puis ouverture", () => {
@@ -149,6 +157,40 @@ describe("RT-015 : bloc provisoire en zone libre", () => {
     expect(h.draft()!.style.display).toBe("");
     h.ed.clearDraft(h.creates[1]!.draft);
     expect(h.draft()!.style.display).toBe("none");
+  });
+
+  it("souris : relâcher hors de la zone des blocs (droite, bas, en-tête, colonne des personnes) abandonne la création (RT-046)", () => {
+    const h = setup();
+    h.layout();
+    const X = h.xOf("2026-10-23");
+    const outs = [[h.left() + GUTTER_PX + 970, 5], [X, 480 - HEADER_PX + 10], [X, -10], [h.left() + GUTTER_PX - 10, 5]] as const;
+    for (const [x, y] of outs) {
+      h.ptr("pointerdown", h.row(), X, 5);
+      h.ptr("pointermove", document, h.xOf("2026-10-24"), 5);
+      h.ptr("pointermove", document, x, y);
+      h.ptr("pointerup", document, x, y);
+      expect([h.creates.length, h.draft()!.style.display, h.ed.busy()]).toEqual([0, "none", false]);
+    }
+    // Témoin : revenir dans la zone avant de relâcher garde la création.
+    h.ptr("pointerdown", h.row(), X, 5);
+    h.ptr("pointermove", document, h.left() + GUTTER_PX - 10, 5);
+    h.ptr("pointerup", document, h.xOf("2026-10-24"), 5);
+    expect(h.creates.map((c) => [c.startDate, c.endDate])).toEqual([["2026-10-23", "2026-10-24"]]);
+  });
+
+  it("souris : la plage reste bornée aux jours visibles en passant sur la colonne des personnes ou au-delà du bord droit (RT-046)", () => {
+    const h = setup();
+    h.layout();
+    const ppd = h.s.host.pxPerDay();
+    const first = h.left() + GUTTER_PX;
+    h.ptr("pointerdown", h.row(), h.xOf("2026-10-23"), 5);
+    h.ptr("pointermove", document, first - 10, 5);
+    h.ptr("pointermove", document, h.left() + 5, 5);
+    expect(h.draftSpan().from).toBeGreaterThan(first - ppd);
+    h.ptr("pointermove", document, first + 960 + 300, 5);
+    expect(h.draftSpan().to).toBeLessThan(first + 960 + ppd);
+    h.ptr("pointerup", document, first + 960 + 300, 5);
+    expect(h.creates).toHaveLength(0);
   });
 
   it("pas de création sur un bloc, la colonne des personnes ni la bande de capacité", () => {

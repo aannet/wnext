@@ -299,6 +299,38 @@ describe("toucher : création en case libre, annulations (RT-043, revue croisée
     expect(h.commits).toHaveLength(0);
   });
 
+  it("deuxième contact pendant le déplacement armé d'un bloc, même hors grille : déplacement annulé, rien n'est écrit (RT-046)", () => {
+    const h = setup();
+    const b = h.block("1:0");
+    h.ptr("pointerdown", b, 0, 0);
+    vi.advanceTimersByTime(401);
+    h.ptr("pointermove", document, 2 * DAY + 10, 0);
+    h.frame();
+    expect(h.ghost()!.style.display).toBe("");
+    h.ptr("pointerdown", document.body, 900, 700, "touch", 8);
+    expect([h.ghost()!.style.display, b.classList.contains("wn-armed"), h.ed.busy()]).toEqual(["none", false, false]);
+    h.ptr("pointermove", document, 3 * DAY + 10, 0);
+    h.frame();
+    h.ptr("pointerup", document, 3 * DAY + 10, 0);
+    h.ptr("pointerup", document, 900, 700, "touch", 8);
+    expect(h.commits).toHaveLength(0);
+    expect(h.ghost()!.style.display).toBe("none");
+  });
+
+  it("deuxième contact pendant l'étirement au toucher d'un bloc sélectionné : geste annulé, rien n'est écrit (RT-046)", () => {
+    const h = setup();
+    const b = h.block("1:0");
+    h.ptr("pointerdown", b, 0, 0);
+    h.ptr("pointerup", document, 0, 0);
+    h.ptr("pointerdown", b.querySelector("[data-handle=end]")!, 0, 0);
+    h.ptr("pointermove", document, DAY + 5, 0);
+    h.frame();
+    h.ptr("pointerdown", h.row(), 600, 5, "touch", 8);
+    h.ptr("pointerup", document, DAY + 5, 0);
+    h.ptr("pointerup", document, 600, 5, "touch", 8);
+    expect([h.commits.length, h.ghost()!.style.display, h.ed.busy()]).toEqual([0, "none", false]);
+  });
+
   it("après l'armement, sortir de la zone des blocs vers la droite : création abandonnée", () => {
     const h = setup();
     h.layout();

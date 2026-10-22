@@ -11,7 +11,8 @@
 //    sélectionné et le glisser armé (wn-armed, vibration, touchmove annulé). Bloc sélectionné ou poignée : glisser tout de suite.
 //    Sur une case libre, même règle : un tap ne crée rien, l'appui long pose le bloc provisoire de la création (vibration,
 //    touchmove annulé), le glisser l'étend, relâcher demande la création (RT-043). Pas de menu contextuel pendant l'appui long.
-//    Un deuxième doigt (n'importe où) abandonne l'appui long en attente ou la création ; sortir de la zone des blocs aussi.
+//    Un deuxième doigt (n'importe où) abandonne l'appui long en attente, la création ou le glisser en cours (le bloc reste en place,
+//    rien n'est écrit, RT-046) ; sortir de la zone des blocs abandonne la création.
 //    pointercancel (le navigateur reprend le défilement) abandonne proprement l'aperçu.
 //  * Clavier, sur le bloc focalisé : équivalents du moteur (keyGesture), cumulés dans un brouillon ; Entrée valide, Échap
 //    annule ; chaque pas est rendu à l'appelant pour l'annonce aria-live.
@@ -23,7 +24,8 @@
 //    focalisé (sans brouillon clavier) ou clic sur le bloc déjà sélectionné : onOpen. Un glisser reste un geste.
 //  * Création (RT-015 à la souris, RT-043 au toucher par appui long) : clic ou glisser dans une zone libre d'une ligne (hors
 //    en-tête, blocs, congés, bande de capacité) : un bloc provisoire (.wn-slot-draft) couvre la plage, puis onCreate ; il reste
-//    affiché jusqu'à clearDraft (pop-in fermée : créée ou annulée). Échap pendant le glisser annule.
+//    affiché jusqu'à clearDraft (pop-in fermée : créée ou annulée). Échap pendant le glisser annule. À la souris (RT-046), la plage
+//    est bornée aux jours visibles (pas de défilement automatique) et relâcher hors de la zone des blocs abandonne la création.
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
   applyGesture, dayNumber, expandOccurrences, fromDayNumber, keyGesture, pointerGesture, referenceHours, workDaysHoursOn, type BlockPatch, type Gesture, type GestureBlock,
@@ -108,6 +110,8 @@ interface Drag extends Session {
   kind: Gesture["kind"]; pointerId: number; x0: number; y0: number; sd0: number; st0: number; cx: number; cy: number; started: boolean;
   /** Le bloc était déjà sélectionné au début du geste : un clic sans glisser ouvre la pop-in (Q5). */
   wasSelected: boolean; el: HTMLElement;
+  /** Geste au doigt : un deuxième doigt l'annule (RT-046). */
+  touch: boolean;
 }
 /** `touch` : création par appui long (RT-043), abandonnée si le doigt sort de la zone des blocs ou si un deuxième doigt se pose. */
 interface Creating { pointerId: number; personId: string; anchor: number; day: number; touch: boolean }
@@ -232,6 +236,11 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     if (!row || y < row.top || y >= row.top + row.capY) return null;
     const day = dayAt(clientX);
     return day === null ? null : { row, day };
+  }
+  /** Abscisse ramenée dans la zone des blocs visible (jours affichés seulement) ; sans mise en page, inchangée. */
+  function clampX(x: number): number {
+    const r = blocksRect();
+    return r ? Math.min(Math.max(x, r.left), r.right - 1) : x;
   }
   function dayAt(clientX: number): number | null {
     const m = host.model();
@@ -406,20 +415,24 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     select(p.hit.block.key);
     p.hit.el.classList.add("wn-armed");
     vibrate();
-    drag = { ...s, kind: "move", pointerId: p.pointerId, x0: p.cx, y0: p.cy, cx: p.cx, cy: p.cy, sd0: host.scrollDay(), st0: root.scrollTop, started: false, wasSelected: false, el: p.hit.el };
+    drag = { ...s, kind: "move", pointerId: p.pointerId, x0: p.cx, y0: p.cy, cx: p.cx, cy: p.cy, sd0: host.scrollDay(), st0: root.scrollTop, started: false, wasSelected: false, el: p.hit.el, touch: true };
     try { p.hit.el.setPointerCapture?.(p.pointerId); } catch { /* pointeur déjà relâché */ }
   }
   function vibrate() { try { navigator.vibrate?.(15); } catch { /* indisponible */ } }
 
-  /** Zone des blocs visible (hors colonne des personnes et en-tête) ; sans mise en page (rectangle vide), tout point y est. */
-  function inBlocks(x: number, y: number): boolean {
+  /** Zone des blocs visible (hors colonne des personnes et en-tête), repère de la fenêtre ; null sans mise en page. */
+  function blocksRect(): { left: number; right: number; top: number; bottom: number } | null {
     const r = root.getBoundingClientRect();
-    if (!r.width || !r.height) return true;
-    return x >= r.left + GUTTER_PX && x < r.right && y >= r.top + HEADER_PX && y < r.bottom;
+    return r.width && r.height ? { left: r.left + GUTTER_PX, right: r.right, top: r.top + HEADER_PX, bottom: r.bottom } : null;
+  }
+  /** Point dans la zone des blocs ; sans mise en page (rectangle vide), tout point y est. */
+  function inBlocks(x: number, y: number): boolean {
+    const r = blocksRect();
+    return !r || (x >= r.left && x < r.right && y >= r.top && y < r.bottom);
   }
 
   // Contacts tactiles posés, suivis sur tout le document (un deuxième doigt peut se poser hors de la grille) : dès le deuxième,
-  // l'appui long en attente ou la création au toucher est abandonné (pincement, défilement à deux doigts).
+  // l'appui long en attente, la création ou le glisser au toucher est abandonné (pincement, défilement à deux doigts).
   const touches = new Set<number>();
   function onAnyDown(e: PointerEvent) {
     if (e.pointerType !== "touch") return;
@@ -428,6 +441,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     if (touches.size < 2) return;
     cancelPending();
     if (creating?.touch) endCreate(false);
+    if (drag?.touch) { endDrag(); hideGhost(); }
   }
   function onAnyUp(e: PointerEvent) { if (e.pointerType === "touch") touches.delete(e.pointerId); }
 
@@ -469,6 +483,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     drag = {
       ...s, kind: (handle && KINDS[handle]) || "move", pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY,
       sd0: host.scrollDay(), st0: root.scrollTop, started: false, wasSelected: selectedKey === hit.block.key, el: hit.el,
+      touch: e.pointerType === "touch",
     };
     try { hit.el.setPointerCapture?.(e.pointerId); } catch { /* pointeur déjà relâché */ }
     listen();
@@ -476,7 +491,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   function onMove(e: PointerEvent) {
     if (creating && e.pointerId === creating.pointerId) {
       if (creating.touch && !inBlocks(e.clientX, e.clientY)) { endCreate(false); return; }
-      const day = dayAt(e.clientX);
+      const day = dayAt(clampX(e.clientX));
       if (day !== null && day !== creating.day) { creating.day = day; showDraft(creating); }
       return;
     }
@@ -500,7 +515,13 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       hit?.el.focus({ preventScroll: true });
       return;
     }
-    if (creating && e.pointerId === creating.pointerId) { endCreate(!creating.touch || inBlocks(e.clientX, e.clientY)); return; }
+    if (creating && e.pointerId === creating.pointerId) {
+      const inside = inBlocks(e.clientX, e.clientY);
+      const day = inside ? dayAt(e.clientX) : null;
+      if (day !== null && day !== creating.day) { creating.day = day; showDraft(creating); }
+      endCreate(inside);
+      return;
+    }
     if (!drag || e.pointerId !== drag.pointerId) return;
     drag.cx = e.clientX;
     drag.cy = e.clientY;
