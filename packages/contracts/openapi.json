@@ -6382,13 +6382,10 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "return=representation"
-              ],
-              "description": "Facultatif : 200 avec les lignes supprimées (état d'avant) au lieu de 204"
+              "description": "Facultatif (RFC 7240, liste séparée par des virgules) : avec return=representation, 200 et les lignes supprimées (état d'avant) au lieu de 204 ; autres préférences ignorées"
             },
             "required": false,
-            "description": "Facultatif : 200 avec les lignes supprimées (état d'avant) au lieu de 204",
+            "description": "Facultatif (RFC 7240, liste séparée par des virgules) : avec return=representation, 200 et les lignes supprimées (état d'avant) au lieu de 204 ; autres préférences ignorées",
             "name": "Prefer",
             "in": "header"
           }

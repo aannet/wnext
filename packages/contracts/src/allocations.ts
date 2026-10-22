@@ -102,8 +102,10 @@ export const IfMatchHeader = z.object({
 });
 
 // DELETE /allocations/{id}/group : `Prefer: return=representation` demande les lignes supprimées (200) au lieu de 204 (RT-047).
+// En-tête RFC 7240 : liste de préférences séparées par des virgules ; seule `return=representation` change la réponse, les autres
+// (et une valeur sans elle) sont ignorées : 204.
 export const GroupDeleteHeaders = IfMatchHeader.extend({
-  Prefer: z.literal("return=representation").optional().describe("Facultatif : 200 avec les lignes supprimées (état d'avant) au lieu de 204"),
+  Prefer: z.string().optional().describe("Facultatif (RFC 7240, liste séparée par des virgules) : avec return=representation, 200 et les lignes supprimées (état d'avant) au lieu de 204 ; autres préférences ignorées"),
 });
 
 // --- Lecture ---

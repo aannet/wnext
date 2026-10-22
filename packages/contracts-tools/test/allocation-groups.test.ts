@@ -76,7 +76,9 @@ describe("routes", () => {
     expect(d.responses[200]?.schema).toBe(AllocationGroup);
     expect(ok(GroupDeleteHeaders, { "If-Match": "\"1\"" })).toBe(true);
     expect(ok(GroupDeleteHeaders, { "If-Match": "\"1\"", Prefer: "return=representation" })).toBe(true);
-    expect(ok(GroupDeleteHeaders, { "If-Match": "\"1\"", Prefer: "return=minimal" })).toBe(false);
+    // RFC 7240 : une liste de préférences est tolérée, les autres préférences ignorées (comme l'API).
+    expect(ok(GroupDeleteHeaders, { "If-Match": "\"1\"", Prefer: "respond-async, return=representation" })).toBe(true);
+    expect(ok(GroupDeleteHeaders, { "If-Match": "\"1\"", Prefer: "return=minimal" })).toBe(true);
   });
   it("la spec contient les chemins ; l'allocation seule garde les siens", () => {
     const spec = buildSpec() as { paths: Record<string, Record<string, unknown>> };

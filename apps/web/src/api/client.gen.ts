@@ -1246,7 +1246,7 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       };
       headers: {
         "If-Match": string;
-        Prefer?: "return=representation";
+        Prefer?: string;
       };
     }): Promise<ApiResult<AllocationGroup | void, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/allocations/" + encodeURIComponent(String(input.path.id)) + "/group", { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
