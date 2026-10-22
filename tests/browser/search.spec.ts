@@ -117,11 +117,63 @@ test("Ctrl+K est ignoré quand une autre fenêtre modale est ouverte", async ({ 
   await expect(palette(page)).toHaveCount(0);
 });
 
-test("axe-core : palette ouverte, avec résultats groupés et personne masquée signalée", async ({ page }) => {
+const axe = async (page: Page) => {
+  const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"]).analyze();
+  return r.violations.map((v) => `${v.id}: ${v.help} -> ${v.nodes[0]?.target.join(" ")}`);
+};
+
+test("axe-core : palette ouverte, avec résultats groupés", async ({ page }) => {
   await openDemo(page);
   await page.keyboard.press("Control+k");
-  await page.getByRole("combobox", { name: "Rechercher une personne ou un projet" }).fill("p");
+  await field(page).fill("p");
   await expect(palette(page).getByRole("group", { name: "Projets" })).toBeVisible();
-  const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"]).analyze();
-  expect(r.violations.map((v) => `${v.id}: ${v.help} -> ${v.nodes[0]?.target.join(" ")}`)).toEqual([]);
+  expect(await axe(page)).toEqual([]);
+});
+
+test("personne masquée par un vrai filtre : option signalée, confirmation, zéro résultat (axe à chaque étape), retrait puis rétablissement", async ({ page }) => {
+  await openDemo(page);
+  // Filtre « Département : Produit » posé par le panneau : Personne 299 (département Design) est écartée.
+  await page.getByRole("button", { name: "Filtres", exact: true }).click();
+  await page.getByRole("group", { name: "Filtres" }).getByRole("listbox", { name: "Département" }).selectOption({ label: "Produit" });
+  await expect(page.getByRole("button", { name: /^Filtres \(1\)/ })).toBeVisible();
+  await expect(rowOf(page, "Personne 299")).toHaveCount(0);
+
+  await page.getByRole("grid").focus();
+  await page.keyboard.press("Control+k");
+  await field(page).fill("personne 299");
+  const hidden = palette(page).getByRole("option", { name: /^Personne 299 masquée par les filtres/ });
+  await expect(hidden).toBeVisible();
+  await expect(field(page)).toHaveAttribute("aria-expanded", "true");
+  expect(await axe(page), "axe, option masquée").toEqual([]);
+
+  // Confirmation : rien n'a bougé, Échap revient à la liste, Entrée sur le bouton confirme.
+  await page.keyboard.press("Enter");
+  const confirm = palette(page).getByRole("button", { name: "Retirer les filtres et afficher Personne 299" });
+  await expect(confirm).toBeFocused();
+  await expect(page.locator(".wn-toolbar button", { hasText: /^Filtres \(1\)/ })).toBeVisible(); // la page derrière la fenêtre est masquée aux rôles : sélecteur CSS
+  expect(await axe(page), "axe, confirmation").toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(palette(page)).toBeVisible();
+  await expect(field(page)).toBeFocused();
+
+  // Zéro résultat : plus de liste annoncée, message dans la région de statut.
+  await field(page).fill("zzz");
+  await expect(palette(page).getByRole("status")).toHaveText("Aucun résultat");
+  await expect(field(page)).toHaveAttribute("aria-expanded", "false");
+  await expect(palette(page).getByRole("listbox")).toHaveCount(0);
+  expect(await axe(page), "axe, zéro résultat").toEqual([]);
+
+  // Retrait confirmé : ligne montrée, filtres retirés, bouton « Rétablir les filtres ».
+  await field(page).fill("personne 299");
+  await page.keyboard.press("Enter");
+  await confirm.click();
+  await expect(palette(page)).toHaveCount(0);
+  await expect(rowOf(page, "Personne 299")).toHaveAttribute("data-highlight", "");
+  await expect(page.getByRole("button", { name: "Filtres", exact: true })).toBeVisible();
+  const restore = page.getByRole("button", { name: "Rétablir les filtres" });
+  await expect(restore).toBeVisible();
+  await restore.click();
+  await expect(page.getByRole("button", { name: /^Filtres \(1\)/ })).toBeVisible();
+  await expect(restore).toHaveCount(0);
+  await expect(page.getByRole("grid")).toBeFocused();
 });
