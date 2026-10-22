@@ -82,11 +82,13 @@ export interface SlotEditorOptions {
 type Tab = "allocation" | "timeoff";
 /**
  * Étape de portée (RT-042) : plan des écritures et choix courant (null : aucun choix disponible, Confirmer désactivé). `action` :
- * enregistrer le formulaire ou supprimer (RT-047) ; `direct` : ouverte depuis la grille, Annuler ferme le drawer.
+ * enregistrer le formulaire ou supprimer (RT-047) ; `direct` : ouverte depuis la grille, Annuler ferme le drawer. `target` et
+ * `groupSize` sont figés à l'ouverture : pendant l'écriture optimiste, l'allocation peut déjà avoir quitté (ou changé dans) le
+ * magasin.
  */
-interface ScopeStep { plan: ScopePlan; value: SlotScope | null; action: "save" | "delete"; direct: boolean }
-/** Étape « Scinder » (RT-047) : début de la seconde partie ; `tried` : refus affiché. */
-interface SplitStep { date: string; direct: boolean; tried: boolean }
+interface ScopeStep { plan: ScopePlan; value: SlotScope | null; action: "save" | "delete"; direct: boolean; target: Allocation; groupSize: number }
+/** Étape « Scinder » (RT-047) : début de la seconde partie ; `tried` : refus affiché ; `target` figée à l'ouverture. */
+interface SplitStep { date: string; direct: boolean; tried: boolean; target: Allocation }
 /**
  * `initial` : brouillon à l'ouverture, repère du formulaire modifié (Q7). `occ` : occurrence ouverte d'une série (null
  * sinon). `scope` : étape de portée affichée (null : formulaire).
@@ -195,7 +197,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
     if (issues.length) { show({ ...s, tried: true }); return; }
     if (current) {
       const plan = scopePlan(current, s.occ, s.draft, writer().updateAllocationGroup !== undefined);
-      if (plan.options.length > 0) show({ ...s, scope: { plan, value: firstOpen(plan), action: "save", direct: false } });
+      if (plan.options.length > 0) show({ ...s, scope: scopeStep(plan, "save", false, current) });
       else if (Object.keys(plan.patch).length === 0) finish();
       else await write(s, current, plan, s.occ ? "series" : "line");
       return;
@@ -273,6 +275,10 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   // ---------- commandes du bloc (RT-047) ----------
 
   const commandDeps = (): CommandDeps => ({ records: records!, history: o.history });
+  const scopeStep = (plan: ScopePlan, action: ScopeStep["action"], direct: boolean, target: Allocation): ScopeStep => ({
+    plan, value: firstOpen(plan), action, direct, target,
+    groupSize: new Set(data.allocations.filter((x) => x.groupId !== null && x.groupId === target.groupId).map((x) => x.personId)).size,
+  });
   const commandable = (a: Allocation | undefined): a is Allocation => !!a && !!records && (o.canCommand ? o.canCommand(a) : true);
   const deleteScopes = (a: Allocation, occ: SlotOccurrence | null): ScopePlan =>
     ({ patch: {}, occurrencePatch: null, options: deleteOptions(a, occ?.index ?? null, records?.deleteAllocationGroup !== undefined) });
@@ -301,7 +307,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   function deleteFromForm(s: State, a: Allocation) {
     const plan = deleteScopes(a, s.occ);
     if (plan.options.length === 0) void runDelete(s, a, s.occ, "line");
-    else show({ ...s, error: null, scope: { plan, value: firstOpen(plan), action: "delete", direct: false } });
+    else show({ ...s, error: null, scope: scopeStep(plan, "delete", false, a) });
   }
 
   async function runSplit(s: State, a: Allocation, step: SplitStep) {
@@ -322,7 +328,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   const fmt = (d: string) => day.format(new Date(`${d}T00:00:00Z`));
 
   function renderSplit(s: State, step: SplitStep): { body: ReactNode; footer: ReactNode } {
-    const a = current!;
+    const a = step.target;
     const valid = splitDateValid(a, step.date);
     const body = (
       <form id={`${ids}-split`} className="wn-slot-form" noValidate onSubmit={(e) => { e.preventDefault(); void runSplit(s, a, step); }}>
@@ -345,8 +351,8 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   }
 
   function renderScope(s: State, step: ScopeStep): { body: ReactNode; footer: ReactNode } {
-    const a = current!;
-    const count = new Set(data.allocations.filter((x) => x.groupId !== null && x.groupId === a.groupId).map((x) => x.personId)).size;
+    const a = step.target;
+    const count = step.groupSize;
     const removing = step.action === "delete";
     const legend = step.plan.options.some((x) => x.scope === "occurrence")
       ? t(removing ? "schedule.delete.series.title" : "schedule.edit.series.title")
@@ -420,7 +426,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
         {commandable(a) && (
           <div role="group" aria-label={t("schedule.slot.actions")} className="wn-slot-actions">
             <Button onClick={() => show(base({ ...d, allocationId: null }, "allocation", s.key, null))}>{t("schedule.slot.duplicate")}</Button>
-            {splitBlocker(a) === null && <Button onClick={() => show({ ...s, error: null, split: { date: defaultSplitDate(a), direct: false, tried: false } })}>{t("schedule.slot.split")}</Button>}
+            {splitBlocker(a) === null && <Button onClick={() => show({ ...s, error: null, split: { date: defaultSplitDate(a), direct: false, tried: false, target: a } })}>{t("schedule.slot.split")}</Button>}
             <Button variant="danger" onClick={() => deleteFromForm(s, a)}>{t("schedule.slot.delete")}</Button>
           </div>
         )}
@@ -496,7 +502,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
       const plan = deleteScopes(a, occ);
       if (plan.options.length === 0) { void runDelete(null, a, occ, "line"); return; }
       timeoffs.reset();
-      show({ ...base(editDraft(a, occ), "allocation", r.key, null, occ), scope: { plan, value: firstOpen(plan), action: "delete", direct: true } });
+      show({ ...base(editDraft(a, occ), "allocation", r.key, null, occ), scope: scopeStep(plan, "delete", true, a) });
     },
     requestSplit(r) {
       const a = records && data.allocations.find((x) => x.id === r.allocationId);
@@ -504,7 +510,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
       const why = splitBlocker(a);
       if (why) { optsRef.current.announce(t("schedule.split.unavailable", { reason: why })); return; }
       timeoffs.reset();
-      show({ ...base(editDraft(a), "allocation", r.key, null), split: { date: defaultSplitDate(a), direct: true, tried: false } });
+      show({ ...base(editDraft(a), "allocation", r.key, null), split: { date: defaultSplitDate(a), direct: true, tried: false, target: a } });
     },
     isOpen: () => stateRef.current !== null,
     element,

@@ -41,10 +41,11 @@ const clock: Partial<Clock> = { raf: () => 0, caf: () => {}, now: () => 0, idle:
 const flush = async () => { for (let i = 0; i < 6; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); }); };
 afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; document.body.innerHTML = ""; });
 
-interface Opts { readOnly?: boolean; me?: Pick<Me, "role" | "person">; managers?: Record<string, string> }
+interface Opts { readOnly?: boolean; me?: Pick<Me, "role" | "person">; managers?: Record<string, string>; wrap?(src: ReturnType<typeof createDemoSource>): void }
 function mount(allocations: Alloc[], o: Opts = {}) {
   const initial = data(allocations);
   const src = createDemoSource(initial);
+  o.wrap?.(src);
   const { history } = historyForSource(src);
   const catalog = createDemoProjectsSource(initial, {});
   if (o.managers) {
@@ -147,6 +148,42 @@ describe("supprimer (Suppr, Retour arrière)", () => {
     expect(notice()).toBe("2 allocations supprimées. Ctrl+Z annule.");
     await undo();
     expect(rows().map((a) => a.personId).sort()).toEqual(["1", "2"]);
+  });
+});
+
+describe("suppression en cours (revue)", () => {
+  it("réponse différée : les lignes ont déjà quitté la grille, l'étape reste affichée sans erreur (autre groupe présent), puis se ferme", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => { release = r; });
+    const { rows } = mount([alloc("a", { groupId: "G" }), alloc("b", { personId: "2", groupId: "G" }), alloc("c", { groupId: "H", startDate: "2026-10-26" }), alloc("d", { personId: "2", groupId: "H", startDate: "2026-10-26" })], {
+      // Comme la source de l'API : retrait optimiste tout de suite, réponse plus tard.
+      wrap: (src) => { const del = src.deleteAllocationGroup!; src.deleteAllocationGroup = async (id) => { const out = del(id); await gate; return out; }; },
+    });
+    block("a:0").focus();
+    await press(block("a:0"), { key: "Delete" });
+    act(() => { dialog()!.querySelectorAll<HTMLElement>("[role=radio]")[1]!.click(); });
+    await click(button("Supprimer")!);
+    expect(rows().map((a) => a.id)).toEqual(["c", "d"]);
+    expect(title()).toBe("Supprimer l’allocation");
+    release();
+    await flush();
+    expect(dialog()).toBeNull();
+    expect(notice()).toBe("2 allocations supprimées. Ctrl+Z annule.");
+  });
+
+  it("scission en cours : l'étape garde l'allocation d'origine (dates d'avant) jusqu'à la fin", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => { release = r; });
+    mount([alloc("a"), alloc("c", { groupId: "H", personId: "2" })], {
+      wrap: (src) => { const create = src.createAllocation; src.createAllocation = async (b) => { await gate; return create(b); }; },
+    });
+    block("a:0").focus();
+    await press(block("a:0"), { key: "s" });
+    await click(button("Scinder")!);
+    expect(dialog()!.querySelector("[data-split-parts]")?.textContent).toBe("Première partie : du mar. 20 oct. au mer. 21 oct. ; seconde partie : du jeu. 22 oct. au ven. 23 oct.");
+    release();
+    await flush();
+    expect(dialog()).toBeNull();
   });
 });
 
