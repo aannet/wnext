@@ -9,6 +9,8 @@ export const fr = {
   "auth.logout": "Se déconnecter",
   "auth.error": "Connexion impossible. Réessayez.",
   "auth.retry": "Se reconnecter",
+  "access.own.title": "Vous n’avez accès qu’à votre propre planning",
+  "access.own.body": "Aucune personne n’est liée à votre compte. Demandez à un administrateur de vous rattacher à votre fiche.",
   "schedule.grid.label": "Planning des personnes",
   "schedule.toolbar.label": "Navigation dans le planning",
   "schedule.today": "Aujourd’hui",

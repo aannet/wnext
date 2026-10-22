@@ -10,6 +10,8 @@ export const en: Record<MessageKey, string> = {
   "auth.logout": "Sign out",
   "auth.error": "Sign-in failed. Please try again.",
   "auth.retry": "Sign in again",
+  "access.own.title": "You only have access to your own schedule",
+  "access.own.body": "No person is linked to your account. Ask an administrator to link you to your profile.",
   "schedule.grid.label": "People schedule",
   "schedule.toolbar.label": "Schedule navigation",
   "schedule.today": "Today",

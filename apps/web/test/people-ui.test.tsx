@@ -28,13 +28,13 @@ function directory(memberIds?: readonly string[]) {
 const account = (weekStart = 1): Me["account"] => ({ id: "1", name: "Démo", timezone: "Europe/Paris", weekStart, defaultLocale: "fr" });
 const now = () => new Date(`${TODAY}T10:00:00Z`);
 
-async function mount(source: PeopleSource, reference: ReferenceSource, props: { canEdit?: boolean; weekStart?: number; locale?: "fr" | "en"; imports?: ImportSource } = {}) {
+async function mount(source: PeopleSource, reference: ReferenceSource, props: { canEdit?: boolean; weekStart?: number; locale?: "fr" | "en"; imports?: ImportSource; ownOnly?: boolean } = {}) {
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
   act(() => root!.render(
     <PeopleScreen i18n={createI18n(props.locale ?? "fr")} source={source} reference={reference} account={account(props.weekStart)} canEdit={props.canEdit ?? true} now={now}
-      {...(props.imports ? { imports: props.imports } : {})} />,
+      {...(props.imports ? { imports: props.imports } : {})} {...(props.ownOnly ? { ownOnly: true } : {})} />,
   ));
   await flush();
 }
@@ -103,6 +103,24 @@ describe("liste", () => {
     await mount({ ...d.people, listPeople: async () => ({ ok: true, value: [] }) }, d.reference);
     expect(page().textContent).toContain("Aucune personne");
     expect(button("Nouvelle personne", page())).toBeTruthy();
+  });
+
+  it("member sans personne liée (RT-048) : état vide qui explique le périmètre, sans action", async () => {
+    const d = directory();
+    await mount({ ...d.people, listPeople: async () => ({ ok: true, value: [] }) }, d.reference, { canEdit: false, ownOnly: true });
+    expect(page().querySelector(".wn-empty h2")!.textContent).toBe("Vous n’avez accès qu’à votre propre planning");
+    expect(page().textContent).toContain("Aucune personne n’est liée à votre compte");
+    expect(page().querySelector("form[role=search]")).toBeNull();
+    expect(button("Nouvelle personne", page())).toBeUndefined();
+  });
+
+  it("member avec sa personne (RT-048) : sa seule ligne, servie par l'API", async () => {
+    const d = directory();
+    const all = await d.people.listPeople();
+    const mine = all.ok ? all.value.slice(0, 1) : [];
+    await mount({ ...d.people, listPeople: async () => ({ ok: true, value: mine }) }, d.reference, { canEdit: false, ownOnly: true });
+    expect(rowNames()).toEqual([mine[0]!.name]);
+    expect(page().querySelector(".wn-empty")).toBeNull();
   });
 });
 

@@ -98,6 +98,18 @@ export function ScheduleContainer({ i18n, source, views, now = systemNow, widthP
   const importButton = useRef<HTMLButtonElement>(null);
   const closeImport = () => { setImporting(false); importButton.current?.focus(); };
 
+  // RT-048 : un member ne voit que sa personne liée ; sans personne liée, la grille serait vide sans explication.
+  if (me?.role === "member" && !me.person) {
+    return (
+      <main className="wn-schedule-container">
+        <div className="wn-subheader">{title}</div>
+        <section className="wn-soon wn-empty" aria-labelledby="wn-sempty-title">
+          <h2 id="wn-sempty-title">{t("access.own.title")}</h2>
+          <p>{t("access.own.body")}</p>
+        </section>
+      </main>
+    );
+  }
   if (!state.data) {
     return (
       <main className="wn-schedule-container" aria-busy={state.loading}>

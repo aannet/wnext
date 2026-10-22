@@ -25,7 +25,7 @@ function body(q: URLSearchParams): ScheduleResponse {
 
 let root: Root | null = null;
 let host: HTMLElement;
-function mount(respond: (q: URLSearchParams) => Promise<{ status: number; body: unknown }>, now: (() => Date) | null = () => new Date("2026-10-19T10:00:00Z"), onReconnect?: () => void, readOnly = false) {
+function mount(respond: (q: URLSearchParams) => Promise<{ status: number; body: unknown }>, now: (() => Date) | null = () => new Date("2026-10-19T10:00:00Z"), onReconnect?: () => void, readOnly = false, me?: { role: "member"; person: { id: string; name: string } | null }) {
   const fetch = async (url: string): Promise<FetchResponse> => {
     const r = await respond(new URL(url, "http://x").searchParams);
     return { status: r.status, json: async () => r.body };
@@ -34,7 +34,7 @@ function mount(respond: (q: URLSearchParams) => Promise<{ status: number; body: 
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
-  act(() => root!.render(<ScheduleContainer i18n={createI18n("fr")} source={source} {...(now ? { now } : {})} {...(onReconnect ? { onReconnect } : {})} readOnly={readOnly} widthPx={960} heightPx={480} />));
+  act(() => root!.render(<ScheduleContainer i18n={createI18n("fr")} source={source} {...(now ? { now } : {})} {...(onReconnect ? { onReconnect } : {})} readOnly={readOnly} {...(me ? { me } : {})} widthPx={960} heightPx={480} />));
 }
 afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; vi.useRealTimers(); vi.unstubAllGlobals(); });
 
@@ -60,6 +60,24 @@ describe("ScheduleContainer", () => {
     expect([host.querySelectorAll("main").length, host.querySelectorAll("h1").length]).toEqual([1, 1]);
     expect(main.querySelector("h1")!.textContent).toBe("Planning");
     for (const role of ["toolbar", "grid", "status"]) expect(main.querySelector(`[role=${role}]`), role).not.toBeNull();
+  });
+
+  it("member sans personne liée (RT-048) : état vide qui explique le périmètre, ni grille ni barre d'outils", async () => {
+    mount(async (q) => ({ status: 200, body: { ...body(q), people: [], page: { nextCursor: null, total: 0 } } }), undefined, undefined, true, { role: "member", person: null });
+    await flush();
+    const main = host.querySelector("main")!;
+    expect(main.querySelector("h1")!.textContent).toBe("Planning");
+    expect(main.querySelector(".wn-empty h2")!.textContent).toBe("Vous n’avez accès qu’à votre propre planning");
+    expect(main.textContent).toContain("Aucune personne n’est liée à votre compte");
+    expect(main.querySelector("[role=grid]")).toBeNull();
+    expect(main.querySelector("[role=toolbar]")).toBeNull();
+  });
+
+  it("member avec sa personne (RT-048) : la grille porte sa seule ligne", async () => {
+    mount(async (q) => ({ status: 200, body: body(q) }), undefined, undefined, true, { role: "member", person: { id: "1", name: "Alice" } });
+    await flush();
+    expect([...host.querySelectorAll("[role=rowheader] .wn-person-name")].map((e) => e.textContent)).toEqual(["Alice"]);
+    expect(host.querySelector(".wn-empty")).toBeNull();
   });
 
   it("historique d'annulation de la session : Annuler / Rétablir dans la barre d'outils, désactivés au départ", async () => {

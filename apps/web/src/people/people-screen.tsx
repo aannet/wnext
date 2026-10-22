@@ -1,6 +1,7 @@
 // Écran Personnes (lot L-F2 : RT-012 partie Personnes, US-1.1, US-5.1, BR-19, BR-31). Une liste filtrable (recherche, équipe =
 // département, rôle, type, actives ou désactivées), une fiche dans le Drawer commun, la création réduite (nom, type, horaire par
-// défaut), et l'accès à l'import CSV pour owner et admin. Lecture seule pour member et guest (GET /me).
+// défaut), et l'accès à l'import CSV pour owner et admin. Lecture seule pour member et guest (GET /me). Un member ne reçoit que sa
+// personne liée (RT-048) ; sans personne liée, un état vide le dit.
 // Tri et regroupement (RT-031), côté client et en mémoire : en-têtes Nom, Rôle et Équipe triables (aria-sort, second clic =
 // sens inverse), interrupteur « Regrouper par équipe » (un tbody par équipe, « Sans équipe » en dernier).
 // Colonne « Accès » (RT-040, ADR-002 §1 : users distincts de people) : `access` de PersonDetail, servi par l'API aux seuls
@@ -27,12 +28,14 @@ export interface PeopleScreenProps {
   canEdit: boolean;
   /** Import CSV (owner, admin) ; absent : pas de bouton. */
   imports?: ImportSource;
+  /** member (RT-048) : l'API ne sert que sa personne liée ; sans personne, un état vide explique ce périmètre. */
+  ownOnly?: boolean;
   now?: () => Date;
 }
 
 type Side = { kind: "none" } | { kind: "create" } | { kind: "person"; id: string };
 
-export function PeopleScreen({ i18n, source, reference, account, canEdit, imports, now = () => new Date() }: PeopleScreenProps) {
+export function PeopleScreen({ i18n, source, reference, account, canEdit, imports, ownOnly = false, now = () => new Date() }: PeopleScreenProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const people = useLoad(() => source.listPeople(), "people");
   const departments = useLoad(() => reference.departments.list(), "departments");
@@ -83,7 +86,13 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
         <p role="alert" className="wn-error">{t("people.error.load")} <Button size="sm" type="button" onClick={() => { people.reload(); departments.reload(); roles.reload(); }}>{t("people.retry")}</Button></p>
       )}
 
-      {ready && (
+      {ready && ownOnly && all.length === 0 && (
+        <section className="wn-soon wn-empty" aria-labelledby="wn-pempty-title">
+          <h2 id="wn-pempty-title">{t("access.own.title")}</h2>
+          <p>{t("access.own.body")}</p>
+        </section>
+      )}
+      {ready && !(ownOnly && all.length === 0) && (
         <>
           <form className="wn-filters" role="search" aria-label={t("people.filters.label")} onSubmit={(e) => e.preventDefault()}>
             <div className="wn-field">

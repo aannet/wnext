@@ -79,7 +79,7 @@ function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, sessio
       )}
       renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} {...projectsProps()} />}
       renderPeople={(user) => (
-        <PeopleScreen i18n={i18n} source={people} reference={reference} account={user.account} canEdit={canEditPeople(user)} {...(canAdminister(user) ? { imports } : {})} />
+        <PeopleScreen i18n={i18n} source={people} reference={reference} account={user.account} canEdit={canEditPeople(user)} ownOnly={user.role === "member"} {...(canAdminister(user) ? { imports } : {})} />
       )}
       renderSettings={(user) => <SettingsScreen i18n={i18n} reference={reference} projects={projects} account={account} onAccountSaved={accountSaved} canEdit={canAdminister(user)} />} />,
   );
