@@ -132,23 +132,23 @@ test("axe-core : palette ouverte, avec résultats groupés", async ({ page }) =>
 
 test("personne masquée par un vrai filtre : option signalée, confirmation, zéro résultat (axe à chaque étape), retrait puis rétablissement", async ({ page }) => {
   await openDemo(page);
-  // Filtre « Département : Produit » posé par le panneau : Personne 299 (département Design) est écartée.
+  // Filtre « Département : Produit » posé par le panneau : Personne 2 (département Design) est écartée.
   await page.getByRole("button", { name: "Filtres", exact: true }).click();
   await page.getByRole("group", { name: "Filtres" }).getByRole("listbox", { name: "Département" }).selectOption({ label: "Produit" });
   await expect(page.getByRole("button", { name: /^Filtres \(1\)/ })).toBeVisible();
-  await expect(rowOf(page, "Personne 299")).toHaveCount(0);
+  await expect(rowOf(page, "Personne 2")).toHaveCount(0);
 
   await page.getByRole("grid").focus();
   await page.keyboard.press("Control+k");
-  await field(page).fill("personne 299");
-  const hidden = palette(page).getByRole("option", { name: /^Personne 299 masquée par les filtres/ });
+  await field(page).fill("personne 2");
+  const hidden = palette(page).getByRole("option", { name: /^Personne 2 masquée par les filtres/ });
   await expect(hidden).toBeVisible();
   await expect(field(page)).toHaveAttribute("aria-expanded", "true");
   expect(await axe(page), "axe, option masquée").toEqual([]);
 
   // Confirmation : rien n'a bougé, Échap revient à la liste, Entrée sur le bouton confirme.
   await page.keyboard.press("Enter");
-  const confirm = palette(page).getByRole("button", { name: "Retirer les filtres et afficher Personne 299" });
+  const confirm = palette(page).getByRole("button", { name: "Retirer les filtres et afficher Personne 2" });
   await expect(confirm).toBeFocused();
   await expect(page.locator(".wn-toolbar button", { hasText: /^Filtres \(1\)/ })).toBeVisible(); // la page derrière la fenêtre est masquée aux rôles : sélecteur CSS
   expect(await axe(page), "axe, confirmation").toEqual([]);
@@ -164,11 +164,11 @@ test("personne masquée par un vrai filtre : option signalée, confirmation, zé
   expect(await axe(page), "axe, zéro résultat").toEqual([]);
 
   // Retrait confirmé : ligne montrée, filtres retirés, bouton « Rétablir les filtres ».
-  await field(page).fill("personne 299");
+  await field(page).fill("personne 2");
   await page.keyboard.press("Enter");
   await confirm.click();
   await expect(palette(page)).toHaveCount(0);
-  await expect(rowOf(page, "Personne 299")).toHaveAttribute("data-highlight", "");
+  await expect(rowOf(page, "Personne 2")).toHaveAttribute("data-highlight", "");
   await expect(page.getByRole("button", { name: "Filtres", exact: true })).toBeVisible();
   const restore = page.getByRole("button", { name: "Rétablir les filtres" });
   await expect(restore).toBeVisible();

@@ -43,6 +43,20 @@ describe("searchEntries", () => {
     expect(ids(g, "people")).toEqual(["c", "a", "b"]);
   });
 
+  it("nom exact d'abord, puis préfixe de la requête, puis le reste : « personne 2 » montre Personne 2 avant Personne 20 et Personne 102", () => {
+    const many = ["Personne 102", "Personne 20", "Personne 2", "Personne 21", "Personne 12", "Personne 3", "Personne 200"].map((name, i) => ({ id: String(i), name }));
+    const names = (query: string) => searchEntries({ ...base, people: many, projects: [], query }).flatMap((g) => g.items.map((i) => i.name));
+    expect(names("personne 2")).toEqual(["Personne 2", "Personne 20", "Personne 21", "Personne 200", "Personne 12", "Personne 102"]);
+    expect(names("  PERSONNE   2 ")[0]).toBe("Personne 2");
+  });
+
+  it("à rang égal : nom le plus court, puis ordre naturel (2 avant 10)", () => {
+    const g = searchEntries({ ...base, people: [{ id: "a", name: "Équipe 10" }, { id: "b", name: "Équipe 2" }, { id: "c", name: "Équipe 1" }], query: "équipe" });
+    expect(ids(g, "people")).toEqual(["c", "b", "a"]);
+    const h = searchEntries({ ...base, people: [{ id: "a", name: "Lot 10 b" }, { id: "b", name: "Lot 9 b" }, { id: "c", name: "Lot 2 bis" }], query: "lot" });
+    expect(ids(h, "people")).toEqual(["b", "a", "c"]);
+  });
+
   it("groupes vides omis ; aucune correspondance : liste vide", () => {
     expect(searchEntries({ ...base, query: "mobile" }).map((x) => x.kind)).toEqual(["projects"]);
     expect(searchEntries({ ...base, query: "xyz" })).toEqual([]);

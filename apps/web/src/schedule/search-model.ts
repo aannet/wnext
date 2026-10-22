@@ -1,7 +1,9 @@
 // Modèle de la palette de recherche du Planning (RT-038) : filtre côté client, sans casse ni accents, sur les listes déjà
 // chargées (personnes de la réponse du Schedule, projets du compte). Logique pure : l'interface est dans search-ui.
 //  * Tous les mots tapés doivent se retrouver dans le nom, dans n'importe quel ordre.
-//  * Ordre : nom qui commence par le premier mot, puis début d'un mot du nom, puis le reste ; à égalité, ordre alphabétique.
+//  * Ordre : nom exact (normalisé), puis nom qui commence par la requête entière (« personne 2 » : Personne 20 avant Personne 102),
+//    puis par son premier mot, puis début d'un mot du nom, puis le reste ; à rang égal, nom le plus court, puis ordre naturel
+//    (Intl.Collator numérique : 2 avant 10) ; requête vide : ordre naturel seul.
 //  * Requête vide : les premiers de chaque groupe. Groupes vides omis.
 export interface SearchPerson { id: string; name: string }
 export interface SearchProject { id: string; name: string; color: string | null }
@@ -26,16 +28,24 @@ export const SEARCH_LIMIT = 8;
 
 export const fold = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase();
 
+const collator = new Intl.Collator("fr", { numeric: true, sensitivity: "base" });
+
 function ranked<T extends { name: string }>(list: readonly T[], tokens: string[], limit: number): T[] {
   const first = tokens[0];
+  const whole = tokens.join(" ");
   const scored: { item: T; rank: number; folded: string }[] = [];
   for (const item of list) {
     const folded = fold(item.name);
     if (!tokens.every((t) => folded.includes(t))) continue;
-    const rank = !first || folded.startsWith(first) ? 0 : folded.split(/[^\p{L}\p{N}]+/u).some((w) => w.startsWith(first)) ? 1 : 2;
+    const squeezed = folded.split(/\s+/).filter(Boolean).join(" ");
+    const rank = !first ? 2
+      : squeezed === whole ? 0
+      : squeezed.startsWith(whole) ? 1
+      : folded.startsWith(first) ? 2
+      : folded.split(/[^\p{L}\p{N}]+/u).some((w) => w.startsWith(first)) ? 3 : 4;
     scored.push({ item, rank, folded });
   }
-  scored.sort((a, b) => a.rank - b.rank || (a.folded < b.folded ? -1 : a.folded > b.folded ? 1 : 0));
+  scored.sort((a, b) => a.rank - b.rank || (first ? a.folded.length - b.folded.length : 0) || collator.compare(a.folded, b.folded));
   return scored.slice(0, limit).map((s) => s.item);
 }
 

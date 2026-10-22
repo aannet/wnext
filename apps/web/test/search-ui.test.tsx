@@ -178,7 +178,7 @@ describe("résultats", () => {
     await press(document.body, { key: "k", ctrlKey: true });
     await flush();
     await type("PERSONNE 4");
-    expect(optionTexts()).toEqual(["Personne 14", "Personne 24", "Personne 34", "Personne 4", "Personne 40"]);
+    expect(optionTexts()).toEqual(["Personne 4", "Personne 40", "Personne 14", "Personne 24", "Personne 34"]);
     expect(groupLabels()).toEqual(["Personnes"]);
     await type("projet");
     expect(optionTexts()).toEqual([]);
