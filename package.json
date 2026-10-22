@@ -28,6 +28,7 @@
     "db:migrate": "node scripts/migrate.mjs",
     "dev:stack": "node scripts/dev-stack.mjs",
     "dev:recette": "node scripts/dev-recette.mjs",
+    "dev:recette:seed": "node scripts/dev-recette.mjs --seed=recette",
     "test:schemathesis": "node tests/schemathesis/run.mjs",
     "test:browser": "playwright test -c tests/browser/playwright.config.ts",
     "test:browser:oidc": "playwright test -c tests/browser/playwright.oidc.config.ts",

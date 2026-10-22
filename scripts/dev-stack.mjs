@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// Pile de développement locale : `npm run dev:stack [-- --reset] [-- --oidc]`.
+// Pile de développement locale : `npm run dev:stack [-- --reset] [-- --oidc] [-- --seed=recette]`.
+//  * --seed=recette : jeu de données de recette (scripts/seed-recette.mjs, RT-044) sur un répertoire DÉDIÉ .dev-pg-recette/ (les données
+//    de .dev-pg/ ne sont jamais touchées) ; l'IdP local propose alors les comptes de recette. Sans l'option : jeu d'essai (scripts/dev-seed.mjs).
 //  * --oidc : démarre aussi le fournisseur OIDC local (scripts/dev-idp.mjs, port WNEXT_DEV_IDP_PORT, défaut 3010) et lance
 //    l'API en AUTH_MODE=oidc (OIDC_ISSUER / OIDC_AUDIENCE / OIDC_JWKS_URL pointant vers lui). Sans l'option : AUTH_MODE=dev.
 //  * Postgres embarqué PERSISTANT dans .dev-pg/ (ignoré par git ; WNEXT_DEV_PG_DIR pour un autre dossier), port fixe (WNEXT_DEV_PG_PORT, défaut 54329).
@@ -18,9 +20,19 @@ import pg from "pg";
 import { startDevIdp } from "./dev-idp.mjs";
 import { DEV_IDS, DEV_USERS, seedDev } from "./dev-seed.mjs";
 import { migrate } from "./migrate.mjs";
+import { RECETTE_IDS, RECETTE_USERS, seedRecette } from "./seed-recette.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const pgDir = process.env.WNEXT_DEV_PG_DIR ?? join(root, ".dev-pg");
+const seedArg = process.argv.find((a) => a.startsWith("--seed="))?.slice("--seed=".length) ?? "dev";
+if (!["dev", "recette"].includes(seedArg)) {
+  console.error(`--seed=${seedArg} inconnu (dev ou recette)`);
+  process.exit(1);
+}
+const recette = seedArg === "recette";
+const profile = recette
+  ? { dir: ".dev-pg-recette", seed: seedRecette, users: RECETTE_USERS, ids: RECETTE_IDS, label: "jeu de recette" }
+  : { dir: ".dev-pg", seed: seedDev, users: DEV_USERS, ids: DEV_IDS, label: "jeu d'essai" };
+const pgDir = process.env.WNEXT_DEV_PG_DIR ?? join(root, profile.dir);
 const dataDir = join(pgDir, "data");
 const pgPort = Number(process.env.WNEXT_DEV_PG_PORT ?? 54329);
 const apiPort = Number(process.env.WNEXT_DEV_API_PORT ?? 3000);
@@ -82,8 +94,8 @@ try {
   await client.connect();
   await client.query("CREATE EXTENSION IF NOT EXISTS btree_gist; CREATE EXTENSION IF NOT EXISTS citext;");
   await migrate(client, { root, log: (m) => console.log(`migration : ${m}`) });
-  const seeded = await seedDev(client);
-  console.log(seeded ? "jeu d'essai : semé" : "jeu d'essai : déjà présent");
+  const seeded = await profile.seed(client);
+  console.log(seeded ? `${profile.label} : semé` : `${profile.label} : déjà présent`);
   await client.end();
 } catch (err) {
   console.error(`démarrage impossible : ${err instanceof Error ? err.message : err}`);
@@ -92,7 +104,7 @@ try {
 
 if (!stopping && oidc) {
   try {
-    idp = await startDevIdp({ port: idpPort, tokenTtlSec: idpTtl });
+    idp = await startDevIdp({ port: idpPort, tokenTtlSec: idpTtl, users: profile.users });
   } catch (err) {
     console.error(`fournisseur OIDC impossible à démarrer : ${err instanceof Error ? err.message : err}`);
     await stop(1);
@@ -110,14 +122,14 @@ if (!stopping) {
   });
   api.on("exit", (code) => { if (!stopping) { console.error(`l'API s'est arrêtée (code ${code})`); void stop(1); } });
   const identity = oidc
-    ? `Fournisseur OIDC : ${idp.issuer} (client ${idp.clientId}, audience ${idp.audience}, utilisateurs : ${DEV_USERS.map((u) => u.subject).join(", ")}).
+    ? `Fournisseur OIDC : ${idp.issuer} (client ${idp.clientId}, audience ${idp.audience}, utilisateurs : ${profile.users.map((u) => u.subject).join(", ")}).
 Écran en OIDC : VITE_AUTH_MODE=oidc VITE_OIDC_ISSUER=${idp.issuer} npm run dev -w @wnext/web (ou tout en une commande : npm run dev:recette)`
     : `Valeurs VITE_DEV_* (déjà dans apps/web/.env.development) :
-  VITE_DEV_ACCOUNT_ID=${DEV_IDS.accountId}
-  VITE_DEV_USER_ID=${DEV_IDS.userId}
-  VITE_DEV_ROLE=${DEV_IDS.role}
+  VITE_DEV_ACCOUNT_ID=${profile.ids.accountId}
+  VITE_DEV_USER_ID=${profile.ids.userId}
+  VITE_DEV_ROLE=${profile.ids.role}
 Écran : npm run dev -w @wnext/web`;
   console.log(`
-Pile prête : Postgres :${pgPort} (.dev-pg/), API http://127.0.0.1:${apiPort} (AUTH_MODE=${auth.AUTH_MODE}).
+Pile prête : Postgres :${pgPort} (${pgDir === join(root, profile.dir) ? `${profile.dir}/` : pgDir}), API http://127.0.0.1:${apiPort} (AUTH_MODE=${auth.AUTH_MODE}).
 ${identity}   |   Ctrl-C pour tout arrêter.`);
 }

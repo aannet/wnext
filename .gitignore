@@ -22,6 +22,7 @@ reports/mutation/
 
 # Pile de développement (npm run dev:stack)
 .dev-pg/
+.dev-pg-recette/
 !apps/web/.env.development
 
 # Schemathesis (npm run test:schemathesis) : venv et rapports

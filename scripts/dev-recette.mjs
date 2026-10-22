@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // Recette avec connexion en une commande (RT-035) : `npm run dev:recette [-- --reset]`.
+// Avec le jeu de données de recette (RT-044) : `npm run dev:recette:seed [-- --reset]` (= `--seed=recette`, base dédiée .dev-pg-recette/).
 // Lance `dev:stack --oidc` (Postgres, migrations, jeu d'essai, fournisseur OIDC local, API en AUTH_MODE=oidc), attend que
 // l'API réponde, puis Vite en VITE_AUTH_MODE=oidc avec l'issuer et l'URL d'API alignés sur les ports de la pile
 // (WNEXT_DEV_API_PORT, WNEXT_DEV_IDP_PORT). Sans cela, `npm run dev -w @wnext/web` garde VITE_AUTH_MODE=dev
@@ -16,7 +17,7 @@ export function recettePlan(env, argv) {
   const idpPort = Number(env.WNEXT_DEV_IDP_PORT ?? 3010);
   const api = `http://127.0.0.1:${apiPort}`;
   return {
-    stack: { args: ["scripts/dev-stack.mjs", "--oidc", ...(argv.includes("--reset") ? ["--reset"] : [])] },
+    stack: { args: ["scripts/dev-stack.mjs", "--oidc", ...(argv.includes("--reset") ? ["--reset"] : []), ...argv.filter((a) => a.startsWith("--seed="))] },
     web: { env: { VITE_AUTH_MODE: "oidc", VITE_OIDC_ISSUER: `http://127.0.0.1:${idpPort}`, WNEXT_API_URL: api } },
     healthUrl: `${api}/api/v1/health`,
   };
