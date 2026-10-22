@@ -12,11 +12,12 @@
 //    l'occurrence 0) : un échec au milieu laisserait la série dans un état qu'aucune action ne décrit. Sans endpoint
 //    « fusion » côté API, la découpe n'entre pas dans la pile, et les actions antérieures sur la série en sont retirées
 //    (elles décriraient une ligne que la découpe a changée). L'écran l'annonce.
-//  * « Tout le groupe » (BR-26, RT-042) : une action, une opération « mise à jour » par ligne du groupe (champs d'avant de
-//    chacune, lus avant l'écriture par `readGroup`). Le rejeu repasse ligne par ligne par updateAllocation (If-Match de chaque
-//    ligne) : pas d'endpoint de groupe « champs d'avant par ligne », et les lignes peuvent différer (projet, dates). Non
-//    atomique : un conflit sur une ligne abandonne l'action, les lignes déjà rejouées le restent (comme toute action à
-//    plusieurs opérations). Seules les lignes chargées dans le magasin sont connues (un groupe partage ses dates).
+//  * « Tout le groupe » (BR-26, RT-042) : une action, une opération « mise à jour » par ligne écrite, depuis l'état d'avant
+//    que rend l'écriture (magasin et lecture préalable des lignes hors fenêtre). Le rejeu repasse ligne par ligne par
+//    updateAllocation (If-Match de chaque ligne) : pas d'endpoint de groupe « champs d'avant par ligne », et les lignes
+//    peuvent différer (projet, dates). Non atomique : un conflit sur une ligne abandonne l'action, les lignes déjà rejouées
+//    le restent (comme toute action à plusieurs opérations). Une ligne écrite dont l'état d'avant est inconnu rend
+//    l'écriture non annulable : pas d'action, et celles qui touchent les lignes écrites sont retirées (comme une découpe).
 //  * `record(action)` : actions arbitraires (créations, suppressions du lot E). Les opérations autres qu'une mise à jour
 //    d'allocation passent par `execute` ; une recréation rend son nouvel id, remappé dans la pile (remapId).
 //  * `invalidate(entity, ids)` : changement venu d'ailleurs (écho temps réel d'une autre source) : seules les actions qui
@@ -36,8 +37,6 @@ export interface HistoryOptions {
   editor: ScheduleEditor;
   /** État courant d'une allocation dans le magasin (champs d'avant d'une écriture). */
   read(id: string): Allocation | undefined;
-  /** Lignes d'un groupe (BR-26) dans le magasin ; absent : pas d'annulation des écritures de groupe. */
-  readGroup?(groupId: string): Allocation[];
   /** Opérations hors mise à jour d'allocation (lot E) ; absent : UNSUPPORTED. */
   execute?(op: Op): Promise<ExecOutcome>;
   now?(): number;
@@ -173,10 +172,13 @@ export function createHistory(opts: HistoryOptions): History {
     // Absent si l'éditeur d'origine n'écrit pas de groupe : la pop-in ne propose alors pas « tout le groupe ».
     ...(opts.editor.updateAllocationGroup && {
       async updateAllocationGroup(id: string, patch: AllocationGroupEdit) {
-        const head = opts.read(id);
-        const lines = head?.groupId ? opts.readGroup?.(head.groupId) ?? [] : [];
         const out = await opts.editor.updateAllocationGroup!(id, patch);
-        if (out.ok && head) record({ label: labelOf(patch, head), ops: lines.map((a) => updateOp(a, patch)) });
+        if (!out.ok) return out;
+        if (out.unknown.length > 0) set(invalidateUndo(undo, ALLOCATIONS, [...out.before.map((a) => a.id), ...out.unknown]));
+        else {
+          const head = out.before.find((a) => a.id === id) ?? out.before[0];
+          if (head) record({ label: labelOf(patch, head), ops: out.before.map((a) => updateOp(a, patch)) });
+        }
         return out;
       },
     }),
@@ -204,7 +206,6 @@ export function createHistory(opts: HistoryOptions): History {
 export function historyForSource(source: ScheduleSource, opts: Omit<HistoryOptions, "editor" | "read"> = {}): { history: History; connect(): () => void } {
   const history = createHistory({
     execute: executeRecordOp(source), ...opts, editor: source, read: (id) => source.getState().data?.allocations.find((a) => a.id === id),
-    readGroup: (groupId) => source.getState().data?.allocations.filter((a) => a.groupId === groupId) ?? [],
   });
   return { history, connect: () => source.onForeignChange((kind, ids) => history.invalidate(kind, ids)) };
 }

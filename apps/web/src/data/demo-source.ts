@@ -86,8 +86,10 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
       const g = store.tables.allocations.get(id)?.groupId;
       if (!g) return { ok: false, error: "NOT_FOUND" };
       ensureProject(patch.projectId);
-      for (const a of [...store.tables.allocations.values()]) if (a.groupId === g) store = upsert(store, "allocations", { ...patched(a, patch), version: a.version + 1 });
-      return changed();
+      const before = [...store.tables.allocations.values()].filter((a) => a.groupId === g);
+      for (const a of before) store = upsert(store, "allocations", { ...patched(a, patch), version: a.version + 1 });
+      changed();
+      return { ok: true, before, unknown: [] };
     },
     async createTimeoff(body) {
       const t = timeoffFromCreate(body, `demo-${++seq}`, 1);
@@ -149,6 +151,7 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
       if (!a) return { ok: false, error: "NOT_FOUND" };
       const r = localSplit(a, index, patch, () => `demo-${++seq}`);
       if (!r.ok) return r;
+      ensureProject(patch.projectId);
       const { before, occurrence, after } = r.split;
       store = before ? upsert(store, "allocations", { ...before, version: a.version + 1 }) : remove(store, "allocations", id);
       store = upsert(store, "allocations", { ...occurrence, version: 1 });

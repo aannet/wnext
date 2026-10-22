@@ -99,11 +99,15 @@ describe("portée d'une série et d'un groupe (RT-042) : écritures", () => {
     expect(rows.map((a) => [a.startDate, a.projectId, a.notes, a.repeatState])).toEqual([
       ["2026-10-20", "1", null, "weekly"], ["2026-10-27", "2", "seule", "none"], ["2026-11-03", "1", null, "weekly"],
     ]);
+    src.projectChanged!(project("3", { color: "#9333EA" }));
+    const rest = src.getState().data!.allocations.find((a) => a.startDate === "2026-11-03")!;
+    expect(await src.splitOccurrence(rest.id, 1, { projectId: "3" })).toEqual({ ok: true });
+    expect(src.getState().data!.projects.find((p) => p.id === "3")?.color).toBe("#9333EA");
   });
 
   it("démo : « tout le groupe » modifie chaque ligne du groupe (version + 1), pas les autres ; hors groupe : NOT_FOUND", async () => {
     const src = createDemoSource(data([alloc("a", { groupId: "G" }), alloc("b", { personId: "2", groupId: "G", hoursPerDay: 4 }), alloc("c")]));
-    expect(await src.updateAllocationGroup!("a", { projectId: "2", taskId: null })).toEqual({ ok: true });
+    expect(await src.updateAllocationGroup!("a", { projectId: "2", taskId: null })).toMatchObject({ ok: true, unknown: [] });
     const rows = src.getState().data!.allocations;
     expect(rows.map((a) => [a.id, a.projectId, a.hoursPerDay, a.version])).toEqual([["a", "2", 8, 2], ["b", "2", 4, 2], ["c", "1", 8, 1]]);
     expect(await src.updateAllocationGroup!("c", { projectId: "2" })).toEqual({ ok: false, error: "NOT_FOUND" });
@@ -112,57 +116,149 @@ describe("portée d'une série et d'un groupe (RT-042) : écritures", () => {
 
 describe("source branchée sur l'API : « tout le groupe » (RT-042)", () => {
   const flush = async () => { for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r)); };
-  function setup(status: number) {
+  const overlaps = (a: Alloc, from: string, to: string) => a.startDate <= to && (a.repeatEndDate ?? a.endDate) >= from;
+  /** Serveur en mémoire : a et b (groupe G) chargés ; c (groupe G) hors de la fenêtre, trouvée par la lecture préalable du
+   * projet ; `stray` : m (groupe G, autre projet, hors fenêtre) que rien ne fait connaître avant la réponse. */
+  function setup(o: { status?: number; stray?: boolean; preRead?: boolean } = {}) {
     const calls: { path: string; method: string; headers: Record<string, string>; body: unknown }[] = [];
     let release: () => void = () => {};
     const gate = new Promise<void>((r) => { release = r; });
-    const rows = [alloc("a", { groupId: "G" }), alloc("b", { personId: "2", groupId: "G" }), alloc("c")];
+    const server = new Map([
+      alloc("a", { groupId: "G" }), alloc("b", { personId: "2", groupId: "G" }),
+      alloc("c", { personId: "2", groupId: "G", startDate: "2027-03-01", endDate: "2027-03-02" }), alloc("d"),
+      ...(o.stray ? [alloc("m", { personId: "1", groupId: "G", projectId: "2", startDate: "2027-04-01", endDate: "2027-04-02" })] : []),
+    ].map((a) => [a.id, a] as const));
     const fetch = async (url: string, init?: { method?: string; body?: string; headers?: Record<string, string> }): Promise<FetchResponse> => {
       const u = new URL(url, "http://x");
       const method = init?.method ?? "GET";
-      calls.push({ path: u.pathname, method, headers: init?.headers ?? {}, body: init?.body ? JSON.parse(init.body) : undefined });
-      const json = (s: number, body: unknown): FetchResponse => ({ status: s, json: async () => body });
-      if (u.pathname === "/api/v1/schedule") return json(200, { ...data(rows), window: { from: u.searchParams.get("from"), to: u.searchParams.get("to") } });
+      const body = init?.body ? JSON.parse(init.body) : undefined;
+      calls.push({ path: u.pathname, method, headers: init?.headers ?? {}, body });
+      const json = (st: number, b: unknown): FetchResponse => ({ status: st, json: async () => b });
+      const [from, to] = [u.searchParams.get("from")!, u.searchParams.get("to")!];
+      if (u.pathname === "/api/v1/schedule") return json(200, { ...data([...server.values()].filter((a) => overlaps(a, from, to))), window: { from, to } });
+      if (u.pathname === "/api/v1/projects/1/allocations") {
+        const items = [...server.values()].filter((a) => a.projectId === "1" && overlaps(a, from, to));
+        return json(200, { items, page: { nextCursor: null, total: items.length } });
+      }
       if (u.pathname === "/api/v1/allocations/a/group" && method === "PATCH") {
         await gate;
-        return status === 200
-          ? json(200, { groupId: "G", items: rows.slice(0, 2).map((a) => ({ ...a, projectId: "2", phaseId: null, taskId: null, version: 2 })) })
-          : json(409, { code: "VERSION_CONFLICT", params: { currentVersion: 2 } });
+        if ((o.status ?? 200) !== 200) return json(409, { code: "VERSION_CONFLICT", params: { currentVersion: 2 } });
+        const items = [...server.values()].filter((a) => a.groupId === "G").map((a) => ({ ...a, ...body, version: a.version + 1 }));
+        for (const a of items) server.set(a.id, a);
+        return json(200, { groupId: "G", items });
       }
-      if (u.pathname.startsWith("/api/v1/allocations/") && method === "GET") {
-        const id = u.pathname.split("/").at(-1)!;
-        return json(200, { ...rows.find((a) => a.id === id)!, version: 2, notes: "relu" });
+      const id = u.pathname.split("/").at(-1)!;
+      if (u.pathname === `/api/v1/allocations/${id}` && method === "PATCH") {
+        const next = { ...server.get(id)!, ...body, version: server.get(id)!.version + 1 };
+        server.set(id, next);
+        return json(200, next);
+      }
+      if (u.pathname === `/api/v1/allocations/${id}` && method === "GET") return json(200, { ...server.get(id)!, version: 2, notes: "relu" });
+      return json(404, { code: "NOT_FOUND" });
+    };
+    const client = createClient({ baseUrl: "", fetch });
+    const src = createScheduleSource({ api: o.preRead === false ? { ...client, listProjectAllocations: undefined } : client });
+    src.setViewport(viewAt("2026-10-20", "day", 960));
+    src.start();
+    return { src, calls, release };
+  }
+  const now = (src: ReturnType<typeof createScheduleSource>) => src.getState().data!.allocations.map((a) => [a.id, a.projectId, a.version, a.notes]);
+  const move = { startDate: "2026-10-22", endDate: "2026-10-23" };
+
+  it("lignes chargées optimistes tout de suite, PATCH /allocations/{id}/group avec If-Match de la ligne désignée, réponse appliquée", async () => {
+    const { src, calls, release } = setup();
+    await flush();
+    const p = src.updateAllocationGroup!("a", { projectId: "2" });
+    expect(now(src)).toEqual([["a", "2", 1, null], ["b", "2", 1, null], ["d", "1", 1, null]]);
+    expect(await src.updateAllocationGroup!("b", { projectId: "1" })).toEqual({ ok: false, error: "BUSY" });
+    release();
+    expect(await p).toMatchObject({ ok: true, unknown: [] });
+    const call = calls.find((c) => c.path === "/api/v1/allocations/a/group")!;
+    expect([call.method, call.headers["If-Match"], call.body]).toEqual(["PATCH", "\"1\"", { projectId: "2" }]);
+    expect(now(src)).toEqual([["a", "2", 2, null], ["b", "2", 2, null], ["d", "1", 1, null]]);
+  });
+
+  it("état d'avant de toutes les lignes écrites : magasin, puis lecture préalable du projet pour les lignes hors fenêtre", async () => {
+    const { src, release } = setup();
+    await flush();
+    const p = src.updateAllocationGroup!("a", move);
+    release();
+    const out = await p;
+    expect(out.ok && out.before.map((a) => [a.id, a.startDate, a.version]).sort()).toEqual([["a", "2026-10-20", 1], ["b", "2026-10-20", 1], ["c", "2027-03-01", 1]]);
+  });
+
+  it("toute la réponse entre dans le magasin : une ligne inconnue ramenée dans la fenêtre s'affiche, signalée « état d'avant inconnu »", async () => {
+    const { src, release } = setup({ stray: true });
+    await flush();
+    const p = src.updateAllocationGroup!("a", move);
+    release();
+    expect(await p).toMatchObject({ ok: true, unknown: ["m"] });
+    expect(src.getState().data!.allocations.map((a) => [a.id, a.startDate, a.version]).sort())
+      .toEqual([["a", "2026-10-22", 2], ["b", "2026-10-22", 2], ["c", "2026-10-22", 2], ["d", "2026-10-20", 1], ["m", "2026-10-22", 2]]);
+  });
+
+  it("ligne hors fenêtre déplacée avec le groupe puis Ctrl+Z : elle retrouve ses dates (PATCH avec sa version)", async () => {
+    const { src, calls, release } = setup();
+    await flush();
+    const { history } = historyForSource(src);
+    const p = history.editor.updateAllocationGroup!("a", move);
+    release();
+    await p;
+    expect(history.getState().canUndo).toBe(true);
+    expect((await history.undo())?.ok).toBe(true);
+    const back = calls.find((c) => c.path === "/api/v1/allocations/c" && c.method === "PATCH")!;
+    expect([back.headers["If-Match"], back.body]).toEqual(["\"2\"", { startDate: "2027-03-01", endDate: "2027-03-02" }]);
+    expect(src.getState().data!.allocations.map((a) => a.id).sort()).toEqual(["a", "b", "d"]);
+  });
+
+  it("sans lecture préalable possible, la ligne hors fenêtre est inconnue : écriture faite, non annulable", async () => {
+    const { src, release } = setup({ preRead: false });
+    await flush();
+    const { history } = historyForSource(src);
+    const p = history.editor.updateAllocationGroup!("a", move);
+    release();
+    expect(await p).toMatchObject({ ok: true, unknown: ["c"] });
+    expect(history.getState().canUndo).toBe(false);
+  });
+
+  it("409 : retour arrière de toutes les lignes, puis relecture des lignes chargées ; code stable rendu", async () => {
+    const { src, release } = setup({ status: 409 });
+    await flush();
+    const p = src.updateAllocationGroup!("a", { projectId: "2" });
+    release();
+    expect(await p).toEqual({ ok: false, error: "VERSION_CONFLICT" });
+    await flush();
+    expect(now(src)).toEqual([["a", "1", 2, "relu"], ["b", "1", 2, "relu"], ["d", "1", 1, null]]);
+  });
+
+  it("découpe d'une occurrence vers un projet absent du magasin : le projet d'arrivée y entre (nom, couleur, capacité)", async () => {
+    const calls: string[] = [];
+    const series = alloc("s", { startDate: "2026-10-20", endDate: "2026-10-20", repeatState: "daily", repeatEndDate: "2026-10-23" });
+    const fetch = async (url: string, init?: { method?: string }): Promise<FetchResponse> => {
+      const u = new URL(url, "http://x");
+      calls.push(`${init?.method ?? "GET"} ${u.pathname}`);
+      const json = (st: number, b: unknown): FetchResponse => ({ status: st, json: async () => b });
+      if (u.pathname === "/api/v1/schedule") return json(200, { ...data([series], [project("1")]), window: { from: u.searchParams.get("from"), to: u.searchParams.get("to") } });
+      if (u.pathname === "/api/v1/projects") {
+        return json(200, { items: [project("1"), project("2", { color: "#16A34A" })].map((x) => ({ ...x, projectManagerId: null, managerUserIds: [], clientId: null, tags: [], notes: null })), page: { nextCursor: null, total: 2 } });
+      }
+      if (u.pathname === "/api/v1/allocations/s/split") {
+        return json(200, {
+          before: { ...series, repeatEndDate: "2026-10-20", version: 2 }, occurrence: alloc("o", { startDate: "2026-10-21", endDate: "2026-10-21", projectId: "2", phaseId: null, taskId: null }),
+          after: { ...series, id: "z", startDate: "2026-10-22", endDate: "2026-10-22" },
+        });
       }
       return json(404, { code: "NOT_FOUND" });
     };
     const src = createScheduleSource({ api: createClient({ baseUrl: "", fetch }) });
     src.setViewport(viewAt("2026-10-20", "day", 960));
     src.start();
-    return { src, calls, release };
-  }
-  const now = (src: ReturnType<typeof createScheduleSource>) => src.getState().data!.allocations.map((a) => [a.id, a.projectId, a.version, a.notes]);
-
-  it("lignes du groupe optimistes tout de suite, PATCH /allocations/{id}/group avec If-Match de la ligne désignée, réponse appliquée", async () => {
-    const { src, calls, release } = setup(200);
     await flush();
-    const p = src.updateAllocationGroup!("a", { projectId: "2" });
-    expect(now(src)).toEqual([["a", "2", 1, null], ["b", "2", 1, null], ["c", "1", 1, null]]);
-    expect(await src.updateAllocationGroup!("b", { projectId: "1" })).toEqual({ ok: false, error: "BUSY" });
-    release();
+    await src.listProjects();
+    const p = src.splitOccurrence("s", 1, { projectId: "2" });
+    expect(src.getState().data!.projects.find((x) => x.id === "2")?.color).toBe("#16A34A");
     expect(await p).toEqual({ ok: true });
-    const call = calls.find((c) => c.path === "/api/v1/allocations/a/group")!;
-    expect([call.method, call.headers["If-Match"], call.body]).toEqual(["PATCH", "\"1\"", { projectId: "2" }]);
-    expect(now(src)).toEqual([["a", "2", 2, null], ["b", "2", 2, null], ["c", "1", 1, null]]);
-  });
-
-  it("409 : retour arrière de toutes les lignes, puis relecture du groupe ; code stable rendu", async () => {
-    const { src, release } = setup(409);
-    await flush();
-    const p = src.updateAllocationGroup!("a", { projectId: "2" });
-    release();
-    expect(await p).toEqual({ ok: false, error: "VERSION_CONFLICT" });
-    await flush();
-    expect(now(src)).toEqual([["a", "1", 2, "relu"], ["b", "1", 2, "relu"], ["c", "1", 1, null]]);
+    expect(src.getState().data!.projects.map((x) => x.id).sort()).toEqual(["1", "2"]);
   });
 });
 

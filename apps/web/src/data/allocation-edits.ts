@@ -23,6 +23,12 @@ export type AllocationEdit = BlockPatch & {
   projectId?: string; phaseId?: string | null; taskId?: string | null; status?: Allocation["status"]; notes?: string | null; mode?: Allocation["mode"];
 };
 
+/**
+ * Écriture de groupe réussie : état d'avant de chaque ligne écrite qu'on a pu lire (magasin, lecture préalable) et ids des
+ * lignes écrites dont l'état d'avant est inconnu (l'écriture ne peut alors pas être annulée).
+ */
+export type GroupEditOutcome = { ok: true; before: Allocation[]; unknown: string[] } | Exclude<EditOutcome, { ok: true }>;
+
 /** Patch de toutes les lignes d'un groupe : champs communs, sans personne ni charge (propres à chaque ligne). */
 export type AllocationGroupEdit = Omit<AllocationEdit, "personId" | "hoursPerDay" | "percent" | "mode">;
 
@@ -32,7 +38,7 @@ export interface ScheduleEditor {
   /** Modifie une seule occurrence (rang `index`) d'une série : découpe en avant / occurrence / après. */
   splitOccurrence(id: string, index: number, patch: AllocationEdit): Promise<EditOutcome>;
   /** Modifie toutes les lignes du groupe de l'allocation `id` (BR-26) : optimiste, puis PATCH /allocations/{id}/group, If-Match de `id`. */
-  updateAllocationGroup?(id: string, patch: AllocationGroupEdit): Promise<EditOutcome>;
+  updateAllocationGroup?(id: string, patch: AllocationGroupEdit): Promise<GroupEditOutcome>;
 }
 
 /** Bloc du moteur pour une allocation (ou une occurrence : dates de l'occurrence, sans répétition). */

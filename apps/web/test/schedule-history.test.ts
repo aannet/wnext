@@ -3,7 +3,7 @@
 import type { ScheduleResponse } from "@wnext/contracts";
 import type { BlockPatch } from "@wnext/engine";
 import { describe, expect, it, vi } from "vitest";
-import { patched, type EditOutcome, type ScheduleEditor } from "../src/data/allocation-edits";
+import { patched, type EditOutcome, type GroupEditOutcome, type ScheduleEditor } from "../src/data/allocation-edits";
 import { createHistory, labelOf } from "../src/schedule/history";
 
 type Alloc = ScheduleResponse["allocations"][number];
@@ -178,22 +178,26 @@ describe("invalidation et découpe", () => {
 
 describe("« Tout le groupe » (BR-26, RT-042)", () => {
   const group = () => [alloc("1", { groupId: "G" }), alloc("2", { personId: "2", groupId: "G", projectId: "2" }), alloc("3", { personId: "2" })];
-  function groupSetup() {
-    const m = memoryEditor(group());
-    const updateAllocationGroup = vi.fn(async (id: string, patch: BlockPatch): Promise<EditOutcome> => {
+  /** `hidden` : lignes hors de la fenêtre chargée (read ne les voit pas) ; `unknown` : lignes écrites dont l'état d'avant n'a pas pu être lu. */
+  function groupSetup(extra: Alloc[] = [], opts: { hidden?: string[]; unknown?: string[] } = {}) {
+    const m = memoryEditor([...group(), ...extra]);
+    const updateAllocationGroup = vi.fn(async (id: string, patch: BlockPatch): Promise<GroupEditOutcome> => {
       const g = m.rows.get(id)?.groupId;
       if (!g) return { ok: false, error: "NOT_FOUND" };
-      for (const a of [...m.rows.values()]) if (a.groupId === g) m.rows.set(a.id, { ...patched(a, patch), version: a.version + 1 });
-      return { ok: true };
+      const before = [...m.rows.values()].filter((a) => a.groupId === g);
+      for (const a of before) m.rows.set(a.id, { ...patched(a, patch), version: a.version + 1 });
+      const unknown = opts.unknown ?? [];
+      return { ok: true, before: before.filter((a) => !unknown.includes(a.id)), unknown };
     });
     const editor = { ...m.editor, updateAllocationGroup };
-    const h = createHistory({ editor, read: m.read, readGroup: (g) => [...m.rows.values()].filter((a) => a.groupId === g), now: () => 1000 });
+    const read = (id: string) => (opts.hidden?.includes(id) ? undefined : m.rows.get(id));
+    const h = createHistory({ editor, read, now: () => 1000 });
     return { ...m, h, updateAllocationGroup };
   }
 
-  it("une action, une op par ligne du groupe (champs d'avant de chaque ligne) ; undo rejoue chaque ligne, redo aussi", async () => {
+  it("une action, une op par ligne écrite (champs d'avant de chaque ligne) ; undo rejoue chaque ligne, redo aussi", async () => {
     const t = groupSetup();
-    expect(await t.h.editor.updateAllocationGroup!("1", { startDate: "2026-10-22", endDate: "2026-10-23" })).toEqual({ ok: true });
+    expect(await t.h.editor.updateAllocationGroup!("1", { startDate: "2026-10-22", endDate: "2026-10-23" })).toMatchObject({ ok: true });
     expect(t.updateAllocationGroup).toHaveBeenCalledWith("1", { startDate: "2026-10-22", endDate: "2026-10-23" });
     expect(t.h.getState()).toMatchObject({ canUndo: true, undoLabel: "allocation.move" });
     await t.h.undo();
@@ -204,6 +208,25 @@ describe("« Tout le groupe » (BR-26, RT-042)", () => {
     expect([...t.rows.values()].map((a) => [a.id, a.startDate])).toEqual([["1", "2026-10-20"], ["2", "2026-10-20"], ["3", "2026-10-20"]]);
     await t.h.redo();
     expect([...t.rows.values()].map((a) => a.startDate)).toEqual(["2026-10-22", "2026-10-22", "2026-10-20"]);
+  });
+
+  it("ligne hors de la fenêtre (absente du snapshot) déplacée avec le groupe : Ctrl+Z la rend aussi, à ses propres dates", async () => {
+    const t = groupSetup([alloc("4", { personId: "3", groupId: "G", startDate: "2027-03-01", endDate: "2027-03-02" })], { hidden: ["4"] });
+    await t.h.editor.updateAllocationGroup!("1", { startDate: "2026-10-22", endDate: "2026-10-23" });
+    await t.h.undo();
+    expect(t.editor.updateAllocation.mock.calls.map(([id]) => id).sort()).toEqual(["1", "2", "4"]);
+    expect(t.rows.get("4")).toMatchObject({ startDate: "2027-03-01", endDate: "2027-03-02" });
+  });
+
+  it("ligne écrite dont l'état d'avant est inconnu : pas d'action (rien de faux à rejouer), les actions qui touchent le groupe sont retirées", async () => {
+    const t = groupSetup([], { unknown: ["9"] });
+    await t.h.editor.updateAllocation("1", { hoursPerDay: 6 });
+    await t.h.editor.updateAllocation("3", { hoursPerDay: 2 });
+    expect(await t.h.editor.updateAllocationGroup!("1", { projectId: "3" })).toMatchObject({ ok: true, unknown: ["9"] });
+    expect(t.h.getState()).toMatchObject({ canUndo: true, undoLabel: "allocation.load" });
+    await t.h.undo();
+    expect(t.editor.updateAllocation).toHaveBeenLastCalledWith("3", { hoursPerDay: 4 });
+    expect(t.h.getState().canUndo).toBe(false);
   });
 
   it("projet changé pour tout le groupe : chaque ligne rend son propre projet d'origine", async () => {
