@@ -77,18 +77,26 @@ export async function deleteAllocationScoped(deps: CommandDeps, a: Allocation, o
   return { ok: true, count: 1, undoable: history !== undefined };
 }
 
-/** Corps de la copie : juste après le bloc (ou l'occurrence `occ`), même durée en jours calendaires, sans répétition. */
-export function duplicateBody(a: Allocation, occ?: { startDate: string; endDate: string } | null): AllocationCreate {
+type Dates = { startDate: string; endDate: string };
+/** Place imposée de la copie (Alt + glisser) : personne et dates du fantôme. */
+export type CopyPlace = Dates & { personId: string };
+
+/**
+ * Corps de la copie : juste après le bloc (ou l'occurrence `occ`), même durée en jours calendaires, sans répétition ; `at` :
+ * à cette place (Alt + glisser).
+ */
+export function duplicateBody(a: Allocation, occ?: Dates | null, at?: CopyPlace): AllocationCreate {
   const start = occ?.startDate ?? a.startDate;
   const end = occ?.endDate ?? a.endDate;
   const from = addDays(end, 1);
-  return allocationCreateOf({ ...a, startDate: from, endDate: addDays(from, dayNumber(end) - dayNumber(start)), repeatState: "none", repeatEndDate: null });
+  const place = at ?? { personId: a.personId, startDate: from, endDate: addDays(from, dayNumber(end) - dayNumber(start)) };
+  return allocationCreateOf({ ...a, ...place, repeatState: "none", repeatEndDate: null });
 }
 
 export type DuplicateOutcome = { ok: true; id: string; body: AllocationCreate } | CommandFailure;
 
-export async function duplicateAllocation(deps: CommandDeps, a: Allocation, occ?: { startDate: string; endDate: string } | null): Promise<DuplicateOutcome> {
-  const body = duplicateBody(a, occ);
+export async function duplicateAllocation(deps: CommandDeps, a: Allocation, occ?: Dates | null, at?: CopyPlace): Promise<DuplicateOutcome> {
+  const body = duplicateBody(a, occ, at);
   const out = await deps.records.createAllocation(body);
   if (!out.ok) return { ok: false, error: out.error };
   deps.history?.record({ label: "allocation.duplicate", ops: [{ kind: "create", entity: ALLOCATIONS, id: out.id, after: { ...body } }] });

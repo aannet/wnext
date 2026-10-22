@@ -29,6 +29,11 @@
 //    à voir avec l'historique des allocations (Ctrl+Z). Un projet choisi est confié à `onOpenProject` (écran Projets). Rien n'est
 //    enregistré dans les vues.
 //  * Retrait d'un projet (BR-10, schedule/team-removal-ui) si la source le permet : menu contextuel d'un bloc.
+//  * Commandes d'un bloc (RT-047, US-3.2, schedule/block-commands) sur un bloc modifiable (écritures fournies ; chef de projet :
+//    ses projets seulement, BR-33, d'après le référentiel) : Suppr ou Retour arrière supprime (tout de suite et annoncé, ou étape
+//    de portée série / groupe dans le drawer), Ctrl+D (Cmd+D) duplique juste après le bloc (copie sélectionnée et focalisée),
+//    S ouvre l'étape « Scinder » ; mêmes commandes en tête du menu contextuel, et Alt + glisser à la souris copie le bloc à la
+//    place du fantôme. Toutes annulables par Ctrl+Z, sauf la suppression d'une occurrence (découpe).
 //  * En-tête en deux niveaux (RT-025) : niveau 1 = titre, vue sauvegardée, statut et actions de création ; niveau 2 (barre
 //    d'outils) = Filtres (compteur, puces, panneau dépliable, schedule/filters-ui), annuler / rétablir, navigation, zoom,
 //    menu Affichage, nombre de personnes.
@@ -40,14 +45,16 @@
 //    au centre et le défilement vertical, et les rend au montage suivant. La pile d'annulation n'y est pas : la source est
 //    arrêtée hors du Planning, les changements des autres n'y sont pas suivis et l'historique ne pourrait plus les invalider.
 import type { I18n } from "@lingui/core";
-import type { Me, ScheduleResponse } from "@wnext/contracts";
+import type { Me, ProjectDetail, ScheduleResponse } from "@wnext/contracts";
 import { dayNumber, fromDayNumber, type HeaderCell, type Viewport, type Zoom } from "@wnext/engine";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
-import type { ScheduleEditor } from "./data/allocation-edits";
+import type { Allocation, ScheduleEditor } from "./data/allocation-edits";
 import type { ScheduleSource } from "./data/schedule-source";
 import type { ViewsSource } from "./data/views-source";
 import type { MessageKey } from "./i18n";
-import { createBlockEditor, type BlockEditor } from "./schedule/block-editor";
+import { createBlockEditor, type BlockEditor, type CopyRequest } from "./schedule/block-editor";
+import { duplicateAllocation, type CopyPlace } from "./schedule/block-commands";
+import { canWriteProject, slotErrorKey } from "./schedule/slot-model";
 import { blockLabeler } from "./schedule/block-label";
 import { timeoffLabeler } from "./schedule/timeoff-label";
 import { capacityLabeler, capacityTexter } from "./schedule/capacity-label";
@@ -63,7 +70,7 @@ import { DENSITIES, readStoredDensity, storeDensity, type Density } from "./sche
 import { gaugeLabeler } from "./schedule/gauge-label";
 import { ViewsBar } from "./schedule/views-ui";
 import { FilterChips, FiltersButton, FiltersPanel } from "./schedule/filters-ui";
-import { useTeamRemoval } from "./schedule/team-removal-ui";
+import { useTeamRemoval, type MenuCommand } from "./schedule/team-removal-ui";
 import type { TeamRemovalEditor } from "./data/team-removal";
 import { Button, Popover, RadioGroup, RadioItem, Switch } from "./design";
 
@@ -93,11 +100,11 @@ export interface ScheduleScreenProps {
   /** Écritures brutes de la source (congés, report assisté) ; absent : congés en lecture seule. */
   records?: Pick<ScheduleSource, "getState" | "updateAllocation" | "splitOccurrence" | "createTimeoff" | "updateTimeoff" | "deleteTimeoff"
     | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "onProjectsChange" | "teamRemovalSummary" | "removeFromTeam"
-    | "createAllocationGroup" | "projectChanged">>;
+    | "createAllocationGroup" | "projectChanged" | "deleteAllocationGroup" | "deleteOccurrence">>;
   /** Référentiel des projets (projets autorisés, tâches, couleur) pour la pop-in ; absent : projets de la source, sans tâches ni couleur. */
   catalog?: SlotCatalog;
-  /** Utilisateur connecté : projets proposés selon ses droits (BR-33) ; absent : tous. */
-  me?: Pick<Me, "role" | "person">;
+  /** Utilisateur connecté : projets proposés et commandes des blocs selon ses droits (BR-33) ; absent : tous. */
+  me?: Pick<Me, "role" | "person"> & Partial<Pick<Me, "user">>;
   /** État gardé d'un montage à l'autre (PO-02) ; absent : l'écran repart d'aujourd'hui, zoom jour. */
   memory?: ScheduleMemory;
 }
@@ -109,6 +116,9 @@ const ZOOMS: readonly Zoom[] = ["day", "week", "month"];
 const NO_HISTORY: HistoryState = { canUndo: false, canRedo: false, undoLabel: null, redoLabel: null };
 const noSubscribe = () => () => {};
 const LABELS: Record<string, string> = { "allocation.move": "move", "allocation.resize": "resize", "allocation.load": "load", "allocation.create": "create", "allocation.edit": "edit" };
+/** Libellés d'historique au féminin (suppression, duplication, scission : RT-047). */
+const LABELS_F: Record<string, string> = { "allocation.delete": "delete", "allocation.duplicate": "duplicate", "allocation.split": "split" };
+const isMac = () => /mac|iphone|ipad/i.test(globalThis.navigator?.platform ?? "");
 
 /** Cible où Ctrl+Z appartient au navigateur (champ de saisie) ou à une boîte de dialogue ouverte. */
 function ownsUndo(t: EventTarget | null): boolean {
@@ -179,8 +189,9 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   // Focus après une écriture : `at` (personne et dates du bloc tel qu'écrit) retrouve le bloc même si sa clé a changé
   // (occurrence sortie d'une série : nouvelle allocation). Si les données à jour ne sont pas encore dessinées, la demande
   // attend le prochain setData, une seule fois. Le focus parti hors de la grille n'est pas repris.
-  const pendingFocus = useRef<{ key: string; at: FocusTarget } | null>(null);
-  const focusAt = (key: string, at: FocusTarget): boolean => {
+  const pendingFocus = useRef<{ key: string; at: FocusTarget; select: boolean } | null>(null);
+  /** `select` : le bloc retrouvé est aussi sélectionné (copie d'un bloc, RT-047). */
+  const focusAt = (key: string, at: FocusTarget, select = false): boolean => {
     const grid = gridRef.current;
     const hits = scroller.current?.host.model()?.rows.find((r) => r.personId === at.personId)?.blocks
       .filter((b) => b.startDate === at.startDate && b.endDate === at.endDate) ?? [];
@@ -189,10 +200,11 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     if (!grid || !el) return false;
     const active = document.activeElement;
     if (el !== active && (active === null || active === document.body || grid.contains(active))) el.focus({ preventScroll: true });
+    if (select) blocksRef.current?.select(hit.key);
     return true;
   };
-  const focusKey = (key: string, at?: FocusTarget) => {
-    if (at) { if (!focusAt(key, at)) pendingFocus.current = { key, at }; return; }
+  const focusKey = (key: string, at?: FocusTarget, select = false) => {
+    if (at) { if (!focusAt(key, at, select)) pendingFocus.current = { key, at, select }; return; }
     const grid = gridRef.current;
     const el = grid?.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`);
     (el ?? grid)?.focus({ preventScroll: true });
@@ -208,6 +220,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   const describeStep = (r: HistoryResult): string => {
     const v = { direction: r.direction };
     if (r.ok && r.label.startsWith("timeoff.")) return t("schedule.history.timeoff", { ...v, label: r.label.slice("timeoff.".length) });
+    if (r.ok && LABELS_F[r.label]) return t("schedule.history.allocation", { ...v, label: LABELS_F[r.label] });
     if (r.ok) return t("schedule.history.done", { ...v, label: LABELS[r.label] ?? "other" });
     if (!r.dropped) return t("schedule.history.retry", v);
     return t(r.error === "VERSION_CONFLICT" || r.error === "NOT_FOUND" ? `schedule.history.failed.${r.error}` : "schedule.history.failed.other", v);
@@ -247,8 +260,29 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   const blocksRef = useRef<BlockEditor | null>(null);
   /** Bouton de l'en-tête qui a ouvert le drawer (« Nouveau congé », « + Allocation ») : il retrouve le focus à la fermeture (RT-049). */
   const slotOpener = useRef<HTMLElement | null>(null);
+  // Projets du référentiel pour les droits d'un chef de projet (BR-33) : lus une fois ; tant qu'ils manquent, pas de commande.
+  const [managed, setManaged] = useState<ProjectDetail[] | null>(null);
+  const pm = me?.role === "project_manager" && catalog !== undefined;
+  useEffect(() => {
+    if (!pm) return;
+    let alive = true;
+    void catalog!.listProjects().then((r) => { if (alive && r.ok) setManaged(r.value); });
+    return () => { alive = false; };
+  }, [pm]);
+  /** Commandes d'un bloc permises (RT-047) : écritures fournies et droits sur le projet (BR-33 ; l'API reste juge). */
+  const writable = (a: Allocation | undefined): a is Allocation => {
+    if (!a || !editor || !records) return false;
+    if (!me || me.role === "owner" || me.role === "admin") return true;
+    if (me.role !== "project_manager") return false;
+    if (!catalog) return true;
+    const p = managed?.find((x) => x.id === a.projectId);
+    return p !== undefined && canWriteProject(me, p);
+  };
+  const writableRef = useRef(writable);
+  writableRef.current = writable;
   const slot = useSlotEditor({
     i18n, data, records, editor, history, catalog, me, announce: (text) => editsRef.current.announce(text),
+    canCommand: (a) => writableRef.current(a),
     onDraftDone: (draft) => blocksRef.current?.clearDraft(draft),
     onClosed: ({ key, focus }) => {
       if (focus) focusKey(key ?? "", focus);
@@ -292,9 +326,40 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     if (!row || x < origin) return;
     slot.openTimeoffAt(row.personId, fromDayNumber(dayNumber(m.from) + Math.floor((x - origin) / m.pxPerDay)));
   };
+  /** Copie d'un bloc (Ctrl+D, menu : juste après ; Alt + glisser : à la place du fantôme), sélectionnée et focalisée. */
+  const duplicate = async (a: Allocation, occ: { startDate: string; endDate: string }, at?: CopyPlace) => {
+    if (!records) return;
+    const out = await duplicateAllocation({ records, history }, a, occ, at);
+    if (!out.ok) { editsRef.current.announce(t(slotErrorKey(out.error))); return; }
+    editsRef.current.announce(t("schedule.duplicate.done"));
+    focusKey(`${out.id}:0`, { personId: out.body.personId, startDate: out.body.startDate, endDate: out.body.endDate }, true);
+  };
+  const allocationOf = (id: string) => dataRef.current.allocations.find((x) => x.id === id);
+  /** Commandes d'un bloc (RT-047) : clavier et menu contextuel. */
+  const blockCommand = (kind: "delete" | "duplicate" | "split", key: string, allocationId: string) => {
+    const a = allocationOf(allocationId);
+    if (!writableRef.current(a) || blocksRef.current?.busy()) return;
+    const block = scroller.current?.host.model()?.rows.flatMap((r) => r.blocks).find((b) => b.key === key);
+    if (kind === "delete") slotRef.current.requestDelete({ key, allocationId });
+    else if (kind === "split") slotRef.current.requestSplit({ key, allocationId });
+    else void duplicate(a, block ?? a);
+  };
+  const blockCommandRef = useRef(blockCommand);
+  blockCommandRef.current = blockCommand;
+  const menuCommands = (target: { allocationId: string; key: string }): MenuCommand[] => {
+    const a = allocationOf(target.allocationId);
+    if (!writableRef.current(a)) return [];
+    const run = (kind: "delete" | "duplicate" | "split") => () => blockCommandRef.current(kind, target.key, target.allocationId);
+    return [
+      { id: "duplicate", label: t("schedule.menu.duplicate"), shortcut: t("schedule.key.duplicate", { mac: isMac() ? "yes" : "no" }), keys: "Control+D Meta+D", onSelect: run("duplicate") },
+      ...(a.repeatState === "none" && a.startDate < a.endDate ? [{ id: "split", label: t("schedule.menu.split"), shortcut: "S", keys: "S", onSelect: run("split") }] : []),
+      { id: "delete", label: t("schedule.menu.delete"), shortcut: t("schedule.key.delete"), keys: "Delete Backspace", onSelect: run("delete") },
+    ];
+  };
   const removal = useTeamRemoval({ i18n, editor: records?.teamRemovalSummary && records.removeFromTeam ? records as TeamRemovalEditor : undefined, data: () => records?.getState().data ?? dataRef.current,
     gridRef, blockAt: (t) => scroller.current?.host.blockAt(t) ?? null, announce: (text) => editsRef.current.announce(text),
-    onRemoved: (ids) => history?.invalidate("allocations", ids) });
+    onRemoved: (ids) => history?.invalidate("allocations", ids),
+    ...(records && editor ? { commands: menuCommands, writable: (id: string) => writableRef.current(allocationOf(id)) } : {}) });
   const quickRef = useRef<QuickEntryHandle>(null);
   const editorRef = useRef(editor);
   editorRef.current = editor;
@@ -323,6 +388,10 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
       onCommit: (r) => editsRef.current.onCommit(r), onPreview: (p) => editsRef.current.onPreview(p),
       onOpen: (r) => slotRef.current.openEdit(r),
       onCreate: (r) => slotRef.current.openCreate(r),
+      onCopy: (r: CopyRequest) => {
+        const a = allocationOf(r.allocation.id);
+        if (writableRef.current(a)) void duplicate(a, r.draft, { personId: r.draft.personId, startDate: r.draft.startDate, endDate: r.draft.endDate });
+      },
     });
     blocksRef.current = blocks;
     return () => { blocks.destroy(); s.destroy(); scroller.current = null; blocksRef.current = null; };
@@ -344,7 +413,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     scroller.current?.setData(shown);
     const p = pendingFocus.current;
     pendingFocus.current = null;
-    if (p) focusAt(p.key, p.at);
+    if (p) focusAt(p.key, p.at, p.select);
     revealPending();
   }, [shown]);
   // Fenêtre refermée : la personne choisie est montrée ; sans choix, le focus ne reste pas perdu sur le corps de la page.
@@ -397,6 +466,13 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     if (!s) return;
     const onBlock = e.target !== e.currentTarget;
     if (onBlock && e.key === "Escape") { e.preventDefault(); gridRef.current?.focus({ preventScroll: true }); return; }
+    const hit = onBlock ? s.host.blockAt(e.target) : null;
+    const command = hit && hit.el === e.target && !e.altKey && !e.shiftKey
+      ? (e.key === "Delete" || e.key === "Backspace") && !e.ctrlKey && !e.metaKey ? "delete"
+        : (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d" ? "duplicate"
+        : (e.key === "s" || e.key === "S") && !e.ctrlKey && !e.metaKey ? "split" : null
+      : null;
+    if (hit && command && writable(allocationOf(hit.block.allocationId))) { e.preventDefault(); blockCommand(command, hit.block.key, hit.block.allocationId); return; }
     if (records && (e.key === "/" || e.key === "n" || e.key === "N") && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
       quickRef.current?.focus(s.host.blockAt(e.target)?.row.personId);

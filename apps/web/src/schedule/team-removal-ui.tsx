@@ -1,5 +1,7 @@
-// Retirer une personne d'un projet depuis le Schedule (BR-10). Point d'entrée : menu contextuel d'un bloc (clic droit, touche
-// Menu ou Maj+F10 sur un bloc focalisé), un seul élément « Retirer {personne} du projet {projet}… ». Puis :
+// Menu contextuel d'un bloc (clic droit, touche Menu ou Maj+F10 sur un bloc focalisé) et retrait d'une personne d'un projet
+// (BR-10). Le menu porte d'abord les commandes du bloc (RT-047 : Dupliquer, Scinder…, Supprimer, avec leur raccourci affiché
+// et dans aria-keyshortcuts), puis « Retirer {personne} du projet {projet}… ». Bloc non modifiable (`writable`, BR-33) : pas
+// de menu. Retrait :
 //  1. récapitulatif (GET removal-summary) : allocations supprimées (nombre, première et dernière date), temps saisis supprimés
 //     (nombre, heures), temps qui ne sont plus des brouillons (retrait impossible, pas de bouton) ;
 //  2. « Retirer du projet » envoie la confirmation de ce qui a été vu (POST removal). État changé entre-temps : message et
@@ -17,7 +19,10 @@ import type { MessageKey } from "../i18n";
 import { TeamRemovalDialog } from "../team/team-removal-dialog";
 import type { EditHost } from "./block-editor";
 
-interface Target { personId: string; projectId: string; key: string }
+interface Target { personId: string; projectId: string; key: string; allocationId: string }
+
+/** Commande du menu d'un bloc (RT-047) : libellé, raccourci affiché et ses touches (aria-keyshortcuts). */
+export interface MenuCommand { id: string; label: string; shortcut: string; keys: string; onSelect(): void }
 type Step =
   | { kind: "menu"; target: Target; x: number; y: number }
   | { kind: "dialog"; target: Target; summary: RemovalSummary | null; error: string | null; stale: boolean; busy: boolean };
@@ -34,22 +39,29 @@ export interface TeamRemovalDeps {
   announce(text: string): void;
   /** Allocations retirées par un retrait réussi (BR-10, non annulable) : l'historique en retire les actions (BR-40). */
   onRemoved?(allocationIds: string[]): void;
+  /** Commandes du bloc, en tête du menu (RT-047) ; absent : le menu ne porte que le retrait. */
+  commands?(target: { allocationId: string; key: string }): MenuCommand[];
+  /** Le bloc accepte-t-il des écritures (BR-33) ? Faux : pas de menu. Absent : oui. */
+  writable?(allocationId: string): boolean;
 }
 
-export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce, onRemoved }: TeamRemovalDeps): { element: ReactNode } {
+export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce, onRemoved, commands, writable }: TeamRemovalDeps): { element: ReactNode } {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const [step, setStep] = useState<Step | null>(null);
-  const deps = useRef({ editor, data, blockAt, onRemoved });
-  deps.current = { editor, data, blockAt, onRemoved };
+  const deps = useRef({ editor, data, blockAt, onRemoved, commands, writable });
+  deps.current = { editor, data, blockAt, onRemoved, commands, writable };
+  const enabled = editor !== undefined || commands !== undefined;
 
   useEffect(() => {
-    if (!editor) return;
+    if (!enabled) return;
     const targetOf = (e: Event): { target: Target; el: HTMLElement } | null => {
       const grid = gridRef.current;
       if (e.defaultPrevented || !grid || !(e.target instanceof Node) || !grid.contains(e.target)) return null;
       const hit = deps.current.blockAt(e.target);
       const a = hit && deps.current.data().allocations.find((x) => x.id === hit.block.allocationId);
-      return hit && a ? { target: { personId: a.personId, projectId: a.projectId, key: hit.block.key }, el: hit.el } : null;
+      if (!hit || !a || deps.current.writable?.(a.id) === false) return null;
+      const target = { personId: a.personId, projectId: a.projectId, key: hit.block.key, allocationId: a.id };
+      return deps.current.editor || (deps.current.commands?.(target).length ?? 0) > 0 ? { target, el: hit.el } : null;
     };
     const onMenu = (e: MouseEvent) => {
       const hit = targetOf(e);
@@ -68,7 +80,7 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
     document.addEventListener("contextmenu", onMenu);
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("contextmenu", onMenu); document.removeEventListener("keydown", onKey); };
-  }, [editor, gridRef]);
+  }, [enabled, gridRef]);
 
   /** Ferme et rend le focus au bloc (encore là) ou à la grille. */
   const close = (key?: string) => {
@@ -115,6 +127,7 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
   let element: ReactNode = null;
   if (step?.kind === "menu") {
     const { target } = step;
+    const list = deps.current.commands?.(target) ?? [];
     element = (
       <DropdownMenu open onOpenChange={(open, details) => {
         if (open || details.reason === "item-press") return;
@@ -123,7 +136,14 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
       }}>
         <DropdownMenuContent point={{ x: step.x, y: step.y }} align="start" aria-label={t("schedule.removal.menu.label")}
           onKeyDown={(e) => { if (e.key === "Tab") { e.preventDefault(); close(target.key); } }}>
-          <DropdownMenuItem onClick={() => void openDialog(target)}>{t("schedule.removal.menu.item", names(target))}</DropdownMenuItem>
+          {list.map((c) => (
+            <DropdownMenuItem key={c.id} aria-keyshortcuts={c.keys} className="flex items-center justify-between gap-4"
+              onClick={() => { setStep(null); c.onSelect(); }}>
+              <span data-label="">{c.label}</span>
+              <kbd aria-hidden="true" className="font-[inherit] text-caption opacity-80">{c.shortcut}</kbd>
+            </DropdownMenuItem>
+          ))}
+          {editor && <DropdownMenuItem onClick={() => void openDialog(target)}>{t("schedule.removal.menu.item", names(target))}</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
     );

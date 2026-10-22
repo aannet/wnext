@@ -15,11 +15,19 @@
 //    d'autant, fin de série comprise ; série mensuelle : seulement depuis sa première occurrence) ; une ligne de groupe (BR-26), « Cette ligne » ou « Tout le groupe » (PATCH de groupe, annulable ligne par
 //    ligne ; indisponible, avec la raison, si la personne ou la charge change aussi). Rien qui dépende de la portée : pas
 //    d'étape. Radio choisi focalisé à l'entrée ; Échap ou Retour revient au formulaire.
+//  * Commandes du bloc (RT-047), si l'allocation est modifiable (`canCommand`, BR-33) : groupe « Actions sur l'allocation »
+//    sous le formulaire d'édition. « Supprimer » (danger) supprime tout de suite, ou passe par l'étape de portée (série :
+//    occurrence ou série ; groupe : ligne ou groupe), confirmée par « Supprimer ». « Dupliquer… » ouvre la création préremplie
+//    avec le formulaire tel qu'affiché (on peut cocher d'autres personnes : une allocation par personne, BR-26). « Scinder… »
+//    (bloc non répété de 2 jours ou plus) ouvre l'étape de la date de début de la seconde partie (au milieu par défaut). Ces
+//    deux étapes s'ouvrent aussi directement depuis la grille (Suppr, S, menu contextuel) : Annuler ferme alors le drawer,
+//    au lieu de revenir au formulaire. Les commandes agissent sur l'allocation enregistrée, pas sur le formulaire en cours.
 //  * Échap, clic sur le voile ou Annuler : rien n'est écrit ; l'appelant retire le bloc provisoire et rend le focus
 //    (onClosed). Dans l'avertissement ou l'assistant BR-04, Échap revient d'une étape sans question.
 //  * La couleur du projet (RT-018) est une écriture du projet, hors de l'historique d'annulation (Ctrl+Z) du Planning.
 import type { I18n } from "@lingui/core";
 import type { Me, ProjectDetail, ProjectTask, ScheduleResponse } from "@wnext/contracts";
+import { addDays } from "@wnext/engine";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AllocationCreate } from "../api/client.gen";
 import { patched, type Allocation, type GroupEditOutcome, type ScheduleEditor } from "../data/allocation-edits";
@@ -32,6 +40,9 @@ import { scheduleProjectOf } from "../projects/projects-model";
 import { editWarnings } from "./edit-warnings";
 import { writeWarnings, type FocusTarget } from "./edits-ui";
 import type { History } from "./history";
+import {
+  defaultSplitDate, deleteAllocationScoped, deleteOptions, splitAllocationAt, splitBlocker, splitDateValid, type CommandDeps, type DeleteScope,
+} from "./block-commands";
 import {
   canWriteProject, createBody, createDraft, editDraft, occurrenceOf, projectOptions, scopePlan, slotErrorKey, slotIssues, slotOverloads,
   type ScopePlan, type SlotDraft, type SlotOccurrence, type SlotScope,
@@ -47,7 +58,7 @@ export interface SlotCatalog {
 }
 
 export type SlotRecords = Pick<ScheduleSource, "getState" | "updateAllocation" | "splitOccurrence" | "createTimeoff" | "updateTimeoff" | "deleteTimeoff"
-  | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "projectChanged" | "updateAllocationGroup">>
+  | "createAllocation" | "deleteAllocation" | "loggedTime"> & Partial<Pick<ScheduleSource, "listProjects" | "projectChanged" | "updateAllocationGroup" | "deleteAllocationGroup" | "deleteOccurrence">>
   & { createAllocationGroup?(body: Parameters<ScheduleSource["createAllocationGroup"]>[0]): Promise<GroupOutcome> };
 
 export interface SlotEditorOptions {
@@ -60,6 +71,8 @@ export interface SlotEditorOptions {
   catalog?: SlotCatalog | undefined;
   me?: (Pick<Me, "role" | "person"> & Partial<Pick<Me, "user">>) | undefined;
   announce(text: string): void;
+  /** L'allocation accepte-t-elle les commandes (supprimer, dupliquer, scinder ; BR-33) ? Absent : oui, si `records` est fourni. */
+  canCommand?(a: Allocation): boolean;
   /** Pop-in fermée, tout de suite : retirer le bloc provisoire. */
   onDraftDone(draft: number): void;
   /** Pop-in fermée, après son retrait du DOM : rendre le focus (bloc écrit, bloc d'origine ou grille). */
@@ -67,15 +80,20 @@ export interface SlotEditorOptions {
 }
 
 type Tab = "allocation" | "timeoff";
-/** Étape de portée (RT-042) : plan des écritures et choix courant (null : aucun choix disponible, Confirmer désactivé). */
-interface ScopeStep { plan: ScopePlan; value: SlotScope | null }
+/**
+ * Étape de portée (RT-042) : plan des écritures et choix courant (null : aucun choix disponible, Confirmer désactivé). `action` :
+ * enregistrer le formulaire ou supprimer (RT-047) ; `direct` : ouverte depuis la grille, Annuler ferme le drawer.
+ */
+interface ScopeStep { plan: ScopePlan; value: SlotScope | null; action: "save" | "delete"; direct: boolean }
+/** Étape « Scinder » (RT-047) : début de la seconde partie ; `tried` : refus affiché. */
+interface SplitStep { date: string; direct: boolean; tried: boolean }
 /**
  * `initial` : brouillon à l'ouverture, repère du formulaire modifié (Q7). `occ` : occurrence ouverte d'une série (null
  * sinon). `scope` : étape de portée affichée (null : formulaire).
  */
 interface State {
   tab: Tab; draft: SlotDraft; initial: SlotDraft; key: string | null; draftId: number | null; error: string | null; tried: boolean; color: string | null;
-  occ: SlotOccurrence | null; scope: ScopeStep | null;
+  occ: SlotOccurrence | null; scope: ScopeStep | null; split: SplitStep | null;
 }
 
 export interface SlotEditor {
@@ -84,6 +102,10 @@ export interface SlotEditor {
   openCreate(r: { personId: string | null; startDate: string; endDate: string; draft: number | null }): void;
   openTimeoffAt(personId: string, date: string): void;
   openTimeoffEdit(id: string): void;
+  /** Supprimer depuis la grille (Suppr, menu) : tout de suite, ou étape de portée (série, groupe) dans le drawer. */
+  requestDelete(r: { key: string; allocationId: string; occurrence?: number | null }): void;
+  /** Scinder depuis la grille (S, menu) : étape de la date, ou annonce de l'impossibilité (série, bloc d'un jour). */
+  requestSplit(r: { key: string; allocationId: string }): void;
   isOpen(): boolean;
   element: ReactNode;
 }
@@ -92,6 +114,9 @@ const TABS: readonly Tab[] = ["allocation", "timeoff"];
 
 /** Focus initial de l'étape de portée : le radio choisi (le drawer reste monté, son focus initial ne se rejoue pas). */
 const focusChecked = (el: HTMLElement | null) => { el?.querySelector<HTMLElement>("[role=radio][aria-checked=true]")?.focus({ preventScroll: true }); };
+/** Focus initial de l'étape « Scinder » : le champ de date (référence stable : appelée au montage seulement). */
+const focusSelf = (el: HTMLElement | null) => { el?.focus({ preventScroll: true }); };
+const firstOpen = (plan: ScopePlan) => plan.options.find((x) => x.blocked === null)?.scope ?? null;
 
 export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   const { i18n, data, records } = o;
@@ -105,14 +130,15 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   optsRef.current = o;
 
   const closed = useRef<{ key: string | null; focus: FocusTarget | null } | null>(null);
-  const finish = (focus: FocusTarget | null = null) => {
+  /** `gone` : le bloc d'origine n'existe plus (supprimé) : le focus va à la grille. */
+  const finish = (focus: FocusTarget | null = null, gone = false) => {
     const s = stateRef.current;
     stateRef.current = null;
     setState(null);
     timeoffs.reset();
     if (!s) return;
     if (s.draftId !== null) optsRef.current.onDraftDone(s.draftId);
-    closed.current = { key: s.key, focus };
+    closed.current = { key: gone ? null : s.key, focus };
   };
   useEffect(() => {
     const c = closed.current;
@@ -169,7 +195,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
     if (issues.length) { show({ ...s, tried: true }); return; }
     if (current) {
       const plan = scopePlan(current, s.occ, s.draft, writer().updateAllocationGroup !== undefined);
-      if (plan.options.length > 0) show({ ...s, scope: { plan, value: plan.options.find((x) => x.blocked === null)?.scope ?? null } });
+      if (plan.options.length > 0) show({ ...s, scope: { plan, value: firstOpen(plan), action: "save", direct: false } });
       else if (Object.keys(plan.patch).length === 0) finish();
       else await write(s, current, plan, s.occ ? "series" : "line");
       return;
@@ -233,20 +259,98 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   const refocus = useRef(false);
   function back() {
     const s = stateRef.current;
-    if (!s?.scope) return;
+    if (!s?.scope && !s?.split) return;
+    if (s.scope?.direct || s.split?.direct) { finish(); return; }
     refocus.current = true;
-    show({ ...s, scope: null });
+    show({ ...s, scope: null, split: null });
   }
   useEffect(() => {
-    if (!refocus.current || state?.scope !== null) return;
+    if (!refocus.current || state?.scope !== null || state?.split !== null) return;
     refocus.current = false;
     document.querySelector<HTMLElement>(`button[form="${ids}-form"]`)?.focus({ preventScroll: true });
-  }, [state?.scope]);
+  }, [state?.scope, state?.split]);
+
+  // ---------- commandes du bloc (RT-047) ----------
+
+  const commandDeps = (): CommandDeps => ({ records: records!, history: o.history });
+  const commandable = (a: Allocation | undefined): a is Allocation => !!a && !!records && (o.canCommand ? o.canCommand(a) : true);
+  const deleteScopes = (a: Allocation, occ: SlotOccurrence | null): ScopePlan =>
+    ({ patch: {}, occurrencePatch: null, options: deleteOptions(a, occ?.index ?? null, records?.deleteAllocationGroup !== undefined) });
+
+  /** Suppression à la portée choisie ; `s` absent : depuis la grille, sans drawer. Le bloc n'existe plus : focus à la grille. */
+  async function runDelete(s: State | null, a: Allocation, occ: SlotOccurrence | null, scope: DeleteScope) {
+    if (busy.current || !records) return;
+    busy.current = true;
+    try {
+      const out = await deleteAllocationScoped(commandDeps(), a, occ?.index ?? null, scope);
+      if (!out.ok) {
+        if (s) show({ ...s, scope: null, error: t(slotErrorKey(out.error)) });
+        else optsRef.current.announce(t(slotErrorKey(out.error)));
+        return;
+      }
+      optsRef.current.announce(scope === "occurrence" ? t("schedule.delete.occurrence")
+        : t(scope === "group" && o.history && !out.undoable ? "schedule.delete.notUndoable" : "schedule.delete.done", { count: out.count }));
+      if (s) finish(null, true);
+      else optsRef.current.onClosed({ key: null, focus: null });
+    } finally {
+      busy.current = false;
+    }
+  }
+
+  /** « Supprimer » du formulaire : tout de suite, ou étape de portée. */
+  function deleteFromForm(s: State, a: Allocation) {
+    const plan = deleteScopes(a, s.occ);
+    if (plan.options.length === 0) void runDelete(s, a, s.occ, "line");
+    else show({ ...s, error: null, scope: { plan, value: firstOpen(plan), action: "delete", direct: false } });
+  }
+
+  async function runSplit(s: State, a: Allocation, step: SplitStep) {
+    if (busy.current || !records) return;
+    if (!splitDateValid(a, step.date)) { show({ ...s, split: { ...step, tried: true } }); return; }
+    busy.current = true;
+    try {
+      const out = await splitAllocationAt(commandDeps(), a, step.date);
+      if (!out.ok && !out.partial) { show({ ...s, error: t(slotErrorKey(out.error)) }); return; }
+      optsRef.current.announce(out.ok ? t("schedule.split.done") : [t(slotErrorKey(out.error)), t("schedule.split.partial")].join(" "));
+      finish({ personId: a.personId, startDate: a.startDate, endDate: addDays(step.date, -1) });
+    } finally {
+      busy.current = false;
+    }
+  }
+
+  const day = useMemo(() => new Intl.DateTimeFormat(i18n.locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }), [i18n.locale]);
+  const fmt = (d: string) => day.format(new Date(`${d}T00:00:00Z`));
+
+  function renderSplit(s: State, step: SplitStep): { body: ReactNode; footer: ReactNode } {
+    const a = current!;
+    const valid = splitDateValid(a, step.date);
+    const body = (
+      <form id={`${ids}-split`} className="wn-slot-form" noValidate onSubmit={(e) => { e.preventDefault(); void runSplit(s, a, step); }}>
+        <label>{t("schedule.split.date")}
+          <input ref={focusSelf} type="date" required min={addDays(a.startDate, 1)} max={a.endDate} value={step.date}
+            onChange={(e) => setState((x) => x?.split ? { ...x, error: null, split: { ...x.split, date: e.target.value } } : x)} />
+        </label>
+        {valid && <p data-split-parts="" className="wn-slot-wide">{t("schedule.split.parts", { a: fmt(a.startDate), b: fmt(addDays(step.date, -1)), c: fmt(step.date), d: fmt(a.endDate) })}</p>}
+        {step.tried && !valid && <p role="alert" className="wn-slot-wide wn-dialog-error">{t("schedule.split.issue")}</p>}
+        {s.error && <p role="alert" className="wn-slot-wide wn-dialog-error">{s.error}</p>}
+      </form>
+    );
+    const footer = (
+      <>
+        <Button onClick={back}>{t(step.direct ? "schedule.slot.cancel" : "schedule.slot.scope.back")}</Button>
+        <Button type="submit" form={`${ids}-split`} variant="primary">{t("schedule.split.confirm")}</Button>
+      </>
+    );
+    return { body, footer };
+  }
 
   function renderScope(s: State, step: ScopeStep): { body: ReactNode; footer: ReactNode } {
     const a = current!;
     const count = new Set(data.allocations.filter((x) => x.groupId !== null && x.groupId === a.groupId).map((x) => x.personId)).size;
-    const legend = step.plan.options.some((x) => x.scope === "occurrence") ? t("schedule.edit.series.title") : t("schedule.slot.scope.group.title", { count });
+    const removing = step.action === "delete";
+    const legend = step.plan.options.some((x) => x.scope === "occurrence")
+      ? t(removing ? "schedule.delete.series.title" : "schedule.edit.series.title")
+      : t(removing ? "schedule.delete.group.title" : "schedule.slot.scope.group.title", { count });
     const body = (
       <fieldset className="wn-choice">
         <legend id={`${ids}-scope`}>{legend}</legend>
@@ -267,8 +371,12 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
     );
     const footer = (
       <>
-        <Button onClick={back}>{t("schedule.slot.scope.back")}</Button>
-        <Button variant="primary" disabled={step.value === null} onClick={() => { if (step.value) void write(s, a, step.plan, step.value); }}>{t("schedule.slot.scope.confirm")}</Button>
+        <Button onClick={back}>{t(step.direct ? "schedule.slot.cancel" : "schedule.slot.scope.back")}</Button>
+        <Button variant={removing ? "danger" : "primary"} disabled={step.value === null} onClick={() => {
+          if (!step.value) return;
+          if (removing) void runDelete(s, a, s.occ, step.value);
+          else void write(s, a, step.plan, step.value);
+        }}>{t(removing ? "schedule.delete.confirm" : "schedule.slot.scope.confirm")}</Button>
       </>
     );
     return { body, footer };
@@ -302,11 +410,21 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
       onChange: (hex: string) => setState((x) => x && { ...x, color: hex }),
       onApply: () => void applyColor(),
     } : undefined;
+    const a = current;
     const body = (
-      <SlotForm i18n={i18n} formId={`${ids}-form`} draft={d} onChange={set} onSubmit={() => void submit()} current={current}
-        people={data.people.map((p) => ({ id: p.id, name: p.name }))} projects={options}
-        tasks={(d.projectId ? tasks[d.projectId] ?? [] : []).map((x) => ({ id: x.id, name: x.name }))}
-        overloads={slotOverloads(data, d, current).map(nameOf)} issues={s.tried ? slotIssues(d, current) : []} error={s.error} color={color} />
+      <>
+        <SlotForm i18n={i18n} formId={`${ids}-form`} draft={d} onChange={set} onSubmit={() => void submit()} current={current}
+          people={data.people.map((p) => ({ id: p.id, name: p.name }))} projects={options}
+          tasks={(d.projectId ? tasks[d.projectId] ?? [] : []).map((x) => ({ id: x.id, name: x.name }))}
+          overloads={slotOverloads(data, d, current).map(nameOf)} issues={s.tried ? slotIssues(d, current) : []} error={s.error} color={color} />
+        {commandable(a) && (
+          <div role="group" aria-label={t("schedule.slot.actions")} className="wn-slot-actions">
+            <Button onClick={() => show(base({ ...d, allocationId: null }, "allocation", s.key, null))}>{t("schedule.slot.duplicate")}</Button>
+            {splitBlocker(a) === null && <Button onClick={() => show({ ...s, error: null, split: { date: defaultSplitDate(a), direct: false, tried: false } })}>{t("schedule.slot.split")}</Button>}
+            <Button variant="danger" onClick={() => deleteFromForm(s, a)}>{t("schedule.slot.delete")}</Button>
+          </div>
+        )}
+      </>
     );
     const footer = (
       <>
@@ -320,13 +438,14 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   let element: ReactNode = null;
   if (state) {
     const off = state.tab === "timeoff" ? timeoffs.view : null;
-    const alloc = state.tab !== "allocation" ? null : state.scope ? renderScope(state, state.scope) : renderAllocation(state);
-    const title = off ? off.title : t(state.draft.allocationId === null ? "schedule.slot.title.create" : "schedule.slot.title.edit");
-    const tabs = (state.tab === "allocation" && state.scope === null) || off?.creating === true;
+    const alloc = state.tab !== "allocation" ? null : state.scope ? renderScope(state, state.scope) : state.split ? renderSplit(state, state.split) : renderAllocation(state);
+    const title = off ? off.title : state.scope?.action === "delete" ? t("schedule.delete.title") : state.split ? t("schedule.split.title")
+      : t(state.draft.allocationId === null ? "schedule.slot.title.create" : "schedule.slot.title.edit");
+    const tabs = (state.tab === "allocation" && state.scope === null && state.split === null) || off?.creating === true;
     const content = off?.body ?? alloc?.body;
     const dirty = state.color !== null || JSON.stringify(state.draft) !== JSON.stringify(state.initial) || off?.dirty === true;
     element = (
-      <Drawer title={title} closeLabel={t("dialog.close")} onClose={() => finish()} {...(off?.nested ? { onEscape: off.back } : state.scope ? { onEscape: back } : {})}
+      <Drawer title={title} closeLabel={t("dialog.close")} onClose={() => finish()} {...(off?.nested ? { onEscape: off.back } : state.scope || state.split ? { onEscape: back } : {})}
         unsaved={{ dirty, title: t("dialog.discard.title"), keep: t("dialog.discard.keep"), discard: t("dialog.discard.discard") }}
         className="wn-slot wn-timeoff-dialog" footer={off?.footer ?? alloc?.footer} {...(off?.describedBy ? { describedBy: off.describedBy } : {})}>
         {tabs ? (
@@ -342,7 +461,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   }
 
   const base = (draft: SlotDraft, tab: Tab, key: string | null, draftId: number | null, occ: SlotOccurrence | null = null): State =>
-    ({ tab, draft, initial: draft, key, draftId, error: null, tried: false, color: null, occ, scope: null });
+    ({ tab, draft, initial: draft, key, draftId, error: null, tried: false, color: null, occ, scope: null, split: null });
   return {
     openEdit(r) {
       const a = records && data.allocations.find((x) => x.id === r.allocationId);
@@ -368,6 +487,24 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
       if (!x) return;
       show(base(createDraft(x.personId, x.startDate, x.endDate), "timeoff", null, stateRef.current?.draftId ?? null));
       timeoffs.openEdit(id);
+    },
+    requestDelete(r) {
+      const a = records && data.allocations.find((x) => x.id === r.allocationId);
+      if (!commandable(a) || busy.current) return;
+      const index = a.repeatState === "none" ? null : r.occurrence ?? Number(r.key.split(":")[1] ?? 0);
+      const occ = index === null ? null : occurrenceOf(a, index);
+      const plan = deleteScopes(a, occ);
+      if (plan.options.length === 0) { void runDelete(null, a, occ, "line"); return; }
+      timeoffs.reset();
+      show({ ...base(editDraft(a, occ), "allocation", r.key, null, occ), scope: { plan, value: firstOpen(plan), action: "delete", direct: true } });
+    },
+    requestSplit(r) {
+      const a = records && data.allocations.find((x) => x.id === r.allocationId);
+      if (!commandable(a)) return;
+      const why = splitBlocker(a);
+      if (why) { optsRef.current.announce(t("schedule.split.unavailable", { reason: why })); return; }
+      timeoffs.reset();
+      show({ ...base(editDraft(a), "allocation", r.key, null), split: { date: defaultSplitDate(a), direct: true, tried: false } });
     },
     isOpen: () => stateRef.current !== null,
     element,

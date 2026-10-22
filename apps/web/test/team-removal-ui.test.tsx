@@ -99,7 +99,8 @@ describe("historique d'annulation (BR-40)", () => {
     await act(async () => { await h.editor.updateAllocation("d", { hoursPerDay: 6 }); await h.editor.updateAllocation("a", { hoursPerDay: 2 }); });
     expect(h.getState().undoLabel).toBe("allocation.load");
     rightClick(block("a:0"));
-    await click(menu()!.querySelector("[role=menuitem]")!);
+    // Avec un historique, les commandes du bloc (RT-047) précèdent le retrait dans le menu.
+    await click([...menu()!.querySelectorAll<HTMLElement>("[role=menuitem]")].find((x) => x.textContent!.startsWith("Retirer"))!);
     await click(button("Retirer du projet")!);
     expect(dialog()).toBeNull();
     // Il reste l'action sur « d » (autre personne) ; celle sur « a » a disparu.
