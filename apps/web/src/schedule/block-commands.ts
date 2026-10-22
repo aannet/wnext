@@ -3,7 +3,9 @@
 //  * Supprimer : allocation seule, ligne d'un groupe ou toute une série -> DELETE, annulable (recréation sous un nouvel id,
 //    hors groupe : aucune route ne rattache une ligne à un groupe) ; tout le groupe -> DELETE /allocations/{id}/group, annulable
 //    si le serveur a rendu toutes les lignes supprimées (sinon non annulable, et les actions qui touchent ces lignes sont retirées) ; une
-//    occurrence -> découpe (BR-25), non annulable comme toute découpe (voir history.ts).
+//    occurrence -> découpe (BR-25), non annulable comme toute découpe (voir history.ts). Chaque suppression part avec la version
+//    de l'allocation telle que l'utilisateur l'a vue (`a`, figée à l'ouverture de l'étape) : modifiée entre-temps, 409 et relecture,
+//    rien supprimé ; l'annulation ne peut donc jamais recréer un état plus ancien que celui supprimé.
 //  * Dupliquer : copie juste après le bloc (ou l'occurrence), même personne, même durée en jours calendaires (comme le
 //    déplacement), mêmes champs, sans répétition.
 //  * Scinder : allocation non répétée d'au moins deux jours ; la première partie garde la ligne (fin ramenée à la veille de la
@@ -56,13 +58,13 @@ export type DeleteOutcome = { ok: true; count: number; undoable: boolean } | Com
 export async function deleteAllocationScoped(deps: CommandDeps, a: Allocation, occurrence: number | null, scope: DeleteScope): Promise<DeleteOutcome> {
   const { records, history } = deps;
   if (scope === "occurrence") {
-    const out = records.deleteOccurrence && occurrence !== null ? await records.deleteOccurrence(a.id, occurrence) : { ok: false as const, error: "UNSUPPORTED" as const };
+    const out = records.deleteOccurrence && occurrence !== null ? await records.deleteOccurrence(a.id, occurrence, a.version) : { ok: false as const, error: "UNSUPPORTED" as const };
     if (!out.ok) return { ok: false, error: out.error };
     history?.invalidate(ALLOCATIONS, [a.id]);
     return { ok: true, count: 1, undoable: false };
   }
   if (scope === "group") {
-    const out = records.deleteAllocationGroup ? await records.deleteAllocationGroup(a.id) : { ok: false as const, error: "UNSUPPORTED" as const };
+    const out = records.deleteAllocationGroup ? await records.deleteAllocationGroup(a.id, a.version) : { ok: false as const, error: "UNSUPPORTED" as const };
     if (!out.ok) return { ok: false, error: out.error };
     if (!out.complete) {
       history?.invalidate(ALLOCATIONS, out.before.map((x) => x.id));
@@ -71,7 +73,7 @@ export async function deleteAllocationScoped(deps: CommandDeps, a: Allocation, o
     history?.record({ label: "allocation.delete", ops: out.before.map(deleteOp) });
     return { ok: true, count: out.before.length, undoable: history !== undefined };
   }
-  const out = await records.deleteAllocation(a.id);
+  const out = await records.deleteAllocation(a.id, a.version);
   if (!out.ok) return { ok: false, error: out.error };
   history?.record({ label: "allocation.delete", ops: [deleteOp(a)] });
   return { ok: true, count: 1, undoable: history !== undefined };

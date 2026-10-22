@@ -130,22 +130,27 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
       changed();
       return { ok: true, ids };
     },
-    async deleteAllocation(id) {
-      if (!store.tables.allocations.has(id)) return { ok: false, error: "NOT_FOUND" };
+    async deleteAllocation(id, version) {
+      const cur = store.tables.allocations.get(id);
+      if (!cur) return { ok: false, error: "NOT_FOUND" };
+      if (version !== undefined && version !== cur.version) return { ok: false, error: "VERSION_CONFLICT" };
       store = remove(store, "allocations", id);
       return changed();
     },
-    async deleteAllocationGroup(id) {
-      const g = store.tables.allocations.get(id)?.groupId;
-      if (!g) return { ok: false, error: "NOT_FOUND" };
+    async deleteAllocationGroup(id, version) {
+      const cur = store.tables.allocations.get(id);
+      const g = cur?.groupId;
+      if (!cur || !g) return { ok: false, error: "NOT_FOUND" };
+      if (version !== undefined && version !== cur.version) return { ok: false, error: "VERSION_CONFLICT" };
       const before = [...store.tables.allocations.values()].filter((a) => a.groupId === g);
       for (const a of before) store = remove(store, "allocations", a.id);
       changed();
       return { ok: true, before, complete: true };
     },
-    async deleteOccurrence(id, index) {
+    async deleteOccurrence(id, index, version) {
       const a = store.tables.allocations.get(id);
       if (!a) return { ok: false, error: "NOT_FOUND" };
+      if (version !== undefined && version !== a.version) return { ok: false, error: "VERSION_CONFLICT" };
       const r = localSplit(a, index, {}, () => `demo-${++seq}`);
       if (!r.ok) return r;
       const { before, after } = r.split;

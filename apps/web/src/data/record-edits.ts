@@ -19,7 +19,8 @@ export interface RecordEditor {
   updateTimeoff(id: string, patch: TimeoffPatch): Promise<EditOutcome>;
   deleteTimeoff(id: string): Promise<EditOutcome>;
   createAllocation(body: AllocationCreate): Promise<CreateOutcome>;
-  deleteAllocation(id: string): Promise<EditOutcome>;
+  /** `version` : celle que l'utilisateur a vue (If-Match) ; absente : celle du magasin. Périmée : VERSION_CONFLICT, rien supprimé. */
+  deleteAllocation(id: string, version?: number): Promise<EditOutcome>;
   /** Temps saisi d'une personne sur une fenêtre (avertissement BR-04) ; null si indisponible (le dialogue le dit). */
   loggedTime(personId: string, from: string, to: string): Promise<LoggedTimeInput[] | null>;
 }

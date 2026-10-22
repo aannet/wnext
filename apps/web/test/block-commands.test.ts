@@ -200,6 +200,18 @@ describe("source branchée sur l'API", () => {
         server.set("d", { ...server.get("d")!, version: 2, notes: "relu" });
         return json(409, { code: "VERSION_CONFLICT", params: { currentVersion: 2 } });
       }
+      const cur = server.get(id);
+      if (u.pathname === `/api/v1/allocations/${id}` && method === "PATCH" && cur) {
+        const next = { ...cur, ...body, version: cur.version + 1 };
+        server.set(id, next);
+        return json(200, next);
+      }
+      if (u.pathname === `/api/v1/allocations/${id}` && method === "DELETE") {
+        if (!cur) return json(404, { code: "NOT_FOUND", params: { entity: "allocation" } });
+        if (init?.headers?.["If-Match"] !== `"${cur.version}"`) return json(409, { code: "VERSION_CONFLICT", params: { currentVersion: cur.version } });
+        server.delete(id);
+        return { status: 204, json: async () => undefined };
+      }
       if (u.pathname === `/api/v1/allocations/${id}` && method === "GET") return server.has(id) ? json(200, server.get(id)) : json(404, { code: "NOT_FOUND" });
       return json(404, { code: "NOT_FOUND" });
     };
@@ -207,7 +219,7 @@ describe("source branchée sur l'API", () => {
     const src = createScheduleSource({ api: o.preRead === false ? { ...client, listProjectAllocations: undefined } : client });
     src.setViewport(viewAt("2026-10-20", "day", 960));
     src.start();
-    return { src, calls, release };
+    return { src, calls, release, server };
   }
   const ids = (src: ReturnType<typeof createScheduleSource>) => src.getState().data!.allocations.map((a) => a.id).sort();
 
@@ -267,6 +279,33 @@ describe("source branchée sur l'API", () => {
     expect(await deleteAllocationScoped({ records: src, history }, d, null, "line")).toEqual({ ok: false, error: "VERSION_CONFLICT" });
     await flush();
     expect(src.getState().data!.allocations.find((x) => x.id === "d")).toMatchObject({ version: 2, notes: "relu" });
+    expect(history.getState().canUndo).toBe(false);
+  });
+
+  it("snapshot de l'étape périmé (changement arrivé pendant l'étape) : DELETE avec sa version, 409, relue, rien d'annulable ni de perdu", async () => {
+    const { src, calls } = setup();
+    await flush();
+    const { history } = historyForSource(src);
+    const seen = src.getState().data!.allocations.find((x) => x.id === "a")!;
+    // Changement d'ailleurs pendant l'étape : le magasin passe en version 2.
+    expect(await src.updateAllocation("a", { notes: "autre" })).toEqual({ ok: true });
+    expect(await deleteAllocationScoped({ records: src, history }, seen, null, "line")).toEqual({ ok: false, error: "VERSION_CONFLICT" });
+    const del = calls.find((c) => c.path === "/api/v1/allocations/a" && c.method === "DELETE")!;
+    expect(del.headers["If-Match"]).toBe("\"1\"");
+    await flush();
+    expect(src.getState().data!.allocations.find((x) => x.id === "a")).toMatchObject({ version: 2, notes: "autre" });
+    expect(history.getState().canUndo).toBe(false);
+  });
+
+  it("DELETE 404 puis relecture 404 : le bloc est retiré, aucune action annulable", async () => {
+    const { src, server } = setup();
+    await flush();
+    const { history } = historyForSource(src);
+    const d2 = src.getState().data!.allocations.find((x) => x.id === "s")!;
+    server.delete("s"); // supprimée ailleurs, le temps réel ne l'a pas encore dit
+    expect(await deleteAllocationScoped({ records: src, history }, d2, null, "series")).toEqual({ ok: false, error: "NOT_FOUND" });
+    await flush();
+    expect(ids(src)).not.toContain("s");
     expect(history.getState().canUndo).toBe(false);
   });
 

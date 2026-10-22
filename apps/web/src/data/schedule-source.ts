@@ -96,9 +96,9 @@ export interface ScheduleSource extends ScheduleEditor, RecordEditor, TeamRemova
   /** Allocation multi-personnes (BR-26) : une ligne par personne, tout ou rien. */
   createAllocationGroup(body: AllocationGroupCreate): Promise<GroupOutcome>;
   /** Supprime toutes les lignes du groupe de l'allocation `id` (BR-26, RT-047) ; absent : pas de suppression de groupe. */
-  deleteAllocationGroup?(id: string): Promise<GroupDeleteOutcome>;
+  deleteAllocationGroup?(id: string, version?: number): Promise<GroupDeleteOutcome>;
   /** Supprime l'occurrence de rang `index` d'une série (découpe BR-25, RT-047) ; absent : pas de suppression d'occurrence. */
-  deleteOccurrence?(id: string, index: number): Promise<EditOutcome>;
+  deleteOccurrence?(id: string, index: number, version?: number): Promise<EditOutcome>;
   /** Démo seulement : personnes, équipes (départements), rôles, types de congé et fériés écrits depuis Personnes ou Réglages. */
   directoryChanged?(kind: "people" | "departments" | "roles" | "timeoff_types" | "holidays", entity: { id: string; version: number }): void;
   directoryRemoved?(kind: "people" | "departments" | "roles" | "timeoff_types" | "holidays", id: string): void;
@@ -474,7 +474,8 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     return out.ok ? { ok: true, before, unknown } : out;
   }
 
-  async function deleteAllocationGroup(id: string): Promise<GroupDeleteOutcome> {
+  /** `version` (les trois suppressions) : celle que l'utilisateur a vue, envoyée en If-Match ; absente : celle du magasin. */
+  async function deleteAllocationGroup(id: string, version?: number): Promise<GroupDeleteOutcome> {
     const cur = store.tables.allocations.get(id);
     const api = opts.api.deleteAllocationGroup;
     if (!api) return fail("UNSUPPORTED");
@@ -489,7 +490,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     });
     refresh();
     let deleted: Allocation[] | null = null;
-    const out = await write(ms, () => api({ path: { id }, headers: { "If-Match": `"${cur.version}"`, Prefer: "return=representation" } }), (d) => {
+    const out = await write(ms, () => api({ path: { id }, headers: { "If-Match": `"${version ?? cur.version}"`, Prefer: "return=representation" } }), (d) => {
       for (const m of ms) store = confirmOptimistic(store, m, null);
       deleted = d ? d.items : null;
       // Pierres tombales des lignes hors fenêtre : ni un chargement tardif ni l'écho temps réel ne les font revivre.
@@ -500,7 +501,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     return deleted ? { ok: true, before: deleted, complete: true } : { ok: true, before: lines, complete: false };
   }
 
-  async function deleteOccurrence(id: string, index: number): Promise<EditOutcome> {
+  async function deleteOccurrence(id: string, index: number, version?: number): Promise<EditOutcome> {
     const cur = store.tables.allocations.get(id);
     const api = opts.api.splitAllocation;
     if (!api) return fail("UNSUPPORTED");
@@ -515,7 +516,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     const ids = [mb];
     if (s.after) { store = applyOptimistic(store, ma, "allocations", s.after.id, s.after); ids.push(ma); }
     refresh();
-    const out = await write(ids, () => api({ path: { id }, headers: { "If-Match": `"${cur.version}"` }, body: { occurrenceDate: s.occurrenceDate, delete: true } }),
+    const out = await write(ids, () => api({ path: { id }, headers: { "If-Match": `"${version ?? cur.version}"` }, body: { occurrenceDate: s.occurrenceDate, delete: true } }),
       (d) => {
         store = confirmOptimistic(store, mb, d.before ?? null);
         if (s.after) store = confirmOptimistic(store, ma, d.after ?? null);
@@ -599,10 +600,10 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
       if (api) ensureProject(body.projectId);
       return api ? create("allocations", (tmp) => allocationFromCreate(body, tmp), () => api({ body })) : fail("UNSUPPORTED");
     },
-    async deleteAllocation(id) {
+    async deleteAllocation(id, version) {
       const api = opts.api.deleteAllocation;
       if (!api) return fail("UNSUPPORTED");
-      const out = await change("allocations", id, () => null, (v) => api({ path: { id }, headers: ifMatch(v) }));
+      const out = await change("allocations", id, () => null, (v) => api({ path: { id }, headers: ifMatch(version ?? v) }));
       // Refus sur conflit : l'allocation remise en place est relue (version à jour, ou retirée si elle n'existe plus).
       if (!out.ok && (out.error === "VERSION_CONFLICT" || out.error === "NOT_FOUND") && store.tables.allocations.has(id)) await reread(id);
       return out;

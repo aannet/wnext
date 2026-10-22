@@ -171,6 +171,20 @@ describe("suppression en cours (revue)", () => {
     expect(notice()).toBe("2 allocations supprimées. Ctrl+Z annule.");
   });
 
+  it("changement d'ailleurs pendant l'étape de portée : Supprimer est refusé (version vue périmée), message, rien de perdu ni d'annulable", async () => {
+    const s0 = alloc("s", { startDate: "2026-10-20", endDate: "2026-10-20", repeatState: "weekly", repeatEndDate: "2026-11-10" });
+    const { src, rows, history } = mount([s0]);
+    block("s:0").focus();
+    await press(block("s:0"), { key: "Delete" });
+    act(() => { dialog()!.querySelectorAll<HTMLElement>("[role=radio]")[1]!.click(); }); // Toute la série
+    await act(async () => { await src.updateAllocation("s", { notes: "modifiée ailleurs" }); });
+    await flush();
+    await click(button("Supprimer")!);
+    expect(rows().map((a) => [a.id, a.notes])).toEqual([["s", "modifiée ailleurs"]]);
+    expect(dialog()!.querySelector("[role=alert]")?.textContent).toBe("Quelqu’un d’autre a modifié cette donnée entre-temps : la dernière version est affichée, refaites votre changement.");
+    expect(history.getState().canUndo).toBe(false);
+  });
+
   it("scission en cours : l'étape garde l'allocation d'origine (dates d'avant) jusqu'à la fin", async () => {
     let release: () => void = () => {};
     const gate = new Promise<void>((r) => { release = r; });
