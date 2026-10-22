@@ -14,6 +14,7 @@ const db: Db = { transaction: (fn) => pg.transaction(async (tx) => { await tx.qu
 const roles: Record<string, RequestContext | null> = {
   pm: { accountId: "1", userId: "1", role: "project_manager" },
   member: { accountId: "1", userId: "1", role: "member" },
+  guest: { accountId: "1", userId: "1", role: "guest" },
   other: { accountId: "2", userId: "1", role: "admin" },
   anon: null,
 };
@@ -82,7 +83,7 @@ describe("POST /allocations/{id}/split : découpe", () => {
     expect(r.before).toBeUndefined();
     expect(pick(r.occurrence)).toEqual({ startDate: "2026-03-02", endDate: "2026-03-03", repeatState: "none", repeatEndDate: null });
     expect(pick(r.after)).toEqual({ startDate: "2026-03-09", endDate: "2026-03-10", repeatState: "weekly", repeatEndDate: "2026-03-24" });
-    expect((await send("member", "GET", `/api/v1/allocations/${a.id}`)).status).toBe(404);
+    expect((await send("guest", "GET", `/api/v1/allocations/${a.id}`)).status).toBe(404);
     expect((await pg.query("SELECT 1 FROM delete_log WHERE entity = 'allocations' AND entity_id = $1", [a.id])).rows).toHaveLength(1);
     expect(await count()).toBe(2);
   });
@@ -128,7 +129,7 @@ describe("POST /allocations/{id}/split : découpe", () => {
     expect(u.status, JSON.stringify(u.body)).toBe(200);
     expect((u.body as { items: Alloc[] }).items.map((x) => x.id).sort()).toEqual([first!.id, second!.id].sort());
     for (const x of [r.occurrence!, r.after!]) {
-      expect((await send("member", "GET", `/api/v1/allocations/${x.id}`)).body).toMatchObject({ ...pick(x), name: null, version: 1, groupId: null });
+      expect((await send("guest", "GET", `/api/v1/allocations/${x.id}`)).body).toMatchObject({ ...pick(x), name: null, version: 1, groupId: null });
     }
   });
 
@@ -225,7 +226,7 @@ describe("POST /allocations/{id}/split : refus", () => {
     expect(err(await split(a, { occurrenceDate: "2026-03-09", patch: { personId: "3" } }))).toEqual([404, "NOT_FOUND", { entity: "person" }]);
     expect(err(await split(a, { occurrenceDate: "2026-03-09", patch: { projectId: "abc" } }))).toEqual([404, "NOT_FOUND", { entity: "project" }]);
     expect(await count()).toBe(1);
-    expect((await send("member", "GET", `/api/v1/allocations/${a.id}`)).body).toMatchObject({ version: a.version, repeatEndDate: "2026-03-24" });
+    expect((await send("guest", "GET", `/api/v1/allocations/${a.id}`)).body).toMatchObject({ version: a.version, repeatEndDate: "2026-03-24" });
   });
 
   it("autre compte : 404 NOT_FOUND (RLS) ; member : 403 avant la validation du corps ; anonyme : 401", async () => {

@@ -71,7 +71,10 @@ export function createRealtimeSession(opts: RealtimeOptions): RealtimeSession {
         cursor = r.changes[r.changes.length - 1]!.seq;
         send({ v, type: "changes", changes: r.changes as never, cursor, hasMore: r.hasMore });
       }
-      if (!r.hasMore) return true;
+      if (!r.hasMore) {
+        cursor = r.head; // tout ce qui est visible jusqu'à la tête est envoyé : les changements filtrés (RT-048) ne sont pas relus
+        return true;
+      }
     }
   }
 

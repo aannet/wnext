@@ -14,6 +14,7 @@ const roles: Record<string, RequestContext | null> = {
   admin: { accountId: "1", userId: "1", role: "admin" },
   pm: { accountId: "1", userId: "1", role: "project_manager" },
   member: { accountId: "1", userId: "1", role: "member" },
+  guest: { accountId: "1", userId: "1", role: "guest" },
   other: { accountId: "2", userId: "1", role: "admin" },
   anon: null,
 };
@@ -44,7 +45,7 @@ const alloc = (w: { mon: string; fri: string }, over: Record<string, unknown> = 
 const window = (w: { mon: string; sun: string }, personId = "1") => ({ personId, from: w.mon, to: w.sun });
 const prefill = (body: unknown, who = "pm") => send(who, "POST", "/api/v1/logged-time/prefill", { body });
 const submit = (body: unknown, who = "pm") => send(who, "POST", "/api/v1/logged-time/submit", { body });
-const list = (q: string, who = "member") => send(who, "GET", `/api/v1/logged-time?${q}`);
+const list = (q: string, who = "guest") => send(who, "GET", `/api/v1/logged-time?${q}`);
 const create = (body: Record<string, unknown>, who = "pm") => send(who, "POST", "/api/v1/logged-time", { body });
 const ifm = (v: number | string) => (typeof v === "number" ? `"${v}"` : v);
 const patch = (id: string, v: number | string, body: unknown, who = "pm") => send(who, "PATCH", `/api/v1/logged-time/${id}`, { body, ifMatch: ifm(v) });
@@ -160,7 +161,7 @@ describe("POST /logged-time/prefill (BR-11)", () => {
 });
 
 describe("GET /logged-time", () => {
-  it("liste la fenêtre d'une personne, filtrable par statut, lisible par un membre", async () => {
+  it("liste la fenêtre d'une personne, filtrable par statut, lisible par un guest", async () => {
     const w = week();
     const a = await made({ workDate: w.mon }, w);
     await made({ workDate: w.tue }, w);

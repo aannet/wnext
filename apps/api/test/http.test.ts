@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ApiError, HealthResponse, ScheduleResponse } from "@wnext/contracts";
 import { dispatch, type Db, type HttpDeps, type RequestContext } from "../src/index";
 
-const ctx: RequestContext = { accountId: "1", userId: "1", role: "member" };
+const ctx: RequestContext = { accountId: "1", userId: "1", role: "guest" }; // lecteur de tout le compte (un member ne verrait que sa personne, RT-048)
 let pg: PGlite;
 const db: Db = { transaction: (fn) => pg.transaction(async (tx) => { await tx.query("SET LOCAL ROLE app_user"); return fn(tx as never); }) };
 const deps: HttpDeps = {

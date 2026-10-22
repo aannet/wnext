@@ -11,7 +11,7 @@ import { getSchedule, prefillLoggedTime, type Db, type RequestContext } from "..
 
 const FROM = "2026-03-02";
 const TO = "2026-03-20";
-const ctxA: RequestContext = { accountId: "1", userId: "1", role: "member" };
+const ctxA: RequestContext = { accountId: "1", userId: "1", role: "guest" }; // lecture de tout le compte (un member ne verrait que sa personne, RT-048)
 const ctxB: RequestContext = { accountId: "2", userId: "1", role: "admin" };
 
 let pg: PGlite;

@@ -3,6 +3,7 @@ import { planPrefill, type PrefillAllocation } from "@wnext/engine";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
 import { assertWindow, workSchedules, type Row } from "./schedule";
+import { assertPersonReadable } from "./scope";
 import { assertAdmin, assertProjectScope, assertWriter, day, invalid, isId, lockAndCheck, notFound } from "./write";
 
 // Temps saisis (logged_time) : pré-remplissage (BR-11), cycle de vie et verrouillage (BR-12, BR-28). Règles portées ici ; le reste
@@ -75,7 +76,9 @@ const selectWindow = (tx: Queryable, accountId: string, personId: string, from: 
 
 export async function listLoggedTime(db: Db, ctx: RequestContext, q: LoggedTimeListQuery): Promise<LoggedTimeList> {
   assertWindow(q.from, q.to);
+  if (!isId(q.personId)) throw notFound("person");
   return withContext(db, ctx, async (tx) => {
+    await assertPersonReadable(tx, ctx, q.personId); // RT-048 : un member ne lit que son temps saisi
     await requirePerson(tx, ctx.accountId, q.personId);
     const { rows } = await selectWindow(tx, ctx.accountId, q.personId, q.from, q.to, q.status);
     return { items: rows.map(toLoggedTime) };

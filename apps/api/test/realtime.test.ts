@@ -80,6 +80,17 @@ describe("session temps réel", () => {
     expect(out).toEqual([{ v: 1, type: "ready", cursor: c }]);
   });
 
+  it("member sur une base sans 0006 (pas de change_log.person_ids) : aucun changement par personne, les référentiels passent (RT-048)", async () => {
+    await pg.exec("INSERT INTO users (email) VALUES ('m@x.test'); INSERT INTO account_members (account_id, user_id, role, person_id) VALUES (1, 2, 'member', 1)");
+    const c = await head();
+    const { out, session } = open({ accountId: "1", userId: "2", role: "member" });
+    await session.receive(sub(c));
+    await write("A"); // allocation de sa propre personne : refus par défaut sans la colonne
+    await dispatch(deps, { method: "POST", url: "/api/v1/holidays", headers: { authorization: "A" }, body: JSON.stringify({ name: "Férié", date: "2026-05-01" }) });
+    await session.poll();
+    expect(out.flatMap((m) => (m.type === "changes" ? m.changes.map((x) => x.entity) : []))).toEqual(["holidays"]);
+  });
+
   it("curseur expiré : resync puis la session s'arrête", async () => {
     await pg.exec("UPDATE account_change_seq SET purged_through = seq WHERE account_id = 1");
     const { out, session } = open();

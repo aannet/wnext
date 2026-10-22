@@ -33,7 +33,7 @@ const create = async (body: unknown, who = "pm") => {
   expect(r.status, JSON.stringify(r.body)).toBe(201);
   return AllocationGroup.parse(r.body);
 };
-const row = async (id: string) => ScheduleAllocation.parse((await send("member", "GET", `/api/v1/allocations/${id}`)).body);
+const row = async (id: string) => ScheduleAllocation.parse((await send("guest", "GET", `/api/v1/allocations/${id}`)).body);
 
 // Compte A : personnes 1 hal, 2 bob, 3 carol, 4 dan ; projets 1 P1, 2 P2 ; phases 1 (P1), 2 (P2) ; tâches 1 (P1), 2 (P2).
 // Compte B : personne 5, projet 3.
@@ -93,9 +93,9 @@ describe("POST /allocation-groups", () => {
     const a = await create({ ...base, projectId: "2", load: h(1), members: [{ personId: "1" }, { personId: "2" }] });
     const b = await create({ ...base, projectId: "2", load: h(1), members: [{ personId: "1" }, { personId: "2" }] });
     expect(a.groupId).not.toBe(b.groupId);
-    const list = (await send("member", "GET", "/api/v1/projects/2/allocations?from=2026-03-02&to=2026-03-06")).body as { items: Alloc[] };
+    const list = (await send("guest", "GET", "/api/v1/projects/2/allocations?from=2026-03-02&to=2026-03-06")).body as { items: Alloc[] };
     expect(list.items.filter((x) => x.groupId === a.groupId)).toHaveLength(2);
-    const sched = (await send("member", "GET", "/api/v1/schedule?from=2026-03-02&to=2026-03-06")).body as { allocations: Alloc[] };
+    const sched = (await send("guest", "GET", "/api/v1/schedule?from=2026-03-02&to=2026-03-06")).body as { allocations: Alloc[] };
     expect(sched.allocations.filter((x) => x.groupId === b.groupId)).toHaveLength(2);
   });
 
@@ -297,8 +297,8 @@ describe("DELETE /allocations/{id}/group — « tous »", () => {
     expect(await n(`SELECT count(*) AS n FROM allocations WHERE group_id = '${g.groupId}'`)).toBe(0);
     expect(await n(`SELECT count(*) AS n FROM delete_log WHERE entity = 'allocations' AND entity_id IN (${g.items.map((a) => a.id).join(",")})`)).toBe(3);
     expect(await n(`SELECT count(*) AS n FROM allocations WHERE group_id = '${other.groupId}'`)).toBe(2);
-    expect((await send("member", "GET", `/api/v1/allocations/${solo.id}`)).status).toBe(200);
-    expect((await send("member", "GET", `/api/v1/allocations/${g.items[0]!.id}`)).status).toBe(404);
+    expect((await send("guest", "GET", `/api/v1/allocations/${solo.id}`)).status).toBe(200);
+    expect((await send("guest", "GET", `/api/v1/allocations/${g.items[0]!.id}`)).status).toBe(404);
   });
 
   it("version périmée de la ligne désignée : 409, rien de supprimé ; ligne désignée à jour malgré une autre périmée : supprime tout", async () => {

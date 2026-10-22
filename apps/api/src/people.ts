@@ -3,6 +3,7 @@ import { withContext, type Db, type Queryable, type RequestContext } from "./db"
 import { ApiFailure } from "./failure";
 import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor, reader, type Reader } from "./reference";
 import { PROJECT_COLUMNS, PERSON_COLUMNS, toSchedulePerson, toScheduleProject, type Row } from "./schedule";
+import { assertPersonReadable } from "./scope";
 import { accountToday, assertProjectScope, assertWriter, idParam, isId, isWriter, lockAndCheck, notFound } from "./write";
 
 // Écriture des personnes planifiables. Mêmes principes que les allocations et les congés (rôles, verrou optimiste, RLS +
@@ -121,6 +122,7 @@ export async function listPersonHistory(db: Db, ctx: RequestContext, personId: s
   const n = Math.min(Math.max(1, Math.trunc(q.limit ?? DEFAULT_PAGE)), MAX_PAGE);
   if (!isId(personId)) throw notFound("person");
   return withContext(db, ctx, async (tx) => {
+    await assertPersonReadable(tx, ctx, personId);
     if (!(await tx.query("SELECT 1 FROM people WHERE id = $1::bigint AND account_id = $2::bigint", [personId, ctx.accountId])).rows.length) throw notFound("person");
     const args: unknown[] = [ctx.accountId, personId, q.attribute ? [HISTORY_ATTRIBUTES[q.attribute]] : Object.values(HISTORY_ATTRIBUTES)];
     const where = "account_id = $1::bigint AND person_id = $2::bigint AND attribute = ANY ($3::text[])";
@@ -222,7 +224,7 @@ export async function deactivatePerson(db: Db, ctx: RequestContext, id: string, 
 const likeEscape = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 const detailReader = reader({
-  table: "people", columns: DETAIL_COLUMNS, entity: "person", map: toPersonDetail,
+  table: "people", columns: DETAIL_COLUMNS, entity: "person", map: toPersonDetail, personColumn: "id",
   filters: (q, bind) => [
     ...(q.includeInactive ? [] : ["active"]), // comme le Schedule : les désactivées sur demande
     ...(q.departmentId ? [`department_id = ${bind(idParam("departmentId", q.departmentId))}::bigint`] : []),
@@ -252,6 +254,7 @@ export async function listPersonProjects(db: Db, ctx: RequestContext, personId: 
   const n = Math.min(Math.max(1, Math.trunc(q.limit ?? DEFAULT_PAGE)), MAX_PAGE);
   if (!isId(personId)) throw notFound("person");
   return withContext(db, ctx, async (tx) => {
+    await assertPersonReadable(tx, ctx, personId);
     if (!(await tx.query("SELECT 1 FROM people WHERE id = $1::bigint AND account_id = $2::bigint", [personId, ctx.accountId])).rows.length) throw notFound("person");
     const args: unknown[] = [ctx.accountId, personId];
     const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };

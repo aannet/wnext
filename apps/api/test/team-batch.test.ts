@@ -68,7 +68,7 @@ describe("POST /projects/{p}/team", () => {
     await batch("owner", "2", ["7", "6"]);
     const single = await dispatch(deps, { method: "PUT", url: "/api/v1/projects/2/team/7", headers: { authorization: "pm" } });
     expect(single.body).toEqual({ added: false });
-    const read = await dispatch(deps, { method: "GET", url: "/api/v1/projects/2/team", headers: { authorization: "member" } });
+    const read = await dispatch(deps, { method: "GET", url: "/api/v1/projects/2/team", headers: { authorization: "guest" } });
     expect((read.body as { items: { personId: string }[] }).items.map((m) => m.personId)).toEqual(["6", "7"]);
   });
 

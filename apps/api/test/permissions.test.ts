@@ -241,7 +241,7 @@ describe("BR-33 : taux et montants invisibles pour member et guest", () => {
   it.each(["member", "guest"])("%s : aucune clé de taux, coût ou montant dans les lectures ouvertes", async (who) => {
     await pg.exec("UPDATE people SET cost_rate = 123.45 WHERE account_id = 1");
     for (const url of [
-      "/api/v1/people", "/api/v1/people/1", "/api/v1/projects", "/api/v1/projects/1", "/api/v1/schedule?from=2027-01-01&to=2027-03-31",
+      "/api/v1/people", "/api/v1/people/4", "/api/v1/projects", "/api/v1/projects/1", "/api/v1/schedule?from=2027-01-01&to=2027-03-31",
       "/api/v1/projects/1/team", "/api/v1/projects/1/allocations?from=2027-01-01&to=2027-12-31", "/api/v1/phases?projectId=1",
     ]) {
       const r = await send(who, "GET", url);

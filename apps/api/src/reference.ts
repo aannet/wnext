@@ -5,6 +5,7 @@ import {
   HOLIDAY_COLUMNS, NAMED_COLUMNS, PROJECT_COLUMNS, TIMEOFF_TYPE_COLUMNS, toScheduleDepartment, toScheduleHoliday, toScheduleProject, toScheduleRole, toScheduleTimeoffType,
   type Row, type ScheduleDepartment, type ScheduleHoliday, type ScheduleRole, type ScheduleTimeoffType,
 } from "./schedule";
+import { readablePeople } from "./scope";
 import { assertAdmin, assertProjectScope, assertWriter, day, invalid, isId, lockAndCheck, notFound } from "./write";
 
 // Lecture et écriture des entités de référence : départements, rôles, types de congé, fériés (configuration : owner et admin), projets
@@ -261,7 +262,7 @@ export function decodeCursor(raw: string): string {
 }
 
 /** Lecteur d'une table. `filters` traduit les filtres de la requête en conditions SQL paramétrées (table et colonnes sont des constantes du code). */
-export function reader<T>(def: { /** Données financières : lecture réservée aux rôles d'écriture (en plus de la couche HTTP). */ restricted?: boolean; table: string; columns: string; entity: string; map: (r: Row) => T; filters?: (q: ListQuery, bind: (v: unknown) => string) => string[] }): Reader<T> {
+export function reader<T>(def: { /** Données financières : lecture réservée aux rôles d'écriture (en plus de la couche HTTP). */ restricted?: boolean; /** Colonne de la personne propriétaire de la ligne : périmètre de lecture du member (scope.ts, RT-048). */ personColumn?: string; table: string; columns: string; entity: string; map: (r: Row) => T; filters?: (q: ListQuery, bind: (v: unknown) => string) => string[] }): Reader<T> {
   return {
     async list(db, ctx, q) {
       if (def.restricted) assertWriter(ctx);
@@ -271,6 +272,8 @@ export function reader<T>(def: { /** Données financières : lecture réservée 
         const args: unknown[] = [ctx.accountId];
         const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
         const where = ["account_id = $1::bigint", ...(def.filters?.(q, bind) ?? [])];
+        const readable = def.personColumn ? await readablePeople(tx, ctx) : null;
+        if (readable !== null) where.push(`${def.personColumn} = ANY (${bind(readable)}::bigint[])`);
         const total = Number((await tx.query<Row>(`SELECT count(*) AS n FROM ${def.table} WHERE ${where.join(" AND ")}`, [...args])).rows[0]!.n);
         if (after !== undefined) where.push(`id > ${bind(after)}::bigint`);
         const { rows } = await tx.query<Row>(`SELECT ${def.columns} FROM ${def.table} WHERE ${where.join(" AND ")} ORDER BY id LIMIT ${bind(n + 1)}::int`, args);
@@ -284,6 +287,8 @@ export function reader<T>(def: { /** Données financières : lecture réservée 
       return withContext(db, ctx, async (tx) => {
         const r = (await tx.query<Row>(`SELECT ${def.columns} FROM ${def.table} WHERE id = $1::bigint AND account_id = $2::bigint`, [id, ctx.accountId])).rows[0];
         if (!r) throw notFound(def.entity);
+        const readable = def.personColumn ? await readablePeople(tx, ctx) : null;
+        if (readable !== null && !readable.includes(String(r[def.personColumn!]))) throw notFound(def.entity); // comme une ligne inexistante
         return def.map(r);
       });
     },

@@ -53,7 +53,7 @@ describe("GET /projects/{p}/team", () => {
     expect(err(r).code).toBe("UNAUTHENTICATED");
   });
   it("forme du contrat, tri par identifiant de personne, noms lus dans people, total", async () => {
-    const r = await team("member", "1");
+    const r = await team("guest", "1");
     expect(TeamMemberList.safeParse(r.body).success).toBe(true);
     expect(list(r)).toEqual({
       items: [{ personId: "1", name: "alice" }, { personId: "2", name: "bob" }, { personId: "3", name: "carol" }, { personId: "4", name: "dave" }, { personId: "5", name: "eve" }],
@@ -61,16 +61,16 @@ describe("GET /projects/{p}/team", () => {
     });
   });
   it("l'équipe n'est pas la liste des personnes allouées (Q-07) : franck est alloué mais absent", async () => {
-    expect(list(await team("member", "1")).items.map((m) => m.name)).not.toContain("franck");
+    expect(list(await team("guest", "1")).items.map((m) => m.name)).not.toContain("franck");
   });
   it("équipe vide : 200 et liste vide", async () => {
-    expect(list(await team("member", "2"))).toEqual({ items: [], page: { nextCursor: null, total: 0 } });
+    expect(list(await team("guest", "2"))).toEqual({ items: [], page: { nextCursor: null, total: 0 } });
   });
-  it("un projet archivé se lit", async () => expect(list(await team("member", "4")).items.map((m) => m.name)).toEqual(["alice"]));
+  it("un projet archivé se lit", async () => expect(list(await team("guest", "4")).items.map((m) => m.name)).toEqual(["alice"]));
 
   describe("isolation entre comptes", () => {
     it.each([["projet d'un autre compte", "3"], ["projet inconnu", "999"], ["identifiant illisible", "abc"], ["séquence % illisible", "%E0%A4%A"]])("%s : 404 entity project", async (_n, project) => {
-      const r = await team("member", project);
+      const r = await team("guest", project);
       expect(r.status).toBe(404);
       expect(err(r)).toMatchObject({ code: "NOT_FOUND", params: { entity: "project" } });
     });
@@ -86,7 +86,7 @@ describe("GET /projects/{p}/team", () => {
       let cursor: string | null = null;
       let pages = 0;
       do {
-        const r = list(await team("member", "1", `?limit=2${cursor ? `&cursor=${cursor}` : ""}`));
+        const r = list(await team("guest", "1", `?limit=2${cursor ? `&cursor=${cursor}` : ""}`));
         expect(r.page.total).toBe(5);
         expect(r.items.length).toBeLessThanOrEqual(2);
         seen.push(...r.items.map((m) => m.personId));
@@ -97,29 +97,29 @@ describe("GET /projects/{p}/team", () => {
       expect(pages).toBe(3);
     });
     it("page exactement pleine : pas de curseur de trop", async () => {
-      const r = list(await team("member", "1", "?limit=5"));
+      const r = list(await team("guest", "1", "?limit=5"));
       expect(r.items).toHaveLength(5);
       expect(r.page.nextCursor).toBeNull();
     });
     it("un ajout pendant le parcours ne crée ni doublon ni trou pour ce qui précède", async () => {
-      const p1 = list(await team("member", "1", "?limit=2"));
+      const p1 = list(await team("guest", "1", "?limit=2"));
       await pg.exec("INSERT INTO project_team (account_id, project_id, person_id) VALUES (1,1,6)");
-      const rest = list(await team("member", "1", `?limit=10&cursor=${p1.page.nextCursor}`));
+      const rest = list(await team("guest", "1", `?limit=10&cursor=${p1.page.nextCursor}`));
       expect([...p1.items, ...rest.items].map((m) => m.personId)).toEqual(["1", "2", "3", "4", "5", "6"]);
       await pg.exec("DELETE FROM project_team WHERE project_id = 1 AND person_id = 6");
     });
     it.each([["limit=0"], ["limit=501"], ["limit=abc"], ["limit=1&limit=2"], ["foo=1"], ["cursor="]])("requête invalide (%s) : 400 VALIDATION_FAILED", async (qs) => {
-      const r = await team("member", "1", `?${qs}`);
+      const r = await team("guest", "1", `?${qs}`);
       expect(r.status).toBe(400);
       expect(err(r).code).toBe("VALIDATION_FAILED");
     });
     it.each(["zz", "e30", Buffer.from('{"id":"abc"}').toString("base64url"), Buffer.from("pas du json").toString("base64url")])("curseur illisible %j : 400 SCHEDULE_CURSOR_INVALID", async (cursor) => {
-      const r = await team("member", "1", `?cursor=${cursor}`);
+      const r = await team("guest", "1", `?cursor=${cursor}`);
       expect(r.status).toBe(400);
       expect(err(r).code).toBe("SCHEDULE_CURSOR_INVALID");
     });
     it("un curseur d'un autre projet ne fuit rien : il ne fait que borner la page", async () => {
-      const r = list(await team("member", "2", `?cursor=${Buffer.from('{"id":"3"}').toString("base64url")}`));
+      const r = list(await team("guest", "2", `?cursor=${Buffer.from('{"id":"3"}').toString("base64url")}`));
       expect(r.items).toEqual([]);
     });
   });
@@ -127,10 +127,10 @@ describe("GET /projects/{p}/team", () => {
   describe("cohérence avec l'ajout et le retrait d'équipe", () => {
     it("PUT ajoute la personne à la lecture, le retrait l'en enlève", async () => {
       expect((await send("pm", "PUT", "/api/v1/projects/2/team/6")).status).toBe(200);
-      expect(list(await team("member", "2")).items).toEqual([{ personId: "6", name: "franck" }]);
+      expect(list(await team("guest", "2")).items).toEqual([{ personId: "6", name: "franck" }]);
       const rm = await send("pm", "POST", "/api/v1/projects/2/team/6/removal", {});
       expect(rm.status).toBe(200);
-      expect(list(await team("member", "2")).items).toEqual([]);
+      expect(list(await team("guest", "2")).items).toEqual([]);
     });
   });
 });

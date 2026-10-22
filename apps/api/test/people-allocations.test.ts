@@ -57,68 +57,69 @@ beforeAll(async () => {
 afterAll(async () => { await pg?.close(); }, 60_000);
 
 describe("GET /people/{id}/allocations", () => {
-  it("tout membre lit, y compris un guest ; anonyme : 401 avant la validation", async () => {
-    for (const who of ["owner", "pm", "member", "guest"]) expect((await list(who, "1")).status, who).toBe(200);
+  it("owner, pm et guest lisent ; member sans personne liée : 404 (RT-048) ; anonyme : 401 avant la validation", async () => {
+    for (const who of ["owner", "pm", "guest"]) expect((await list(who, "1")).status, who).toBe(200);
+    expect((await list("member", "1")).status).toBe(404);
     expect((await list("anon", "1")).status).toBe(401);
     expect((await list("anon", "1", "from=pas-une-date")).status).toBe(401);
   });
   it("chevauchement : bornes incluses, série prolongée, une ligne par série, tous projets (archivé compris)", async () => {
-    const r = await list("member", "1");
+    const r = await list("guest", "1");
     expect(PersonAllocationList.safeParse(r.body).success).toBe(true);
     expect(ids(r)).toEqual(["1", "5", "8", "9"]);
     expect((r.body as Page).page.total).toBe(4);
   });
   it("seulement cette personne ; une désactivée se lit ; le total suit", async () => {
-    expect(ids(await list("member", "2"))).toEqual(["2", "7"]);
-    expect(ids(await list("member", "3"))).toEqual(["4"]);
+    expect(ids(await list("guest", "2"))).toEqual(["2", "7"]);
+    expect(ids(await list("guest", "3"))).toEqual(["4"]);
   });
   it("mêmes données que GET /schedule", async () => {
-    const sched = (await get("member", `/api/v1/schedule?${W}&includeInactive=true`)).body as { allocations: { id: string; personId: string }[] };
+    const sched = (await get("guest", `/api/v1/schedule?${W}&includeInactive=true`)).body as { allocations: { id: string; personId: string }[] };
     const expected = sched.allocations.filter((a) => a.personId === "1").sort((a, b) => Number(a.id) - Number(b.id));
-    expect((await list("member", "1")).body).toMatchObject({ items: expected });
+    expect((await list("guest", "1")).body).toMatchObject({ items: expected });
   });
   it("fenêtre vide et fenêtre d'un jour aux extrémités", async () => {
-    expect((await list("member", "1", "from=2027-01-01&to=2027-01-31")).body).toEqual({ items: [], page: { nextCursor: null, total: 0 } });
-    expect(ids(await list("member", "1", "from=2026-03-01&to=2026-03-01"))).toEqual(["3", "5"]);
+    expect((await list("guest", "1", "from=2027-01-01&to=2027-01-31")).body).toEqual({ items: [], page: { nextCursor: null, total: 0 } });
+    expect(ids(await list("guest", "1", "from=2026-03-01&to=2026-03-01"))).toEqual(["3", "5"]);
   });
 
   describe("filtres", () => {
     it("projet", async () => {
-      expect(ids(await list("member", "1", `${W}&projectId=1`))).toEqual(["1", "5", "8"]);
-      expect(ids(await list("member", "1", `${W}&projectId=3`))).toEqual(["9"]);
-      expect(ids(await list("member", "1", `${W}&projectId=999`))).toEqual([]);
-      expect(ids(await list("member", "1", `${W}&projectId=4`))).toEqual([]); // le projet d'un autre compte ne révèle rien
+      expect(ids(await list("guest", "1", `${W}&projectId=1`))).toEqual(["1", "5", "8"]);
+      expect(ids(await list("guest", "1", `${W}&projectId=3`))).toEqual(["9"]);
+      expect(ids(await list("guest", "1", `${W}&projectId=999`))).toEqual([]);
+      expect(ids(await list("guest", "1", `${W}&projectId=4`))).toEqual([]); // le projet d'un autre compte ne révèle rien
     });
     it("statut, et total qui suit les filtres", async () => {
-      expect(ids(await list("member", "2", `${W}&status=tentative`))).toEqual(["2"]);
-      expect(ids(await list("member", "2", `${W}&status=confirmed`))).toEqual(["7"]);
-      expect(((await list("member", "1", `${W}&projectId=1`)).body as Page).page.total).toBe(3);
+      expect(ids(await list("guest", "2", `${W}&status=tentative`))).toEqual(["2"]);
+      expect(ids(await list("guest", "2", `${W}&status=confirmed`))).toEqual(["7"]);
+      expect(((await list("guest", "1", `${W}&projectId=1`)).body as Page).page.total).toBe(3);
     });
   });
 
   describe("validation", () => {
     it.each([["sans fenêtre", "", "from"], ["from seul", "from=2026-03-02", "to"], ["date illisible", "from=demain&to=2026-03-06", "from"], ["projectId illisible", `${W}&projectId=abc`, "projectId"],
       ["statut inconnu", `${W}&status=draft`, "status"], ["paramètre inconnu", `${W}&foo=1`, "foo"], ["paramètre répété", `${W}&projectId=1&projectId=2`, "projectId"], ["limit nul", `${W}&limit=0`, "limit"]])("%s : 400 VALIDATION_FAILED", async (_n, qs, field) => {
-      const r = await list("member", "1", qs);
+      const r = await list("guest", "1", qs);
       expect(r.status).toBe(400);
       expect(err(r)).toMatchObject({ code: "VALIDATION_FAILED", params: { field } });
     });
     it("fenêtre inversée ou de plus de 400 jours : 400 SCHEDULE_RANGE_INVALID ; 400 jours exactement passe", async () => {
       for (const qs of ["from=2026-03-06&to=2026-03-02", "from=2026-01-01&to=2027-03-01"]) {
-        const r = await list("member", "1", qs);
+        const r = await list("guest", "1", qs);
         expect(r.status, qs).toBe(400);
         expect(err(r).code).toBe("SCHEDULE_RANGE_INVALID");
       }
-      expect((await list("member", "1", "from=2026-01-01&to=2027-02-05")).status).toBe(200);
+      expect((await list("guest", "1", "from=2026-01-01&to=2027-02-05")).status).toBe(200);
     });
     it("curseur illisible : 400 SCHEDULE_CURSOR_INVALID", async () => {
-      expect(err(await list("member", "1", `${W}&cursor=zz`)).code).toBe("SCHEDULE_CURSOR_INVALID");
+      expect(err(await list("guest", "1", `${W}&cursor=zz`)).code).toBe("SCHEDULE_CURSOR_INVALID");
     });
   });
 
   describe("personne introuvable : 404 entity person", () => {
     it.each([["personne d'un autre compte", "4"], ["inconnue", "999"], ["illisible", "abc"], ["séquence % illisible", "%E0%A4%A"]])("%s", async (_n, person) => {
-      const r = await list("member", person);
+      const r = await list("guest", person);
       expect(r.status).toBe(404);
       expect(err(r)).toMatchObject({ code: "NOT_FOUND", params: { entity: "person" } });
     });
@@ -133,7 +134,7 @@ describe("GET /people/{id}/allocations", () => {
       const seen: string[] = [];
       let cursor: string | null = null;
       do {
-        const r = (await list("member", "1", `${W}&limit=2${cursor ? `&cursor=${cursor}` : ""}`)).body as Page;
+        const r = (await list("guest", "1", `${W}&limit=2${cursor ? `&cursor=${cursor}` : ""}`)).body as Page;
         expect(r.page.total).toBe(4);
         seen.push(...r.items.map((a) => a.id));
         cursor = r.page.nextCursor;
@@ -141,14 +142,14 @@ describe("GET /people/{id}/allocations", () => {
       expect(seen).toEqual(["1", "5", "8", "9"]);
     });
     it("page exactement pleine : pas de curseur de trop", async () => {
-      const r = (await list("member", "1", `${W}&limit=4`)).body as Page;
+      const r = (await list("guest", "1", `${W}&limit=4`)).body as Page;
       expect(r.items).toHaveLength(4);
       expect(r.page.nextCursor).toBeNull();
     });
     it("une allocation ajoutée pendant le parcours apparaît sans doublon ni trou", async () => {
-      const p1 = (await list("member", "1", `${W}&limit=2`)).body as Page;
+      const p1 = (await list("guest", "1", `${W}&limit=2`)).body as Page;
       await pg.exec("INSERT INTO allocations (account_id, person_id, project_id, start_date, end_date, mode, hours_per_day) VALUES (1,1,2,'2026-03-03','2026-03-03','hours',1)");
-      const rest = (await list("member", "1", `${W}&limit=10&cursor=${p1.page.nextCursor}`)).body as Page;
+      const rest = (await list("guest", "1", `${W}&limit=10&cursor=${p1.page.nextCursor}`)).body as Page;
       expect([...p1.items, ...rest.items].map((a) => a.id)).toEqual(["1", "5", "8", "9", "11"]);
       await pg.exec("DELETE FROM allocations WHERE id = 11");
     });

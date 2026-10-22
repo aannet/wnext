@@ -13,7 +13,7 @@ const db: Db = { transaction: (fn) => pg.transaction(async (tx) => { await tx.qu
 const roles: Record<string, RequestContext | null> = {
   owner: { accountId: "1", userId: "1", role: "owner" },
   pm: { accountId: "1", userId: "1", role: "project_manager" },
-  member: { accountId: "1", userId: "1", role: "member" },
+  member: { accountId: "1", userId: "2", role: "member" }, // lié à la personne 2 : sa seule personne lisible (RT-048)
   guest: { accountId: "1", userId: "1", role: "guest" },
   other: { accountId: "2", userId: "1", role: "admin" },
   anon: null,
@@ -60,53 +60,53 @@ describe("GET /people", () => {
     expect((await people("anon")).status).toBe(401);
   });
   it("forme du contrat ; désactivées exclues par défaut ; tri par id ; total", async () => {
-    const r = await people("member");
+    const r = await people("guest");
     expect(PersonList.safeParse(r.body).success).toBe(true);
     expect(names(r)).toEqual(["Alice", "Bob", "50%_Dév", "ÉLODIE", "Zoé"]);
     expect((r.body as PersonPage).page.total).toBe(5);
     for (const p of (r.body as PersonPage).items) expect(Object.keys(SchedulePerson.parse(p)).sort()).toEqual(Object.keys(p).sort()); // ni plus, ni moins : aucune fuite
   });
   it("includeInactive=true inclut les désactivées", async () => {
-    const r = await people("member", "?includeInactive=true");
+    const r = await people("guest", "?includeInactive=true");
     expect(names(r)).toContain("Carol");
     expect((r.body as PersonPage).page.total).toBe(6);
-    expect(names(await people("member", "?includeInactive=false"))).not.toContain("Carol");
+    expect(names(await people("guest", "?includeInactive=false"))).not.toContain("Carol");
   });
   it("identique à GET /schedule pour les mêmes personnes", async () => {
     const byId = (a: { id: string }, b: { id: string }) => Number(a.id) - Number(b.id); // le Schedule trie par nom, la liste par id
-    const sched = (await get("member", "/api/v1/schedule?from=2026-03-02&to=2026-03-06")).body as { people: { id: string }[] };
-    expect((await people("member")).body).toMatchObject({ items: [...sched.people].sort(byId) });
+    const sched = (await get("guest", "/api/v1/schedule?from=2026-03-02&to=2026-03-06")).body as { people: { id: string }[] };
+    expect((await people("guest")).body).toMatchObject({ items: [...sched.people].sort(byId) });
   });
 
   describe("filtres", () => {
     it("département, rôle, tag, et leurs combinaisons (ET)", async () => {
-      expect(names(await people("member", "?departmentId=1"))).toEqual(["Alice", "Zoé"]);
-      expect(names(await people("member", "?roleId=1"))).toEqual(["Alice", "Bob"]);
-      expect(names(await people("member", "?tag=front"))).toEqual(["Alice", "Zoé"]);
-      expect(names(await people("member", "?departmentId=1&roleId=1&tag=front"))).toEqual(["Alice"]);
-      expect(names(await people("member", "?tag=inexistant"))).toEqual([]);
+      expect(names(await people("guest", "?departmentId=1"))).toEqual(["Alice", "Zoé"]);
+      expect(names(await people("guest", "?roleId=1"))).toEqual(["Alice", "Bob"]);
+      expect(names(await people("guest", "?tag=front"))).toEqual(["Alice", "Zoé"]);
+      expect(names(await people("guest", "?departmentId=1&roleId=1&tag=front"))).toEqual(["Alice"]);
+      expect(names(await people("guest", "?tag=inexistant"))).toEqual([]);
     });
     it("search : sous-chaîne sans tenir compte de la casse", async () => {
-      expect(names(await people("member", "?search=ALI"))).toEqual(["Alice"]);
-      expect(names(await people("member", "?search=lice"))).toEqual(["Alice"]);
-      expect(names(await people("member", "?search=%C3%A9lodie"))).toEqual(["ÉLODIE"]); // é/É : la casse Unicode est ignorée
+      expect(names(await people("guest", "?search=ALI"))).toEqual(["Alice"]);
+      expect(names(await people("guest", "?search=lice"))).toEqual(["Alice"]);
+      expect(names(await people("guest", "?search=%C3%A9lodie"))).toEqual(["ÉLODIE"]); // é/É : la casse Unicode est ignorée
     });
     it("search : % et _ sont des caractères, pas des jokers", async () => {
-      expect(names(await people("member", "?search=%25"))).toEqual(["50%_Dév"]);
-      expect(names(await people("member", "?search=_"))).toEqual(["50%_Dév"]);
-      expect(names(await people("member", "?search=%25_D"))).toEqual(["50%_Dév"]);
-      expect(names(await people("member", "?search=%5C"))).toEqual([]); // le backslash n'est pas un joker non plus
+      expect(names(await people("guest", "?search=%25"))).toEqual(["50%_Dév"]);
+      expect(names(await people("guest", "?search=_"))).toEqual(["50%_Dév"]);
+      expect(names(await people("guest", "?search=%25_D"))).toEqual(["50%_Dév"]);
+      expect(names(await people("guest", "?search=%5C"))).toEqual([]); // le backslash n'est pas un joker non plus
     });
     it("search et injection : traité comme du texte", async () => {
-      expect(names(await people("member", `?search=${encodeURIComponent("'; DROP TABLE people; --")}`))).toEqual([]);
+      expect(names(await people("guest", `?search=${encodeURIComponent("'; DROP TABLE people; --")}`))).toEqual([]);
       expect(await pg.query("SELECT count(*) FROM people")).toBeTruthy();
     });
     it("search avec inactives : suit includeInactive", async () => {
-      expect(names(await people("member", "?search=carol"))).toEqual([]);
-      expect(names(await people("member", "?search=carol&includeInactive=true"))).toEqual(["Carol"]);
+      expect(names(await people("guest", "?search=carol"))).toEqual([]);
+      expect(names(await people("guest", "?search=carol&includeInactive=true"))).toEqual(["Carol"]);
     });
     it.each([["departmentId=abc", "departmentId"], ["roleId=1;2", "roleId"], ["includeInactive=oui", "includeInactive"], ["search=", "search"], ["search=%20%20", "search"], ["tag=", "tag"], ["foo=1", "foo"], ["limit=0", "limit"], ["departmentId=1&departmentId=2", "departmentId"]])("requête invalide %s : 400", async (qs, field) => {
-      const r = await people("member", `?${qs}`);
+      const r = await people("guest", `?${qs}`);
       expect(r.status).toBe(400);
       expect(err(r)).toMatchObject({ code: "VALIDATION_FAILED", params: { field } });
     });
@@ -116,7 +116,7 @@ describe("GET /people", () => {
     it("l'autre compte ne voit que ses personnes, même en cherchant « alice »", async () => {
       expect(names(await people("other"))).toEqual(["Alice B"]);
       expect(names(await people("other", "?search=alice"))).toEqual(["Alice B"]);
-      expect(names(await people("member", "?search=alice"))).toEqual(["Alice"]);
+      expect(names(await people("guest", "?search=alice"))).toEqual(["Alice"]);
       expect(names(await people("other", "?departmentId=1"))).toEqual([]); // le département du compte A ne révèle rien
     });
   });
@@ -126,7 +126,7 @@ describe("GET /people", () => {
       const seen: string[] = [];
       let cursor: string | null = null;
       do {
-        const r = (await people("member", `?limit=2${cursor ? `&cursor=${cursor}` : ""}`)).body as PersonPage;
+        const r = (await people("guest", `?limit=2${cursor ? `&cursor=${cursor}` : ""}`)).body as PersonPage;
         expect(r.page.total).toBe(5);
         seen.push(...r.items.map((p) => p.name));
         cursor = r.page.nextCursor;
@@ -134,20 +134,20 @@ describe("GET /people", () => {
       expect(seen).toEqual(["Alice", "Bob", "50%_Dév", "ÉLODIE", "Zoé"]);
     });
     it("le curseur garde les filtres de la requête qui le suit", async () => {
-      const p1 = (await people("member", "?limit=1&tag=front")).body as PersonPage;
-      const p2 = await people("member", `?limit=1&tag=front&cursor=${p1.page.nextCursor}`);
+      const p1 = (await people("guest", "?limit=1&tag=front")).body as PersonPage;
+      const p2 = await people("guest", `?limit=1&tag=front&cursor=${p1.page.nextCursor}`);
       expect(names(p2)).toEqual(["Zoé"]);
       expect((p2.body as PersonPage).page.nextCursor).toBeNull();
     });
     it.each(["zz", Buffer.from('{"id":"x"}').toString("base64url")])("curseur illisible %j : 400 SCHEDULE_CURSOR_INVALID", async (c) => {
-      expect(err(await people("member", `?cursor=${c}`)).code).toBe("SCHEDULE_CURSOR_INVALID");
+      expect(err(await people("guest", `?cursor=${c}`)).code).toBe("SCHEDULE_CURSOR_INVALID");
     });
   });
 });
 
 describe("GET /people/{id}", () => {
   it("une personne avec sa version ; une désactivée se lit aussi", async () => {
-    const a = await get("member", "/api/v1/people/1");
+    const a = await get("guest", "/api/v1/people/1");
     expect(SchedulePerson.parse(a.body)).toMatchObject({ id: "1", name: "Alice", version: 1, departmentId: "1", tags: ["senior", "front"], active: true });
     expect(SchedulePerson.parse((await get("guest", "/api/v1/people/3")).body)).toMatchObject({ name: "Carol", active: false });
   });
@@ -155,10 +155,10 @@ describe("GET /people/{id}", () => {
     await send("pm", "PATCH", "/api/v1/people/2", { tags: ["x"] }).then(() => undefined);
     const patch = await dispatch(deps, { method: "PATCH", url: "/api/v1/people/2", headers: { authorization: "pm", "if-match": '"1"' }, body: JSON.stringify({ tags: ["x"] }) });
     expect(patch.status).toBe(200);
-    expect(SchedulePerson.parse((await get("member", "/api/v1/people/2")).body)).toMatchObject({ version: 2, tags: ["x"] });
+    expect(SchedulePerson.parse((await get("guest", "/api/v1/people/2")).body)).toMatchObject({ version: 2, tags: ["x"] });
   });
   it.each([["autre compte", "7"], ["inconnue", "999"], ["illisible", "abc"], ["séquence %", "%E0%A4%A"]])("%s : 404 entity person", async (_n, id) => {
-    const r = await get("member", `/api/v1/people/${id}`);
+    const r = await get("guest", `/api/v1/people/${id}`);
     expect(r.status).toBe(404);
     expect(err(r)).toMatchObject({ code: "NOT_FOUND", params: { entity: "person" } });
   });
@@ -211,35 +211,35 @@ describe("GET /people/{id}/projects", () => {
   const summary = (r: { body: unknown }) => (r.body as Page).items.map((i) => [i.project.name, i.inTeam, i.allocationCount]);
 
   it("équipe OU allocations : l'équipe n'est pas exigée pour allouer (Q-07) ; compte des lignes d'allocation", async () => {
-    const r = await projects("member", "1");
+    const r = await projects("guest", "1");
     expect(PersonProjectList.safeParse(r.body).success).toBe(true);
     // P1 : équipe + 2 allocations ; P2 : 1 allocation hors équipe ; P3 archivé exclu ; P4 sans lien
     expect(summary(r)).toEqual([["P1", true, 2], ["P2", false, 1]]);
     expect((r.body as Page).page.total).toBe(2);
   });
   it("équipe sans allocation (P4 pour Bob) et allocation sans équipe (P1 pour Bob) apparaissent", async () => {
-    expect(summary(await projects("member", "2"))).toEqual([["P1", false, 1], ["P4", true, 0]]);
+    expect(summary(await projects("guest", "2"))).toEqual([["P1", false, 1], ["P4", true, 0]]);
   });
   it("archivés exclus par défaut, listés avec status=archived ; autre statut filtré", async () => {
-    expect(summary(await projects("member", "1", "?status=archived"))).toEqual([["P3", true, 0]]);
-    expect(summary(await projects("member", "1", "?status=planned"))).toEqual([["P1", true, 2], ["P2", false, 1]]);
-    expect(summary(await projects("member", "1", "?status=on_hold"))).toEqual([]);
+    expect(summary(await projects("guest", "1", "?status=archived"))).toEqual([["P3", true, 0]]);
+    expect(summary(await projects("guest", "1", "?status=planned"))).toEqual([["P1", true, 2], ["P2", false, 1]]);
+    expect(summary(await projects("guest", "1", "?status=on_hold"))).toEqual([]);
   });
   it("personne sans projet : liste vide ; personne désactivée : garde ses projets", async () => {
-    expect((await projects("member", "5")).body).toEqual({ items: [], page: { nextCursor: null, total: 0 } });
-    expect(summary(await projects("member", "3"))).toEqual([["P2", false, 1]]);
+    expect((await projects("guest", "5")).body).toEqual({ items: [], page: { nextCursor: null, total: 0 } });
+    expect(summary(await projects("guest", "3"))).toEqual([["P2", false, 1]]);
   });
   it("pagination par projet, total stable, pas de doublon", async () => {
-    const p1 = (await projects("member", "1", "?limit=1")).body as Page;
+    const p1 = (await projects("guest", "1", "?limit=1")).body as Page;
     expect(p1.items.map((i) => i.project.name)).toEqual(["P1"]);
     expect(p1.page.total).toBe(2);
-    const p2 = (await projects("member", "1", `?limit=1&cursor=${p1.page.nextCursor}`)).body as Page;
+    const p2 = (await projects("guest", "1", `?limit=1&cursor=${p1.page.nextCursor}`)).body as Page;
     expect(p2.items.map((i) => i.project.name)).toEqual(["P2"]);
     expect(p2.page.nextCursor).toBeNull();
   });
   it("personne inconnue, d'un autre compte ou illisible : 404 ; autre compte ne voit rien des projets du compte A", async () => {
     for (const id of ["999", "7", "abc"]) {
-      const r = await projects("member", id);
+      const r = await projects("guest", id);
       expect(r.status, id).toBe(404);
       expect(err(r).params.entity).toBe("person");
     }
@@ -247,17 +247,17 @@ describe("GET /people/{id}/projects", () => {
     expect((await projects("other", "7")).body).toEqual({ items: [], page: { nextCursor: null, total: 0 } });
   });
   it.each([["status=active", "status"], ["foo=1", "foo"], ["limit=501", "limit"]])("requête invalide %s : 400", async (qs, field) => {
-    const r = await projects("member", "1", `?${qs}`);
+    const r = await projects("guest", "1", `?${qs}`);
     expect(err(r)).toMatchObject({ code: "VALIDATION_FAILED", params: { field } });
   });
   it("cursor illisible : 400 SCHEDULE_CURSOR_INVALID ; 401 sans identité", async () => {
-    expect(err(await projects("member", "1", "?cursor=zz")).code).toBe("SCHEDULE_CURSOR_INVALID");
+    expect(err(await projects("guest", "1", "?cursor=zz")).code).toBe("SCHEDULE_CURSOR_INVALID");
     expect((await projects("anon", "1")).status).toBe(401);
   });
   it("suit l'équipe : ajout puis retrait avec confirmation font apparaître puis disparaître le projet", async () => {
     expect((await send("pm", "PUT", "/api/v1/projects/4/team/5")).status).toBe(200);
-    expect(summary(await projects("member", "5"))).toEqual([["P4", true, 0]]);
+    expect(summary(await projects("guest", "5"))).toEqual([["P4", true, 0]]);
     expect((await send("pm", "POST", "/api/v1/projects/4/team/5/removal", {})).status).toBe(200);
-    expect(summary(await projects("member", "5"))).toEqual([]);
+    expect(summary(await projects("guest", "5"))).toEqual([]);
   });
 });

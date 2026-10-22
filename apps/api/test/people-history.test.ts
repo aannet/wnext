@@ -14,6 +14,7 @@ const db: Db = { transaction: (fn) => pg.transaction(async (tx) => { await tx.qu
 const roles: Record<string, RequestContext | null> = {
   admin: { accountId: "1", userId: "1", role: "admin" },
   member: { accountId: "1", userId: "1", role: "member" },
+  guest: { accountId: "1", userId: "1", role: "guest" },
   other: { accountId: "2", userId: "1", role: "admin" },
   anon: null,
 };
@@ -127,9 +128,10 @@ describe("GET /people/{id}/history (@BR-19)", () => {
     expect(err(await history(p.id, "?limit=0")).code).toBe("VALIDATION_FAILED");
   });
 
-  it("tout membre lit ; anonyme 401 ; autre compte ou id inconnu 404", async () => {
+  it("guest lit, member hors de sa personne 404 (RT-048) ; anonyme 401 ; autre compte ou id inconnu 404", async () => {
     const p = await create("Iso");
-    expect((await history(p.id, "", "member")).status).toBe(200);
+    expect((await history(p.id, "", "guest")).status).toBe(200);
+    expect((await history(p.id, "", "member")).status).toBe(404); // RT-048 : member sans personne liée
     expect((await history(p.id, "", "anon")).status).toBe(401);
     expect(err(await history(p.id, "", "other"))).toMatchObject({ code: "NOT_FOUND", params: { entity: "person" } });
     expect((await history("999999", "")).status).toBe(404);

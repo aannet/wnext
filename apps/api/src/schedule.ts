@@ -2,6 +2,7 @@ import { MAX_RANGE_DAYS } from "@wnext/engine";
 import type { ScheduleQuery, ScheduleResponse } from "@wnext/contracts";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
+import { readablePeople } from "./scope";
 import { day, idParam } from "./write";
 
 // GET /api/v1/schedule. Isolation entre comptes en deux couches : la RLS de schema.sql (rôle app_user, contexte posé par
@@ -167,6 +168,8 @@ export async function getSchedule(db: Db, ctx: RequestContext, q: ScheduleQuery)
     const where: string[] = ["p.account_id = $1"];
     const args: unknown[] = [a];
     const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
+    const readable = await readablePeople(tx, ctx); // RT-048 : un member ne voit que sa personne liée (aucune : fenêtre vide)
+    if (readable !== null) where.push(`p.id = ANY (${bind(readable)}::bigint[])`);
     if (!q.includeInactive) where.push("p.active");
     if (q.departmentId) where.push(`p.department_id = ${bind(idParam("departmentId", q.departmentId))}::bigint`);
     if (q.roleId) where.push(`p.role_id = ${bind(idParam("roleId", q.roleId))}::bigint`);

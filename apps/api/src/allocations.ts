@@ -3,6 +3,7 @@ import type { AllocationCreate, AllocationGroup, AllocationGroupCreate, Allocati
 import { SeriesSplitError, expandOccurrences, seriesEnd, splitSeries, type RepeatInput, type SeriesSplit } from "@wnext/engine";
 import { withContext, type Db, type Queryable, type RequestContext } from "./db";
 import { ApiFailure } from "./failure";
+import { readablePeople } from "./scope";
 import { assertProjectScope, assertWriter, day, idParam, invalid, isId, lockAndCheck as lockRow, notFound } from "./write";
 import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor, reader } from "./reference";
 import { ALLOCATION_COLUMNS, assertWindow, toScheduleAllocation, type Row, type ScheduleAllocation } from "./schedule";
@@ -290,7 +291,7 @@ export async function deleteAllocationGroup(db: Db, ctx: RequestContext, id: str
 // Tout membre authentifié lit (mêmes champs que GET /schedule). La RLS et `account_id` isolent les comptes.
 
 /** Lecture d'une allocation par id (avec sa version). Pas de liste globale : une liste se lit par fenêtre. */
-export const allocationReader = reader({ table: "allocations", columns: ALLOCATION_COLUMNS, entity: "allocation", map: toScheduleAllocation });
+export const allocationReader = reader({ table: "allocations", columns: ALLOCATION_COLUMNS, entity: "allocation", map: toScheduleAllocation, personColumn: "person_id" });
 
 type AllocationPage = { items: ScheduleAllocation[]; page: { nextCursor: string | null; total: number } };
 type WindowQuery = { from: string; to: string; status?: string; limit?: number; cursor?: string };
@@ -306,6 +307,8 @@ async function listWindow(db: Db, ctx: RequestContext, parent: { table: "project
   if (!isId(parent.id)) throw notFound(parent.entity);
   const otherId = other.value === undefined ? undefined : idParam(other.name, other.value);
   return withContext(db, ctx, async (tx) => {
+    const readable = await readablePeople(tx, ctx); // RT-048 : un member ne lit que les allocations de sa personne
+    if (parent.table === "people" && readable !== null && !readable.includes(parent.id)) throw notFound(parent.entity);
     if (!(await tx.query(`SELECT 1 FROM ${parent.table} WHERE id = $1::bigint AND account_id = $2::bigint`, [parent.id, ctx.accountId])).rows.length) throw notFound(parent.entity);
     const args: unknown[] = [ctx.accountId, parent.id];
     const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
@@ -314,6 +317,7 @@ async function listWindow(db: Db, ctx: RequestContext, parent: { table: "project
       `start_date <= ${bind(q.to)}::date`, `COALESCE(repeat_end_date, end_date) >= ${bind(q.from)}::date`,
       ...(otherId ? [`${other.column} = ${bind(otherId)}::bigint`] : []),
       ...(q.status ? [`status = ${bind(q.status)}::allocation_status`] : []),
+      ...(readable !== null ? [`person_id = ANY (${bind(readable)}::bigint[])`] : []),
     ];
     const total = Number((await tx.query<Row>(`SELECT count(*) AS n FROM allocations WHERE ${where.join(" AND ")}`, [...args])).rows[0]!.n);
     if (after !== undefined) where.push(`id > ${bind(after)}::bigint`);

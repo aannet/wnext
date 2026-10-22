@@ -4,6 +4,7 @@ import { withContext, type Db, type Queryable, type RequestContext } from "./db"
 import { ApiFailure } from "./failure";
 import { DEFAULT_PAGE, MAX_PAGE, decodeCursor, encodeCursor } from "./reference";
 import type { Row } from "./schedule";
+import { readablePeople } from "./scope";
 import { assertProjectScope, assertWriter, day, isId, notFound } from "./write";
 
 // Retrait d'une personne d'un projet (BR-10). La décision (récapitulatif, garde de confirmation, refus si temps verrouillés)
@@ -126,13 +127,15 @@ export async function listTeam(db: Db, ctx: RequestContext, projectId: string, q
   if (!isId(projectId)) throw notFound("project");
   return withContext(db, ctx, async (tx) => {
     if (!(await tx.query("SELECT 1 FROM projects WHERE id = $1::bigint AND account_id = $2::bigint", [projectId, ctx.accountId])).rows.length) throw notFound("project");
-    const total = Number((await tx.query<Row>("SELECT count(*) AS n FROM project_team WHERE account_id = $1::bigint AND project_id = $2::bigint", [ctx.accountId, projectId])).rows[0]!.n);
+    const readable = await readablePeople(tx, ctx); // RT-048 : un member ne voit que lui dans l'équipe (null = toute l'équipe)
+    const total = Number((await tx.query<Row>("SELECT count(*) AS n FROM project_team WHERE account_id = $1::bigint AND project_id = $2::bigint AND ($3::bigint[] IS NULL OR person_id = ANY ($3::bigint[]))", [ctx.accountId, projectId, readable])).rows[0]!.n);
     const { rows } = await tx.query<Row>(
       `SELECT t.person_id, p.name FROM project_team t
          JOIN people p ON p.id = t.person_id AND p.account_id = t.account_id
         WHERE t.account_id = $1::bigint AND t.project_id = $2::bigint AND ($3::bigint IS NULL OR t.person_id > $3::bigint)
+          AND ($5::bigint[] IS NULL OR t.person_id = ANY ($5::bigint[]))
         ORDER BY t.person_id LIMIT $4::int`,
-      [ctx.accountId, projectId, after ?? null, n + 1],
+      [ctx.accountId, projectId, after ?? null, n + 1, readable],
     );
     const page = rows.slice(0, n);
     return {
