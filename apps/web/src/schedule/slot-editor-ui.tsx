@@ -12,7 +12,7 @@
 //    existant ni pendant l'avertissement BR-04.
 //  * Portée (RT-042, PO-08) : une série s'ouvre sur l'occurrence cliquée (ses dates). À l'enregistrement, une étape du
 //    drawer demande « Cette occurrence » (découpe BR-25, non annulable : annoncé) ou « Toute la série » (dates décalées
-//    d'autant) ; une ligne de groupe (BR-26), « Cette ligne » ou « Tout le groupe » (PATCH de groupe, annulable ligne par
+//    d'autant, fin de série comprise ; série mensuelle : seulement depuis sa première occurrence) ; une ligne de groupe (BR-26), « Cette ligne » ou « Tout le groupe » (PATCH de groupe, annulable ligne par
 //    ligne ; indisponible, avec la raison, si la personne ou la charge change aussi). Rien qui dépende de la portée : pas
 //    d'étape. Radio choisi focalisé à l'entrée ; Échap ou Retour revient au formulaire.
 //  * Échap, clic sur le voile ou Annuler : rien n'est écrit ; l'appelant retire le bloc provisoire et rend le focus
@@ -22,7 +22,7 @@ import type { I18n } from "@lingui/core";
 import type { Me, ProjectDetail, ProjectTask, ScheduleResponse } from "@wnext/contracts";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AllocationCreate } from "../api/client.gen";
-import { patched, type Allocation, type ScheduleEditor } from "../data/allocation-edits";
+import { patched, type Allocation, type GroupEditOutcome, type ScheduleEditor } from "../data/allocation-edits";
 import type { ProjectsResult, ProjectPatchInput } from "../data/projects-source";
 import { groupMembers } from "../data/record-edits";
 import type { GroupOutcome, ScheduleSource } from "../data/schedule-source";
@@ -67,8 +67,8 @@ export interface SlotEditorOptions {
 }
 
 type Tab = "allocation" | "timeoff";
-/** Étape de portée (RT-042) : plan des écritures et choix courant. */
-interface ScopeStep { plan: ScopePlan; value: SlotScope }
+/** Étape de portée (RT-042) : plan des écritures et choix courant (null : aucun choix disponible, Confirmer désactivé). */
+interface ScopeStep { plan: ScopePlan; value: SlotScope | null }
 /**
  * `initial` : brouillon à l'ouverture, repère du formulaire modifié (Q7). `occ` : occurrence ouverte d'une série (null
  * sinon). `scope` : étape de portée affichée (null : formulaire).
@@ -169,8 +169,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
     if (issues.length) { show({ ...s, tried: true }); return; }
     if (current) {
       const plan = scopePlan(current, s.occ, s.draft, writer().updateAllocationGroup !== undefined);
-      const first = plan.options.find((x) => x.blocked === null);
-      if (first) show({ ...s, scope: { plan, value: first.scope } });
+      if (plan.options.length > 0) show({ ...s, scope: { plan, value: plan.options.find((x) => x.blocked === null)?.scope ?? null } });
       else if (Object.keys(plan.patch).length === 0) finish();
       else await write(s, current, plan, s.occ ? "series" : "line");
       return;
@@ -213,6 +212,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
         : scope === "group" ? await w.updateAllocationGroup!(a.id, plan.patch)
         : await w.updateAllocation(a.id, plan.patch);
       if (!out.ok) { show({ ...s, scope: null, error: t(slotErrorKey(out.error)) }); return; }
+      const written = scope === "group" ? out as Extract<GroupEditOutcome, { ok: true }> : null;
       // Surcharge (BR-01, signalée) sur l'état d'avant l'écriture, à la portée écrite.
       const over = scope === "group"
         ? lines.filter((x) => editWarnings(state, patched(x, plan.patch)).includes("OVERLOAD")).map((x) => x.personId)
@@ -220,7 +220,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
           .includes("OVERLOAD") ? [plan.patch.personId ?? a.personId] : [];
       const warning = over.length ? [t("schedule.slot.overload", { people: over.map(nameOf).join(", "), count: over.length })] : [];
       const saved = scope === "occurrence" ? [t("schedule.slot.saved.occurrence"), ...(o.history ? [t("schedule.edit.split.notUndoable")] : [])]
-        : scope === "group" ? [t("schedule.slot.saved.group", { count: lines.length })]
+        : written ? [t(written.unknown.length > 0 && o.history ? "schedule.slot.saved.group.notUndoable" : "schedule.slot.saved.group", { count: written.before.length + written.unknown.length })]
         : [t("schedule.slot.saved")];
       optsRef.current.announce([...saved, ...warning].join(" "));
       finish({ personId: s.draft.personIds[0]!, startDate: s.draft.startDate, endDate: s.draft.endDate });
@@ -262,12 +262,13 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
             </div>
           ))}
         </RadioGroup>
+        {step.value === null && <p role="status" className="m-0 mt-2">{t("schedule.slot.scope.none")}</p>}
       </fieldset>
     );
     const footer = (
       <>
         <Button onClick={back}>{t("schedule.slot.scope.back")}</Button>
-        <Button variant="primary" onClick={() => void write(s, a, step.plan, step.value)}>{t("schedule.slot.scope.confirm")}</Button>
+        <Button variant="primary" disabled={step.value === null} onClick={() => { if (step.value) void write(s, a, step.plan, step.value); }}>{t("schedule.slot.scope.confirm")}</Button>
       </>
     );
     return { body, footer };

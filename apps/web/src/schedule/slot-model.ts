@@ -101,8 +101,11 @@ export function editPatch(a: Allocation, d: SlotDraft): AllocationEdit {
 }
 
 export type SlotScope = "occurrence" | "series" | "line" | "group";
-/** Choix indisponible : occurrence non découpable (raison du moteur) ou groupe avec personne / charge changées (per_line). */
-export type ScopeBlocker = "overlapping" | "monthly_clamped" | "other" | "per_line";
+/**
+ * Choix indisponible : occurrence non découpable (raison du moteur), groupe avec personne / charge changées (per_line),
+ * série mensuelle déplacée depuis une autre occurrence que la première (monthly_dates).
+ */
+export type ScopeBlocker = "overlapping" | "monthly_clamped" | "other" | "per_line" | "monthly_dates";
 export interface ScopeOption { scope: SlotScope; blocked: ScopeBlocker | null }
 export interface ScopePlan {
   /** Patch de l'allocation : toute la série, la ligne, ou chaque ligne du groupe. */
@@ -118,7 +121,8 @@ const PER_LINE = ["personId", "hoursPerDay", "percent", "mode"] as const;
 /**
  * Portée d'une édition (RT-042, PO-08). Le brouillon est comparé à ce qu'affichait la pop-in (l'occurrence pour une série) :
  *  * série : « cette occurrence » (découpe, BR-25 ; indisponible si le moteur ne sait pas la découper) ou « toute la série »,
- *    dont les dates bougent d'autant que celles de l'occurrence (comme un geste) ;
+ *    dont les dates bougent d'autant que celles de l'occurrence, fin de série comprise (comme un geste) ; une série
+ *    mensuelle ne se déplace que depuis sa première occurrence ;
  *  * ligne d'un groupe (BR-26), si l'éditeur sait écrire un groupe (`group`) et qu'un champ commun change : « cette ligne »
  *    ou « tout le groupe ». Le PATCH de groupe ne porte ni personne ni charge (propres à chaque ligne) : si l'une d'elles
  *    change aussi, « tout le groupe » est indisponible (rien n'est appliqué en partie). Personne ou charge seules : la ligne,
@@ -129,18 +133,26 @@ export function scopePlan(a: Allocation, occ: SlotOccurrence | null, d: SlotDraf
   const diff = editPatch(shown, d);
   if (Object.keys(diff).length === 0) return { patch: {}, occurrencePatch: occ && {}, options: [] };
   const patch: AllocationEdit = { ...diff };
-  if (occ && diff.startDate !== undefined) patch.startDate = addDays(a.startDate, dayNumber(diff.startDate) - dayNumber(occ.startDate));
-  if (occ && diff.endDate !== undefined) patch.endDate = addDays(a.endDate, dayNumber(diff.endDate) - dayNumber(occ.endDate));
+  const ds = occ && diff.startDate !== undefined ? dayNumber(diff.startDate) - dayNumber(occ.startDate) : 0;
+  const de = occ && diff.endDate !== undefined ? dayNumber(diff.endDate) - dayNumber(occ.endDate) : 0;
+  if (ds !== 0) patch.startDate = addDays(a.startDate, ds);
+  if (de !== 0) patch.endDate = addDays(a.endDate, de);
+  // Comme les gestes (applyGesture) : déplacée, la série emporte sa fin ; étirée, la fin ne suit que si le bloc la dépasse.
+  if (occ && a.repeatEndDate !== null && ds !== 0 && ds === de) patch.repeatEndDate = addDays(a.repeatEndDate, ds);
+  else if (occ && a.repeatEndDate !== null && patch.endDate !== undefined && patch.endDate > a.repeatEndDate) patch.repeatEndDate = patch.endDate;
+  // Série mensuelle : un décalage en jours depuis une autre occurrence que la première n'est pas réversible (fins de mois
+  // ramenées) ; toute la série ne se déplace que depuis sa première occurrence (dates d'origine, aucun calcul).
+  const monthly = occ !== null && a.repeatState === "monthly" && occ.index > 0 && (ds !== 0 || de !== 0);
   const options: ScopeOption[] = [];
   if (occ) {
     const split = localSplit(a, occ.index, diff, (n) => `scope-${n}`);
     const blocked: ScopeBlocker | null = split.ok ? null : split.reason === "overlapping" || split.reason === "monthly_clamped" ? split.reason : "other";
-    options.push({ scope: "occurrence", blocked }, { scope: "series", blocked: null });
+    options.push({ scope: "occurrence", blocked }, { scope: "series", blocked: monthly ? "monthly_dates" : null });
   }
   const common = Object.keys(diff).some((k) => !(PER_LINE as readonly string[]).includes(k));
   if (a.groupId !== null && group && common) {
     if (!occ) options.push({ scope: "line", blocked: null });
-    options.push({ scope: "group", blocked: PER_LINE.some((k) => diff[k] !== undefined) ? "per_line" : null });
+    options.push({ scope: "group", blocked: PER_LINE.some((k) => diff[k] !== undefined) ? "per_line" : monthly ? "monthly_dates" : null });
   }
   return { patch, occurrencePatch: occ ? diff : null, options };
 }

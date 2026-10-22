@@ -290,10 +290,36 @@ describe("portée à l'enregistrement : série et groupe (RT-042, PO-08)", () =>
     await submit();
     await pick("Toute la série");
     await click("Confirmer");
-    expect(rows(src)).toEqual(["2026-10-21..2026-10-21 daily->2026-10-23 8h p1"]);
+    // La fin de série suit le déplacement (comme un geste) : la série garde ses quatre occurrences.
+    expect(rows(src)).toEqual(["2026-10-21..2026-10-21 daily->2026-10-24 8h p1"]);
     expect(notice()).toBe("Allocation modifiée. Ctrl+Z annule.");
     await act(async () => { await history.undo(); });
     expect(rows(src)).toEqual(["2026-10-20..2026-10-20 daily->2026-10-23 8h p1"]);
+  });
+
+  it("série mensuelle, dates d'une occurrence changées : « Toute la série » indisponible avec la raison ; « Cette occurrence » reste possible", async () => {
+    const { src } = mount([alloc("m", { startDate: "2026-09-21", endDate: "2026-09-21", repeatState: "monthly", repeatEndDate: "2027-01-31" })]);
+    await dblclick(block("m:1"));
+    type(field("Du"), "2026-10-22");
+    type(field("Au"), "2026-10-22");
+    await submit();
+    expect(radio("Toute la série")!.getAttribute("aria-disabled")).toBe("true");
+    expect(dialog()!.textContent).toContain("Indisponible : une série mensuelle ne se déplace que depuis sa première occurrence.");
+    expect(checked()).toBe("Cette occurrence");
+    await click("Confirmer");
+    expect(rows(src)).toContain("2026-10-22..2026-10-22 - 8h p1");
+  });
+
+  it("aucun choix possible (série mensuelle aux blocs chevauchants, dates changées) : l'étape le dit, Confirmer est désactivé", async () => {
+    const { src } = mount([alloc("m", { startDate: "2026-09-21", endDate: "2026-10-30", repeatState: "monthly", repeatEndDate: "2027-01-31" })]);
+    await dblclick(block("m:1"));
+    expect([field("Du").value, field("Au").value]).toEqual(["2026-10-21", "2026-11-30"]);
+    type(field("Du"), "2026-10-22");
+    await submit();
+    expect([radio("Cette occurrence")!.getAttribute("aria-disabled"), radio("Toute la série")!.getAttribute("aria-disabled")]).toEqual(["true", "true"]);
+    expect(dialog()!.querySelector("[role=status]")?.textContent).toBe("Aucun choix possible pour cette modification : revenez au formulaire pour l’ajuster.");
+    expect(button("Confirmer")!.disabled).toBe(true);
+    expect(src.getState().data!.allocations).toHaveLength(1);
   });
 
   it("Échap ou Retour dans l'étape : retour au formulaire, sans question ni écriture ; rien de changé : pas d'étape", async () => {

@@ -81,6 +81,40 @@ describe("portée d'une série et d'un groupe (RT-042, PO-08)", () => {
     });
   });
 
+  it("« toute la série » déplacée : la fin de série suit d'autant (comme un geste) ; étirée : elle reste", () => {
+    const daily = alloc({ startDate: "2026-10-20", endDate: "2026-10-20", repeatState: "daily", repeatEndDate: "2026-10-23" });
+    const occ = occurrenceOf(daily, 1);
+    expect(scopePlan(daily, occ, { ...editDraft(daily, occ), startDate: "2026-10-22", endDate: "2026-10-22" }, true).patch)
+      .toEqual({ startDate: "2026-10-21", endDate: "2026-10-21", repeatEndDate: "2026-10-24" });
+    const occ1 = occurrenceOf(series, 1);
+    expect(scopePlan(series, occ1, { ...editDraft(series, occ1), startDate: "2026-10-28", endDate: "2026-10-30" }, true).patch)
+      .toEqual({ startDate: "2026-10-21", endDate: "2026-10-23" });
+  });
+
+  it("série mensuelle : « toute la série » indisponible si les dates d'une occurrence autre que la première changent ; autres champs ou première occurrence : disponible", () => {
+    const monthly = alloc({ startDate: "2026-09-21", endDate: "2026-09-21", repeatState: "monthly", repeatEndDate: "2027-01-31" });
+    const occ = occurrenceOf(monthly, 1);
+    expect(occ).toEqual({ index: 1, startDate: "2026-10-21", endDate: "2026-10-21" });
+    expect(scopePlan(monthly, occ, { ...editDraft(monthly, occ), startDate: "2026-10-22", endDate: "2026-10-22" }, true).options)
+      .toEqual([{ scope: "occurrence", blocked: null }, { scope: "series", blocked: "monthly_dates" }]);
+    expect(scopePlan(monthly, occ, { ...editDraft(monthly, occ), notes: "x" }, true).options)
+      .toEqual([{ scope: "occurrence", blocked: null }, { scope: "series", blocked: null }]);
+    const first = occurrenceOf(monthly, 0);
+    expect(scopePlan(monthly, first, { ...editDraft(monthly, first), startDate: "2026-09-22", endDate: "2026-09-22" }, true)).toMatchObject({
+      patch: { startDate: "2026-09-22", endDate: "2026-09-22", repeatEndDate: "2027-02-01" },
+      options: [{ scope: "occurrence", blocked: null }, { scope: "series", blocked: null }],
+    });
+    // Fin de mois ramenée et dates changées : aucun choix possible (l'étape le dit, Confirmer est désactivé).
+    const clamped = alloc({ startDate: "2026-01-31", endDate: "2026-01-31", repeatState: "monthly", repeatEndDate: "2026-06-30" });
+    const march = occurrenceOf(clamped, 2);
+    expect(march).toEqual({ index: 2, startDate: "2026-03-31", endDate: "2026-03-31" });
+    expect(scopePlan(clamped, march, { ...editDraft(clamped, march), startDate: "2026-03-30", endDate: "2026-03-30" }, true).options)
+      .toEqual([{ scope: "occurrence", blocked: "monthly_clamped" }, { scope: "series", blocked: "monthly_dates" }]);
+    const g = { ...monthly, groupId: "G" };
+    expect(scopePlan(g, occ, { ...editDraft(g, occ), startDate: "2026-10-22", endDate: "2026-10-22", status: "tentative" }, true).options.at(-1))
+      .toEqual({ scope: "group", blocked: "monthly_dates" });
+  });
+
   it("série non découpable (blocs qui se chevauchent) : « cette occurrence » indisponible, avec la raison", () => {
     const daily = alloc({ repeatState: "daily", repeatEndDate: "2026-10-30" });
     const occ = occurrenceOf(daily, 2);
