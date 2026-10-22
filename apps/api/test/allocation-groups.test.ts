@@ -312,6 +312,23 @@ describe("DELETE /allocations/{id}/group — « tous »", () => {
     expect(await n(`SELECT count(*) AS n FROM allocations WHERE group_id = '${g.groupId}'`)).toBe(0);
   });
 
+  it("Prefer: return=representation : 200 avec TOUTES les lignes supprimées, état d'avant (lignes divergentes comprises) ; sinon 204", async () => {
+    const g = await create({ ...base, load: h(1), members: [{ personId: "1" }, { personId: "2" }, { personId: "3" }] });
+    // Une ligne a divergé (« celle-ci ») : autre projet et autres dates, toujours dans le groupe.
+    await send("pm", "PATCH", `/api/v1/allocations/${g.items[1]!.id}`, { projectId: "2", startDate: "2027-01-04", endDate: "2027-01-05" }, 1);
+    const before = await Promise.all(g.items.map((a) => row(a.id)));
+    const r = await dispatch(deps, { method: "DELETE", url: `/api/v1/allocations/${g.items[0]!.id}/group`, headers: { authorization: "pm", "if-match": "\"1\"", prefer: "return=representation" }, body: undefined });
+    expect(r.status).toBe(200);
+    const out = AllocationGroup.parse(r.body);
+    expect(out.groupId).toBe(g.groupId);
+    expect(out.items).toEqual(before);
+    expect(await n(`SELECT count(*) AS n FROM allocations WHERE group_id = '${g.groupId}'`)).toBe(0);
+    // Autre valeur de Prefer : ignorée (RFC 7240), 204.
+    const g2 = await create({ ...base, load: h(1), members: [{ personId: "1" }, { personId: "2" }] });
+    const r2 = await dispatch(deps, { method: "DELETE", url: `/api/v1/allocations/${g2.items[0]!.id}/group`, headers: { authorization: "pm", "if-match": "\"1\"", prefer: "return=minimal" }, body: undefined });
+    expect([r2.status, r2.body]).toEqual([204, undefined]);
+  });
+
   it("supprimée une fois, la seconde demande est un 404 allocation", async () => {
     const g = await create({ ...base, load: h(1), members: [{ personId: "1" }, { personId: "2" }] });
     expect((await send("pm", "DELETE", `/api/v1/allocations/${g.items[0]!.id}/group`, undefined, 1)).status).toBe(204);

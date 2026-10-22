@@ -308,8 +308,11 @@ export async function dispatch(deps: HttpDeps, req: HttpRequest): Promise<HttpRe
       try { id = decodeURIComponent(allocationGroup[1]!); } catch { id = "%"; }
       const version = expectedVersion(req.headers);
       if (req.method === "DELETE") {
-        await onConflictNotify(deps, ctx, requestId, "allocations", id, () => deleteAllocationGroup(deps.db, ctx, id, version));
-        return { status: 204, body: undefined };
+        const deleted = await onConflictNotify(deps, ctx, requestId, "allocations", id, () => deleteAllocationGroup(deps.db, ctx, id, version));
+        // RFC 7240 : seule la préférence return=representation change la réponse (lignes supprimées, état d'avant ; RT-047).
+        const prefer = req.headers.prefer;
+        const representation = (Array.isArray(prefer) ? prefer.join(",") : prefer ?? "").split(",").some((x) => x.trim().toLowerCase() === "return=representation");
+        return representation ? { status: 200, body: deleted } : { status: 204, body: undefined };
       }
       const patch = parseJsonBody(AllocationGroupPatch, req.body);
       return { status: 200, body: await onConflictNotify(deps, ctx, requestId, "allocations", id, () => updateAllocationGroup(deps.db, ctx, id, version, patch)) };

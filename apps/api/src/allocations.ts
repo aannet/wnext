@@ -277,13 +277,15 @@ export async function updateAllocationGroup(db: Db, ctx: RequestContext, id: str
   });
 }
 
-export async function deleteAllocationGroup(db: Db, ctx: RequestContext, id: string, expectedVersion: number): Promise<void> {
+/** Supprime toutes les lignes du groupe ; rend les lignes supprimées telles qu'avant (lues sous le verrou : liste exhaustive, RT-047). */
+export async function deleteAllocationGroup(db: Db, ctx: RequestContext, id: string, expectedVersion: number): Promise<AllocationGroup> {
   assertWriter(ctx);
-  await withContext(db, ctx, async (tx) => {
+  return withContext(db, ctx, async (tx) => {
     const { groupId, rows } = await lockGroup(tx, ctx, id, expectedVersion);
     await assertProjectScope(tx, ctx, ...rows.map((r) => String(r.project_id)));
     const del = await tx.query("DELETE FROM allocations WHERE group_id = $1::uuid AND account_id = $2::bigint RETURNING id", [groupId, ctx.accountId]);
     if (del.rows.length !== rows.length) throw new ApiFailure("VERSION_CONFLICT", { currentVersion: expectedVersion + 1 }); // filet : les lignes sont verrouillées
+    return { groupId, items: rows.map(toScheduleAllocation) };
   });
 }
 
