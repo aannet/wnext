@@ -1,6 +1,7 @@
 // Bouton shadcn/ui (style base-nova, socle Base UI, ADR-010), adapté aux tokens WNEXT : couleurs par les alias sémantiques
 // de tokens.css, tailles sur --control-*, corps de texte --text-body. Variante « destructive » pleine (texte blanc, 5,9:1)
-// plutôt que teintée, pour garder la lisibilité des confirmations BR-04 / BR-10 / BR-31.
+// plutôt que teintée, pour garder la lisibilité des confirmations BR-04 / BR-10 / BR-31. Variante « link » : le nom d'une ligne de
+// tableau (projet, personne) qui ouvre sa fiche, sans cadre ni marge, souligné au survol.
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
@@ -14,6 +15,7 @@ export const buttonVariants = cva(
         outline: "border-input bg-background text-foreground hover:bg-muted aria-expanded:bg-muted aria-pressed:border-foreground aria-pressed:bg-muted aria-pressed:font-semibold",
         ghost: "bg-transparent text-foreground hover:bg-muted aria-expanded:bg-muted",
         destructive: "border-destructive bg-destructive text-destructive-foreground hover:border-destructive-hover hover:bg-destructive-hover",
+        link: "justify-start gap-2 bg-transparent text-left font-medium whitespace-normal text-foreground hover:underline",
       },
       size: {
         default: "min-h-(--control-default) px-3",
@@ -21,6 +23,7 @@ export const buttonVariants = cva(
         icon: "size-(--control-default) p-0",
       },
     },
+    compoundVariants: [{ variant: "link", className: "min-h-0 border-0 p-0" }],
     defaultVariants: { variant: "default", size: "default" },
   },
 );

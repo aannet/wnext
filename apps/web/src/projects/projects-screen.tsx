@@ -166,11 +166,11 @@ function ProjectTable({ i18n, projects, clients, currentId, onOpen }: { i18n: I1
         {projects.map((p) => (
           <tr key={p.id} data-current={p.id === currentId || undefined}>
             <th scope="row">
-              <button type="button" className="wn-link-button" aria-expanded={p.id === currentId} {...(p.id === currentId ? { "aria-current": "true" as const } : {})}
+              <Button variant="link" aria-expanded={p.id === currentId} {...(p.id === currentId ? { "aria-current": "true" as const } : {})}
                 onClick={(e) => onOpen(p, e.currentTarget)}>
                 <span className="wn-dot" aria-hidden="true" style={{ background: p.color }} />
                 {p.name}
-              </button>
+              </Button>
             </th>
             <td>{p.projectCode ?? ""}</td>
             <td>{clientName(clients, p.clientId)}</td>

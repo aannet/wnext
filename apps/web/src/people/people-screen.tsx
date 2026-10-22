@@ -156,11 +156,11 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
                   return (
                     <tr key={x.id} data-current={current || undefined}>
                       <th scope="row">
-                        <button type="button" className="wn-link-button" aria-expanded={current} onClick={(e) => open({ kind: "person", id: x.id }, e.currentTarget)}>
+                        <Button variant="link" aria-expanded={current} onClick={(e) => open({ kind: "person", id: x.id }, e.currentTarget)}>
                           <span className="wn-avatar" aria-hidden="true">{initialsOf(x.name)}</span>
                           {x.name}
                           {!x.active && <span className="wn-tag">{t("people.inactive")}</span>}
-                        </button>
+                        </Button>
                       </th>
                       <td>{refName(roleList, x.roleId)}</td>
                       <td>{refName(deptList, x.departmentId)}</td>
