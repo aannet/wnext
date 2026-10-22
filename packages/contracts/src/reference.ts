@@ -101,6 +101,13 @@ export const ProjectDetail = ScheduleProject.extend({
   clientId: orNull(Id),
   tags: z.array(z.string()),
   notes: z.string().nullable(),
+  managerUserIds: z
+    .array(Id)
+    .describe(
+      "Co-gestionnaires du projet (BR-33) : user_id des utilisateurs de project_managers, triés, liste vide possible. " +
+        "Distinct de projectManagerId, qui désigne une personne planifiable (people). Un project_manager écrit le projet " +
+        "si projectManagerId est sa personne ou si son user_id figure ici ; l'API reste juge.",
+    ),
 }).meta({ id: "ProjectDetail" });
 
 export const ProjectList = pageOf(ProjectDetail, "ProjectList");

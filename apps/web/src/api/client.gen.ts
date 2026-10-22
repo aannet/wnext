@@ -700,6 +700,7 @@ export interface ProjectDetail {
   clientId: Id | null;
   tags: Array<string>;
   notes: string | null;
+  managerUserIds: Array<Id>;
 }
 
 export interface ProjectCreate {

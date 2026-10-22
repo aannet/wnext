@@ -3506,6 +3506,13 @@
               "string",
               "null"
             ]
+          },
+          "managerUserIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "Co-gestionnaires du projet (BR-33) : user_id des utilisateurs de project_managers, triés, liste vide possible. Distinct de projectManagerId, qui désigne une personne planifiable (people). Un project_manager écrit le projet si projectManagerId est sa personne ou si son user_id figure ici ; l'API reste juge."
           }
         },
         "required": [
@@ -3521,7 +3528,8 @@
           "projectManagerId",
           "clientId",
           "tags",
-          "notes"
+          "notes",
+          "managerUserIds"
         ]
       },
       "ProjectCreate": {

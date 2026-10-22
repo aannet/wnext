@@ -49,7 +49,16 @@ describe("projets", () => {
     expect(ok(ScheduleProject, p)).toBe(true);
     expect(ok(ScheduleProject, { ...p, startDate: undefined })).toBe(false); // bornes toujours présentes (BR-37 côté client)
     expect(ok(ProjectDetail, p)).toBe(false);
-    expect(ok(ProjectDetail, { ...p, projectManagerId: null, clientId: null, tags: [], notes: null })).toBe(true);
+    expect(ok(ProjectDetail, { ...p, projectManagerId: null, clientId: null, tags: [], notes: null, managerUserIds: [] })).toBe(true);
+  });
+  it("ProjectDetail : managerUserIds (user_id des co-gestionnaires) requis, liste vide possible, ids non vides (RT-039)", () => {
+    const d = { id: "1", version: 1, name: "P", projectCode: null, color: "#3B82F6", status: "planned", nonBillable: false, startDate: null, endDate: null, projectManagerId: "7", clientId: null, tags: [], notes: null };
+    expect(ok(ProjectDetail, d)).toBe(false);
+    expect(ok(ProjectDetail, { ...d, managerUserIds: ["3", "12"] })).toBe(true);
+    expect(ok(ProjectDetail, { ...d, managerUserIds: [""] })).toBe(false);
+    expect(ok(ProjectDetail, { ...d, managerUserIds: null })).toBe(false);
+    expect(ok(ScheduleProject, { ...d, managerUserIds: ["3"] })).toBe(true); // la grille ne le porte pas (champ ignoré)
+    expect(Object.keys(ScheduleProject.shape)).not.toContain("managerUserIds");
   });
 });
 
