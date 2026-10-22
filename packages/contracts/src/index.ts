@@ -6,7 +6,7 @@ export { AccountLocale, AccountPatch, AccountSettings } from "./account";
 export { routes } from "./routes";
 export type { RouteContract } from "./routes";
 export { Id, IsoDate, Version } from "./common";
-export { AllocationCreate, AllocationGroup, AllocationGroupCreate, AllocationGroupMax, AllocationGroupPatch, AllocationLoad, AllocationPatch, AllocationPathParams, AllocationSplit, AllocationSplitResult, IfMatchHeader, OccurrencePatch, PersonAllocationList, PersonAllocationListQuery, ProjectAllocationList, ProjectAllocationListQuery, ProjectPathParams } from "./allocations";
+export { AllocationCreate, AllocationGroup, AllocationGroupCreate, AllocationGroupMax, AllocationGroupPatch, AllocationLoad, AllocationPatch, AllocationPathParams, AllocationSplit, AllocationSplitResult, GroupDeleteHeaders, IfMatchHeader, OccurrencePatch, PersonAllocationList, PersonAllocationListQuery, ProjectAllocationList, ProjectAllocationListQuery, ProjectPathParams } from "./allocations";
 export {
   ScheduleAccount, ScheduleAllocation, ScheduleDepartment, ScheduleHoliday, SchedulePage, SchedulePeopleType,
   SchedulePerson, SchedulePhase, ScheduleProject, ScheduleQuery, ScheduleResponse, ScheduleRole, ScheduleTimeoff, ScheduleTimeoffType,

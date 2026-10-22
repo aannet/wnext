@@ -6378,9 +6378,32 @@
             "description": "Version lue dans le Schedule, entre guillemets : \"3\"",
             "name": "If-Match",
             "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "return=representation"
+              ],
+              "description": "Facultatif : 200 avec les lignes supprimées (état d'avant) au lieu de 204"
+            },
+            "required": false,
+            "description": "Facultatif : 200 avec les lignes supprimées (état d'avant) au lieu de 204",
+            "name": "Prefer",
+            "in": "header"
           }
         ],
         "responses": {
+          "200": {
+            "description": "Groupe supprime, avec Prefer: return=representation : toutes les lignes supprimees, etat d'avant la suppression",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationGroup"
+                }
+              }
+            }
+          },
           "204": {
             "description": "Groupe supprime (toutes les lignes ; journalise dans delete_log, BR-14)"
           },

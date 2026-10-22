@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { AllocationCreate, AllocationGroup, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationPathParams, AllocationSplit, AllocationSplitResult, IfMatchHeader, PersonAllocationList, PersonAllocationListQuery, ProjectAllocationList, ProjectAllocationListQuery, ProjectPathParams } from "./allocations";
+import { AllocationCreate, AllocationGroup, AllocationGroupCreate, AllocationGroupPatch, AllocationPatch, AllocationPathParams, AllocationSplit, AllocationSplitResult, GroupDeleteHeaders, IfMatchHeader, PersonAllocationList, PersonAllocationListQuery, ProjectAllocationList, ProjectAllocationListQuery, ProjectPathParams } from "./allocations";
 import {
   ProjectBudgetLine, ProjectBudgetLineCreate, ProjectBudgetLineList, ProjectBudgetLineListQuery, ProjectBudgetLinePatch,
   ProjectExpense, ProjectExpenseCreate, ProjectExpenseList, ProjectExpenseListQuery, ProjectExpensePatch,
@@ -266,8 +266,9 @@ export const routes: RouteContract[] = [
     operationId: "deleteAllocationGroup",
     summary: "Supprimer TOUTES les lignes du groupe de l'allocation (verrou optimiste sur la ligne designee)",
     params: AllocationPathParams,
-    headers: IfMatchHeader,
+    headers: GroupDeleteHeaders,
     responses: {
+      200: { description: "Groupe supprime, avec Prefer: return=representation : toutes les lignes supprimees, etat d'avant la suppression", schema: AllocationGroup },
       204: { description: "Groupe supprime (toutes les lignes ; journalise dans delete_log, BR-14)" },
       400: { description: "En-tete invalide (VALIDATION_FAILED)", schema: ApiError },
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },

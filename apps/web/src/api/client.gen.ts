@@ -1246,12 +1246,13 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       };
       headers: {
         "If-Match": string;
+        Prefer?: "return=representation";
       };
-    }): Promise<ApiResult<void, ApiError>> {
+    }): Promise<ApiResult<AllocationGroup | void, ApiError>> {
       const res = await options.fetch(options.baseUrl + "/api/v1/allocations/" + encodeURIComponent(String(input.path.id)) + "/group", { method: "DELETE", headers: { accept: "application/json", ...input.headers } });
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
-        ? { ok: true, status: res.status, data: body as void }
+        ? { ok: true, status: res.status, data: body as AllocationGroup | void }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Creer une allocation (la sur-allocation n'est jamais refusee, BR-01) (POST /api/v1/allocations) */

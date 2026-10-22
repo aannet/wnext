@@ -26,7 +26,9 @@ import { SchedulePage, ScheduleAllocation } from "./schedule";
 //        les lignes du groupe sont verrouillées dans la même transaction, la précondition est contrôlée sur la ligne désignée seule, et
 //        chaque ligne reçoit les modifications communes SUR SA PROPRE VALEUR ACTUELLE (une date non citée reste celle de la ligne).
 //        Seuls les champs communs sont acceptables (`personId` et `load` propres à chaque ligne : 400 VALIDATION_FAILED, corps strict).
-//        PATCH répond `{ groupId, items }` (toutes les lignes, par id) ; DELETE répond 204 (supprime toutes les lignes du groupe).
+//        PATCH répond `{ groupId, items }` (toutes les lignes, par id) ; DELETE répond 204 (supprime toutes les lignes du groupe), ou,
+//        avec `Prefer: return=representation` (RFC 7240), 200 `{ groupId, items }` : TOUTES les lignes supprimées, telles qu'avant la
+//        suppression (liste exhaustive, lue sous le même verrou ; le client recrée chacune pour annuler, RT-047).
 //        Allocation sans groupe : 404 NOT_FOUND (params.entity = allocation_group).
 //      - Un congé n'affecte que la ligne de la personne concernée (BR-05) : rien à faire ici, les lignes sont indépendantes.
 //  * Hors périmètre de ce contrat (à venir) : déplacement par lot, suppression en cascade d'équipe (BR-10, avec récapitulatif et
@@ -97,6 +99,11 @@ export const AllocationPathParams = z.object({ id: Id });
 // ETag fort : la version entre guillemets, ex. "3".
 export const IfMatchHeader = z.object({
   "If-Match": z.string().regex(/^"\d+"$/).describe('Version lue dans le Schedule, entre guillemets : "3"'),
+});
+
+// DELETE /allocations/{id}/group : `Prefer: return=representation` demande les lignes supprimées (200) au lieu de 204 (RT-047).
+export const GroupDeleteHeaders = IfMatchHeader.extend({
+  Prefer: z.literal("return=representation").optional().describe("Facultatif : 200 avec les lignes supprimées (état d'avant) au lieu de 204"),
 });
 
 // --- Lecture ---
