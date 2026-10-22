@@ -1,0 +1,45 @@
+{
+  "$comment": "Exceptions relues de check:breaking (voir packages/contracts/README.md). Une entree ne couvre qu'un $ref renomme a l'emplacement exact, et seulement si le nouveau schema est l'ancien plus des proprietes facultatives.",
+  "exceptions": [
+    {
+      "method": "get",
+      "path": "/api/v1/people",
+      "status": "200",
+      "at": ".items[]",
+      "from": "#/components/schemas/SchedulePerson",
+      "to": "#/components/schemas/PersonDetail",
+      "reason": "SchedulePerson -> PersonDetail : memes champs, memes required, plus `access` facultatif (servi aux owner, admin et project_manager) ; le JSON recu par un client existant reste valide",
+      "rt": "RT-040"
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/people/{id}",
+      "status": "200",
+      "at": "",
+      "from": "#/components/schemas/SchedulePerson",
+      "to": "#/components/schemas/PersonDetail",
+      "reason": "SchedulePerson -> PersonDetail : memes champs, memes required, plus `access` facultatif (servi aux owner, admin et project_manager) ; le JSON recu par un client existant reste valide",
+      "rt": "RT-040"
+    },
+    {
+      "method": "post",
+      "path": "/api/v1/people",
+      "status": "201",
+      "at": "",
+      "from": "#/components/schemas/SchedulePerson",
+      "to": "#/components/schemas/PersonDetail",
+      "reason": "SchedulePerson -> PersonDetail : memes champs, memes required, plus `access` facultatif (servi aux owner, admin et project_manager) ; le JSON recu par un client existant reste valide",
+      "rt": "RT-040"
+    },
+    {
+      "method": "patch",
+      "path": "/api/v1/people/{id}",
+      "status": "200",
+      "at": "",
+      "from": "#/components/schemas/SchedulePerson",
+      "to": "#/components/schemas/PersonDetail",
+      "reason": "SchedulePerson -> PersonDetail : memes champs, memes required, plus `access` facultatif (servi aux owner, admin et project_manager) ; le JSON recu par un client existant reste valide",
+      "rt": "RT-040"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { findBreakingChanges } from "./breaking";
+import { findBreakingChanges, parseAllowlist } from "./breaking";
 import { generateClient } from "./client";
 import { buildSpec } from "./openapi";
 import { paths } from "./paths";
@@ -49,7 +49,8 @@ if (cmd === "generate") {
       process.exit(0);
     }
   }
-  const found = findBreakingChanges(JSON.parse(baseText), JSON.parse(render().spec));
+  const allow = parseAllowlist(readFileSync(paths.allowlist, "utf8"));
+  const found = findBreakingChanges(JSON.parse(baseText), JSON.parse(render().spec), allow);
   if (found.length) {
     console.error("RUPTURES detectees (incrementer la version d'API ou declarer la rupture) :\n- " + found.join("\n- "));
     process.exit(1);

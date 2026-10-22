@@ -6,4 +6,5 @@ export const paths = {
   root,
   spec: resolve(root, "packages/contracts/openapi.json"),
   client: resolve(root, "apps/web/src/api/client.gen.ts"),
+  allowlist: resolve(root, "packages/contracts-tools/breaking-allowlist.json"),
 };

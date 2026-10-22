@@ -10,22 +10,79 @@ function resolve(spec: Json, s: Json | undefined): Json | undefined {
   return s;
 }
 
-function cmpSchema(a: Json | undefined, b: Json | undefined, oldSpec: Json, newSpec: Json, where: string, out: string[], seen: Set<string>): void {
+/**
+ * Exception relue à la règle « un $ref renommé est une rupture » (fichier breaking-allowlist.json, voir le README de
+ * packages/contracts). `at` = emplacement sous la réponse, tel que l'affiche le rapport : "" (racine), ".items[]", ".person"...
+ */
+export interface RefRenameException { method: string; path: string; status: string; at: string; from: string; to: string; reason: string; rt: string }
+
+const EXCEPTION_KEYS = ["method", "path", "status", "at", "from", "to", "reason", "rt"] as const;
+/** Lit et valide la liste d'exceptions ; lève une erreur sur toute entrée incomplète, inconnue ou mal formée. */
+export function parseAllowlist(text: string): RefRenameException[] {
+  const doc = JSON.parse(text) as { exceptions?: unknown };
+  if (!Array.isArray(doc.exceptions)) throw new Error("breaking-allowlist : `exceptions` doit etre un tableau");
+  return doc.exceptions.map((e: any, i: number) => {
+    const where = `breaking-allowlist : exception ${i}`;
+    if (!e || typeof e !== "object") throw new Error(`${where} : objet attendu`);
+    const extra = Object.keys(e).filter((k) => !(EXCEPTION_KEYS as readonly string[]).includes(k));
+    if (extra.length) throw new Error(`${where} : champ(s) inconnu(s) ${extra.join(", ")}`);
+    for (const k of EXCEPTION_KEYS) if (typeof e[k] !== "string") throw new Error(`${where} : ${k} manquant`);
+    if (!/^(get|post|put|patch|delete)$/.test(e.method)) throw new Error(`${where} : method en minuscules (get, post...)`);
+    if (!/^\d{3}$/.test(e.status)) throw new Error(`${where} : status sur 3 chiffres`);
+    for (const k of ["from", "to"] as const) if (!/^#\/components\/schemas\/[\w.-]+$/.test(e[k])) throw new Error(`${where} : ${k} = #/components/schemas/<Nom>`);
+    if (!e.reason.trim()) throw new Error(`${where} : reason vide`);
+    if (!/^RT-\d{3}$/.test(e.rt)) throw new Error(`${where} : rt au format RT-NNN`);
+    return e as RefRenameException;
+  });
+}
+
+/** Sérialisation canonique (clés triées), pour comparer deux schémas sans dépendre de l'ordre des clés. */
+const canon = (v: unknown): string =>
+  Array.isArray(v) ? `[${v.map(canon).join(",")}]`
+  : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canon((v as Json)[k])}`).join(",")}}`
+  : JSON.stringify(v);
+
+/**
+ * Le nouveau schéma est-il exactement l'ancien plus des propriétés FACULTATIVES (même type, mêmes required, mêmes propriétés à
+ * l'identique, rien d'autre) ? Seul cas qu'une exception peut couvrir ; tout autre écart reste une rupture.
+ */
+function onlyAddsOptional(a: Json, b: Json): boolean {
+  if (!a.properties || !b.properties) return false;
+  const required = new Set<string>(b.required ?? []);
+  const added = Object.keys(b.properties).filter((k) => !(k in a.properties));
+  if (added.some((k) => required.has(k))) return false;
+  const trimmed: Json = { ...b, properties: Object.fromEntries(Object.entries(b.properties).filter(([k]) => !added.includes(k))) };
+  return canon(a) === canon(trimmed);
+}
+
+interface RespCtx { method: string; path: string; status: string; prefix: string; allow: readonly RefRenameException[] }
+
+function cmpSchema(a: Json | undefined, b: Json | undefined, oldSpec: Json, newSpec: Json, where: string, out: string[], seen: Set<string>, ctx?: RespCtx): void {
   if (!a) return;
   if (!b) {
     out.push(`${where} : schema supprime`);
     return;
   }
-  // Un $ref renommé n'est pas une rupture en soi (le JSON reçu est le même) : on compare la structure résolue, qui signale
-  // propriété supprimée, required retiré, type changé ou enum appauvrie (p. ex. SchedulePerson -> PersonDetail, RT-040).
   if (a.$ref || b.$ref) {
-    const key = String(a.$ref);
-    if (a.$ref && seen.has(key)) return;
-    if (a.$ref) seen.add(key);
-    a = resolve(oldSpec, a);
-    b = resolve(newSpec, b);
-    if (!a) return;
-    if (!b) return void out.push(`${where} : schema supprime`);
+    // `seen` mémorise la PAIRE (ancien, nouveau) : un même ancien $ref peut être comparé à deux cibles différentes.
+    const key = `${a.$ref ?? "inline"} -> ${b.$ref ?? "inline"}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    const renamed = a.$ref !== b.$ref;
+    const ra = resolve(oldSpec, a);
+    const rb = resolve(newSpec, b);
+    if (!ra) return;
+    if (!rb) return void out.push(`${where} : schema supprime`);
+    if (!renamed) return cmpSchema(ra, rb, oldSpec, newSpec, where, out, seen, ctx);
+    // $ref renommé : rupture, sauf exception listée à l'emplacement exact, sans écart structurel et sans autre ajout que du facultatif.
+    const inner: string[] = [];
+    cmpSchema(ra, rb, oldSpec, newSpec, where, inner, seen, ctx);
+    const at = ctx && where.startsWith(ctx.prefix) ? where.slice(ctx.prefix.length) : null;
+    const listed = ctx && at !== null && ctx.allow.some((e) =>
+      e.method === ctx.method && e.path === ctx.path && e.status === ctx.status && e.at === at && e.from === a.$ref && e.to === b.$ref);
+    if (listed && inner.length === 0 && onlyAddsOptional(ra, rb)) return;
+    out.push(`${where} : $ref ${a.$ref ?? "inline"} -> ${b.$ref ?? "inline"}`, ...inner);
+    return;
   }
   if (JSON.stringify(a.type) !== JSON.stringify(b.type)) {
     out.push(`${where} : type ${JSON.stringify(a.type)} -> ${JSON.stringify(b.type)}`);
@@ -40,11 +97,11 @@ function cmpSchema(a: Json | undefined, b: Json | undefined, oldSpec: Json, newS
   }
   for (const [k, v] of Object.entries<Json>(a.properties ?? {})) {
     if (!b.properties?.[k]) out.push(`${where}.${k} : propriete supprimee`);
-    else cmpSchema(v, b.properties[k], oldSpec, newSpec, `${where}.${k}`, out, seen);
+    else cmpSchema(v, b.properties[k], oldSpec, newSpec, `${where}.${k}`, out, seen, ctx);
   }
-  if (a.items) cmpSchema(a.items, b.items, oldSpec, newSpec, `${where}[]`, out, seen);
+  if (a.items) cmpSchema(a.items, b.items, oldSpec, newSpec, `${where}[]`, out, seen, ctx);
   for (const key of ["anyOf", "oneOf"] as const) {
-    (a[key] ?? []).forEach((v: Json, i: number) => cmpSchema(v, b[key]?.[i], oldSpec, newSpec, `${where}|${i}`, out, seen));
+    (a[key] ?? []).forEach((v: Json, i: number) => cmpSchema(v, b[key]?.[i], oldSpec, newSpec, `${where}|${i}`, out, seen, ctx));
   }
 }
 
@@ -84,7 +141,7 @@ function cmpRequest(a: Json | undefined, b: Json | undefined, oldSpec: Json, new
 }
 
 /** Liste lisible des ruptures de `next` par rapport a `base` (vide = compatible). Cote reponses. */
-export function findBreakingChanges(base: Json, next: Json): string[] {
+export function findBreakingChanges(base: Json, next: Json, allow: readonly RefRenameException[] = []): string[] {
   const out: string[] = [];
   for (const [path, item] of Object.entries<Json>(base.paths ?? {})) {
     for (const [method, op] of Object.entries<Json>(item)) {
@@ -100,7 +157,8 @@ export function findBreakingChanges(base: Json, next: Json): string[] {
           out.push(`${id} : reponse ${code} supprimee`);
           continue;
         }
-        cmpSchema(resp.content?.["application/json"]?.schema, nresp.content?.["application/json"]?.schema, base, next, `${id} ${code}`, out, new Set());
+        const ctx: RespCtx = { method, path, status: code, prefix: `${id} ${code}`, allow };
+        cmpSchema(resp.content?.["application/json"]?.schema, nresp.content?.["application/json"]?.schema, base, next, `${id} ${code}`, out, new Set(), ctx);
       }
       const oldBody = op.requestBody;
       const newBody = nop.requestBody;
