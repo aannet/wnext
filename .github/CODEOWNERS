@@ -21,9 +21,11 @@
 # Note : /.github/CODEOWNERS est repris explicitement ; sa règle est la dernière
 # qui correspond, elle ne demande donc que @cpto (comme la stratégie).
 
-# Données et sécurité
-/db/migrations/        @cpto @dba-humain
-/db/rls/               @cpto @securite
+# Données et sécurité (RT-045 : chemins réels ; /db/migrations/ et /db/rls/ n'existaient pas,
+# la RLS est définie dans schema.sql et les migrations)
+/schema.sql            @cpto @dba-humain @securite
+/migrations/           @cpto @dba-humain @securite
+/tests/sql/            @cpto @dba-humain
 
 # Moteur de capacité (critique) et contrat d'API
 /packages/contracts/   @cpto
