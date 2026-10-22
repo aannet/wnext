@@ -10,8 +10,9 @@
 --     nouvelle (le member qui perd une allocation doit apprendre qu'elle a changé, celui qui la reçoit aussi) ;
 --   * project_team : la personne ajoutée ou retirée (id du journal = le projet, inchangé) ;
 --   * autres entités (référentiels) : NULL, diffusées à tous les rôles.
--- Les lignes écrites avant cette migration ont person_ids NULL : l'API ne les envoie pas à un member pour une entité par personne
--- (refus par défaut ; elles disparaissent à la purge, BR-14).
+-- Les lignes écrites avant cette migration ont person_ids NULL (aucune ligne écrite après n'en a pour une entité par personne) : un
+-- member qui reprend avant l'une d'elles reçoit `resync` (apps/api/src/changes.ts), au lieu de la sauter ; elles disparaissent à la
+-- purge (BR-14).
 -- Corps des triggers sinon inchangés (schema.sql) : numérotation sous verrou, NOTIFY.
 
 ALTER TABLE change_log ADD COLUMN person_ids BIGINT[];

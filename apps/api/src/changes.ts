@@ -50,8 +50,16 @@ export async function readChanges(db: Db, ctx: RequestContext, after: string, li
     let scope = "";
     const readable = await readablePeople(tx, ctx);
     if (readable !== null) {
+      const personLog = await hasPersonLog(db, tx);
+      // Changement par personne d'avant 0006 (person_ids NULL) dans la fenêtre : impossible de savoir s'il concernait l'abonné ; le
+      // sauter laisserait un planning périmé. Comme un curseur purgé : resync, le client recharge GET /schedule (curseur d'après).
+      if (personLog && (await tx.query<Row>(
+        `SELECT 1 FROM change_log WHERE account_id = $1::bigint AND seq > $2::bigint AND seq <= $3::bigint
+            AND entity = ANY ($4::text[]) AND person_ids IS NULL LIMIT 1`,
+        [ctx.accountId, after, head, [...PERSON_SCOPED_ENTITIES]],
+      )).rows.length) return { status: "expired" as const, head };
       args.push([...PERSON_SCOPED_ENTITIES]);
-      scope = ` AND (entity <> ALL ($5::text[])${(await hasPersonLog(db, tx)) ? ` OR person_ids && $${args.push(readable)}::bigint[]` : ""})`;
+      scope = ` AND (entity <> ALL ($5::text[])${personLog ? ` OR person_ids && $${args.push(readable)}::bigint[]` : ""})`;
     }
     const { rows } = await tx.query<Row>(
       `SELECT seq, entity, entity_id, op, version FROM change_log
