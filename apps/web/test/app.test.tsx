@@ -69,7 +69,8 @@ describe("ScheduleScreen", () => {
 
   it("pseudo-locale : tout le texte de l'interface passe par le catalogue (seuls les noms restent)", () => {
     mount("pseudo");
-    const texts = [...host.querySelectorAll("button, [role=toolbar] span")].map((e) => e.textContent ?? "");
+    // Les pastilles de touches (kbd : Ctrl K) sont des noms de touches, pas du texte traduit : retirées du texte du bouton.
+    const texts = [...host.querySelectorAll("button, [role=toolbar] span")].map((e) => [...e.childNodes].filter((n) => (n as Element).tagName !== "KBD").map((n) => n.textContent).join(""));
     expect(texts.length).toBeGreaterThan(5);
     for (const t of texts) expect(t).toMatch(/^\[.*\]$/);
     expect(host.querySelector("[role=grid]")!.getAttribute("aria-label")).toMatch(/^\[.*\]$/);

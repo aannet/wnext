@@ -27,7 +27,7 @@ export interface SearchPaletteProps {
   onClose(): void;
 }
 
-/** Raccourci affiché sur le bouton : ⌘K sur Mac, Ctrl K ailleurs. */
+/** Raccourci affiché sur le bouton : ⌘K sur Mac, Ctrl K ailleurs (noms de touches, hors catalogue, comme les pastilles de touches). */
 export function searchShortcutLabel(platform = globalThis.navigator?.platform ?? ""): string {
   return /mac|iphone|ipad/i.test(platform) ? "⌘K" : "Ctrl K";
 }
