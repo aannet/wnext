@@ -50,6 +50,7 @@ Décision d'Alec, recette n°2 (RT-023). Valable pour tout drawer (`Sheet` shadc
 - Les jours non ouvrés sont hachurés selon l'horaire de chaque personne (`work_days_hours`, 0 h le week-end par défaut) ; l'en-tête grise les colonnes du samedi et du dimanche ; pas de réglage pour les masquer en P6 — RT-028, Q9.
 - Toggle « Charge » (menu Affichage, état en mémoire, désactivé au rechargement) : la charge chiffrée de la personne (« 6 h » ou « 75 % ») s'affiche dans chaque colonne de temps ; la jauge de la colonne de gauche reste permanente — RT-030, Q11.
 - Création au toucher : un appui long (400 ms sans bouger) sur une case libre pose le bloc provisoire, glisser l'étend, relâcher ouvre le drawer de création ; un tap ne crée rien et, hors appui long, le doigt fait défiler la grille ; pas de menu contextuel natif pendant l'appui long ; un deuxième doigt (pincement) ou une sortie de la zone des blocs abandonne la création — RT-043, PO-07.
+- Création à la souris alignée sur le toucher : la plage reste bornée aux jours visibles (passer sur la colonne des personnes ne l'étend pas vers des jours masqués, pas de défilement automatique), relâcher hors de la zone des blocs (colonne des personnes, en-tête, hors grille) abandonne la création sans ouvrir le drawer, Échap aussi ; au toucher, un deuxième doigt pendant le déplacement ou l'étirement d'un bloc annule le geste (le bloc reste en place, rien n'est écrit) — RT-046.
 
 ## Textes
 
