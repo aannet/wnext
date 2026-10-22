@@ -112,7 +112,7 @@ test("BR-10 : la boîte de retrait est une pop-in superposée, la grille ne boug
   const before = await grid.boundingBox();
 
   await page.locator(`.wn-block[data-key="${key}"]`).click({ button: "right" });
-  await page.getByRole("menuitem").click();
+  await page.getByRole("menuitem", { name: /^Retirer Personne 1 du projet/ }).click(); // le menu propose aussi Dupliquer, Scinder, Supprimer (RT-047)
   const dialog = page.getByRole("dialog", { name: /^Retirer Personne 1 du projet / });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Retirer du projet" })).toBeFocused();
