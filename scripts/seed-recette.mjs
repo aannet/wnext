@@ -7,7 +7,9 @@
 //    congés (journée, demi-journée, en attente), un férié France, du temps loggé (R-20).
 //  * Compte 2 « Autre Société » : une poignée de données, pour vérifier l'isolation (R-24).
 //  * Dates relatives au lundi de la semaine du semis (S0 = ce lundi) ; ids fixes ; ne tourne que sur une base SANS autre compte
-//    (jamais sur .dev-pg d'Alec : voir dev-stack.mjs, répertoire dédié .dev-pg-recette/). Exécuté en superutilisateur (RLS non appliquée).
+//    (jamais sur .dev-pg d'Alec : répertoire dédié .dev-pg-recette/ et marqueur de profil, voir dev-profile.mjs). Exécuté en superutilisateur (RLS non appliquée).
+import { inspectDb } from "./dev-profile.mjs";
+
 export const RECETTE_IDS = { accountId: "1", userId: "1", role: "owner" };
 
 // Comptes de connexion et leur sujet OIDC (`users.idp_subject`) : l'IdP local (scripts/dev-idp.mjs) les liste sur sa page de choix.
@@ -185,15 +187,20 @@ DELETE FROM notifications;
 
 const SEQUENCED = ["accounts", "departments", "roles", "people", "clients", "projects", "project_tasks", "allocations", "timeoff_types", "timeoffs", "holidays", "logged_time"];
 
-/** Sème le jeu de recette si le compte 1 « WNEXT Recette » n'existe pas (true si semé) ; complète les identités OIDC dans tous les cas. */
+export const RECETTE_SPEC = { accounts: [["1", "WNEXT Recette"], ["2", "Autre Société"]], users: RECETTE_USERS };
+
+/**
+ * Sème le jeu de recette (true si semé) ; sur une base déjà semée, complète seulement les identités OIDC attendues (false).
+ * Refuse, avant toute écriture, une base qui n'est pas exactement celle de la recette : autre compte, nom de compte imité,
+ * utilisateur ou membre étranger (voir inspectDb dans scripts/dev-profile.mjs).
+ */
 export async function seedRecette(client) {
-  const found = await client.query("SELECT 1 FROM accounts WHERE id = 1 AND name = 'WNEXT Recette'");
-  if (found.rowCount > 0) {
+  const state = await inspectDb(client, RECETTE_SPEC, "recette");
+  if (state === "fresh") throw new Error("base non migrée");
+  if (state === "seeded") {
     await client.query(IDENTITIES_SQL);
     return false;
   }
-  const other = await client.query("SELECT count(*)::int AS n FROM accounts");
-  if (other.rows[0].n > 0) throw new Error("la base contient déjà d'autres comptes : le seed de recette ne s'applique qu'à une base vide (répertoire .dev-pg-recette/)");
   await client.query("BEGIN");
   try {
     await client.query(seedSql());

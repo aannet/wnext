@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-// Pile de développement locale : `npm run dev:stack [-- --reset] [-- --oidc] [-- --seed=recette]`.
-//  * --seed=recette : jeu de données de recette (scripts/seed-recette.mjs, RT-044) sur un répertoire DÉDIÉ .dev-pg-recette/ (les données
-//    de .dev-pg/ ne sont jamais touchées) ; l'IdP local propose alors les comptes de recette. Sans l'option : jeu d'essai (scripts/dev-seed.mjs).
+// Pile de développement locale : `npm run dev:stack [-- --reset] [-- --oidc] [-- --seed=dev|recette|vide]`.
+//  * --seed=recette : jeu de données de recette (scripts/seed-recette.mjs, RT-044) sur un répertoire DÉDIÉ .dev-pg-recette/ ;
+//    --seed=vide : un compte vide avec Alec owner (scripts/seed-vide.mjs), répertoire .dev-pg-vide/. Les données de .dev-pg/ ne sont jamais
+//    touchées : le répertoire (WNEXT_DEV_PG_DIR compris) est validé AVANT toute suppression ou démarrage, la base AVANT toute écriture
+//    (scripts/dev-profile.mjs). L'IdP local propose les comptes du profil. Sans l'option : jeu d'essai (scripts/dev-seed.mjs).
 //  * --oidc : démarre aussi le fournisseur OIDC local (scripts/dev-idp.mjs, port WNEXT_DEV_IDP_PORT, défaut 3010) et lance
 //    l'API en AUTH_MODE=oidc (OIDC_ISSUER / OIDC_AUDIENCE / OIDC_JWKS_URL pointant vers lui). Sans l'option : AUTH_MODE=dev.
 //  * Postgres embarqué PERSISTANT dans .dev-pg/ (ignoré par git ; WNEXT_DEV_PG_DIR pour un autre dossier), port fixe (WNEXT_DEV_PG_PORT, défaut 54329).
@@ -20,19 +22,31 @@ import pg from "pg";
 import { startDevIdp } from "./dev-idp.mjs";
 import { DEV_IDS, DEV_USERS, seedDev } from "./dev-seed.mjs";
 import { migrate } from "./migrate.mjs";
-import { RECETTE_IDS, RECETTE_USERS, seedRecette } from "./seed-recette.mjs";
+import { PROFILE_DIRS, ProfileError, checkDataDir, inspectDb, writeMarker } from "./dev-profile.mjs";
+import { RECETTE_IDS, RECETTE_SPEC, RECETTE_USERS, seedRecette } from "./seed-recette.mjs";
+import { VIDE_IDS, VIDE_SPEC, VIDE_USERS, seedVide } from "./seed-vide.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const seedArg = process.argv.find((a) => a.startsWith("--seed="))?.slice("--seed=".length) ?? "dev";
-if (!["dev", "recette"].includes(seedArg)) {
-  console.error(`--seed=${seedArg} inconnu (dev ou recette)`);
+const profiles = {
+  dev: { seed: seedDev, users: DEV_USERS, ids: DEV_IDS, label: "jeu d'essai" },
+  recette: { seed: seedRecette, users: RECETTE_USERS, ids: RECETTE_IDS, spec: RECETTE_SPEC, label: "jeu de recette" },
+  vide: { seed: seedVide, users: VIDE_USERS, ids: VIDE_IDS, spec: VIDE_SPEC, label: "compte vide" },
+};
+const profile = profiles[seedArg];
+if (!profile) {
+  console.error(`--seed=${seedArg} inconnu (dev, recette ou vide)`);
   process.exit(1);
 }
-const recette = seedArg === "recette";
-const profile = recette
-  ? { dir: ".dev-pg-recette", seed: seedRecette, users: RECETTE_USERS, ids: RECETTE_IDS, label: "jeu de recette" }
-  : { dir: ".dev-pg", seed: seedDev, users: DEV_USERS, ids: DEV_IDS, label: "jeu d'essai" };
-const pgDir = process.env.WNEXT_DEV_PG_DIR ?? join(root, profile.dir);
+let pgDir;
+let markerMissing = false;
+try {
+  ({ pgDir, markerMissing } = checkDataDir({ root, profile: seedArg, env: process.env }));
+} catch (err) {
+  if (!(err instanceof ProfileError)) throw err;
+  console.error(`démarrage impossible : ${err.message}`);
+  process.exit(1);
+}
 const dataDir = join(pgDir, "data");
 const pgPort = Number(process.env.WNEXT_DEV_PG_PORT ?? 54329);
 const apiPort = Number(process.env.WNEXT_DEV_API_PORT ?? 3000);
@@ -58,9 +72,12 @@ for (const [name, port] of [["Postgres", pgPort], ["API", apiPort], ...(oidc ? [
 }
 
 if (reset) rmSync(pgDir, { recursive: true, force: true });
+// Profils dédiés : le marqueur est posé à la création du répertoire (réinitialisé par --reset), jamais sur un répertoire existant.
+if (seedArg !== "dev" && (markerMissing || reset)) writeMarker(pgDir, seedArg);
 
 const server = new EmbeddedPostgres({ databaseDir: dataDir, user: "postgres", password: "postgres", port: pgPort, persistent: true, onLog: () => {}, onError: () => {} });
 let api = null;
+let client = null;
 let stopping = false;
 
 async function stop(code = 0) {
@@ -74,6 +91,7 @@ async function stop(code = 0) {
       api.once("exit", () => { clearTimeout(t); res(); });
     });
   }
+  await client?.end().catch(() => {}); // sinon l'arrêt de Postgres coupe la connexion : « terminating connection » non géré
   await idp?.close().catch(() => {});
   await server.stop().catch(() => {});
   process.exit(code);
@@ -90,13 +108,16 @@ try {
   await admin.end();
   if (has.rowCount === 0) await server.createDatabase("wnext");
 
-  const client = new pg.Client({ connectionString: url });
+  client = new pg.Client({ connectionString: url });
+  client.on("error", () => {});
   await client.connect();
+  if (profile.spec) await inspectDb(client, profile.spec, seedArg); // lecture seule, avant extensions et migrations
   await client.query("CREATE EXTENSION IF NOT EXISTS btree_gist; CREATE EXTENSION IF NOT EXISTS citext;");
   await migrate(client, { root, log: (m) => console.log(`migration : ${m}`) });
   const seeded = await profile.seed(client);
   console.log(seeded ? `${profile.label} : semé` : `${profile.label} : déjà présent`);
   await client.end();
+  client = null;
 } catch (err) {
   console.error(`démarrage impossible : ${err instanceof Error ? err.message : err}`);
   await stop(1);
@@ -130,6 +151,6 @@ if (!stopping) {
   VITE_DEV_ROLE=${profile.ids.role}
 Écran : npm run dev -w @wnext/web`;
   console.log(`
-Pile prête : Postgres :${pgPort} (${pgDir === join(root, profile.dir) ? `${profile.dir}/` : pgDir}), API http://127.0.0.1:${apiPort} (AUTH_MODE=${auth.AUTH_MODE}).
+Pile prête : Postgres :${pgPort} (${pgDir === join(root, PROFILE_DIRS[seedArg]) ? `${PROFILE_DIRS[seedArg]}/` : pgDir}), API http://127.0.0.1:${apiPort} (AUTH_MODE=${auth.AUTH_MODE}).
 ${identity}   |   Ctrl-C pour tout arrêter.`);
 }

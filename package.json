@@ -29,6 +29,7 @@
     "dev:stack": "node scripts/dev-stack.mjs",
     "dev:recette": "node scripts/dev-recette.mjs",
     "dev:recette:seed": "node scripts/dev-recette.mjs --seed=recette",
+    "dev:recette:vide": "node scripts/dev-recette.mjs --seed=vide",
     "test:schemathesis": "node tests/schemathesis/run.mjs",
     "test:browser": "playwright test -c tests/browser/playwright.config.ts",
     "test:browser:oidc": "playwright test -c tests/browser/playwright.oidc.config.ts",

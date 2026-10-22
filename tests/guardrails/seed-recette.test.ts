@@ -9,6 +9,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { RECETTE_USERS, seedRecette } from "../../scripts/seed-recette.mjs";
 // @ts-expect-error module JS sans types
 import { recettePlan } from "../../scripts/dev-recette.mjs";
+// @ts-expect-error module JS sans types
+import { VIDE_USERS, seedVide } from "../../scripts/seed-vide.mjs";
 
 let pg: PGlite;
 // Adaptateur de la forme `pg.Client` utilisée par le seed (requêtes multi-instructions sans paramètres).
@@ -20,6 +22,28 @@ const client = {
   },
 };
 const one = async <T = number>(sql: string): Promise<T> => (await pg.query<{ v: T }>(sql)).rows[0]!.v;
+/** Instantané de toute la base publique : comptage et empreinte des lignes de chaque table, plus les séquences. */
+const dump = async (db: PGlite) => {
+  const out: Record<string, string> = {};
+  const tables = (await db.query<{ tablename: string }>("SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY 1")).rows;
+  for (const { tablename: t } of tables) {
+    const r = await db.query<{ n: number; h: string }>(`SELECT count(*)::int AS n, md5(COALESCE(string_agg(x::text, E'\n' ORDER BY x::text), '')) AS h FROM ${t} x`);
+    out[t] = `${r.rows[0]!.n}:${r.rows[0]!.h}`;
+  }
+  const seqs = await db.query<{ sequencename: string; last_value: string | null }>("SELECT sequencename, last_value::text FROM pg_sequences WHERE schemaname = 'public' ORDER BY 1");
+  for (const q of seqs.rows) out[`seq:${q.sequencename}`] = String(q.last_value);
+  return out;
+};
+const adapt = (db: PGlite) => ({
+  query: async (sql: string) => { const r = await db.exec(sql); const rows = (r.at(-1)?.rows ?? []) as Record<string, unknown>[]; return { rows, rowCount: rows.length }; },
+});
+const migrated = async () => {
+  const db = new PGlite({ extensions: { btree_gist, citext } });
+  await db.exec(readFileSync(new URL("../../schema.sql", import.meta.url), "utf8"));
+  const dir = new URL("../../migrations/", import.meta.url);
+  for (const f of readdirSync(dir).filter((x) => x.endsWith(".sql")).sort()) await db.exec(readFileSync(new URL(f, dir), "utf8"));
+  return db;
+};
 const MONDAY = "(current_date - (extract(isodow FROM current_date)::int - 1))";
 
 beforeAll(async () => {
@@ -31,25 +55,68 @@ beforeAll(async () => {
 afterAll(async () => { await pg?.close(); }, 60_000);
 
 describe("seed de recette (RT-044)", () => {
-  it("sème une fois, puis ne fait rien au second passage (idempotent)", async () => {
+  it("sème une fois, puis ne change RIEN au second passage (instantané de toutes les tables et séquences)", async () => {
     expect(await seedRecette(client)).toBe(true);
-    const snapshot = async () => [await one("SELECT count(*)::int AS v FROM people"), await one("SELECT count(*)::int AS v FROM allocations"),
-      await one("SELECT count(*)::int AS v FROM users"), await one("SELECT count(*)::int AS v FROM account_members")];
-    const before = await snapshot();
+    const before = await dump(pg);
+    expect(Object.keys(before).length).toBeGreaterThan(25);
+    expect(before.allocations).not.toMatch(/^0:/);
     expect(await seedRecette(client)).toBe(false);
-    expect(await snapshot()).toEqual(before);
+    expect(await dump(pg)).toEqual(before);
   });
 
-  it("refuse une base qui contient déjà un autre compte", async () => {
-    const other = new PGlite({ extensions: { btree_gist, citext } });
+  it("refuse toute base qui n'est pas celle de la recette, sans rien écrire (autre compte, nom de compte imité, identité étrangère)", async () => {
+    const cases: [string, string][] = [
+      ["autre compte", "INSERT INTO accounts (name) VALUES ('Données d''Alec')"],
+      ["nom du compte 1 imité", "INSERT INTO accounts (id, name) OVERRIDING SYSTEM VALUE VALUES (1, 'WNEXT Recette')"],
+      ["identité étrangère", "INSERT INTO users (id, email, name, idp_subject) OVERRIDING SYSTEM VALUE VALUES (1, 'alec@vrai.test', 'Alec', 'sujet-d-alec')"],
+      ["compte 1 imité et identité étrangère", `INSERT INTO accounts (id, name) OVERRIDING SYSTEM VALUE VALUES (1, 'WNEXT Recette');
+        INSERT INTO accounts (id, name) OVERRIDING SYSTEM VALUE VALUES (2, 'Autre Société');
+        INSERT INTO users (id, email, name, idp_subject) OVERRIDING SYSTEM VALUE VALUES (9, 'intrus@x.test', 'Intrus', NULL)`],
+      ["sujet d'une identité attendue détourné", `INSERT INTO users (id, email, name, idp_subject) OVERRIDING SYSTEM VALUE VALUES (3, 'camille.roy@wnext.test', 'Camille', 'autre-sujet')`],
+    ];
+    for (const [label, sql] of cases) {
+      const other = await migrated();
+      try {
+        await other.exec(sql);
+        const before = await dump(other);
+        await expect(seedRecette(adapt(other)), label).rejects.toThrow(/appartient pas|autres? comptes?|identité/);
+        await expect(seedVide(adapt(other)), label).rejects.toThrow(/appartient pas|autres? comptes?|identité/);
+        expect(await dump(other), label).toEqual(before);
+      } finally {
+        await other.close();
+      }
+    }
+  }, 120_000);
+
+  it("complète les identités attendues sur une base de recette déjà semée (sujet manquant), rien d'autre", async () => {
+    const db = await migrated();
     try {
-      await other.exec(readFileSync(new URL("../../schema.sql", import.meta.url), "utf8"));
-      await other.exec("INSERT INTO accounts (name) VALUES ('Données d''Alec')");
-      const c = { query: async (sql: string) => { const r = await other.exec(sql); const rows = (r.at(-1)?.rows ?? []) as Record<string, unknown>[]; return { rows, rowCount: rows.length }; } };
-      await expect(seedRecette(c)).rejects.toThrow(/autres comptes/);
-      expect(await other.query("SELECT count(*)::int AS n FROM accounts")).toMatchObject({ rows: [{ n: 1 }] });
+      await seedRecette(adapt(db));
+      await db.exec("UPDATE users SET idp_subject = NULL WHERE id = 3");
+      expect(await seedRecette(adapt(db))).toBe(false);
+      expect(await one<string>("SELECT idp_subject AS v FROM users WHERE id = 3")).toBe("recette-camille");
     } finally {
-      await other.close();
+      await db.close();
+    }
+  }, 60_000);
+
+  it("compte vide : un compte, Alec owner sans personne, aucune autre donnée ; idempotent ; refus sur la recette", async () => {
+    const db = await migrated();
+    try {
+      expect(await seedVide(adapt(db))).toBe(true);
+      const before = await dump(db);
+      expect(await seedVide(adapt(db))).toBe(false);
+      expect(await dump(db)).toEqual(before);
+      const n = async (t: string) => (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${t}`)).rows[0]!.n;
+      expect(await n("accounts")).toBe(1);
+      expect(await n("users")).toBe(VIDE_USERS.length);
+      expect(VIDE_USERS).toHaveLength(1);
+      expect((await db.query("SELECT u.idp_subject, u.name, m.role, m.person_id FROM users u JOIN account_members m ON m.user_id = u.id")).rows)
+        .toEqual([{ idp_subject: "dev-alec", name: "Alec", role: "owner", person_id: null }]);
+      for (const t of ["people", "projects", "allocations", "clients", "departments", "timeoffs", "holidays", "notifications", "saved_views"]) expect(await n(t), t).toBe(0);
+      await expect(seedRecette(adapt(db))).rejects.toThrow(/appartient pas|autres? comptes?/);
+    } finally {
+      await db.close();
     }
   }, 60_000);
 
@@ -127,8 +194,10 @@ describe("seed de recette (RT-044)", () => {
   it("dev:recette transmet --seed=recette à la pile", () => {
     expect(recettePlan({}, ["--seed=recette"]).stack.args).toEqual(["scripts/dev-stack.mjs", "--oidc", "--seed=recette"]);
     expect(recettePlan({}, ["--reset", "--seed=recette"]).stack.args).toEqual(["scripts/dev-stack.mjs", "--oidc", "--reset", "--seed=recette"]);
+    expect(recettePlan({}, ["--seed=vide"]).stack.args).toEqual(["scripts/dev-stack.mjs", "--oidc", "--seed=vide"]);
     expect(recettePlan({}, []).stack.args).toEqual(["scripts/dev-stack.mjs", "--oidc"]);
     const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
     expect(pkg.scripts["dev:recette:seed"]).toBe("node scripts/dev-recette.mjs --seed=recette");
+    expect(pkg.scripts["dev:recette:vide"]).toBe("node scripts/dev-recette.mjs --seed=vide");
   });
 });
