@@ -1,6 +1,6 @@
 # Handoff — 2026-10-22 : cadrage n°3 autonome exécuté (P6), recette n°3 à faire
 
-Point de départ : `main` à `4f66900` (handoff de la recette n°2). Arrivée : voir `git log` (environ 110 commits, rien n'est poussé, pas de remote).
+Point de départ : `main` à `4f66900` (handoff de la recette n°2). Arrivée : voir `git log` (environ 95 commits, rien n'est poussé, pas de remote).
 
 Mode : à la demande d'Alec (2026-10-22), les points ouverts de la recette n°2 ont été finalisés **sans validation intermédiaire** ; Alec ne fait qu'une recette, à la fin. Chaque décision est au statut « validé (auto) » dans `docs/recette/registre.md` et se confirme ou s'annule à la recette n°3.
 
@@ -47,5 +47,6 @@ RT-046 à RT-050 ont été trouvés pendant l'exécution : RT-046 par la revue c
 - **Ta base de dev `.dev-pg`** n'a pas reçu la migration 0006 : elle s'appliquera au prochain `npm run dev:stack` / `dev:recette`. La pile lancée le 21 octobre (pid 40952) tourne toujours avec l'ancien code.
 - **`test:browser:oidc`** : toujours avec `WNEXT_DEV_PG_DIR=/tmp/opencode/<neuf>` (sinon il vise `.dev-pg`). **`test:recette`** : `WNEXT_RECETTE_PG_DIR=/tmp/opencode/<neuf>` ; un répertoire non marqué est refusé (garde-fou).
 - **Modification étrangère** de `docs/avancement.html` : la phrase NEXT non commitée (« Recette n°3 par Alec … PO-09 … PO-10 ») a été remplacée par la nouvelle liste NEXT, devenue obsolète (PO-09 et PO-10 traités).
+- **Tests navigateur dépendants de la date** : le 23 octobre, `slot-editor`, `timeoffs` et `overlays` échouaient (la démo est relative à « aujourd'hui » et aucun bloc convenable ne commençait dans la vue) ; ces trois specs installent désormais l'horloge de la page sur un jeudi connu (`page.clock.install`). Autres specs à surveiller de la même façon.
 - **Processus orphelins** : un sous-agent interrompu (crédit du fournisseur épuisé un moment) a laissé des piles et des Vite ; ils ont été arrêtés. Vérifier `ss -ltnp` si un port de test est occupé.
 - Pièges Base UI : `docs/handoff-2026-10-22-recette-2.md` reste valable ; `docs/design/design.md` a reçu les nouvelles règles (palette, portée, commandes d'un bloc, création au toucher et à la souris, focus des étapes).
