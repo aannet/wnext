@@ -29,6 +29,13 @@ export type AllocationEdit = BlockPatch & {
  */
 export type GroupEditOutcome = { ok: true; before: Allocation[]; unknown: string[] } | Exclude<EditOutcome, { ok: true }>;
 
+/**
+ * Suppression de tout un groupe réussie (RT-047) : état d'avant des lignes connues (magasin, lecture préalable des lignes hors
+ * fenêtre) ; `complete` faux si la lecture préalable n'a pas pu se faire en entier (une ligne a pu être supprimée sans être
+ * connue : la suppression ne peut alors pas être annulée).
+ */
+export type GroupDeleteOutcome = { ok: true; before: Allocation[]; complete: boolean } | Exclude<EditOutcome, { ok: true }>;
+
 /** Patch de toutes les lignes d'un groupe : champs communs, sans personne ni charge (propres à chaque ligne). */
 export type AllocationGroupEdit = Omit<AllocationEdit, "personId" | "hoursPerDay" | "percent" | "mode">;
 

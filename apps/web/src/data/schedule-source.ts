@@ -26,6 +26,9 @@
 //    l'écriture (allocations du projet) pour que l'annulation connaisse leur état d'avant ; PATCH /allocations/{id}/group
 //    avec la version de la ligne désignée ; toute la réponse entre au magasin ; refus : retour arrière de toutes les
 //    lignes (et relecture de chacune sur conflit). Découpe vers un projet absent du magasin : projet d'arrivée ajouté.
+//  * Suppressions (RT-047) : « tout le groupe » (DELETE /allocations/{id}/group) retire tout de suite les lignes chargées, lit
+//    avant l'écriture celles hors fenêtre (comme le PATCH de groupe) pour que l'annulation puisse les recréer, puis pose leurs
+//    pierres tombales ; « cette occurrence » passe par la découpe (POST /allocations/{id}/split, `delete: true`).
 import { ErrorCode, type ApiError, type ScheduleResponse } from "@wnext/contracts";
 import { addDays, loadChunks, mergeChunks, neighborDays, type Viewport } from "@wnext/engine";
 import type { createClient } from "../api/client.gen";
@@ -36,15 +39,15 @@ import {
 } from "../schedule/store";
 import type { AllocationGroupCreate } from "../api/client.gen";
 import {
-  localSplit, patched, toApiPatch, toGroupBody, toSplitBody, type Allocation, type AllocationEdit, type AllocationGroupEdit, type EditOutcome, type GroupEditOutcome,
-  type ScheduleEditor,
+  localSplit, patched, toApiPatch, toGroupBody, toSplitBody, type Allocation, type AllocationEdit, type AllocationGroupEdit, type EditOutcome, type GroupDeleteOutcome,
+  type GroupEditOutcome, type ScheduleEditor,
 } from "./allocation-edits";
 import { allocationFromCreate, groupMembers, patchedTimeoff, timeoffFromCreate, type CreateOutcome, type RecordEditor } from "./record-edits";
 import { summaryFromParams, type TeamRemovalEditor } from "./team-removal";
 
 type Client = ReturnType<typeof createClient>;
 /** Lecture obligatoire ; écritures optionnelles (absentes : les gestes rendent UNSUPPORTED). */
-export type ScheduleApi = Pick<Client, "getSchedule" | "createRealtimeTicket"> & Partial<Pick<Client, "getAllocation" | "updateAllocation" | "splitAllocation" | "updateAllocationGroup" | "listProjectAllocations">>
+export type ScheduleApi = Pick<Client, "getSchedule" | "createRealtimeTicket"> & Partial<Pick<Client, "getAllocation" | "updateAllocation" | "splitAllocation" | "updateAllocationGroup" | "deleteAllocationGroup" | "listProjectAllocations">>
   & Partial<Pick<Client, "createTimeoff" | "updateTimeoff" | "deleteTimeoff" | "createAllocation" | "deleteAllocation" | "listLoggedTime" | "listProjects">>
   & Partial<Pick<Client, "getTeamRemovalSummary" | "removeFromTeam" | "createAllocationGroup">>;
 export type SourceErrorCode = ApiError["code"];
@@ -90,6 +93,10 @@ export interface ScheduleSource extends ScheduleEditor, RecordEditor, TeamRemova
   projectChanged?(project: ScheduleProjectPatch): void;
   /** Allocation multi-personnes (BR-26) : une ligne par personne, tout ou rien. */
   createAllocationGroup(body: AllocationGroupCreate): Promise<GroupOutcome>;
+  /** Supprime toutes les lignes du groupe de l'allocation `id` (BR-26, RT-047) ; absent : pas de suppression de groupe. */
+  deleteAllocationGroup?(id: string): Promise<GroupDeleteOutcome>;
+  /** Supprime l'occurrence de rang `index` d'une série (découpe BR-25, RT-047) ; absent : pas de suppression d'occurrence. */
+  deleteOccurrence?(id: string, index: number): Promise<EditOutcome>;
   /** Démo seulement : personnes, équipes (départements), rôles, types de congé et fériés écrits depuis Personnes ou Réglages. */
   directoryChanged?(kind: "people" | "departments" | "roles" | "timeoff_types" | "holidays", entity: { id: string; version: number }): void;
   directoryRemoved?(kind: "people" | "departments" | "roles" | "timeoff_types" | "holidays", id: string): void;
@@ -409,24 +416,24 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
 
   /**
    * Lignes du groupe de `a` absentes du magasin (hors de la fenêtre chargée) : lecture préalable des allocations de son projet
-   * sur 400 jours autour d'elle (pas de lecture de groupe dans l'API). Échec ou page refusée : ce qui a été lu.
+   * sur 400 jours autour d'elle (pas de lecture de groupe dans l'API). Échec ou page refusée : ce qui a été lu, `complete` faux.
    */
-  async function groupOutside(a: Allocation, known: ReadonlySet<string>): Promise<Allocation[]> {
+  async function groupOutside(a: Allocation, known: ReadonlySet<string>): Promise<{ items: Allocation[]; complete: boolean }> {
     const list = opts.api.listProjectAllocations;
-    const out: Allocation[] = [];
-    if (!list) return out;
+    const items: Allocation[] = [];
+    if (!list) return { items, complete: false };
     const query = { from: addDays(a.startDate, -199), to: addDays(a.startDate, 200), limit: 500 };
     let cursor: string | undefined;
     try {
       for (let guard = 0; guard < 100; guard++) {
         const res = await list({ path: { projectId: a.projectId }, query: cursor ? { ...query, cursor } : query });
-        if (!res.ok) break;
-        out.push(...res.data.items.filter((x) => x.groupId === a.groupId && !known.has(x.id)));
+        if (!res.ok) return { items, complete: false };
+        items.push(...res.data.items.filter((x) => x.groupId === a.groupId && !known.has(x.id)));
         cursor = res.data.page.nextCursor ?? undefined;
-        if (!cursor) break;
+        if (!cursor) return { items, complete: true };
       }
     } catch { /* réseau : les lignes non lues seront « inconnues » */ }
-    return out;
+    return { items, complete: false };
   }
 
   async function updateAllocationGroup(id: string, patch: AllocationGroupEdit): Promise<GroupEditOutcome> {
@@ -447,7 +454,7 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     let before: Allocation[] = lines;
     let unknown: string[] = [];
     const out = await write(ms, async () => {
-      before = [...lines, ...await groupOutside(cur, new Set(lines.map((a) => a.id)))];
+      before = [...lines, ...(await groupOutside(cur, new Set(lines.map((a) => a.id)))).items];
       return api({ path: { id }, headers: { "If-Match": `"${cur.version}"` }, body: toGroupBody(patch) });
     }, (d) => {
       const byId = new Map(d.items.map((x) => [x.id, x]));
@@ -462,6 +469,58 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     });
     if (!out.ok && (out.error === "VERSION_CONFLICT" || out.error === "NOT_FOUND")) for (const a of lines) await reread(a.id);
     return out.ok ? { ok: true, before, unknown } : out;
+  }
+
+  async function deleteAllocationGroup(id: string): Promise<GroupDeleteOutcome> {
+    const cur = store.tables.allocations.get(id);
+    const api = opts.api.deleteAllocationGroup;
+    if (!api) return fail("UNSUPPORTED");
+    if (!cur || cur.groupId === null) return fail("NOT_FOUND");
+    const lines = [...store.tables.allocations.values()].filter((a) => a.groupId === cur.groupId);
+    if (lines.some((a) => busy(a.id))) return fail("BUSY");
+    const n = ++seq;
+    const ms = lines.map((a, i) => {
+      const m = `group-delete-${n}-${i}`;
+      store = applyOptimistic(store, m, "allocations", a.id, null);
+      return m;
+    });
+    refresh();
+    let outside: { items: Allocation[]; complete: boolean } = { items: [], complete: false };
+    const out = await write(ms, async () => {
+      outside = await groupOutside(cur, new Set(lines.map((a) => a.id)));
+      return api({ path: { id }, headers: { "If-Match": `"${cur.version}"` } });
+    }, () => {
+      for (const m of ms) store = confirmOptimistic(store, m, null);
+      // Pierres tombales des lignes hors fenêtre : ni un chargement tardif ni l'écho temps réel ne les font revivre.
+      for (const a of outside.items) store = remove(store, "allocations", a.id);
+    });
+    if (!out.ok && (out.error === "VERSION_CONFLICT" || out.error === "NOT_FOUND")) for (const a of lines) await reread(a.id);
+    return out.ok ? { ok: true, before: [...lines, ...outside.items], complete: outside.complete } : out;
+  }
+
+  async function deleteOccurrence(id: string, index: number): Promise<EditOutcome> {
+    const cur = store.tables.allocations.get(id);
+    const api = opts.api.splitAllocation;
+    if (!api) return fail("UNSUPPORTED");
+    if (!cur) return fail("NOT_FOUND");
+    if (busy(id)) return fail("BUSY");
+    const n = ++seq;
+    const local = localSplit(cur, index, {}, (k) => `tmp-${n}-${k}`);
+    if (!local.ok) return fail(local.error, local.reason);
+    const s = local.split;
+    const [mb, ma] = [`split-${n}-b`, `split-${n}-a`];
+    store = applyOptimistic(store, mb, "allocations", id, s.before);
+    const ids = [mb];
+    if (s.after) { store = applyOptimistic(store, ma, "allocations", s.after.id, s.after); ids.push(ma); }
+    refresh();
+    const out = await write(ids, () => api({ path: { id }, headers: { "If-Match": `"${cur.version}"` }, body: { occurrenceDate: s.occurrenceDate, delete: true } }),
+      (d) => {
+        store = confirmOptimistic(store, mb, d.before ?? null);
+        if (s.after) store = confirmOptimistic(store, ma, d.after ?? null);
+        else if (d.after) store = upsert(store, "allocations", d.after);
+      });
+    if (!out.ok && (out.error === "VERSION_CONFLICT" || out.error === "NOT_FOUND")) await reread(id);
+    return out;
   }
 
   async function splitOccurrence(id: string, index: number, patch: AllocationEdit): Promise<EditOutcome> {
@@ -636,6 +695,8 @@ export function createScheduleSource(opts: ScheduleSourceOptions): ScheduleSourc
     updateAllocation,
     splitOccurrence,
     updateAllocationGroup,
+    deleteAllocationGroup,
+    deleteOccurrence,
     onForeignChange(l) {
       foreignListeners.add(l);
       return () => foreignListeners.delete(l);

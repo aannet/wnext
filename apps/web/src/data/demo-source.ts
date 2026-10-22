@@ -3,7 +3,8 @@
 // Congés et allocations (record-edits) aussi ; le chevauchement de congés est refusé comme par l'API (TIMEOFF_OVERLAP).
 // Aucun temps saisi en démo. Retrait d'un projet (BR-10) : récapitulatif et confirmation calculés localement (team-removal).
 // Pop-in du créneau : changement de projet (le projet d'arrivée, connu de la démo, entre dans le magasin), groupe (BR-26 :
-// une ligne par personne, même groupId ; « tout le groupe » : chaque ligne du groupe, version + 1).
+// une ligne par personne, même groupId ; « tout le groupe » : chaque ligne du groupe, version + 1). Suppressions (RT-047) :
+// tout le groupe, ou une occurrence par la découpe locale.
 import type { ScheduleResponse } from "@wnext/contracts";
 import { emptyStore, ingestSchedule, remove, snapshot, upsert, type ScheduleStore } from "../schedule/store";
 import { localSplit, patched, type EditOutcome } from "./allocation-edits";
@@ -132,6 +133,24 @@ export function createDemoSource(initial: ScheduleResponse): ScheduleSource {
     async deleteAllocation(id) {
       if (!store.tables.allocations.has(id)) return { ok: false, error: "NOT_FOUND" };
       store = remove(store, "allocations", id);
+      return changed();
+    },
+    async deleteAllocationGroup(id) {
+      const g = store.tables.allocations.get(id)?.groupId;
+      if (!g) return { ok: false, error: "NOT_FOUND" };
+      const before = [...store.tables.allocations.values()].filter((a) => a.groupId === g);
+      for (const a of before) store = remove(store, "allocations", a.id);
+      changed();
+      return { ok: true, before, complete: true };
+    },
+    async deleteOccurrence(id, index) {
+      const a = store.tables.allocations.get(id);
+      if (!a) return { ok: false, error: "NOT_FOUND" };
+      const r = localSplit(a, index, {}, () => `demo-${++seq}`);
+      if (!r.ok) return r;
+      const { before, after } = r.split;
+      store = before ? upsert(store, "allocations", { ...before, version: a.version + 1 }) : remove(store, "allocations", id);
+      if (after) store = upsert(store, "allocations", { ...after, version: 1 });
       return changed();
     },
     loggedTime: async () => [],
