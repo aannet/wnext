@@ -43,6 +43,8 @@ Décision d'Alec, recette n°2 (RT-023). Valable pour tout drawer (`Sheet` shadc
 - **Popover** : une action rapide et ancrée à un élément (choix d'un projet, par exemple).
 - **Drawer** : une édition d'entité (projet, personne, allocation). Décision RT-024 : l'édition d'une allocation passe du modal à un drawer, comme pour les projets. La création passe par le même drawer (Q8) ; le bloc provisoire reste visible dans la grille pendant la saisie.
 - **Modal** (`AlertDialog`) : seulement pour une confirmation bloquante (BR-04, BR-10, BR-31).
+- Portée d'une édition dans le drawer (RT-042, PO-08) : une série s'ouvre sur l'occurrence cliquée (ses dates) ; à l'enregistrement, une étape du drawer (groupe radio, radio choisi focalisé, Confirmer ; Échap ou Retour revient au formulaire) demande « Cette occurrence » (découpe BR-25, non annulable, annoncée) ou « Toute la série » (dates décalées d'autant), et pour une ligne de groupe (BR-26) « Cette ligne » ou « Tout le groupe » (annulable par Ctrl+Z, ligne par ligne). La personne et la charge sont propres à chaque ligne : si elles changent avec un champ commun, « Tout le groupe » est indisponible, avec la raison ; seules, elles s'appliquent à la ligne sans étape. Rien qui dépende de la portée : pas d'étape.
+- La couleur d'un projet changée depuis le drawer d'un bloc (RT-018) est une écriture du projet : elle n'entre pas dans l'annulation (Ctrl+Z) du Planning (PO-08).
 
 ## Grille (Schedule)
 
