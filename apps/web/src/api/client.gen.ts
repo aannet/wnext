@@ -46,6 +46,31 @@ export interface MeAccount {
   defaultLocale: string;
 }
 
+export interface AccountSettings {
+  id: Id;
+  version: Version;
+  name: string;
+  timezone: string;
+  weekStart: number;
+  defaultLocale: string;
+  capacityThresholds: {
+    underPercent: number;
+  };
+}
+
+export type Version = number;
+
+export interface AccountPatch {
+  timezone?: string;
+  weekStart?: number;
+  defaultLocale?: AccountLocale;
+  capacityThresholds?: {
+    underPercent: number;
+  };
+}
+
+export type AccountLocale = "fr" | "en";
+
 export interface RealtimeTicket {
   ticket: string;
   expiresInSeconds: number;
@@ -99,8 +124,6 @@ export interface SchedulePerson {
   avatarUrl: string | null;
   active: boolean;
 }
-
-export type Version = number;
 
 export type SchedulePeopleType = "employee" | "contractor" | "placeholder";
 
@@ -1078,6 +1101,27 @@ export function createClient(options: { baseUrl: string; fetch: Fetcher }) {
       const body = res.status === 204 ? undefined : await res.json();
       return res.status >= 200 && res.status < 300
         ? { ok: true, status: res.status, data: body as Me }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Reglages du compte courant : fuseau, debut de semaine, langue par defaut, seuil de sous-allocation, version (tout membre authentifie) (GET /api/v1/account) */
+    async getAccount(): Promise<ApiResult<AccountSettings, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/account", { method: "GET", headers: { accept: "application/json" } });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as AccountSettings }
+        : { ok: false, status: res.status, error: body as ApiError };
+    },
+    /** Modifier les reglages du compte (owner ou admin ; verrou optimiste If-Match ; pas de diffusion temps reel : relire /me et /schedule) (PATCH /api/v1/account) */
+    async updateAccount(input: {
+      headers: {
+        "If-Match": string;
+      };
+      body: AccountPatch;
+    }): Promise<ApiResult<AccountSettings, ApiError>> {
+      const res = await options.fetch(options.baseUrl + "/api/v1/account", { method: "PATCH", headers: { accept: "application/json", "content-type": "application/json", ...input.headers }, body: JSON.stringify(input.body) });
+      const body = res.status === 204 ? undefined : await res.json();
+      return res.status >= 200 && res.status < 300
+        ? { ok: true, status: res.status, data: body as AccountSettings }
         : { ok: false, status: res.status, error: body as ApiError };
     },
     /** Ticket d'upgrade du temps reel (usage unique, 30 s) pour les clients qui ne peuvent pas poser d'en-tete sur un WebSocket ; tout membre authentifie (POST /api/v1/realtime/ticket) */

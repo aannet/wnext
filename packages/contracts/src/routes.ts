@@ -7,6 +7,7 @@ import {
 import { ApiError } from "./errors";
 import { HealthResponse } from "./health";
 import { Me } from "./me";
+import { AccountPatch, AccountSettings } from "./account";
 import { REALTIME_TICKET_PATH, REALTIME_TICKET_TTL_SECONDS, RealtimeTicket } from "./realtime";
 import { TeamBatchAdd, TeamBatchResult, TeamMemberList, TeamMembership, TeamPathParams, TeamProjectPathParams, TeamRemovalRequest, TeamRemovalResult, TeamRemovalSummary } from "./team";
 import { PersonDeactivationQuery, PersonDeactivationRequest, PersonDeactivationResult, PersonDeactivationSummary, PersonCreate, PersonDetail, PersonHistoryList, PersonHistoryQuery, PersonList, PersonListQuery, PersonPatch, PersonPathParams, PersonProjectList, PersonProjectListQuery } from "./people";
@@ -141,6 +142,34 @@ export const routes: RouteContract[] = [
     responses: {
       200: { description: "Utilisateur, role, personne liee (ou null) et compte", schema: Me },
       401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/account",
+    operationId: "getAccount",
+    summary: "Reglages du compte courant : fuseau, debut de semaine, langue par defaut, seuil de sous-allocation, version (tout membre authentifie)",
+    responses: {
+      200: { description: "Reglages du compte", schema: AccountSettings },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      500: { description: "Erreur interne", schema: ApiError },
+    },
+  },
+  {
+    method: "patch",
+    path: "/api/v1/account",
+    operationId: "updateAccount",
+    summary: "Modifier les reglages du compte (owner ou admin ; verrou optimiste If-Match ; pas de diffusion temps reel : relire /me et /schedule)",
+    headers: IfMatchHeader,
+    body: AccountPatch,
+    responses: {
+      200: { description: "Reglages modifies (nouvelle version)", schema: AccountSettings },
+      400: { description: "Corps ou en-tete invalide, fuseau inconnu de pg_timezone_names (VALIDATION_FAILED, params.field)", schema: ApiError },
+      401: { description: "Non authentifie (UNAUTHENTICATED)", schema: ApiError },
+      403: { description: "Role insuffisant, owner ou admin requis (FORBIDDEN)", schema: ApiError },
+      409: { description: "Version perimee (VERSION_CONFLICT, params.currentVersion)", schema: ApiError },
+      428: { description: "If-Match absent (PRECONDITION_REQUIRED)", schema: ApiError },
       500: { description: "Erreur interne", schema: ApiError },
     },
   },

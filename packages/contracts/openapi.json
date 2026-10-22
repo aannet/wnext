@@ -203,6 +203,106 @@
           "defaultLocale"
         ]
       },
+      "AccountSettings": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "name": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Fuseau IANA du compte (accounts.timezone)"
+          },
+          "weekStart": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7,
+            "description": "Premier jour affiché, ISO : 1 = lundi ... 7 = dimanche (affichage seulement)"
+          },
+          "defaultLocale": {
+            "type": "string",
+            "description": "Langue par défaut du compte (BCP 47 court ; écriture : fr ou en)"
+          },
+          "capacityThresholds": {
+            "type": "object",
+            "properties": {
+              "underPercent": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 100,
+                "description": "Sous-allocation si la charge est sous ce % de la capacité nette ; la sur-allocation est fixe à 100 % (BR-38)"
+              }
+            },
+            "required": [
+              "underPercent"
+            ],
+            "description": "Seuils de capacité du compte"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "name",
+          "timezone",
+          "weekStart",
+          "defaultLocale",
+          "capacityThresholds"
+        ]
+      },
+      "Version": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Version de l'entité (verrou optimiste)"
+      },
+      "AccountPatch": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Fuseau IANA, validé contre pg_timezone_names"
+          },
+          "weekStart": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7,
+            "description": "Premier jour affiché, ISO : 1 = lundi ... 7 = dimanche (affichage seulement)"
+          },
+          "defaultLocale": {
+            "$ref": "#/components/schemas/AccountLocale"
+          },
+          "capacityThresholds": {
+            "type": "object",
+            "properties": {
+              "underPercent": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 100,
+                "description": "Sous-allocation si la charge est sous ce % de la capacité nette ; la sur-allocation est fixe à 100 % (BR-38)"
+              }
+            },
+            "required": [
+              "underPercent"
+            ]
+          }
+        }
+      },
+      "AccountLocale": {
+        "type": "string",
+        "enum": [
+          "fr",
+          "en"
+        ],
+        "description": "Langues proposées par défaut au compte"
+      },
       "RealtimeTicket": {
         "type": "object",
         "properties": {
@@ -471,11 +571,6 @@
           "avatarUrl",
           "active"
         ]
-      },
-      "Version": {
-        "type": "integer",
-        "minimum": 1,
-        "description": "Version de l'entité (verrou optimiste)"
       },
       "SchedulePeopleType": {
         "type": "string",
@@ -5291,6 +5386,143 @@
           },
           "401": {
             "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/account": {
+      "get": {
+        "operationId": "getAccount",
+        "summary": "Reglages du compte courant : fuseau, debut de semaine, langue par defaut, seuil de sous-allocation, version (tout membre authentifie)",
+        "responses": {
+          "200": {
+            "description": "Reglages du compte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateAccount",
+        "summary": "Modifier les reglages du compte (owner ou admin ; verrou optimiste If-Match ; pas de diffusion temps reel : relire /me et /schedule)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\"\\d+\"$",
+              "description": "Version lue dans le Schedule, entre guillemets : \"3\""
+            },
+            "required": true,
+            "description": "Version lue dans le Schedule, entre guillemets : \"3\"",
+            "name": "If-Match",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reglages modifies (nouvelle version)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps ou en-tete invalide, fuseau inconnu de pg_timezone_names (VALIDATION_FAILED, params.field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifie (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role insuffisant, owner ou admin requis (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version perimee (VERSION_CONFLICT, params.currentVersion)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match absent (PRECONDITION_REQUIRED)",
             "content": {
               "application/json": {
                 "schema": {
