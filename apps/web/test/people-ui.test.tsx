@@ -168,7 +168,8 @@ describe("fiche", () => {
     await mount(d.people, d.reference, { weekStart: 7 });
     await open("Personne 1");
     const labels = [...top().querySelectorAll(".wn-week-grid label")].map((l) => l.textContent);
-    expect(labels).toEqual(["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"]);
+    expect(labels).toEqual(["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."]);
+    expect([...top().querySelectorAll(".wn-week-grid input")].map((i) => i.getAttribute("aria-label"))).toEqual(["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"]); // nom accessible long (RT-036)
     const values = [...top().querySelectorAll<HTMLInputElement>(".wn-week-grid input")].map((i) => i.value);
     expect(values).toEqual(["0", "8", "8", "8", "8", "8", "0"]); // stockage ISO inchangé : lundi = 8, dimanche = 0
   });
@@ -183,7 +184,7 @@ describe("fiche", () => {
     await type(field("Nom"), "Personne Un");
     expect(field("À partir du")).toBeFalsy();
     await type(field("Nom"), "Personne 1");
-    const friday = [...top().querySelectorAll<HTMLInputElement>(".wn-week-grid input")].find((i) => i.id && top().querySelector(`label[for="${i.id}"]`)!.textContent === "vendredi")!;
+    const friday = top().querySelector<HTMLInputElement>(`.wn-week-grid input[aria-label="vendredi"]`)!;
     await type(friday, "0");
     expect(field("À partir du").value).toBe(TODAY);
     expect(top().textContent).toContain("Total : 32 h par semaine sur 4 jours");
@@ -306,7 +307,7 @@ describe("i18n", () => {
     expect(page().querySelector("h1")!.textContent).toBe("People");
     expect(button("New person", page())).toBeTruthy();
     await open("Personne 1");
-    expect([...top().querySelectorAll(".wn-week-grid label")].map((l) => l.textContent)).toEqual(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]);
+    expect([...top().querySelectorAll(".wn-week-grid label")].map((l) => l.textContent)).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
     expect(top().textContent).toContain("Schedule history");
   });
 });

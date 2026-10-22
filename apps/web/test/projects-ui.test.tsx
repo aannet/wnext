@@ -111,7 +111,7 @@ describe("création réduite (US-2.1)", () => {
     await choose(field("Client"), "__new__");
     await type(field("Nom du nouveau client"), "Initech");
     await type(field("Code projet"), "RH-1");
-    await click(q("button[aria-label='Couleur " + PROJECT_PALETTE[3]!.hex + "']"));
+    await click(q("[role=radio][aria-label='Couleur " + PROJECT_PALETTE[3]!.hex + "']"));
     await click(button("Créer le projet"));
     expect(rowNames()).toContain("Portail RH");
     expect(onProject).toHaveBeenCalledWith(expect.objectContaining({ name: "Portail RH", projectCode: "RH-1", color: PROJECT_PALETTE[3]!.hex }));
@@ -198,7 +198,7 @@ describe("panneau d'un projet", () => {
     await open("Projet A");
     expect(panel()!.textContent).toContain("Projet A");
     const target = PROJECT_PALETTE[5]!.hex;
-    await click(q(`button[aria-label='Couleur ${target}']`));
+    await click(q(`[role=radio][aria-label='Couleur ${target}']`));
     await click(button("Enregistrer"));
     expect(onProject).toHaveBeenLastCalledWith(expect.objectContaining({ id: "1", color: target, version: 2 }));
     expect(panel()!.textContent).toContain("Modifications enregistrées.");

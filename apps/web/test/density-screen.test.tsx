@@ -49,7 +49,7 @@ const firstRowHeight = () => host.querySelector<HTMLElement>(".wn-row:not([style
 const grid = () => host.querySelector<HTMLElement>("[role=grid]")!;
 const zoomPressed = () => [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] [aria-pressed=true]")].map((b) => b.textContent);
 const click = async (b: HTMLElement | undefined) => { await act(async () => { b!.click(); }); await flush(); };
-const key = (k: string) => act(() => { document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })); });
+const key = async (k: string) => { act(() => { document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })); }); await flush(); };
 const minRow = (d: keyof typeof DENSITY_METRICS) => DENSITY_METRICS[d].rowUnitPx + DENSITY_METRICS[d].capPx;
 
 describe("contrôle de densité", () => {
@@ -78,15 +78,15 @@ describe("contrôle de densité", () => {
   it("clavier : flèches (avec retour au début), Début et Fin ; le focus suit le choix", async () => {
     await mount();
     radios()[1]!.focus();
-    key("ArrowRight");
+    await key("ArrowRight");
     expect([checked(), document.activeElement?.textContent]).toEqual([["Aérée"], "Aérée"]);
-    key("ArrowRight");
+    await key("ArrowRight");
     expect(checked()).toEqual(["Compacte"]);
-    key("ArrowLeft");
+    await key("ArrowLeft");
     expect(checked()).toEqual(["Aérée"]);
-    key("Home");
+    await key("Home");
     expect(checked()).toEqual(["Compacte"]);
-    key("End");
+    await key("End");
     expect([checked(), localStorage.getItem(DENSITY_STORAGE_KEY)]).toEqual([["Aérée"], "airy"]);
   });
 

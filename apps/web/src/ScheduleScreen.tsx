@@ -56,7 +56,7 @@ import { ViewsBar } from "./schedule/views-ui";
 import { FilterChips, FiltersButton, FiltersPanel } from "./schedule/filters-ui";
 import { useTeamRemoval } from "./schedule/team-removal-ui";
 import type { TeamRemovalEditor } from "./data/team-removal";
-import { Button, Popover } from "./design";
+import { Button, Popover, RadioGroup, RadioItem, Switch } from "./design";
 
 export interface ScheduleScreenProps {
   i18n: I18n;
@@ -312,18 +312,6 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
 
   const zoomTo = (z: Zoom) => { scroller.current?.setZoom(z); setZoom(z); };
   const densityTo = (d: Density) => { scroller.current?.setDensity(d); setDensityState(d); storeDensity(d); };
-  const densityRefs = useRef<Partial<Record<Density, HTMLButtonElement | null>>>({});
-  /** Groupe radio (APG) : flèches pour passer d'un niveau à l'autre, Début / Fin pour les extrêmes ; le focus suit le choix. */
-  const onDensityKey = (e: KeyboardEvent) => {
-    const i = DENSITIES.indexOf(density);
-    const next = e.key === "ArrowLeft" || e.key === "ArrowUp" ? DENSITIES[(i + DENSITIES.length - 1) % DENSITIES.length]
-      : e.key === "ArrowRight" || e.key === "ArrowDown" ? DENSITIES[(i + 1) % DENSITIES.length]
-      : e.key === "Home" ? DENSITIES[0] : e.key === "End" ? DENSITIES[DENSITIES.length - 1] : undefined;
-    if (!next) return;
-    e.preventDefault();
-    densityTo(next);
-    densityRefs.current[next]?.focus();
-  };
   const onKeyDown = (e: KeyboardEvent) => {
     const s = scroller.current;
     if (!s) return;
@@ -395,17 +383,11 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
       {views && filtersOpen && <FiltersPanel i18n={i18n} data={data} filters={filters} onFilters={setFilters} id={`${uid}-filters`} />}
       {displayOpen && displayButton.current && (
         <Popover anchor={displayButton.current} label={t("schedule.display")} className="wn-display-menu" onClose={() => setDisplayOpen(false)}>
-          <div role="radiogroup" aria-label={t("schedule.density.label")} className="wn-segmented" onKeyDown={onDensityKey}>
-            {DENSITIES.map((d) => (
-              <button key={d} ref={(el) => { densityRefs.current[d] = el; }} type="button" role="radio" aria-checked={density === d} tabIndex={density === d ? 0 : -1}
-                onClick={() => densityTo(d)}>
-                {t(`schedule.density.${d}`)}
-              </button>
-            ))}
-          </div>
-          <button type="button" role="switch" aria-checked={showLoad} className="wn-switch" onClick={() => setShowLoad((v) => !v)}>
-            {t("schedule.display.load")}
-          </button>
+          <RadioGroup aria-label={t("schedule.density.label")} value={density} onValueChange={(v) => densityTo(v as Density)}
+            className="inline-flex overflow-hidden rounded-md border border-solid border-input">
+            {DENSITIES.map((d) => <RadioItem key={d} value={d} variant="segment">{t(`schedule.density.${d}`)}</RadioItem>)}
+          </RadioGroup>
+          <Switch checked={showLoad} onCheckedChange={setShowLoad}>{t("schedule.display.load")}</Switch>
         </Popover>
       )}
       {records && (

@@ -17,7 +17,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import type { TimeoffPatch } from "../api/client.gen";
 import type { EditError } from "../data/allocation-edits";
 import type { Timeoff } from "../data/record-edits";
-import { Button } from "../design";
+import { Button, RadioGroup, RadioItem } from "../design";
 import type { MessageKey } from "../i18n";
 import { planResolution, runTimeoffAction, timeoffConflicts, type Choice, type FlowDeps, type TimeoffConflictReport, type TimeoffDraft } from "./timeoff-flow";
 
@@ -258,14 +258,17 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
           const legend = t("schedule.timeoff.assistant.choice", { project: projectName(id), ...range(a) });
           return (
             <fieldset key={id} className="wn-timeoff-choice">
-              <legend>{legend}</legend>
-              {series ? <p>{t("schedule.timeoff.assistant.series")}</p> : (["move", "reduce", "keep"] as const).map((c) => (
-                <label key={c}>
-                  <input type="radio" name={`wn-choice-${id}`} value={c} checked={s.choices[id] === c} autoFocus={i === 0 && c === s.choices[id]}
-                    onChange={() => setStep({ ...s, choices: { ...s.choices, [id]: c } })} />
-                  {t(`schedule.timeoff.assistant.${c}`)}
-                </label>
-              ))}
+              <legend id={`wn-choice-legend-${id}`}>{legend}</legend>
+              {series ? <p>{t("schedule.timeoff.assistant.series")}</p> : (
+                <RadioGroup aria-labelledby={`wn-choice-legend-${id}`} value={s.choices[id]} onValueChange={(c) => setStep({ ...s, choices: { ...s.choices, [id]: c as Choice } })}>
+                  {(["move", "reduce", "keep"] as const).map((c) => (
+                    <label key={c}>
+                      <RadioItem value={c} {...(i === 0 && c === s.choices[id] ? { "data-autofocus": "" } : {})} />
+                      {t(`schedule.timeoff.assistant.${c}`)}
+                    </label>
+                  ))}
+                </RadioGroup>
+              )}
               <ul aria-live="polite">
                 {!w && <li>{t("schedule.timeoff.assistant.preview.unchanged")}</li>}
                 {w && w.movedHours > 0 && <li>{t("schedule.timeoff.assistant.preview.moved", { hours: w.movedHours })}</li>}

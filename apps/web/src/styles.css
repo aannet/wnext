@@ -42,10 +42,6 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-chip-remove:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .wn-filters-panel { padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-sunken); align-items: flex-end; }
 .wn-display-menu { display: flex; flex-direction: column; gap: var(--space-3); }
-.wn-switch { display: inline-flex; gap: var(--space-2); align-items: center; padding: 0; border: 0; background: none; color: var(--text); font: inherit; cursor: pointer; }
-.wn-switch::before { content: ""; flex: none; width: 28px; height: 16px; border-radius: var(--radius-full); background: var(--color-border-strong); box-shadow: inset 2px 0 0 2px var(--color-border-strong), inset 14px 0 0 2px var(--surface); transition: box-shadow 120ms; }
-.wn-switch[aria-checked="true"]::before { background: var(--accent); box-shadow: inset -2px 0 0 2px var(--accent), inset -14px 0 0 2px var(--surface); }
-.wn-switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius-sm); }
 .wn-header { background: var(--surface); border-bottom: 1px solid var(--border); }
 .wn-corner { background: var(--surface); }
 .wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; overflow: hidden; white-space: nowrap; color: var(--text-muted); border-left: 1px solid var(--wn-grid-line); }
@@ -83,11 +79,6 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-gauge-value { flex: none; min-width: 3.5em; color: var(--color-text-soft); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .wn-gauge-over .wn-gauge-value { color: var(--cap-over); font-weight: var(--font-weight-semibold); }
 /* Contrôle segmenté de la densité (groupe radio) dans la barre d'outils. */
-.wn-segmented { display: inline-flex; overflow: hidden; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); }
-.wn-segmented button { padding: var(--space-1) var(--space-3); border: 0; border-left: 1px solid var(--color-border-strong); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
-.wn-segmented button:first-child { border-left: 0; }
-.wn-segmented button[aria-checked="true"] { background: var(--accent); color: var(--accent-fg); font-weight: var(--font-weight-medium); }
-.wn-segmented button:focus-visible { outline: 2px solid var(--focus); outline-offset: -3px; }
 .wn-block { contain: strict; box-sizing: border-box; border-radius: 3px; padding: 2px 4px; overflow: hidden; font-size: var(--wn-block-size); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .wn-statusbar { display: flex; gap: 12px; align-items: center; margin-left: auto; min-height: 20px; color: var(--text-muted); font-size: 12px; }
 .wn-realtime::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--color-status-idle); }

@@ -11,7 +11,7 @@ import { todayIn } from "@wnext/engine";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ImportSource } from "../data/import-source";
 import type { PeopleSource, Person, ReferenceSource } from "../data/people-source";
-import { Button, Drawer } from "../design";
+import { Button, Drawer, Switch } from "../design";
 import type { MessageKey } from "../i18n";
 import { ImportDialog } from "../imports/import-dialog";
 import { useLoad } from "../projects/use-load";
@@ -120,9 +120,7 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
                 <option value="all">{fmt("people.filters.state.all")}</option>
               </select>
             </div>
-            <button type="button" role="switch" aria-checked={grouped} className="wn-switch wn-filters-switch" onClick={() => setGrouped((g) => !g)}>
-              {t("people.group.department")}
-            </button>
+            <Switch checked={grouped} onCheckedChange={setGrouped} className="wn-filters-switch">{t("people.group.department")}</Switch>
           </form>
 
           {shown.length === 0 ? (

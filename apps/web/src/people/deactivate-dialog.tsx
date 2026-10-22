@@ -6,7 +6,7 @@ import type { I18n } from "@lingui/core";
 import type { PersonDeactivationSummary } from "@wnext/contracts";
 import { useEffect, useMemo, useState } from "react";
 import type { DirError, DirResult, PeopleSource, Person } from "../data/people-source";
-import { Button, Modal } from "../design";
+import { Button, Modal, RadioGroup, RadioItem } from "../design";
 import type { MessageKey } from "../i18n";
 import { errorOf } from "./people-model";
 
@@ -89,18 +89,20 @@ export function DeactivateDialog({ i18n, source, person, candidates, onClose, on
             : t("people.deactivate.none")}</p>
           {needsChoice && (
             <fieldset className="wn-choice">
-              <legend>{t("people.deactivate.disposition")}</legend>
-              <label><input type="radio" name="disposition" checked={disposition === "reassign"} onChange={() => setDisposition("reassign")} /> {t("people.deactivate.reassign")}</label>
-              {disposition === "reassign" && (
-                <div className="wn-field">
-                  <label htmlFor="wn-replacement">{t("people.deactivate.replacement")}</label>
-                  <select id="wn-replacement" value={replacementId} onChange={(e) => setReplacementId(e.target.value)}>
-                    <option value="">{t("people.deactivate.replacement.placeholder")}</option>
-                    {others.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-              )}
-              <label><input type="radio" name="disposition" checked={disposition === "delete"} onChange={() => setDisposition("delete")} /> {t("people.deactivate.delete")}</label>
+              <legend id="wn-disposition-legend">{t("people.deactivate.disposition")}</legend>
+              <RadioGroup aria-labelledby="wn-disposition-legend" value={disposition || null} onValueChange={(v) => setDisposition(v as typeof disposition)} className="flex flex-col gap-(--space-2)">
+                <label className="inline-flex items-center gap-2"><RadioItem value="reassign" /> {t("people.deactivate.reassign")}</label>
+                {disposition === "reassign" && (
+                  <div className="wn-field">
+                    <label htmlFor="wn-replacement">{t("people.deactivate.replacement")}</label>
+                    <select id="wn-replacement" value={replacementId} onChange={(e) => setReplacementId(e.target.value)}>
+                      <option value="">{t("people.deactivate.replacement.placeholder")}</option>
+                      {others.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                )}
+                <label className="inline-flex items-center gap-2"><RadioItem value="delete" /> {t("people.deactivate.delete")}</label>
+              </RadioGroup>
             </fieldset>
           )}
           <p className="wn-muted">{t("people.deactivate.reversible")}</p>
