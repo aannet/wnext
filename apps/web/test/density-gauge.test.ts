@@ -99,10 +99,12 @@ describe("jauge : calcul sur une période", () => {
   const alice = m.rows[0]!;
   const gauge = (from: string, to: string, row = alice) => gaugeOf(row, { from, to }, m.thresholds);
 
-  it("semaine : 24 h planifiées sur 40 h, 60 %, sous le seuil de 80 % (état du moteur)", () => {
+  // RT-063 (D2) : lundi et mardi à 10 h dépassent leur capacité ; la semaine (60 %) passe en surcharge, +4 h sur deux jours.
+  it("semaine : 24 h planifiées sur 40 h, 60 %, mais deux jours en surcharge : état over, +4 h (RT-063)", () => {
     expect(gauge("2026-03-02", "2026-03-08")).toEqual({
-      from: "2026-03-02", to: "2026-03-08", plannedHours: 24, capacityHours: 40, overHours: 0, percent: 60, state: "under", fill: 60,
+      from: "2026-03-02", to: "2026-03-08", plannedHours: 24, capacityHours: 40, overHours: 4, overDays: 2, percent: 60, state: "over", fill: 60,
     });
+    expect(gauge("2026-03-04", "2026-03-08")).toMatchObject({ plannedHours: 4, capacityHours: 24, overDays: 0, state: "under" });
   });
 
   it("lundi et mardi : dépassement de 4 h, 125 %, barre pleine (bornée à 100)", () => {
@@ -115,7 +117,8 @@ describe("jauge : calcul sur une période", () => {
   });
 
   it("période débordant des jours chargés : bornée à la tranche (l'infobulle dit la période réellement comptée) ; hors tranche : indisponible", () => {
-    expect(gauge("2026-02-20", "2026-03-04")).toMatchObject({ from: "2026-03-02", to: "2026-03-04", plannedHours: 24, capacityHours: 24, state: "full" });
+    // 100 % sur la période, mais lundi et mardi en surcharge : over (RT-063 ; l'état « full » n'est plus affiché).
+    expect(gauge("2026-02-20", "2026-03-04")).toMatchObject({ from: "2026-03-02", to: "2026-03-04", plannedHours: 24, capacityHours: 24, overDays: 2, state: "over" });
     expect(gauge("2026-04-01", "2026-04-10")).toMatchObject({ percent: null, state: "unavailable" });
   });
 
@@ -128,7 +131,7 @@ describe("jauge : calcul sur une période", () => {
 
 describe("jauge : texte et infobulle (catalogue)", () => {
   const g = (over: Partial<GridGauge>): GridGauge => ({
-    from: "2026-03-02", to: "2026-03-06", plannedHours: 24, capacityHours: 40, overHours: 0, percent: 60, state: "under", fill: 60, ...over,
+    from: "2026-03-02", to: "2026-03-06", plannedHours: 24, capacityHours: 40, overHours: 0, overDays: 0, percent: 60, state: "under", fill: 60, ...over,
   });
   const fr = gaugeLabeler(createI18n("fr"));
   const en = gaugeLabeler(createI18n("en"));

@@ -63,7 +63,7 @@ describe("jauge : rendu dans la colonne de gauche", () => {
     const m = buildGrid(snap, range, 96, "day");
     r.render(m, 0, 400, undefined, { from: "2026-03-02", to: "2026-03-08" });
     const value = () => heads(root)[0]!.querySelector(".wn-gauge-value")!;
-    expect(value().textContent).toBe("60 %");
+    expect(value().textContent).toBe("▲ 60 % +4 h"); // lundi et mardi en surcharge (RT-063)
     const text = value().firstChild!;
     let writes = 0;
     new MutationObserver((l) => { writes += l.length; }).observe(root, { subtree: true, characterData: true, attributes: true });

@@ -112,13 +112,13 @@ components:
 
 WNEXT est un outil de travail de professionnel : un registre tenu à jour, où les chiffres sont justes et où rien ne crie. Le planning se lit comme un tableau de bord sobre. La couleur sert à distinguer les projets et à signaler un dépassement, jamais à décorer. La densité est maîtrisée : trois niveaux de lignes (compact, standard, aéré) pour afficher douze personnes à l'écran sur un écran 1920 × 1080.
 
-Le système est plat. Le fond est blanc, le texte anthracite, et une seule couleur d'accent, le pétrole, sert aux actions principales et à la période courante. Les ombres n'apparaissent que pour les popovers et le panneau latéral. Tout le reste se sépare par une bordure de 1 px.
+Le système est plat. Le fond est blanc, le texte anthracite, et une seule couleur d'accent, le pétrole, sert aux actions principales et à la période courante. Les ombres n'apparaissent que pour les popovers, le panneau latéral et le survol d'un objet manipulable (bloc du Planning). Tout le reste se sépare par une bordure de 1 px.
 
-Le caractère voulu pour les composants est « franc et tactile » (décision du 2026-10-23). Il est en place dans la barre du Planning : un bouton s'enfonce d'un pixel à l'appui. Le survol reste une variation de couleur (voir Components).
+Le caractère voulu pour les composants est « franc et tactile » (décision du 2026-10-23). Il est en place dans le Planning : un bouton s'enfonce d'un pixel à l'appui, un bloc se soulève d'un pixel au survol de la souris (RT-062). Le survol d'un bouton reste une variation de couleur (voir Components).
 
 **Key Characteristics:**
 - Fond blanc, texte anthracite, une seule couleur d'accent.
-- Plat au repos : bordure de 1 px, ombre seulement pour popover et tiroir.
+- Plat au repos : bordure de 1 px, ombre seulement pour popover, tiroir et bloc survolé ou armé.
 - Information non chromatique : tentatif (hachures et pointillé), dépassement (hachures rouges, cadre, ligne).
 - Densité à trois niveaux à hauteurs fixes, pas d'ajustement à la fenêtre.
 - Thème clair uniquement : le mode sombre est hors périmètre.
@@ -132,9 +132,9 @@ Palette sobre : neutres froids et un seul accent. Les couleurs de capacité et d
 - **Pétrole profond survolé** (#0b5c72) : survol du bouton principal. Plus foncé que l'accent, car un éclaircissement passait sous WCAG AA (4,42:1).
 
 ### Secondary
-- **Vert contrôle** (#1e8e3e) : capacité saine (80 à 100 %). Toujours accompagné d'une forme ou d'un libellé.
-- **Ambre avertissement** (#b45309) : avertissement de capacité et de congé en attente.
-- **Rouge alerte** (#b91c1c) : dépassement de capacité (au-delà de 100 %), variante destructive pleine avec texte blanc (5,9:1).
+- **Vert contrôle** (#1e8e3e) : capacité saine (80 à 100 %, 100 % compris). Toujours accompagné d'une forme ou d'un libellé.
+- **Ambre avertissement** (#b45309) : congé en attente. La jauge de capacité ne l'emploie plus (décision D2 du 2026-10-23 : plus d'orange).
+- **Rouge alerte** (#b91c1c) : dépassement de capacité (au-delà de 100 %, jour par jour), variante destructive pleine avec texte blanc (5,9:1).
 - **Bleu confirmé** (#1d4ed8) : part confirmée dans la bande de capacité, distincte du tentatif.
 
 ### Tertiary
@@ -176,12 +176,14 @@ Palette sobre : neutres froids et un seul accent. Les couleurs de capacité et d
 
 ## Layout
 
-Grille du Planning : personnes en lignes, jours en colonnes, en-tête collant. Trois densités à hauteurs fixes (`density.ts`) :
+Grille du Planning : personnes en lignes, jours en colonnes, en-tête collant. Trois densités à hauteurs fixes (`density.ts`), bande de capacité comprise :
 - **Compact** : bloc à 48 px par journée, bande de capacité à 14 px.
 - **Standard** (défaut) : bloc à 72 px, bande à 20 px.
 - **Aéré** : bloc à 96 px, bande à 24 px, avatars de 36 px.
 
-La page occupe 100 % de la hauteur de la fenêtre et ne défile pas. Seule la grille défile, dans son conteneur. La barre d'outils passe à la ligne au besoin. Les week-ends et jours non ouvrés sont hachurés en vue jour. La période courante est soulignée d'un trait pétrole.
+Bascule « Charge » (menu Affichage, RT-052) : active par défaut, état en mémoire seulement. Éteinte, toute la bande de capacité disparaît (graphique et chiffres, dépassements compris) et chaque ligne perd la hauteur de la bande ; la jauge de la colonne Personnes reste le signal de surcharge.
+
+La page occupe 100 % de la hauteur de la fenêtre et ne défile pas. Seule la grille défile, dans son conteneur. La barre d'outils passe à la ligne au besoin. Les week-ends et jours non ouvrés sont hachurés en vue jour. La colonne courante est teintée de pétrole à 10 % ; un trait « maintenant » (2 px pétrole, liseré blanc de 1 px) marque le début du jour courant sur toute la hauteur des lignes, au-dessus des blocs, au prorata du jour en vue semaine et mois (RT-055). Décoratif : il ne capte pas le pointeur et n'est pas annoncé (l'en-tête porte `aria-current`).
 
 Espacements sur une base de 4 px : 2, 4, 8, 12, 16, 24, 32, 48. Marges latérales de 16 px.
 
@@ -193,9 +195,10 @@ Système plat. Au repos, aucune surface n'a d'ombre : la séparation passe par u
 - **Popover** (`box-shadow: 0 4px 16px rgb(0 0 0 / 0.12)`) : menus, popovers d'édition, listes ouvertes (Combobox).
 - **Drawer** (`box-shadow: -8px 0 24px rgb(0 0 0 / 0.16)`) : panneau latéral projet ou personne.
 - **Armed** (`box-shadow: 0 4px 10px rgb(0 0 0 / 0.35)`) : bloc armé au toucher. Hors spec, conservé pour le tactile.
+- **Hover** (`--shadow-hover`, `box-shadow: 0 2px 6px rgb(0 0 0 / .18)`) : bloc du Planning survolé à la souris (RT-062).
 
 ### Named Rules
-**The Flat-By-Default Rule.** Une surface est plate au repos. Une ombre n'apparaît qu'en réponse à un état superposé (popover, tiroir, bloc armé).
+**The Flat-By-Default Rule.** Une surface est plate au repos. Une ombre n'apparaît qu'en réponse à un état superposé (popover, tiroir, bloc armé) ou au survol d'un objet manipulable à la souris (bloc du Planning). Une carte, un bouton ou un champ restent plats au survol.
 
 **The Overlay Scrim Rule.** Une fenêtre modale pose un voile `rgb(17 24 39 / 0.45)` sous elle et passe au-dessus de la grille (z-index 60).
 
@@ -207,7 +210,7 @@ Forme de l'interface : rectangulaire, arrondie légèrement. Aucune forme organi
 
 ## Components
 
-Chaque composant part du caractère sobre actuel. Le caractère « franc et tactile » voulu n'est pas encore implémenté : la section précise l'écart.
+Chaque composant part du caractère sobre actuel. Le caractère « franc et tactile » est en place dans le Planning (boutons à l'appui, blocs au survol) ; ailleurs, les composants gardent le caractère sobre.
 
 ### Buttons
 - **Shape:** rayon 6 px (`md`), hauteur 32 px (défaut), 28 px (dense), 44 px (tactile). Padding horizontal 12 px.
@@ -216,7 +219,7 @@ Chaque composant part du caractère sobre actuel. Le caractère « franc et tact
 - **Outline:** fond blanc, bordure forte, texte anthracite. Survol : fond papier froid. État enfoncé : fond papier froid et graisse 600.
 - **Destructive:** fond rouge alerte plein, texte blanc. Réservé aux confirmations (BR-04, BR-10, BR-31).
 - **Link:** nom d'une ligne (projet, personne) qui ouvre sa fiche. Sans cadre, souligné au survol.
-- **Tactile (en place dans le Planning) :** à l'appui, le bouton descend d'un pixel (`translateY(1px)`), transition de 80 ms. Le survol ne se déplace pas : l'ombre reste réservée aux états superposés (Flat-By-Default Rule).
+- **Tactile (en place dans le Planning) :** à l'appui, le bouton descend d'un pixel (`translateY(1px)`), transition de 80 ms. Le survol d'un bouton ne se déplace pas et ne prend pas d'ombre : seuls les objets manipulables (blocs) se soulèvent au survol (Flat-By-Default Rule).
 
 ### Chips (filtres)
 - **Style:** fond papier froid, bordure 1 px, rayon plein. Texte 12 px.
@@ -247,10 +250,19 @@ Chaque composant part du caractère sobre actuel. Le caractère « franc et tact
 - **Shape:** rayon 3 px, couleur de projet en fond, texte noir ou blanc calculé. Bord 1 px.
 - **Tentative:** fond teinté, bordure pointillée et hachures diagonales. Trois canaux, dont deux non chromatiques.
 - **Focus / armed:** contour encre 2 px ; poignées de geste de 6 px.
+- **Hover (souris seulement, `(hover: hover) and (pointer: fine)`) :** soulèvement d'1 px (propriété `translate`, qui se compose avec le `transform` de position) et ombre `--shadow-hover`, en 80 ms. Mouvement réduit : l'ombre seule. Rien pendant un glisser ni sur un bloc armé. La ligne n'a plus `contain: paint` (elle rognait l'ombre) : `contain: size layout style` et `isolation: isolate`.
 - **Time off:** fond de la teinte du type de congé, bord gauche 3 px, en attente en tirets et hachures blanches, refusé barré.
 
 ### Capacity band
-- **Under:** gris ardoise. **OK:** fond neutre et ligne de capacité. **Over:** hachures rouges sur fond rouge clair, cadre rouge, ligne encre. Affiche la charge en texte (caption) quand la bascule est active.
+- **Under:** gris ardoise. **OK:** fond neutre et ligne de capacité. **Over:** hachures rouges sur fond rouge clair, cadre rouge, ligne encre. Affiche la charge en texte (caption). La bascule « Charge » affiche ou masque toute la bande (voir Layout).
+
+### Gauge (colonne Personnes)
+- **Paliers (D2, 2026-10-23) :** gris ardoise sous le seuil de sous-allocation (80 % par défaut, réglable par compte) ; vert de ce seuil à 100 % compris ; rouge dès qu'un jour de la période affichée dépasse sa capacité (> 100 %, BR-38), même si la somme de la période reste sous 100 %. Plus d'orange : 100 % exact s'affiche en vert.
+- **Redondance :** en dépassement, glyphe ▲ et « +N h » (N = somme des dépassements journaliers) ; infobulle « N jours en surcharge ». Jauge et bande d'une même ligne sont toujours d'accord.
+- **Barre :** 6 px dans les trois densités (4 px auparavant en compacte et standard), pourcentage de la période en chiffres tabulaires.
+
+### Column header
+- **Une rangée de 32 px (D7) :** fond papier froid (`--surface-sunken`) distinct du corps, texte anthracite graisse 600 (15:1), bordure basse forte. Période courante (jour, semaine, mois) en pastille pétrole, texte blanc (5,4:1).
 
 ### Navigation
 - **Style:** barre d'en-tête sobre, bordure basse 1 px ; le bouton « Aujourd'hui » suit les boutons de la barre d'outils du Planning.

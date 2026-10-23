@@ -7,6 +7,7 @@
 //    calculs de pixels des tests existants. L'écran démarre en standard (défaut retenu par Alec).
 //  * En aéré, tout grossit (RT-006) : blocs, bande, et dans la colonne de gauche avatar, textes et jauge (variables CSS
 //    posées par data-density sur l'écran, échelle typographique des tokens).
+//  * Bascule « Charge » (RT-052) : rowMetrics retire la bande (capPx = 0) quand elle est éteinte ; état en mémoire seulement.
 //  * Mémorisée localement (localStorage, sous try/catch : navigation privée, stockage bloqué) et portée par les vues
 //    sauvegardées (filters.density, contrat). Pas de profil utilisateur (T2).
 import type { ScheduleViewFilters } from "@wnext/contracts";
@@ -29,6 +30,15 @@ export const DENSITY_METRICS: Readonly<Record<Density, RowMetrics>> = {
   standard: { rowUnitPx: 72, capPx: 20 },
   airy: { rowUnitPx: 96, capPx: 24 },
 };
+
+/**
+ * Hauteurs du modèle selon la densité et la bascule « Charge » (RT-052, cadrage n°4 D3) : bascule éteinte, la bande de
+ * capacité n'est pas dessinée et la ligne perd sa hauteur (capPx = 0).
+ */
+export function rowMetrics(d: Density, showLoad: boolean): RowMetrics {
+  const m = DENSITY_METRICS[d];
+  return showLoad ? m : { rowUnitPx: m.rowUnitPx, capPx: 0 };
+}
 
 export const isDensity = (v: unknown): v is Density => typeof v === "string" && (DENSITIES as readonly string[]).includes(v);
 

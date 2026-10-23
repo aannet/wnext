@@ -14,10 +14,15 @@
 //    c'est le conflit BR-04). Demi-journée = demi-cellule (après-midi : commence au milieu du jour ; matin : finit au milieu).
 //    Couleur dérivée du type (le contrat n'en porte pas), statut « en attente » / « refusé » rendu par un motif (grid-dom).
 //  * Densité (schedule/density, RT-005) : hauteurs de bloc et de bande passées en paramètre (défaut : compacte, les valeurs
-//    d'avant le réglage) et portées par le modèle (les gestes lisent rowUnitPx).
+//    d'avant le réglage) et portées par le modèle (les gestes lisent rowUnitPx). Bande de hauteur 0 (bascule « Charge »
+//    éteinte, RT-052) : aucune cellule, mais les charges de la jauge restent calculées.
 //  * Jauge par personne (RT-008, Q3 : période visible) : sommes cumulées par jour des heures de capacité, planifiées et
 //    tentatives (les mêmes lignes utilization() que la bande), calculées une fois par tranche ; la jauge d'une période
 //    quelconque en sort en O(1) (gaugeOf), état par classifyCapacity du moteur. Rôle, département et initiales : données.
+//  * Surcharge de la jauge jour par jour (RT-063, cadrage n°4 D2) : sommes cumulées aussi des dépassements journaliers et du
+//    nombre de jours en surcharge (overtimeHours, isOverbooked des mêmes lignes que la bande) ; la jauge est « over » dès qu'un
+//    jour de la période dépasse sa capacité (> 100 %, BR-38), même si la somme reste sous 100 %, comme la bande (toCap). Plus
+//    d'orange : l'état « full » (100 % exact) du moteur s'affiche comme « ok ».
 //  * Jours non travaillés (RT-028, Q9) : plages de jours consécutifs à 0 h selon l'horaire de la personne en vigueur ce
 //    jour-là (BR-19), hachurées par grid-dom ; les fériés et congés n'en font pas partie (ils ont leur propre rendu).
 import type { ScheduleResponse } from "@wnext/contracts";
@@ -102,8 +107,13 @@ export interface GridTimeoff {
 export const TIMEOFF_TONES = 4;
 const toneOf = (typeId: string) => [...typeId].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % TIMEOFF_TONES;
 
-/** Sommes cumulées par jour depuis `from` : l'indice i couvre les jours [from, from + i[ (longueur = jours + 1). */
-export interface RowLoad { from: string; days: number; capacity: Float64Array; planned: Float64Array; tentative: Float64Array }
+/**
+ * Sommes cumulées par jour depuis `from` : l'indice i couvre les jours [from, from + i[ (longueur = jours + 1). `overtime` :
+ * dépassements journaliers (un jour libre ne compense pas un jour surchargé) ; `overDays` : nombre de jours en surcharge.
+ */
+export interface RowLoad {
+  from: string; days: number; capacity: Float64Array; planned: Float64Array; tentative: Float64Array; overtime: Float64Array; overDays: Float64Array;
+}
 
 /** Jauge d'une personne sur une période (bornée aux jours chargés) ; heures arrondies au dixième. */
 export interface GridGauge {
@@ -111,12 +121,17 @@ export interface GridGauge {
   to: string;
   plannedHours: number;
   capacityHours: number;
-  /** Heures au-delà de la capacité sur la période (« +N h »). */
+  /** Somme des dépassements journaliers sur la période (« +N h ») : un jour libre ne compense pas un jour surchargé. */
   overHours: number;
+  /** Nombre de jours de la période en surcharge (> 100 %, BR-38) ; > 0 ⇔ état « over ». */
+  overDays: number;
   /** Charge en % de la capacité ; null si capacité nulle. */
   percent: number | null;
-  /** État du moteur ; « unavailable » : ni capacité ni charge (ou aucun jour chargé). */
-  state: CapacityState;
+  /**
+   * « over » dès qu'un jour est en surcharge ; sinon état du moteur sur la période, « full » ramené à « ok » (plus d'orange,
+   * D2) ; « unavailable » : ni capacité ni charge (ou aucun jour chargé).
+   */
+  state: Exclude<CapacityState, "full">;
   /** Remplissage de la barre (0..100). */
   fill: number;
 }
@@ -232,7 +247,8 @@ function capCells(s: ScheduleResponse, range: { from: string; to: string }, zoom
   const rows = utilization({ ...input, allocations, from: r.from, to: r.to });
   const origin = dayNumber(range.from);
   const out = new Map<string, GridCap[]>();
-  for (const [id, cells] of capacityCellsByPerson(rows, r, zoom, s.account.weekStart, input.thresholds)) {
+  // Bande masquée (capPx = 0, RT-052) : aucune cellule ; les charges de la jauge restent calculées.
+  if (capPx > 0) for (const [id, cells] of capacityCellsByPerson(rows, r, zoom, s.account.weekStart, input.thresholds)) {
     out.set(id, cells.filter((c) => c.from >= r.from && c.to <= r.to)
       .map((c) => toCap(c, zoom, (dayNumber(c.from) - origin) * pxPerDay, (dayNumber(c.to) - dayNumber(c.from) + 1) * pxPerDay, capPx)));
   }
@@ -250,44 +266,53 @@ function rowLoads(rows: readonly UtilizationRow[], r: { from: string; to: string
     const i = index.get(u.day);
     if (i === undefined) continue;
     let d = daily.get(u.personId);
-    if (!d) { d = new Float64Array(days * 3); daily.set(u.personId, d); }
-    d[i * 3] = u.capacityHours;
-    d[i * 3 + 1] = u.plannedHours;
-    d[i * 3 + 2] = u.tentativeHours;
+    if (!d) { d = new Float64Array(days * 5); daily.set(u.personId, d); }
+    d[i * 5] = u.capacityHours;
+    d[i * 5 + 1] = u.plannedHours;
+    d[i * 5 + 2] = u.tentativeHours;
+    d[i * 5 + 3] = u.overtimeHours;
+    d[i * 5 + 4] = u.isOverbooked ? 1 : 0;
   }
   const out = new Map<string, RowLoad>();
   for (const [id, d] of daily) {
     const capacity = new Float64Array(days + 1);
     const planned = new Float64Array(days + 1);
     const tentative = new Float64Array(days + 1);
+    const overtime = new Float64Array(days + 1);
+    const overDays = new Float64Array(days + 1);
     for (let i = 0; i < days; i++) {
-      capacity[i + 1] = capacity[i]! + d[i * 3]!;
-      planned[i + 1] = planned[i]! + d[i * 3 + 1]!;
-      tentative[i + 1] = tentative[i]! + d[i * 3 + 2]!;
+      capacity[i + 1] = capacity[i]! + d[i * 5]!;
+      planned[i + 1] = planned[i]! + d[i * 5 + 1]!;
+      tentative[i + 1] = tentative[i]! + d[i * 5 + 2]!;
+      overtime[i + 1] = overtime[i]! + d[i * 5 + 3]!;
+      overDays[i + 1] = overDays[i]! + d[i * 5 + 4]!;
     }
-    out.set(id, { from: r.from, days, capacity, planned, tentative });
+    out.set(id, { from: r.from, days, capacity, planned, tentative, overtime, overDays });
   }
   return out;
 }
 
 /**
  * Jauge d'une ligne sur [period.from, period.to], bornée aux jours chargés de la tranche (la période affichée dans
- * l'infobulle est la période réellement comptée). État et dépassement par le moteur (classifyCapacity), sans règle locale.
+ * l'infobulle est la période réellement comptée). Surcharge jour par jour (RT-063) : « over » dès qu'un jour l'est (lignes du
+ * moteur, isOverbooked, comme la bande) ; sinon état du moteur sur la période (classifyCapacity), « full » affiché « ok ».
  */
 export function gaugeOf(row: Pick<GridRow, "load">, period: { from: string; to: string }, thresholds: CapacityThresholds): GridGauge {
   const l = row.load;
   const base = l ? dayNumber(l.from) : 0;
   const a = l ? Math.max(0, dayNumber(period.from) - base) : 0;
   const b = l ? Math.min(l.days, dayNumber(period.to) - base + 1) : 0;
-  if (!l || a >= b) return { from: period.from, to: period.to, plannedHours: 0, capacityHours: 0, overHours: 0, percent: null, state: "unavailable", fill: 0 };
+  if (!l || a >= b) return { from: period.from, to: period.to, plannedHours: 0, capacityHours: 0, overHours: 0, overDays: 0, percent: null, state: "unavailable", fill: 0 };
   const capacityHours = l.capacity[b]! - l.capacity[a]!;
   const plannedHours = l.planned[b]! - l.planned[a]!;
+  const overDays = Math.round(l.overDays[b]! - l.overDays[a]!);
   const st = classifyCapacity({ capacityHours, plannedHours, tentativeHours: l.tentative[b]! - l.tentative[a]! }, thresholds);
   const ratio = capacityHours > 0 ? plannedHours / capacityHours : null;
+  const state = overDays > 0 ? "over" : st.state === "full" || st.state === "over" ? "ok" : st.state;
   return {
     from: fromDayNumber(base + a), to: fromDayNumber(base + b - 1),
-    plannedHours: round1(plannedHours), capacityHours: round1(capacityHours), overHours: round1(st.overHours),
-    percent: ratio === null ? null : Math.round(ratio * 100), state: st.state,
+    plannedHours: round1(plannedHours), capacityHours: round1(capacityHours), overHours: overDays > 0 ? round1(l.overtime[b]! - l.overtime[a]!) : 0, overDays,
+    percent: ratio === null ? null : Math.round(ratio * 100), state,
     fill: ratio === null ? (plannedHours > 0 ? 100 : 0) : Math.min(100, Math.round(ratio * 1000) / 10),
   };
 }

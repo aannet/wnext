@@ -116,6 +116,8 @@ test.describe("gestes sur les blocs (démo, édition locale)", () => {
     await page.keyboard.press("Escape");
     await expect.poll(() => ghostShown(page)).toBe(false);
     await page.mouse.up();
+    // Pointeur hors du bloc : son survol le soulève d'1 px (RT-062), ce qui fausserait la mesure de position.
+    await page.mouse.move(0, 0);
     await page.waitForTimeout(200);
     expect(await blockByKey(page, b.key)).toEqual(b);
     await expect(notice(page)).not.toContainText("enregistrée");
