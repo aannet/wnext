@@ -75,6 +75,8 @@ function setField(label: string, value: string) {
   });
 }
 const submit = async () => { act(() => { document.body.querySelector("form")!.requestSubmit(); }); await flush(); };
+/** Nouveau congé depuis la grille (touche C ; le bouton « Nouveau congé » est retiré, RT-060). */
+const newTimeoff = async () => { const g = host.querySelector<HTMLElement>("[role=grid]")!; g.focus(); press(g, { key: "c" }); await flush(); };
 const allocs = (src: ReturnType<typeof mount>["src"]) => src.getState().data!.allocations.map((a) => `${a.startDate}..${a.endDate}`).sort();
 
 describe("saisie d'un congé", () => {
@@ -88,12 +90,13 @@ describe("saisie d'un congé", () => {
       .toEqual(["1", TODAY, TODAY, "am", "pm", "approved"]);
     press(dialog()!, { key: "Escape" });
     expect(dialog()).toBeNull();
-    expect(document.activeElement).toBe(host.querySelector("[role=grid]"));
+    // RT-060 : fermé sans écriture, le drawer rend le focus au bloc d'où la touche est partie.
+    expect(document.activeElement).toBe(host.querySelector('.wn-block[data-key="a:0"]'));
   });
 
   it("statut : « En attente » n'est plus proposé à la pose (RT-022) ; un congé existant en attente le garde à la modification", async () => {
     mount([], [off("o1", { approvalStatus: "pending" })]);
-    await click("Nouveau congé");
+    await newTimeoff();
     expect([...(field("Statut") as HTMLSelectElement).options].map((o) => o.value)).toEqual(["approved", "declined"]);
     press(dialog()!, { key: "Escape" });
     await flush();
@@ -104,7 +107,7 @@ describe("saisie d'un congé", () => {
 
   it("sans conflit : enregistré tout de suite, rendu dans la grille, annoncé ; Ctrl+Z le retire", async () => {
     const { src } = mount([]);
-    await click("Nouveau congé");
+    await newTimeoff();
     setField("Du", "2026-10-21");
     setField("Au", "2026-10-21");
     await submit();
@@ -120,7 +123,7 @@ describe("saisie d'un congé", () => {
 
   it("dates incohérentes et chevauchement : message traduit, formulaire gardé ouvert", async () => {
     mount([], [off("o1")]);
-    await click("Nouveau congé");
+    await newTimeoff();
     setField("Du", "2026-10-23");
     setField("Au", "2026-10-22");
     await submit();
@@ -147,7 +150,7 @@ describe("saisie d'un congé", () => {
     expect(notice()).toBe("Congé supprimé.");
   });
 
-  it("lecture seule sans source d'écritures : ni bouton ni formulaire", () => {
+  it("lecture seule sans source d'écritures : la touche C n'ouvre aucun formulaire", () => {
     mount([alloc("a")], [], false);
     expect(button("Nouveau congé")).toBeUndefined();
     press(host.querySelector("[role=grid]")!, { key: "c" });

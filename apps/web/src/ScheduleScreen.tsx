@@ -11,13 +11,16 @@
 //    si la pile est vide, et raccourcis Ctrl+Z, Ctrl+Maj+Z, Ctrl+Y (Cmd sur Mac) écoutés sur le document, ignorés dans un
 //    champ de saisie ou une boîte de dialogue. Le résultat est annoncé dans la région aria-live des écritures.
 //  * Pop-in du créneau (schedule/slot-editor-ui, RT-011 à RT-018) si une source d'écritures est fournie (`records`) : Q5
-//    (clic = sélection ; double clic, Entrée ou clic sur le bloc sélectionné = édition), création par le bouton
-//    « + Allocation » ou par clic / glisser en zone libre (bloc provisoire), onglets « Projet / tâche » et « Congé ».
-//  * Congés (BR-04, schedule/timeoff-ui, dans l'onglet « Congé » de la pop-in) : bouton « Nouveau congé » et
-//    touche C sur la grille (sur un bloc : sa personne et son premier jour ; sur un congé, ou un jour couvert par un congé :
+//    (clic = sélection ; double clic, Entrée ou clic sur le bloc sélectionné = édition), création par clic / glisser en zone
+//    libre (bloc provisoire) ou par la touche N (RT-060), onglets « Projet / tâche » et « Congé ».
+//  * Création au clavier (recette n°4, D1 : RT-057, RT-060, ADR-002 §5 amendé) : ni barre de saisie rapide ni boutons de
+//    création. N ouvre le drawer de création prérempli (personne du bloc focalisé, sinon première ligne visible ; jour du bloc,
+//    sinon aujourd'hui). Fermé sans écriture, il rend le focus au bloc d'origine, sinon à la grille. N, C et T sont annoncés
+//    par aria-keyshortcuts sur la grille ; les touches viennent de shell/shortcuts (source unique de l'aide, RT-064). Une
+//    grille sans aucun bloc porte une indication unique (« Cliquez ou glissez dans la grille pour planifier »).
+//  * Congés (BR-04, schedule/timeoff-ui, dans l'onglet « Congé » de la pop-in) : touche C sur la grille (sur un bloc : sa
+//    personne et son premier jour ; sinon la première ligne visible ; sur un congé, ou un jour couvert par un congé :
 //    modification), clic ou Entrée sur un congé pour le modifier, double clic sur une case vide pour en créer un.
-//  * Saisie rapide (schedule/quick-entry-ui) si une source d'écritures est fournie : barre au-dessus de la grille, touche
-//    « / » ou N sur la grille (sur un bloc : sa personne), création annulable par Ctrl+Z.
 //  * Vues sauvegardées (schedule/views-ui) si une source de vues est fournie : filtres (département, rôle, projet, personne, tri)
 //    appliqués côté client aux lignes (schedule/view-filters) ; seule la grille reçoit les données filtrées, les éditeurs gardent
 //    les données complètes.
@@ -63,7 +66,6 @@ import { useScheduleEdits, type FocusTarget } from "./schedule/edits-ui";
 import type { History, HistoryDirection, HistoryResult, HistoryState } from "./schedule/history";
 import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
 import { useSlotEditor, type SlotCatalog } from "./schedule/slot-editor-ui";
-import { QuickEntry, type QuickEntryHandle } from "./schedule/quick-entry-ui";
 import { applyViewFilters, clearCriteria, type ViewFilters } from "./schedule/view-filters";
 import { isSearchShortcut, SearchPalette, searchShortcutLabel } from "./schedule/search-ui";
 import type { SearchItem } from "./schedule/search-model";
@@ -74,6 +76,7 @@ import { FilterChips, FiltersButton, FiltersPanel } from "./schedule/filters-ui"
 import { useTeamRemoval, type MenuCommand } from "./schedule/team-removal-ui";
 import type { TeamRemovalEditor } from "./data/team-removal";
 import { Button, Popover, RadioGroup, RadioItem, Switch } from "./design";
+import { ariaKeys, matches } from "./shell/shortcuts";
 
 export interface ScheduleScreenProps {
   i18n: I18n;
@@ -135,11 +138,7 @@ function inTextArea(t: EventTarget | null): boolean {
 
 /** Raccourci d'historique d'un événement clavier (Ctrl ou Cmd, sans Alt), ou null. */
 export function historyShortcut(e: Pick<globalThis.KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">): HistoryDirection | null {
-  if (!(e.ctrlKey || e.metaKey) || e.altKey) return null;
-  const k = e.key.toLowerCase();
-  if (k === "z") return e.shiftKey ? "redo" : "undo";
-  if (k === "y" && !e.shiftKey) return "redo";
-  return null;
+  return matches("undo", e) ? "undo" : matches("redo", e) ? "redo" : null;
 }
 
 function headerFormatter(locale: string) {
@@ -261,8 +260,8 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   const dataRef = useRef(data);
   dataRef.current = data;
   const blocksRef = useRef<BlockEditor | null>(null);
-  /** Bouton de l'en-tête qui a ouvert le drawer (« Nouveau congé », « + Allocation ») : il retrouve le focus à la fermeture (RT-049). */
-  const slotOpener = useRef<HTMLElement | null>(null);
+  /** Bloc focalisé quand N ou C a ouvert le drawer : il retrouve le focus à la fermeture sans écriture (sinon la grille). */
+  const slotOrigin = useRef<string | null>(null);
   // Projets du référentiel pour les droits d'un chef de projet (BR-33) : lus au montage et relus quand la liste des projets change
   // (source temps réel, écran Projets) ; tant qu'ils manquent (ou sans référentiel), aucune commande : refus par défaut.
   const [managed, setManaged] = useState<ProjectDetail[] | null>(null);
@@ -293,30 +292,38 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     onClosed: ({ key, focus }) => {
       if (focus) focusKey(key ?? "", focus);
       else if (key) focusKey(key);
-      else if (slotOpener.current?.isConnected) slotOpener.current.focus({ preventScroll: true });
+      else if (slotOrigin.current) focusKey(slotOrigin.current); // bloc d'origine (N ou C sur un bloc), sinon la grille
       else gridRef.current?.focus({ preventScroll: true }); // depuis la grille (touche C, N…), congé et création rendent le focus à la grille
-      slotOpener.current = null;
+      slotOrigin.current = null;
     },
   });
   const slotRef = useRef(slot);
   slotRef.current = slot;
-  /** Personne et jour visés par une touche C (bloc focalisé, sinon première ligne au centre de la vue). */
+  /** Première ligne visible (sous l'en-tête collant), sinon la première du modèle. */
+  const firstVisiblePerson = (): string | undefined => {
+    const rows = scroller.current?.host.model()?.rows ?? [];
+    const top = gridRef.current?.scrollTop ?? 0;
+    return (rows.find((r) => r.top + r.heightPx > top) ?? rows[0])?.personId;
+  };
+  /** Personne et jour visés par une touche C (bloc focalisé, sinon première ligne visible au centre de la vue). */
   const openTimeoffAt = (target: EventTarget | null) => {
     const s = scroller.current;
     if (!s) return;
     const off = s.host.timeoffAt?.(target);
     if (off) { slot.openTimeoffEdit(off.timeoff.timeoffId); return; }
     const hit = s.host.blockAt(target);
-    const personId = hit?.row.personId ?? s.host.model()?.rows[0]?.personId;
+    const personId = hit?.row.personId ?? firstVisiblePerson();
+    slotOrigin.current = hit?.block.key ?? null;
     if (personId) slot.openTimeoffAt(personId, hit?.block.startDate ?? fromDayNumber(Math.floor(s.view().center)));
   };
-  /** « + Allocation » : personne du bloc focalisé (sinon à choisir), jour au centre de la vue (ou celui du bloc). */
-  const openCreate = () => {
+  /** Touche N (RT-060) : personne du bloc focalisé, sinon première ligne visible ; jour du bloc, sinon aujourd'hui. */
+  const openCreate = (target: EventTarget | null) => {
     const s = scroller.current;
     if (!s) return;
-    const hit = s.host.blockAt(document.activeElement);
-    const day = hit?.block.startDate ?? fromDayNumber(Math.floor(s.view().center));
-    slot.openCreate({ personId: hit?.row.personId ?? null, startDate: day, endDate: day, draft: null });
+    const hit = s.host.blockAt(target);
+    const day = hit?.block.startDate ?? today;
+    slotOrigin.current = hit?.block.key ?? null;
+    slot.openCreate({ personId: hit?.row.personId ?? firstVisiblePerson() ?? null, startDate: day, endDate: day, draft: null });
   };
   /** Double clic sur une case vide : personne de la ligne, jour de la colonne. */
   const onDoubleClick = (e: { target: EventTarget; clientX: number; clientY: number }) => {
@@ -366,7 +373,6 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     gridRef, blockAt: (t) => scroller.current?.host.blockAt(t) ?? null, announce: (text) => editsRef.current.announce(text),
     onRemoved: (ids) => history?.invalidate("allocations", ids),
     ...(records && editor ? { commands: menuCommands, writable: (id: string) => writableRef.current(allocationOf(id)) } : {}) });
-  const quickRef = useRef<QuickEntryHandle>(null);
   const editorRef = useRef(editor);
   editorRef.current = editor;
 
@@ -473,27 +479,21 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     const onBlock = e.target !== e.currentTarget;
     if (onBlock && e.key === "Escape") { e.preventDefault(); gridRef.current?.focus({ preventScroll: true }); return; }
     const hit = onBlock ? s.host.blockAt(e.target) : null;
-    const command = hit && hit.el === e.target && !e.altKey && !e.shiftKey
-      ? (e.key === "Delete" || e.key === "Backspace") && !e.ctrlKey && !e.metaKey ? "delete"
-        : (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d" ? "duplicate"
-        : (e.key === "s" || e.key === "S") && !e.ctrlKey && !e.metaKey ? "split" : null
+    const command = hit && hit.el === e.target
+      ? matches("delete", e) ? "delete" : matches("duplicate", e) ? "duplicate" : matches("split", e) ? "split" : null
       : null;
     if (hit && command && writable(allocationOf(hit.block.allocationId))) { e.preventDefault(); blockCommand(command, hit.block.key, hit.block.allocationId); return; }
-    if (records && (e.key === "/" || e.key === "n" || e.key === "N") && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      quickRef.current?.focus(s.host.blockAt(e.target)?.row.personId);
-      return;
-    }
-    if (records && (e.key === "c" || e.key === "C") && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); openTimeoffAt(e.target); return; }
+    if (records && matches("create", e)) { e.preventDefault(); openCreate(e.target); return; }
+    if (records && matches("timeoff", e)) { e.preventDefault(); openTimeoffAt(e.target); return; }
     if (records && e.key === "Enter" && s.host.timeoffAt?.(e.target)) { e.preventDefault(); openTimeoffAt(e.target); return; }
-    if (!onBlock && e.key === "Enter") {
+    if (!onBlock && matches("firstBlock", e)) {
       const first = gridRef.current?.querySelector<HTMLElement>(".wn-block[data-key]");
       if (first) { e.preventDefault(); first.focus({ preventScroll: true }); }
       return;
     }
-    if (e.key === "t" || e.key === "T") s.today();
+    if (matches("today", e)) s.today();
     else if (onBlock) return;
-    else if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); s.nudge(e.key === "ArrowLeft" ? -1 : 1); }
+    else if (matches("scroll", e)) { e.preventDefault(); s.nudge(e.key === "ArrowLeft" ? -1 : 1); }
   };
 
   return (
@@ -507,12 +507,6 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
             {t("schedule.search.open")}
             <kbd data-shortcut="" className="rounded-sm border border-solid border-input bg-muted px-1 font-[inherit] text-caption text-muted-foreground">{searchShortcutLabel()}</kbd>
           </Button>
-          {records && (
-            <>
-              <Button type="button" aria-keyshortcuts="C" aria-haspopup="dialog" onClick={(e) => { const from = document.activeElement; slotOpener.current = e.currentTarget; openTimeoffAt(from); }}>{t("schedule.timeoff.new")}</Button>
-              <Button type="button" variant="primary" aria-haspopup="dialog" onClick={(e) => { slotOpener.current = e.currentTarget; openCreate(); }}>{t("schedule.slot.add")}</Button>
-            </>
-          )}
         </div>
       </div>
       <div role="toolbar" aria-label={t("schedule.toolbar.label")} className="wn-toolbar">
@@ -557,11 +551,9 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
           <Switch checked={showLoad} onCheckedChange={(on) => { scroller.current?.setShowLoad(on); setShowLoad(on); }}>{t("schedule.display.load")}</Switch>
         </Popover>
       )}
-      {records && (
-        <QuickEntry ref={quickRef} i18n={i18n} data={data} today={today} createAllocation={records.createAllocation} listProjects={records.listProjects} onProjectsChange={records.onProjectsChange} record={history?.record}
-          announce={(text) => editsRef.current.announce(text)} onExit={() => gridRef.current?.focus({ preventScroll: true })} />
-      )}
+      {records && data.allocations.length === 0 && <p className="wn-grid-hint">{t("schedule.grid.hint")}</p>}
       <div ref={gridRef} role="grid" aria-label={t("schedule.grid.label")} tabIndex={0} onKeyDown={onKeyDown}
+        aria-keyshortcuts={records ? ariaKeys("create", "timeoff", "today") : ariaKeys("today")}
         onClick={(e) => { const off = records && scroller.current?.host.timeoffAt?.(e.target); if (off) slot.openTimeoffEdit(off.timeoff.timeoffId); }}
         onDoubleClick={records ? onDoubleClick : undefined}
         className="wn-grid" />

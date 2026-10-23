@@ -50,12 +50,12 @@ async function pick(label: string, values: string[]) {
 }
 
 describe("en-tête en deux niveaux (RT-025)", () => {
-  it("niveau 1 : titre, vue, + Allocation et Nouveau congé ; niveau 2 : Filtres, navigation, zoom, Affichage, personnes", async () => {
+  it("niveau 1 : titre, vue, sans boutons de création (RT-060) ; niveau 2 : Filtres, navigation, zoom, Affichage, personnes", async () => {
     await mount();
     expect(level1().querySelector("h1")!.textContent).toBe("Planning");
     expect(level1().querySelector(".wn-views select")).not.toBeNull();
-    expect(buttonIn(level1(), "+ Allocation")).toBeDefined();
-    expect(buttonIn(level1(), "Nouveau congé")).toBeDefined();
+    expect(buttonIn(level1(), "+ Allocation")).toBeUndefined();
+    expect(buttonIn(level1(), "Nouveau congé")).toBeUndefined();
     expect(level1().contains(toolbar())).toBe(false);
     for (const label of ["Filtres", "Période précédente", "Aujourd’hui", "Période suivante", "Jour", "Semaine", "Mois", "Annuler", "Rétablir", "Affichage"]) {
       expect(buttonIn(toolbar(), label), label).toBeDefined();

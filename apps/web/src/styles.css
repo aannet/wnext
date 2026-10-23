@@ -36,6 +36,8 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-button-group > button:last-child { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
 .wn-button-group > button[aria-pressed="true"] { position: relative; z-index: 1; }
 .wn-people-count { color: var(--text-muted); font-size: var(--text-label); white-space: nowrap; }
+/* Grille sans aucun bloc (RT-060) : une indication unique et discrète au-dessus de la grille. */
+.wn-grid-hint { flex: none; margin: 0 0 var(--space-2); color: var(--text-muted); font-size: var(--text-label); }
 .wn-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .wn-chip { display: inline-flex; align-items: center; gap: var(--space-1); padding: 2px 4px 2px var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-full); background: var(--surface-sunken); font-size: var(--text-label); }
 .wn-chip-remove { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--text-muted); cursor: pointer; }
@@ -185,19 +187,13 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-timeoff-choice label { margin-right: 12px; }
 .wn-dialog-error { color: var(--color-danger-text); }
 .wn-timeoff-declined { background-color: var(--surface-sunken); border-left-style: dotted; color: var(--text-muted); text-decoration: line-through; }
-.wn-quick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
-.wn-quick > label { display: inline-flex; align-items: center; gap: var(--space-2); }
 /* Contrôles natifs et sélection du texte aux couleurs du système, pas à celles du navigateur (sous-en-tête et grille du Planning). */
 .wn-subheader, .wn-schedule-container { accent-color: var(--accent); }
 .wn-subheader ::selection, .wn-schedule-container ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); color: inherit; }
 .wn-schedule > .wn-grid { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent; }
 /* Caractère « franc et tactile » (DESIGN.md, Components) : un bouton du Planning s'enfonce d'un pixel à l'appui. */
-.wn-subheader button, .wn-toolbar button, .wn-quick button { transition: transform var(--duration-fast) var(--ease-standard), background-color var(--duration-fast), border-color var(--duration-fast); }
-.wn-subheader button:not(:disabled):active, .wn-toolbar button:not(:disabled):active, .wn-quick button:not(:disabled):active { transform: translateY(1px); }
-.wn-quick-field { position: relative; flex: 1 1 280px; }
-.wn-quick-field input { width: 100%; box-sizing: border-box; }
-.wn-quick-preview { flex-basis: 100%; min-height: 1.2em; color: var(--color-text-soft); font-size: 13px; }
-.wn-quick-error { flex-basis: 100%; color: var(--cap-over); }
+.wn-subheader button, .wn-toolbar button { transition: transform var(--duration-fast) var(--ease-standard), background-color var(--duration-fast), border-color var(--duration-fast); }
+.wn-subheader button:not(:disabled):active, .wn-toolbar button:not(:disabled):active { transform: translateY(1px); }
 
 /* Toucher (WCAG 2.5.7) : bloc non sélectionné = le doigt défile la grille ; sélectionné ou glisser armé (appui long) = le geste
    est au bloc. Poignées d'un bloc sélectionné : zones de saisie de 44 px (dans le bloc, contain: strict le rogne), repère visible. */
