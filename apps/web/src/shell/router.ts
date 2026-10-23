@@ -8,8 +8,8 @@ export const ROUTE_IDS: readonly RouteId[] = ["planning", "projects", "people", 
 const PATHS: Record<RouteId, string> = { planning: "/", projects: "/projets", people: "/personnes", settings: "/reglages" };
 
 /** Paramètres de requête qui n'ont de sens que sur la page où ils sont posés (?projet= : fiche à ouvrir ; ?personne= : ligne du
- *  Planning à révéler, RT-059) : jamais reportés ailleurs. */
-export const PAGE_PARAMS: readonly string[] = ["projet", "personne"];
+ *  Planning à révéler, RT-059 ; ?onglet= : onglet de Réglages, RT-054) : jamais reportés ailleurs. */
+export const PAGE_PARAMS: readonly string[] = ["projet", "personne", "onglet"];
 
 /** Requête sans les paramètres propres à une page, puis avec `params` ; inchangée (même texte) s'il n'y a rien à faire. */
 export function carriedSearch(search: string, params: Readonly<Record<string, string>> = {}): string {

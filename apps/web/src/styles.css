@@ -310,6 +310,9 @@ th[aria-sort="ascending"] .wn-sort::after { border-top-color: transparent; borde
 .wn-dot { display: inline-block; flex: none; width: 12px; height: 12px; border-radius: var(--radius-full); vertical-align: -1px; }
 .wn-muted { color: var(--text-muted); }
 .wn-empty { max-width: 520px; }
+/* Lien vers Réglages > Import depuis un état vide (RT-054), à côté de l'action de création. */
+.wn-empty-link { display: inline-block; margin: var(--space-2) 0 0 var(--space-3); color: var(--accent); font-size: var(--text-form); }
+.wn-empty-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius-sm); }
 .wn-panel-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
 .wn-panel-title { margin: 0; font-size: var(--text-heading); line-height: var(--text-heading--line-height); display: flex; align-items: center; }
 .wn-panel-title:focus { outline: none; }

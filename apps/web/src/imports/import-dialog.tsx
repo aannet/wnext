@@ -1,4 +1,4 @@
-// Import CSV simple (US-1.2) : boîte de dialogue ouverte par le bouton « Importer » de la barre d'état.
+// Import CSV simple (US-1.2) : boîte de dialogue ouverte depuis Réglages > Import, seule entrée de l'import (RT-054).
 //  1. Choix du type (personnes, projets, clients) et du fichier ; « Analyser » envoie un dryRun (rien n'est écrit).
 //  2. Aperçu : compteurs (créations, mises à jour, inchangées, erreurs), références créées, colonnes ignorées, tableau des
 //     erreurs par ligne (codes stables traduits ici). Sans erreur : « Importer ». Avec erreurs : « Importer les N lignes

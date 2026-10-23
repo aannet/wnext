@@ -1,6 +1,7 @@
 // Écran Personnes (lot L-F2 : RT-012 partie Personnes, US-1.1, US-5.1, BR-19, BR-31). Une liste filtrable (recherche, équipe =
 // département, rôle, type, actives ou désactivées), une fiche dans le Drawer commun, la création réduite (nom, type, horaire par
-// défaut), et l'accès à l'import CSV pour owner et admin. Lecture seule pour member et guest (GET /me). Un member ne reçoit que sa
+// défaut). L'import CSV vit dans Réglages > Import (RT-054) : l'état vide y mène (owner, admin). Lecture seule pour member et
+// guest (GET /me). Un member ne reçoit que sa
 // personne liée (RT-048) ; sans personne liée, un état vide le dit.
 // Tri et regroupement (RT-031), côté client et en mémoire : en-têtes Nom, Rôle et Équipe triables (aria-sort, second clic =
 // sens inverse), interrupteur « Regrouper par équipe » (un tbody par équipe, « Sans équipe » en dernier). RT-053 : la liste est
@@ -11,11 +12,10 @@ import type { I18n } from "@lingui/core";
 import type { Me } from "@wnext/contracts";
 import { todayIn } from "@wnext/engine";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ImportSource } from "../data/import-source";
 import type { PeopleSource, Person, ReferenceSource } from "../data/people-source";
 import { Button, DataTable, Drawer, Switch, type DataTableColumn } from "../design";
 import type { MessageKey } from "../i18n";
-import { ImportDialog } from "../imports/import-dialog";
+import { ImportSettingsLink, type ImportLink } from "../imports/import-link";
 import { useLoad } from "../projects/use-load";
 import { accessKey, DEFAULT_PEOPLE_SORT, filterPeople, groupPeople, initialsOf, sortPeople, type PeopleSort, type PeopleSortKey, NONE, NO_PEOPLE_FILTERS, PEOPLE_TYPES, refName, TYPE_KEY, errorOf, newPersonValues, parseWeek, weeklySummary, type PeopleFilters, type StateFilter } from "./people-model";
 import { PersonForm } from "./person-form";
@@ -27,8 +27,8 @@ export interface PeopleScreenProps {
   reference: ReferenceSource;
   account: Me["account"];
   canEdit: boolean;
-  /** Import CSV (owner, admin) ; absent : pas de bouton. */
-  imports?: ImportSource;
+  /** Lien vers Réglages > Import dans l'état vide (owner, admin) ; absent : pas de lien. */
+  importLink?: ImportLink;
   /** member (RT-048) : l'API ne sert que sa personne liée ; sans personne, un état vide explique ce périmètre. */
   ownOnly?: boolean;
   now?: () => Date;
@@ -36,7 +36,7 @@ export interface PeopleScreenProps {
 
 type Side = { kind: "none" } | { kind: "create" } | { kind: "person"; id: string };
 
-export function PeopleScreen({ i18n, source, reference, account, canEdit, imports, ownOnly = false, now = () => new Date() }: PeopleScreenProps) {
+export function PeopleScreen({ i18n, source, reference, account, canEdit, importLink, ownOnly = false, now = () => new Date() }: PeopleScreenProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const people = useLoad(() => source.listPeople(), "people");
   const departments = useLoad(() => reference.departments.list(), "departments");
@@ -45,7 +45,6 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
   const [sort, setSort] = useState<PeopleSort>(DEFAULT_PEOPLE_SORT);
   const [grouped, setGrouped] = useState(false);
   const [side, setSide] = useState<Side>({ kind: "none" });
-  const [importing, setImporting] = useState(false);
   const trigger = useRef<HTMLElement | null>(null);
   const today = useMemo(() => todayIn(account.timezone, now()), [account.timezone, now]);
 
@@ -91,9 +90,7 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
     <main className="wn-page wn-people">
       <div className="wn-subheader">
         <h1 tabIndex={-1} className="wn-subheader-title">{t("shell.nav.people")}</h1>
-        {imports && <Button type="button" aria-haspopup="dialog" onClick={(e) => { trigger.current = e.currentTarget; setImporting(true); }}>{t("import.open")}</Button>}
       </div>
-      {imports && importing && <ImportDialog i18n={i18n} source={imports} onClose={() => { setImporting(false); people.reload(); }} />}
 
       {(people.state.status === "loading" || departments.state.status === "loading" || roles.state.status === "loading") && <p className="wn-muted" role="status">{t("people.loading")}</p>}
       {(people.state.status === "error" || departments.state.status === "error" || roles.state.status === "error") && (
@@ -151,7 +148,10 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
           isCurrent={(x) => side.kind === "person" && side.id === x.id}
           actions={(x) => (canEdit ? [{ id: "edit", label: t("table.edit"), onSelect: (_row, el) => open({ kind: "person", id: x.id }, el) }] : [])}
           actionsHeader={t("table.actions.header")} actionsLabel={(x) => t("table.actions.for", { name: x.name })}
-          empty={{ title: t("people.empty.title"), body: t("people.empty.body"), ...(canEdit ? { action: <Button type="button" variant="primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("people.new")}</Button> } : {}) }}
+          empty={{ title: t("people.empty.title"), body: t("people.empty.body"), ...(canEdit || importLink ? { action: <>
+            {canEdit && <Button type="button" variant="primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("people.new")}</Button>}
+            {importLink && <ImportSettingsLink i18n={i18n} link={importLink} />}
+          </> } : {}) }}
           emptyFiltered={{ title: t("people.empty.filtered.title"), body: t("people.empty.filtered.body"), resetLabel: t("people.filters.reset"), onReset: () => setFilters(NO_PEOPLE_FILTERS) }}
         />
       )}
