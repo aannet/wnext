@@ -1,6 +1,6 @@
 // Aide des raccourcis clavier (RT-064, née de la décision D1 de la recette n°4) : un bouton « ? » dans l'en-tête commun, juste
 // après la cloche des notifications, et la touche « ? » ouvrent une fenêtre (design/Modal) qui liste tous les raccourcis, par
-// groupe (partout, grille du planning, bloc sélectionné). La liste vient de shell/shortcuts, la source des gestionnaires de touches.
+// groupe (partout, grille du planning, bloc sélectionné, congé sélectionné). La liste vient de shell/shortcuts, la source des gestionnaires de touches.
 //  * « ? » est ignoré dans un champ de saisie, une zone de texte, un contenteditable, une autre fenêtre modale, et quand
 //    l'événement est déjà traité.
 //  * Fermée, la fenêtre rend le focus au bouton (Dialog) ; ouverte au clavier sans focus utile, au bouton aussi.
@@ -14,6 +14,7 @@ const SCOPES: readonly { scope: ShortcutScope; label: MessageKey }[] = [
   { scope: "global", label: "shortcuts.scope.global" },
   { scope: "planning", label: "shortcuts.scope.planning" },
   { scope: "block", label: "shortcuts.scope.block" },
+  { scope: "timeoff", label: "shortcuts.scope.timeoff" },
 ];
 
 /** Cible où « ? » est un caractère à saisir. */

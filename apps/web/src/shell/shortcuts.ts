@@ -3,18 +3,19 @@
 // Planning (ScheduleScreen), la recherche globale (shell/global-search), l'aide elle-même et l'historique d'annulation appellent
 // `matches(id, e)` au lieu de comparer des touches en dur. Les gestes au clavier d'un bloc (flèches) sont reconnus par le moteur
 // (`keyGesture`, packages/engine) : leurs entrées s'appuient sur lui, et un test vérifie que toute touche qu'il reconnaît figure ici.
+// Même règle pour un congé focalisé (RT-051, `timeoffKeyGesture`) : portée « timeoff ».
 //  * `keys` : combinaisons affichées, chacune une suite de jetons. Les noms de touches qui sont des mots (Entrée, Échap, Maj…)
 //    viennent du catalogue i18n (`keys.*`) ; les lettres, flèches et symboles sont des noms de touches, hors catalogue (comme la
 //    pastille « Ctrl K » de la recherche). `mod` vaut Ctrl, ou ⌘ sur Mac.
 //  * `aria` : valeur d'aria-keyshortcuts (syntaxe ARIA : Control, Meta, Shift, Alt ; combinaisons séparées par une espace).
-import { keyGesture, type Gesture } from "@wnext/engine";
+import { keyGesture, timeoffKeyGesture, type Gesture, type TimeoffGestureKind } from "@wnext/engine";
 import type { MessageKey } from "../i18n";
 
 export interface KeyLike { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; shiftKey?: boolean }
 
 export type KeyToken = "mod" | "shift" | "alt" | "enter" | "escape" | "delete" | "backspace" | "menu" | "left" | "right" | "up" | "down" | (string & {});
 
-export type ShortcutScope = "global" | "planning" | "block";
+export type ShortcutScope = "global" | "planning" | "block" | "timeoff";
 
 export interface Shortcut {
   id: string;
@@ -39,6 +40,9 @@ export function gestureOf(e: KeyLike): Gesture["kind"] | "person" | null {
   if (!g) return null;
   return g.kind === "move" && g.personId !== undefined ? "person" : g.kind;
 }
+
+/** Genre du geste au clavier que le moteur associe à la touche sur un congé (pas d'une demi-journée, seul le genre compte). */
+export const timeoffGestureOf = (e: KeyLike): TimeoffGestureKind | null => timeoffKeyGesture(e, 1)?.kind ?? null;
 
 export const SHORTCUTS = [
   // Partout
@@ -74,6 +78,19 @@ export const SHORTCUTS = [
     match: (e) => mod(e) && !e.shiftKey && letter(e, "d") },
   { id: "split", scope: "block", keys: [["S"]], aria: "S", label: "shortcuts.split", match: (e) => plain(e) && !e.shiftKey && letter(e, "s") },
   { id: "menu", scope: "block", keys: [["menu"], ["shift", "F10"]], aria: "ContextMenu Shift+F10", label: "shortcuts.menu",
+    match: (e) => e.key === "ContextMenu" || (e.key === "F10" && !!e.shiftKey) },
+  // Congé focalisé (RT-051) : mêmes touches que les blocs, sans hauteur, personne, duplication ni scission.
+  { id: "timeoffOpen", scope: "timeoff", keys: [["enter"]], aria: "Enter", label: "shortcuts.timeoffOpen", match: (e) => e.key === "Enter" },
+  { id: "timeoffLeave", scope: "timeoff", keys: [["escape"]], aria: "Escape", label: "shortcuts.leave", match: (e) => e.key === "Escape" },
+  { id: "timeoffMove", scope: "timeoff", keys: [["left"], ["right"]], aria: "ArrowLeft ArrowRight", label: "shortcuts.timeoffMove",
+    match: (e) => timeoffGestureOf(e) === "move" },
+  { id: "timeoffResizeEnd", scope: "timeoff", keys: [["shift", "left"], ["shift", "right"]], aria: "Shift+ArrowLeft Shift+ArrowRight", label: "shortcuts.resizeEnd",
+    match: (e) => timeoffGestureOf(e) === "resizeEnd" },
+  { id: "timeoffResizeStart", scope: "timeoff", keys: [["alt", "left"], ["alt", "right"]], aria: "Alt+ArrowLeft Alt+ArrowRight", label: "shortcuts.resizeStart",
+    match: (e) => timeoffGestureOf(e) === "resizeStart" },
+  { id: "timeoffDelete", scope: "timeoff", keys: [["delete"], ["backspace"]], aria: "Delete Backspace", label: "shortcuts.delete",
+    match: (e) => plain(e) && !e.shiftKey && (e.key === "Delete" || e.key === "Backspace") },
+  { id: "timeoffMenu", scope: "timeoff", keys: [["menu"], ["shift", "F10"]], aria: "ContextMenu Shift+F10", label: "shortcuts.timeoffMenu",
     match: (e) => e.key === "ContextMenu" || (e.key === "F10" && !!e.shiftKey) },
 ] as const satisfies readonly Shortcut[];
 

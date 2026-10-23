@@ -100,7 +100,7 @@ describe("saisie d'un congé", () => {
     expect([...(field("Statut") as HTMLSelectElement).options].map((o) => o.value)).toEqual(["approved", "declined"]);
     press(dialog()!, { key: "Escape" });
     await flush();
-    act(() => host.querySelector<HTMLElement>('[data-timeoff="o1"]')!.click());
+    act(() => { host.querySelector<HTMLElement>('[data-timeoff="o1"]')!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })); });
     expect(field("Statut").value).toBe("pending");
     expect([...(field("Statut") as HTMLSelectElement).options].map((o) => o.value)).toEqual(["approved", "pending", "declined"]);
   });
@@ -133,10 +133,11 @@ describe("saisie d'un congé", () => {
     expect(dialog()!.querySelector("[role=alert]")?.textContent).toBe("Ce congé chevauche un autre congé de cette personne : changez les dates.");
   });
 
-  it("clic sur un congé : modification puis suppression, annoncées", async () => {
+  // RT-051 : un clic sélectionne le congé (Q5, comme un bloc) ; le double clic l'ouvre.
+  it("double clic sur un congé : modification puis suppression, annoncées", async () => {
     const { src } = mount([], [off("o1")]);
     await flush();
-    act(() => host.querySelector<HTMLElement>('[data-timeoff="o1"]')!.click());
+    act(() => { host.querySelector<HTMLElement>('[data-timeoff="o1"]')!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })); });
     expect(dialog()?.querySelector("h2")?.textContent).toBe("Modifier le congé");
     setField("Au", "2026-10-23");
     await submit();

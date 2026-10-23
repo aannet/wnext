@@ -8,6 +8,10 @@
 //    « Appliquer » écrit tout et l'enregistre comme une seule action d'annulation.
 //  * Refus : chevauchement (TIMEOFF_OVERLAP) et autres codes traduits dans le formulaire, resté ouvert ; refus en cours de
 //    report : annonce, ce qui a été écrit s'annule par Ctrl+Z. Échap ferme (ou revient d'un cran).
+//  * Gestes sur la grille (RT-051) : `gesture` applique les nouvelles dates d'un congé déplacé ou étiré. Chevauchement d'un autre
+//    congé : refusé tout de suite, annoncé, rien d'écrit. Sans allocation touchée : écrit tout de suite (optimiste, annulable),
+//    annoncé. Sinon : l'avertissement BR-04 s'ouvre avec les nouvelles dates (« Retour » mène au formulaire prérempli), rien
+//    n'est écrit avant le choix. `removeNow` supprime sans formulaire (Suppr, menu), annoncé et annulable.
 //  * Pas de fenêtre propre (RT-017) : le hook rend la vue de l'étape courante (titre, contenu, pied, retour), affichée par la
 //    pop-in du créneau dans son onglet « Congé ».
 import type { I18n } from "@lingui/core";
@@ -16,7 +20,7 @@ import type { LoggedTimeInput } from "@wnext/engine";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import type { TimeoffPatch } from "../api/client.gen";
 import type { EditError } from "../data/allocation-edits";
-import type { Timeoff } from "../data/record-edits";
+import { overlapsTimeoff, type Timeoff } from "../data/record-edits";
 import { Button, RadioGroup, RadioItem } from "../design";
 import type { MessageKey } from "../i18n";
 import { planResolution, runTimeoffAction, timeoffConflicts, type Choice, type FlowDeps, type TimeoffConflictReport, type TimeoffDraft } from "./timeoff-flow";
@@ -50,6 +54,13 @@ export interface TimeoffEdits {
   openEdit(id: string): void;
   /** Nouveau congé prérempli sur une plage (onglet « Congé » de la pop-in d'un bloc ou d'un bloc provisoire). */
   openCreate(personId: string, startDate: string, endDate: string): void;
+  /**
+   * Geste sur la grille (RT-051) : nouvelles dates et demi-journées d'un congé. « warn » : l'avertissement BR-04 est l'étape
+   * courante (à afficher) ; « done » : écrit (ou refusé par l'API) et annoncé ; « refused » : rien d'écrit (chevauchement, occupé).
+   */
+  gesture(id: string, span: Pick<Timeoff, "startDate" | "endDate" | "startHalf" | "endHalf">): Promise<"warn" | "done" | "refused">;
+  /** Supprime le congé sans formulaire (Suppr, menu contextuel), annoncé, annulable par Ctrl+Z. */
+  removeNow(id: string): Promise<void>;
   /** Oublie l'étape en cours sans rien écrire ni prévenir (onglet quitté, pop-in fermée). */
   reset(): void;
   isOpen(): boolean;
@@ -59,6 +70,8 @@ export interface TimeoffEdits {
 const SHOWN = new Set<EditError>(["TIMEOFF_OVERLAP", "VERSION_CONFLICT", "NOT_FOUND", "FORBIDDEN", "NETWORK"]);
 const errorKey = (e: EditError): MessageKey => (SHOWN.has(e) ? `schedule.timeoff.error.${e as "NETWORK"}` : "schedule.timeoff.error.other");
 const FIELDS = ["personId", "typeId", "startDate", "endDate", "startHalf", "endHalf", "approvalStatus"] as const;
+/** Durée d'une plage en jours (même durée et mêmes demi-journées : un déplacement). */
+const dayCount = (x: { startDate: string; endDate: string }) => (Date.parse(x.endDate) - Date.parse(x.startDate)) / 86_400_000;
 
 /** Focus initial de l'assistant : le radio sélectionné du premier groupe. Le drawer reste monté d'une étape à l'autre, son focus initial ne se rejoue pas ; l'identité stable de la fonction limite l'appel au montage du groupe. */
 const focusChecked = (el: HTMLElement | null) => { el?.querySelector<HTMLElement>("[role=radio][aria-checked=true]")?.focus({ preventScroll: true }); };
@@ -292,7 +305,46 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
     ));
   }
 
+  async function gesture(id: string, span: Pick<Timeoff, "startDate" | "endDate" | "startHalf" | "endHalf">): Promise<"warn" | "done" | "refused"> {
+    const cur = dataRef.current.timeoffs.find((x) => x.id === id);
+    if (!deps || !cur || busy.current) return "refused";
+    if (overlapsTimeoff(dataRef.current.timeoffs, { ...cur, ...span })) { announce(t("schedule.timeoff.error.TIMEOFF_OVERLAP")); return "refused"; }
+    const before = Object.fromEntries(FIELDS.map((k) => [k, cur[k]])) as Fields;
+    const fields: Fields = { ...before, ...span };
+    busy.current = true;
+    try {
+      const logged = await deps.editor.loggedTime(cur.personId, span.startDate, span.endDate);
+      const report = timeoffConflicts(dataRef.current, draftOf(id, fields), logged ?? []);
+      if (report.days.length > 0) {
+        initial.current = before;
+        const choices = Object.fromEntries(report.days.flatMap((d) => d.allocations.map((a) => [a.allocationId, "move" as Choice])));
+        setStep({ kind: "warn", id, fields, report, logged, choices });
+        return "warn";
+      }
+      const patch = Object.fromEntries((["startDate", "endDate", "startHalf", "endHalf"] as const).filter((k) => cur[k] !== span[k]).map((k) => [k, span[k]])) as TimeoffPatch;
+      const out = await runTimeoffAction(deps, { kind: "update", id, patch });
+      const same = dayCount(cur) === dayCount(span) && cur.startHalf === span.startHalf && cur.endHalf === span.endHalf;
+      announce(out.ok ? t(same ? "schedule.timeoff.moved" : "schedule.timeoff.resized") : t(errorKey(out.error)));
+      return "done";
+    } finally {
+      busy.current = false;
+    }
+  }
+
+  async function removeNow(id: string) {
+    if (!deps || busy.current || !dataRef.current.timeoffs.some((x) => x.id === id)) return;
+    busy.current = true;
+    try {
+      const out = await runTimeoffAction(deps, { kind: "delete", id });
+      announce(out.ok ? t("schedule.timeoff.deleted") : t(errorKey(out.error)));
+    } finally {
+      busy.current = false;
+    }
+  }
+
   return {
+    gesture,
+    removeNow,
     openAt(personId, day) {
       if (!deps) return;
       const hit = dataRef.current.timeoffs.find((x) => x.personId === personId && x.startDate <= day && x.endDate >= day);

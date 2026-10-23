@@ -4,7 +4,7 @@
 // shell/shortcuts, la source des gestionnaires : chaque touche que la grille du Planning, un bloc ou le moteur (gestes au clavier)
 // traite figure dans l'aide.
 import type { ScheduleResponse } from "@wnext/contracts";
-import { keyGesture } from "@wnext/engine";
+import { keyGesture, timeoffKeyGesture } from "@wnext/engine";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
@@ -69,7 +69,7 @@ describe("bouton et fenêtre d'aide (RT-064)", () => {
     await flush();
     const text = dialog()!.textContent!;
     for (const s of SHORTCUTS) expect(text, s.id).toContain(fr[s.label]);
-    expect([...dialog()!.querySelectorAll("h3")].map((h) => h.textContent)).toEqual(["Partout", "Grille du planning", "Bloc sélectionné"]);
+    expect([...dialog()!.querySelectorAll("h3")].map((h) => h.textContent)).toEqual(["Partout", "Grille du planning", "Bloc sélectionné", "Congé sélectionné"]);
     const rows = [...dialog()!.querySelectorAll<HTMLElement>("[data-shortcut-id]")];
     expect(rows.map((r) => r.dataset.shortcutId)).toEqual(SHORTCUTS.map((s) => s.id));
     const keysOf = (id: string) => [...rows.find((r) => r.dataset.shortcutId === id)!.querySelectorAll("kbd")].map((k) => k.textContent);
@@ -112,6 +112,10 @@ describe("l'aide ne diverge pas des gestionnaires (RT-064)", () => {
     for (const e of combos) if (keyGesture(e, block, ["a", "b", "c"])) expect(documented(e, ["block"]), JSON.stringify(e)).toBe(true);
   });
 
+  it("toute touche reconnue par le moteur pour un congé (RT-051) figure dans l'aide (portée congé)", () => {
+    for (const e of combos) if (timeoffKeyGesture(e, 1)) expect(documented(e, ["timeoff"]), JSON.stringify(e)).toBe(true);
+  });
+
   it("toute touche que la grille ou un bloc du Planning traite (preventDefault) figure dans l'aide", async () => {
     const TODAY = "2026-10-20";
     type Alloc = ScheduleResponse["allocations"][number];
@@ -122,7 +126,8 @@ describe("l'aide ne diverge pas des gestionnaires (RT-064)", () => {
       account: { weekStart: 1, capacityThresholds: { underPercent: 80 }, timezone: "Europe/Paris" },
       people: ["1", "2"].map((id) => ({ id, version: 1, name: `P${id}`, peopleType: "employee" as const, departmentId: null, roleId: null, country: null,
         workDaysHours: [8, 8, 8, 8, 8, 0, 0], tags: [], avatarUrl: null, active: true })),
-      allocations: [a], timeoffs: [], holidays: [], departments: [], roles: [], timeoffTypes: [{ id: "t1", version: 1, name: "CP", deducted: true }],
+      allocations: [a], timeoffs: [{ id: "o", version: 1, personId: "2", typeId: "t1", startDate: TODAY, endDate: TODAY, scope: "full_day", startHalf: "am", endHalf: "pm",
+        hoursPerDay: null, approvalStatus: "approved" }], holidays: [], departments: [], roles: [], timeoffTypes: [{ id: "t1", version: 1, name: "CP", deducted: true }],
       projects: [{ id: "1", version: 1, name: "Refonte", projectCode: null, color: "#3B82F6", status: "in_progress", nonBillable: false, startDate: null, endDate: null }],
     };
     const clock: Partial<Clock> = { raf: () => 0, caf: () => {}, now: () => 0, idle: () => {}, setTimer: () => 0, clearTimer: () => {} };
@@ -139,15 +144,17 @@ describe("l'aide ne diverge pas des gestionnaires (RT-064)", () => {
         editor={history.editor} history={history} records={src} />));
     };
     const undocumented: string[] = [];
-    for (const onBlock of [false, true]) {
+    const targets = { grille: "[role=grid]", bloc: '.wn-block[data-key="a:0"]', congé: '.wn-timeoff[data-timeoff="o"]' } as const;
+    const scopes = { grille: ["global", "planning"], bloc: ["global", "planning", "block"], congé: ["global", "planning", "timeoff"] } as const;
+    for (const on of ["grille", "bloc", "congé"] as const) {
       let dirty = true; // un écran neuf après chaque touche qui a agi (fenêtre ouverte, bloc déplacé ou supprimé…)
       for (const e of combos) {
         if (dirty) fresh();
-        const target = onBlock ? host.querySelector<HTMLElement>('.wn-block[data-key="a:0"]')! : host.querySelector<HTMLElement>("[role=grid]")!;
+        const target = host.querySelector<HTMLElement>(targets[on])!;
         act(() => target.focus());
         const ev = press(target, e);
-        dirty = ev.defaultPrevented || document.querySelector("[role=dialog], [role=alertdialog]") !== null;
-        if (ev.defaultPrevented && !documented(e, onBlock ? ["global", "planning", "block"] : ["global", "planning"])) undocumented.push(`${onBlock ? "bloc" : "grille"} ${JSON.stringify(e)}`);
+        dirty = ev.defaultPrevented || document.querySelector("[role=dialog], [role=alertdialog], [role=menu]") !== null;
+        if (ev.defaultPrevented && !documented(e, scopes[on])) undocumented.push(`${on} ${JSON.stringify(e)}`);
       }
     }
     expect(undocumented).toEqual([]);

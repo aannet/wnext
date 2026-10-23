@@ -20,7 +20,11 @@
 //    grille sans aucun bloc porte une indication unique (« Cliquez ou glissez dans la grille pour planifier »).
 //  * Congés (BR-04, schedule/timeoff-ui, dans l'onglet « Congé » de la pop-in) : touche C sur la grille (sur un bloc : sa
 //    personne et son premier jour ; sinon la première ligne visible ; sur un congé, ou un jour couvert par un congé :
-//    modification), clic ou Entrée sur un congé pour le modifier, double clic sur une case vide pour en créer un.
+//    modification), double clic ou Entrée sur un congé pour le modifier, double clic sur une case vide pour en créer un.
+//  * Gestes sur un congé (RT-051, D4 ; schedule/block-editor) si `records` est fourni : clic = sélection (Q5, comme un bloc),
+//    glisser, poignées de début et de fin, flèches (pas : demi-journée en vue jour, journée sinon), Suppr / Retour arrière,
+//    menu contextuel (« Modifier… », « Supprimer »). Chaque geste passe par le parcours des congés (slot-editor-ui,
+//    timeoff-ui) : chevauchement refusé et annoncé, avertissement BR-04 sur des allocations, sinon écrit, annoncé et annulable.
 //  * Vues sauvegardées (schedule/views-ui) si une source de vues est fournie : filtres (département, rôle, projet, personne, tri)
 //    appliqués côté client aux lignes (schedule/view-filters) ; seule la grille reçoit les données filtrées, les éditeurs gardent
 //    les données complètes. Les vues vivent dans le panneau Filtres (RT-058) : « Vue » en tête, enregistrement en pied, nom de
@@ -53,13 +57,13 @@
 //    arrêtée hors du Planning, les changements des autres n'y sont pas suivis et l'historique ne pourrait plus les invalider.
 import type { I18n } from "@lingui/core";
 import type { Me, ProjectDetail, ScheduleResponse } from "@wnext/contracts";
-import { dayNumber, fromDayNumber, type HeaderCell, type Viewport, type Zoom } from "@wnext/engine";
+import { dayNumber, fromDayNumber, type HeaderCell, type TimeoffSpan, type Viewport, type Zoom } from "@wnext/engine";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import type { Allocation, ScheduleEditor } from "./data/allocation-edits";
 import type { ScheduleSource } from "./data/schedule-source";
 import type { ViewsSource } from "./data/views-source";
 import type { MessageKey } from "./i18n";
-import { createBlockEditor, type BlockEditor, type CopyRequest } from "./schedule/block-editor";
+import { createBlockEditor, type BlockEditor, type CopyRequest, type TimeoffEditRequest } from "./schedule/block-editor";
 import { duplicateAllocation, type CopyPlace } from "./schedule/block-commands";
 import { canWriteProject, slotErrorKey } from "./schedule/slot-model";
 import { blockLabeler } from "./schedule/block-label";
@@ -122,6 +126,7 @@ export interface ScheduleScreenProps {
 export interface ScheduleMemory { zoom?: Zoom; center?: number; scrollTop?: number }
 
 const ZOOMS: readonly Zoom[] = ["day", "week", "month"];
+type Timeoff = ScheduleResponse["timeoffs"][number];
 const NO_HISTORY: HistoryState = { canUndo: false, canRedo: false, undoLabel: null, redoLabel: null };
 const noSubscribe = () => () => {};
 const LABELS: Record<string, string> = { "allocation.move": "move", "allocation.resize": "resize", "allocation.load": "load", "allocation.create": "create", "allocation.edit": "edit" };
@@ -350,10 +355,18 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
       { id: "delete", label: t("schedule.menu.delete"), shortcut: t("schedule.key.delete"), keys: "Delete Backspace", onSelect: run("delete") },
     ];
   };
+  /** Commandes d'un congé (RT-051) : menu contextuel. */
+  const timeoffCommands = (timeoffId: string): MenuCommand[] => [
+    { id: "edit", label: t("schedule.menu.edit"), shortcut: t("keys.enter"), keys: "Enter", onSelect: () => slotRef.current.openTimeoffEdit(timeoffId) },
+    { id: "delete", label: t("schedule.menu.delete"), shortcut: t("schedule.key.delete"), keys: "Delete Backspace", onSelect: () => slotRef.current.timeoffDelete(timeoffId) },
+  ];
   const removal = useTeamRemoval({ i18n, editor: records?.teamRemovalSummary && records.removeFromTeam ? records as TeamRemovalEditor : undefined, data: () => records?.getState().data ?? dataRef.current,
     gridRef, blockAt: (t) => scroller.current?.host.blockAt(t) ?? null, announce: (text) => editsRef.current.announce(text),
     onRemoved: (ids) => history?.invalidate("allocations", ids),
-    ...(records && editor ? { commands: menuCommands, writable: (id: string) => writableRef.current(allocationOf(id)) } : {}) });
+    ...(records && editor ? {
+      commands: menuCommands, writable: (id: string) => writableRef.current(allocationOf(id)),
+      timeoffAt: (t: EventTarget | null) => scroller.current?.host.timeoffAt?.(t) ?? null, timeoffCommands,
+    } : {}) });
   const editorRef = useRef(editor);
   editorRef.current = editor;
 
@@ -385,6 +398,16 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
         const a = allocationOf(r.allocation.id);
         if (writableRef.current(a)) void duplicate(a, r.draft, { personId: r.draft.personId, startDate: r.draft.startDate, endDate: r.draft.endDate });
       },
+      // Congés (RT-051) : gestes seulement avec des écritures (droits des congés inchangés : ceux de la saisie au formulaire).
+      ...(records ? {
+        onTimeoffCommit: (r: TimeoffEditRequest) => slotRef.current.timeoffGesture(r.timeoffId, r.draft),
+        onTimeoffOpen: (r: { timeoffId: string }) => slotRef.current.openTimeoffEdit(r.timeoffId),
+        onTimeoffPreview: (p: { timeoff: Timeoff; draft: TimeoffSpan } | null) => {
+          if (!p) return;
+          const typeName = dataRef.current.timeoffTypes.find((x) => x.id === p.timeoff.typeId)?.name ?? "";
+          editsRef.current.announce(timeoffLabeler(labelled.current)({ ...p.timeoff, ...p.draft, typeName, status: p.timeoff.approvalStatus }));
+        },
+      } : {}),
     });
     blocksRef.current = blocks;
     return () => { blocks.destroy(); s.destroy(); scroller.current = null; blocksRef.current = null; };
@@ -473,6 +496,8 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
       ? matches("delete", e) ? "delete" : matches("duplicate", e) ? "duplicate" : matches("split", e) ? "split" : null
       : null;
     if (hit && command && writable(allocationOf(hit.block.allocationId))) { e.preventDefault(); blockCommand(command, hit.block.key, hit.block.allocationId); return; }
+    const off = records && editor && !hit && onBlock ? s.host.timeoffAt?.(e.target) : null;
+    if (off && off.el === e.target && matches("timeoffDelete", e)) { e.preventDefault(); slot.timeoffDelete(off.timeoff.timeoffId); return; }
     if (records && matches("create", e)) { e.preventDefault(); openCreate(e.target); return; }
     if (records && matches("timeoff", e)) { e.preventDefault(); openTimeoffAt(e.target); return; }
     if (records && e.key === "Enter" && s.host.timeoffAt?.(e.target)) { e.preventDefault(); openTimeoffAt(e.target); return; }
@@ -540,7 +565,6 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
       {records && data.allocations.length === 0 && <p className="wn-grid-hint">{t("schedule.grid.hint")}</p>}
       <div ref={gridRef} role="grid" aria-label={t("schedule.grid.label")} tabIndex={0} onKeyDown={onKeyDown}
         aria-keyshortcuts={records ? ariaKeys("create", "timeoff", "today") : ariaKeys("today")}
-        onClick={(e) => { const off = records && scroller.current?.host.timeoffAt?.(e.target); if (off) slot.openTimeoffEdit(off.timeoff.timeoffId); }}
         onDoubleClick={records ? onDoubleClick : undefined}
         className="wn-grid" />
       {slot.element}
