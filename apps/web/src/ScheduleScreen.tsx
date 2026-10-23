@@ -39,9 +39,10 @@
 //    de portée série / groupe dans le drawer), Ctrl+D (Cmd+D) duplique juste après le bloc (copie sélectionnée et focalisée),
 //    S ouvre l'étape « Scinder » ; mêmes commandes en tête du menu contextuel, et Alt + glisser à la souris copie le bloc à la
 //    place du fantôme. Toutes annulables par Ctrl+Z, sauf la suppression d'une occurrence (découpe).
-//  * En-tête en deux niveaux (RT-025) : niveau 1 = titre, vue sauvegardée, statut et actions de création ; niveau 2 (barre
-//    d'outils) = Filtres (compteur, puces, panneau dépliable, schedule/filters-ui), annuler / rétablir, navigation, zoom,
-//    menu Affichage. Le nombre de personnes affichées est dans le coin de la grille, au-dessus de la colonne Personnes (RT-061).
+//  * En-tête sur une seule ligne (RT-025 ; recette n°4, « Planning cible ») : le titre puis la barre d'outils = Filtres (compteur,
+//    nom de la vue, puces, panneau dépliable avec les vues, schedule/filters-ui), statut (`actions`), annuler / rétablir,
+//    navigation, zoom, menu Affichage. Le nombre de personnes affichées est dans le coin de la grille, au-dessus de la colonne
+//    Personnes (RT-061).
 //  * Menu Affichage (Popover) : densité et bascule « Charge » (RT-052, D3, amende Q11) : affiche ou masque toute la bande de
 //    capacité (graphique et chiffres) ; éteinte, les lignes sont raccourcies. Active au montage, état en mémoire seulement.
 //  * Densité (RT-005 à RT-007, schedule/density) : contrôle segmenté (groupe de boutons radio, flèches gauche / droite) dans
@@ -101,7 +102,7 @@ export interface ScheduleScreenProps {
   onOpenProject?(projectId: string): void;
   /** Titre de l'écran (h1), en tête du sous-header ; absent : sous-header sans titre. */
   heading?: ReactNode;
-  /** Zone à droite du sous-header (statut, import) ; absent : rien. */
+  /** Zone de la barre d'outils, après les filtres (statut du temps réel, chargement) ; absent : rien. */
   actions?: ReactNode;
   /** Écritures brutes de la source (congés, report assisté) ; absent : congés en lecture seule. */
   records?: Pick<ScheduleSource, "getState" | "updateAllocation" | "splitOccurrence" | "createTimeoff" | "updateTimeoff" | "deleteTimeoff"

@@ -183,6 +183,8 @@ Grille du Planning : personnes en lignes, jours en colonnes, en-tête collant. T
 
 Bascule « Charge » (menu Affichage, RT-052) : active par défaut, état en mémoire seulement. Éteinte, toute la bande de capacité disparaît (graphique et chiffres, dépassements compris) et chaque ligne perd la hauteur de la bande ; la jauge de la colonne Personnes reste le signal de surcharge.
 
+Barre du Planning (recette n°4, « Planning cible ») : une seule ligne au-dessus de la grille, le titre puis la barre d'outils (Filtres et puces, statut du temps réel, Annuler, Rétablir, navigation, zoom, Affichage), qui passe à la ligne au besoin. Ni saisie rapide ni boutons de création (RT-057, RT-060) : la création passe par la grille (clic, glisser, appui long) et par la touche N. Une grille sans aucun bloc porte une seule indication, 12 px `--text-muted`, au-dessus d'elle (« Cliquez ou glissez dans la grille pour planifier »). Le nombre de personnes affichées est dans le coin au-dessus de la colonne Personnes (12 px, graisse 500, `--text-muted`, zone `aria-live` polie ; RT-061).
+
 La page occupe 100 % de la hauteur de la fenêtre et ne défile pas. Seule la grille défile, dans son conteneur. La barre d'outils passe à la ligne au besoin. Les week-ends et jours non ouvrés sont hachurés en vue jour. La colonne courante est teintée de pétrole à 10 % ; un trait « maintenant » (2 px pétrole, liseré blanc de 1 px) marque le début du jour courant sur toute la hauteur des lignes, au-dessus des blocs, au prorata du jour en vue semaine et mois (RT-055). Décoratif : il ne capte pas le pointeur et n'est pas annoncé (l'en-tête porte `aria-current`).
 
 Espacements sur une base de 4 px : 2, 4, 8, 12, 16, 24, 32, 48. Marges latérales de 16 px.
@@ -225,6 +227,10 @@ Chaque composant part du caractère sobre actuel. Le caractère « franc et tact
 - **Style:** fond papier froid, bordure 1 px, rayon plein. Texte 12 px.
 - **State:** le retrait est un petit bouton circulaire de 20 px. Survol : fond bordure.
 
+### Panneau Filtres et vues sauvegardées (RT-058)
+- **Bouton :** « Filtres », « Filtres (N) » avec des filtres actifs, suivi du nom de la vue active (« Filtres · Studio ») et d'un ● `--color-warn-text` si elle est modifiée (doublé d'un texte masqué « (vue modifiée) »).
+- **Panneau :** papier froid, bordure 1 px, rayon 6 px, padding 12 px, en colonne : « Vue » (liste) en tête, puis les filtres (listes, tri, « Effacer les filtres »), puis les actions d'enregistrement en pied, séparées par un filet (Enregistrer la vue…, Mettre à jour, Renommer…, Supprimer…). Une vue garde zoom et densité.
+
 ### DataTable (listes Projets, Personnes, Clients ; RT-053)
 - **Composant unique :** `apps/web/src/design/ui/data-table.tsx` ; les trois écrans le montent, seules les colonnes, les filtres et les actions changent. Clients ne vit que dans Réglages.
 - **Barre d'outils :** recherche à gauche (`type=search`, nom accessible = placeholder), emplacement des filtres (sélecteurs ou puces) ensuite, action primaire à droite (`Nouveau …`, masquée à qui ne peut pas écrire).
@@ -266,6 +272,9 @@ Chaque composant part du caractère sobre actuel. Le caractère « franc et tact
 
 ### Navigation
 - **Style:** barre d'en-tête sobre, bordure basse 1 px ; le bouton « Aujourd'hui » suit les boutons de la barre d'outils du Planning.
+- **En-tête commun, à droite :** « Rechercher » avec sa pastille `Ctrl K` (`⌘K` sur Mac ; RT-059, recherche globale sur tous les écrans), la cloche des notifications, l'aide des raccourcis (bouton carré « ? » de 32 px, nom accessible « Raccourcis clavier », RT-064), Réglages, « Bonjour {prénom} », l'avatar.
+- **Aide des raccourcis :** fenêtre modale, trois groupes (Partout, Grille du planning, Bloc sélectionné) ; chaque ligne : touches en pastilles `kbd` (bordure forte 1 px, rayon 4 px, fond papier froid, 11 px) à gauche, action à droite, filet 1 px entre les lignes. La liste vient de `apps/web/src/shell/shortcuts.ts`, la source des gestionnaires de touches. Touche « ? » hors d'un champ.
+- **Import :** une seule entrée, Réglages > Import (owner, admin ; RT-054) ; les états vides de Personnes et de Projets y mènent par un lien.
 - **Mobile (not implemented):** aucune navigation mobile dans le code. La spec (`docs/review/ux-ui.md` §4.1) prévoit une barre inférieure à quatre onglets, pas encore construite.
 
 ## Do's and Don'ts
