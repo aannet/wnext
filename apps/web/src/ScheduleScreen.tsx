@@ -497,7 +497,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
       : null;
     if (hit && command && writable(allocationOf(hit.block.allocationId))) { e.preventDefault(); blockCommand(command, hit.block.key, hit.block.allocationId); return; }
     const off = records && editor && !hit && onBlock ? s.host.timeoffAt?.(e.target) : null;
-    if (off && off.el === e.target && matches("timeoffDelete", e)) { e.preventDefault(); slot.timeoffDelete(off.timeoff.timeoffId); return; }
+    if (off && off.el === e.target && matches("timeoffDelete", e) && !blocksRef.current?.busy()) { e.preventDefault(); slot.timeoffDelete(off.timeoff.timeoffId); return; }
     if (records && matches("create", e)) { e.preventDefault(); openCreate(e.target); return; }
     if (records && matches("timeoff", e)) { e.preventDefault(); openTimeoffAt(e.target); return; }
     if (records && e.key === "Enter" && s.host.timeoffAt?.(e.target)) { e.preventDefault(); openTimeoffAt(e.target); return; }

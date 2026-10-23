@@ -70,8 +70,9 @@ export interface TimeoffEdits {
 const SHOWN = new Set<EditError>(["TIMEOFF_OVERLAP", "VERSION_CONFLICT", "NOT_FOUND", "FORBIDDEN", "NETWORK"]);
 const errorKey = (e: EditError): MessageKey => (SHOWN.has(e) ? `schedule.timeoff.error.${e as "NETWORK"}` : "schedule.timeoff.error.other");
 const FIELDS = ["personId", "typeId", "startDate", "endDate", "startHalf", "endHalf", "approvalStatus"] as const;
-/** Durée d'une plage en jours (même durée et mêmes demi-journées : un déplacement). */
-const dayCount = (x: { startDate: string; endDate: string }) => (Date.parse(x.endDate) - Date.parse(x.startDate)) / 86_400_000;
+/** Durée d'un congé en demi-journées (même durée : un déplacement, sinon un étirement ou une réduction). */
+const halves = (x: Pick<Timeoff, "startDate" | "endDate" | "startHalf" | "endHalf">) =>
+  ((Date.parse(x.endDate) - Date.parse(x.startDate)) / 86_400_000) * 2 + (x.endHalf === "pm" ? 1 : 0) - (x.startHalf === "pm" ? 1 : 0);
 
 /** Focus initial de l'assistant : le radio sélectionné du premier groupe. Le drawer reste monté d'une étape à l'autre, son focus initial ne se rejoue pas ; l'identité stable de la fonction limite l'appel au montage du groupe. */
 const focusChecked = (el: HTMLElement | null) => { el?.querySelector<HTMLElement>("[role=radio][aria-checked=true]")?.focus({ preventScroll: true }); };
@@ -323,7 +324,7 @@ export function useTimeoffEdits(i18n: I18n, deps: FlowDeps | undefined, data: Sc
       }
       const patch = Object.fromEntries((["startDate", "endDate", "startHalf", "endHalf"] as const).filter((k) => cur[k] !== span[k]).map((k) => [k, span[k]])) as TimeoffPatch;
       const out = await runTimeoffAction(deps, { kind: "update", id, patch });
-      const same = dayCount(cur) === dayCount(span) && cur.startHalf === span.startHalf && cur.endHalf === span.endHalf;
+      const same = halves(cur) === halves(span);
       announce(out.ok ? t(same ? "schedule.timeoff.moved" : "schedule.timeoff.resized") : t(errorKey(out.error)));
       return "done";
     } finally {

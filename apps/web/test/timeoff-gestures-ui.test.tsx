@@ -93,6 +93,18 @@ describe("geste sans conflit", () => {
     expect(notice()).toBe("Modification du congé annulée.");
   });
 
+  it("déplacé d'une demi-journée (→ en vue jour) : même durée, annoncé comme un déplacement", async () => {
+    const { src } = mount([], [off("o1")]);
+    await flush();
+    const t = timeoff();
+    act(() => t.focus());
+    press(t, { key: "ArrowRight" });
+    press(t, { key: "Enter" });
+    await flush();
+    expect(spans(src)).toEqual(["o1:2026-10-22pm..2026-10-23am"]);
+    expect(notice()).toBe("Congé déplacé.");
+  });
+
   it("étiré par la fin d'une demi-journée (Maj + →) : congé modifié, annoncé", async () => {
     const { src } = mount([], [off("o1")]);
     await flush();
