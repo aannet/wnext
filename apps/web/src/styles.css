@@ -5,6 +5,7 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "./design/tokens.css";
 @import "./design/overlay.css";
+@import "./design/data-table.css";
 
 /* Champs de saisie au style shadcn/ui (Input, NativeSelect, Textarea ; ADR-010), posés une fois pour toute l'application
    dans la couche base : les règles propres à un écran, hors couche, restent prioritaires. Cases et boutons radio exclus. */
