@@ -234,6 +234,7 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-notifications-open { font-size: 12px; display: inline-flex; gap: 4px; align-items: center; }
 /* Aide des raccourcis clavier (RT-064) : bouton carré « ? » à côté de la cloche, fenêtre groupée (touches à gauche, action à droite). */
 .wn-help-open { width: 32px; padding: 0; justify-content: center; font-weight: var(--font-weight-semibold); }
+.wn-shortcuts-list:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
 .wn-shortcuts-group + .wn-shortcuts-group { margin-top: var(--space-4); }
 .wn-shortcuts-group h3 { margin: 0 0 var(--space-1); color: var(--text-muted); font-size: var(--text-label); font-weight: var(--font-weight-semibold); }
 .wn-shortcuts dl { margin: 0; }

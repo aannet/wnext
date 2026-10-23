@@ -76,6 +76,9 @@ describe("bouton et fenêtre d'aide (RT-064)", () => {
     expect(keysOf("create")).toEqual(["N"]);
     expect(keysOf("delete")).toEqual(["Suppr", "Retour arrière"]);
     expect(keysOf("redo")).toEqual([keyText("mod", (k) => fr[k]), "Maj", "Z", keyText("mod", (k) => fr[k]), "Y"]);
+    // Liste plus haute que la fenêtre (groupe « Congé sélectionné », RT-051) : une région focalisable, défilable au clavier (axe).
+    const region = dialog()!.querySelector<HTMLElement>("[role=region]");
+    expect([region?.tabIndex, region?.getAttribute("aria-label"), region?.contains(rows[0]!)]).toEqual([0, "Raccourcis clavier", true]);
   });
 
   it("touche « ? » hors d'un champ : ouvre l'aide ; dans un champ de saisie : rien", async () => {
