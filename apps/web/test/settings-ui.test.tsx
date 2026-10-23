@@ -367,6 +367,8 @@ describe("clients et droits", () => {
     await click(items[1]);
     await click(button("Supprimer", dialog()));
     expect(clientNames()).toEqual(["Acme", "Globex"]);
+    // DataTable rend le focus à l'image suivante (requestAnimationFrame) : l'attendre, sinon le test dépend de la charge.
+    await act(async () => { await new Promise((r) => requestAnimationFrame(() => r(undefined))); });
     expect(document.activeElement).not.toBe(document.body);
   });
 

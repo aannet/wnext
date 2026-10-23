@@ -14,7 +14,11 @@ const ROWS: Row[] = [{ id: "b", name: "Beta", n: 2 }, { id: "a", name: "Alpha", 
 let root: Root | null = null;
 let host: HTMLElement;
 afterEach(() => { act(() => root?.unmount()); host?.remove(); root = null; });
-const flush = async () => { for (let i = 0; i < 6; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); }); };
+// Le retour du focus attend l'image suivante (requestAnimationFrame) : flush l'attend aussi, quelle que soit la charge.
+const flush = async () => {
+  for (let i = 0; i < 6; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+  await act(async () => { await new Promise((r) => requestAnimationFrame(() => r(undefined))); });
+};
 async function click(el: Element | null | undefined) { if (!el) throw new Error("élément absent"); await act(async () => { (el as HTMLElement).click(); }); await flush(); }
 const names = () => [...document.body.querySelectorAll("tbody th[scope=row]")].map((e) => e.textContent);
 const header = (text: string) => [...document.body.querySelectorAll("thead th")].find((th) => th.textContent === text) as HTMLElement;
