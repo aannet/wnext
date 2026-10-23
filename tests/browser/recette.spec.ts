@@ -102,7 +102,8 @@ test.describe("R-04 — Jauge d'allocation par personne", () => {
     await expect(gauge).toHaveAttribute("title", `Du ${fr(day(7)).replace(/^\S+ /, "")} au ${fr(day(13)).replace(/^\S+ /, "")} : 30 h planifiées sur 40 h de capacité`);
     await showDay(page, day(14));
     await expect(gauge).toHaveText("▲ 125 % +10 h"); // icône et texte de dépassement, pas la couleur seule
-    await expect(gauge).toHaveAttribute("title", `Du ${fr(day(14)).replace(/^\S+ /, "")} au ${fr(day(20)).replace(/^\S+ /, "")} : 50 h planifiées sur 40 h de capacité`);
+    // RT-063 (L-X1) : l'infobulle compte aussi les jours en surcharge.
+    await expect(gauge).toHaveAttribute("title", `Du ${fr(day(14)).replace(/^\S+ /, "")} au ${fr(day(20)).replace(/^\S+ /, "")} : 50 h planifiées sur 40 h de capacité · 5 jours en surcharge`);
   });
 });
 
@@ -379,7 +380,8 @@ test("R-11 — Création au clavier (touche N)", async ({ page }) => {
   await showPerson(page, "Camille Roy");
   const block = page.locator('.wn-row[data-person="1"] .wn-block[data-key]:visible').first();
   await block.focus();
-  const mine = page.locator('.wn-row[data-person="1"] .wn-block[aria-label^="Refonte,"][aria-label$=", 6 h par jour"]:visible');
+  // Un jour seul : « Refonte, le …, 6 h » (plusieurs jours : « …, 6 h par jour »).
+  const mine = page.locator('.wn-row[data-person="1"] .wn-block[aria-label^="Refonte,"][aria-label*=", 6 h"]:visible');
   const before = await mine.count();
 
   await page.keyboard.press("n");
@@ -393,7 +395,7 @@ test("R-11 — Création au clavier (touche N)", async ({ page }) => {
   await page.keyboard.press("n");
   await drawer.getByRole("combobox", { name: "Projet" }).fill("Refonte");
   await page.keyboard.press("Enter");
-  await drawer.getByLabel("Heures par jour").fill("6");
+  await drawer.getByRole("spinbutton", { name: "Heures par jour" }).fill("6");
   await drawer.getByRole("button", { name: "Créer" }).click();
   await expect(drawer).toHaveCount(0);
   await expect(notice(page)).toHaveText(/Ctrl\+Z annule/);
@@ -1187,7 +1189,8 @@ test("R-32 — Portée d'un groupe dans le drawer", async ({ page }) => {
   // Cette ligne : seule la ligne de Thomas change.
   await drawer.getByRole("radio", { name: "Cette ligne" }).check();
   await drawer.getByRole("button", { name: "Confirmer" }).click();
-  await expect(atelier("4", true)).toBeVisible();
+  await expect(atelier("4", true)).toBeVisible(); // écriture optimiste : le drawer se ferme au retour de l'API
+  await expect(drawer).toHaveCount(0); // sinon Ctrl+K et Ctrl+Z suivants iraient au drawer encore ouvert
   await showPerson(page, "Yasmine Cherif");
   await showDay(page, day(14));
   await expect(atelier("15", false)).toBeVisible();
@@ -1199,6 +1202,7 @@ test("R-32 — Portée d'un groupe dans le drawer", async ({ page }) => {
   await drawer.getByRole("radio", { name: "Tout le groupe" }).check();
   await drawer.getByRole("button", { name: "Confirmer" }).click();
   await expect(atelier("15", true)).toBeVisible();
+  await expect(drawer).toHaveCount(0);
   await page.getByRole("grid").focus();
   await page.keyboard.press("Control+z");
   await expect(atelier("15", false)).toBeVisible();
