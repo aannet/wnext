@@ -42,14 +42,17 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-chip-remove:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .wn-filters-panel { padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-sunken); align-items: flex-end; }
 .wn-display-menu { display: flex; flex-direction: column; gap: var(--space-3); }
-.wn-header { background: var(--surface); border-bottom: 1px solid var(--border); }
-.wn-corner { background: var(--surface); }
-.wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; white-space: nowrap; color: var(--text-muted); border-left: 1px solid var(--wn-grid-line); }
+/* En-tête de colonnes renforcé (RT-056, D7) : une seule rangée de 32 px, fond distinct du corps, texte --text en graisse 600
+   (15:1 sur --surface-sunken), bordure basse forte ; la période courante est une pastille d'accent, texte blanc. */
+.wn-header { box-sizing: border-box; background: var(--surface-sunken); border-bottom: 1px solid var(--color-border-strong); }
+.wn-corner { background: var(--surface-sunken); border-right: 1px solid var(--border); }
+.wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; white-space: nowrap; color: var(--text); font-weight: var(--font-weight-semibold); line-height: 22px; border-left: 1px solid var(--wn-grid-line); }
 /* Libellé collant (grid-header.ts) : son défilement est celui de la grille, pas celui de la cellule ; il est coupé dans la cellule. */
 .wn-colheader-label { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: top; }
-/* Calendrier (L-I) : samedi et dimanche grisés en vue jour (Q9) ; période courante en couleur d'accent, soulignée (RT-027). */
+/* Calendrier (L-I) : samedi et dimanche grisés en vue jour (Q9) ; période courante en pastille d'accent (RT-027, RT-056). */
 .wn-colheader-weekend { background: var(--wn-nonwork-hatch); }
-.wn-colheader-current { box-shadow: inset 0 -3px 0 var(--accent); background-color: var(--wn-col-current); color: var(--color-accent); font-weight: var(--font-weight-semibold); }
+.wn-colheader-current { background-color: var(--wn-col-current); }
+.wn-colheader-current .wn-colheader-label { padding: 0 var(--space-2); border-radius: var(--radius-full); background: var(--accent); color: var(--accent-fg); }
 /* Trait « maintenant » (RT-055, scroller.ts) : 2 px d'accent au début du jour courant, sur toute la hauteur des lignes, au-dessus
    des blocs ; liseré de 1 px couleur de surface pour rester lisible (>= 3:1) sur toute couleur de projet et sur les hachures.
    Décoratif : aria-hidden, ne capte pas le pointeur. */
@@ -60,7 +63,11 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-schedule > * { flex: none; }
 .wn-schedule > .wn-grid { flex: 1; min-height: 0; overflow: auto; }
 .wn-grid { position: relative; border: 1px solid var(--border); }
-.wn-row { contain: strict; border-bottom: 1px solid var(--color-border-subtle); }
+/* Ligne : containment de taille, de mise en page et de style, sans `paint` (RT-062) : contain: strict rognait au bord de la
+   ligne l'ombre et le soulèvement d'un bloc survolé. La virtualisation borne déjà le nombre de lignes peintes ; les blocs,
+   cellules et congés gardent contain: strict. `isolation` garde le contexte d'empilement que `paint` donnait : l'en-tête de
+   ligne collé et le filet de mise en évidence restent sous l'en-tête de dates et sous le trait « maintenant ». */
+.wn-row { contain: size layout style; isolation: isolate; border-bottom: 1px solid var(--color-border-subtle); }
 /* Ligne retrouvée par la recherche (RT-038) : teinte d'accent et filet par-dessus les blocs, retirés par le défilement après quelques secondes ; l'éclat
    (animation) n'existe que si le mouvement est permis, sinon la teinte fixe suffit. */
 .wn-row[data-highlight] { background: color-mix(in srgb, var(--accent) 12%, transparent); }
@@ -115,6 +122,18 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-cap { contain: strict; box-sizing: border-box; border-left: 1px solid var(--surface); background-color: var(--border); }
 .wn-cap.wn-cap-none { background-color: var(--surface-sunken); }
 .wn-cap.wn-cap-over { box-shadow: inset 0 0 0 1px var(--cap-over); }
+
+/* Survol d'un bloc (RT-062, D11 ; DESIGN.md, Flat-By-Default) : à la souris seulement, le bloc se soulève d'1 px et prend
+   l'ombre --shadow-hover. Propriété `translate`, distincte du `transform` en ligne qui positionne le bloc (grid-dom.ts) : les
+   deux se composent. Rien pendant un glisser (wn-dragging sur la grille) ni sur un bloc armé au toucher. Mouvement réduit :
+   l'ombre seule. */
+@media (hover: hover) and (pointer: fine) {
+  .wn-block { transition: translate var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard); }
+  .wn-block:hover:not(.wn-dragging *):not(.wn-armed) { translate: 0 -1px; box-shadow: var(--shadow-hover); }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  .wn-block:hover:not(.wn-dragging *):not(.wn-armed) { translate: none; }
+}
 
 /* Édition par gestes : poignées de 6 px (début, fin, hauteur), fantôme du geste, choix de portée d'une série, annonces. */
 .wn-block { cursor: grab; }
