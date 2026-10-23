@@ -50,6 +50,10 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 /* Calendrier (L-I) : samedi et dimanche grisés en vue jour (Q9) ; période courante en couleur d'accent, soulignée (RT-027). */
 .wn-colheader-weekend { background: var(--wn-nonwork-hatch); }
 .wn-colheader-current { box-shadow: inset 0 -3px 0 var(--accent); background-color: var(--wn-col-current); color: var(--color-accent); font-weight: var(--font-weight-semibold); }
+/* Trait « maintenant » (RT-055, scroller.ts) : 2 px d'accent au début du jour courant, sur toute la hauteur des lignes, au-dessus
+   des blocs ; liseré de 1 px couleur de surface pour rester lisible (>= 3:1) sur toute couleur de projet et sur les hachures.
+   Décoratif : aria-hidden, ne capte pas le pointeur. */
+.wn-now { z-index: 1; width: 2px; background: var(--accent); box-shadow: 0 0 0 1px var(--surface); pointer-events: none; }
 .wn-schedule-container { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0 var(--space-4) var(--space-4); }
 .wn-schedule-container > * { flex: none; }
 .wn-schedule { display: flex; flex: 1; flex-direction: column; min-height: 0; }

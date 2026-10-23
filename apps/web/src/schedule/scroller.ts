@@ -17,6 +17,9 @@
 //  * Position initiale (`center`, `scrollTop`) : l'écran rouvert reprend là où on l'avait quitté (PO-02).
 //  * Calendrier (L-I) : la cellule d'en-tête qui contient aujourd'hui est courante (RT-027), samedi et dimanche sont grisés
 //    en vue jour (Q9) ; le fond de la surface porte les séparateurs de colonnes et la teinte de la colonne courante (RT-026).
+//  * Trait « maintenant » (RT-055) : un seul nœud décoratif (aria-hidden) dans la surface, au début du jour courant, sur
+//    toute la hauteur des lignes, au-dessus des blocs (z-index CSS) ; en semaine et mois, au prorata du jour dans la colonne
+//    (même échelle de pixels par jour). Masqué quand il passe sous la colonne des personnes, qu'il recouvrirait sinon.
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
   CHUNK_DAYS, DEFAULT_PX_PER_DAY, chunkCover, coreRange, dayNumber, extendTrack, fromDayNumber, headerCells, neighborDays, scrollLeftOf,
@@ -170,6 +173,12 @@ export function createScroller(o: ScrollerOptions): Scroller {
   let destroyed = false;
   let today = o.today;
   let labelOf = o.label;
+  const nowEl = document.createElement("div");
+  nowEl.className = "wn-now";
+  nowEl.setAttribute("aria-hidden", "true");
+  Object.assign(nowEl.style, { position: "absolute", top: "0", left: "0" });
+  grid.surface.appendChild(nowEl);
+  let nowKey = "";
 
   const tl = () => Math.max(1, widthPx - GUTTER_PX);
   const viewFor = (center: number): Viewport => ({ zoom, center, widthPx: tl(), pxPerDay });
@@ -221,6 +230,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
     const period = visibleRange(viewAtScroll(track, sl, zoom, tl(), pxPerDay));
     grid.render(m, Math.max(0, root.scrollTop - HEADER_PX), heightPx - HEADER_PX, { surfaceWidth, originX, left, right }, period);
     header.scroll(sl);
+    placeNow(sl, first, m.heightPx);
     const key = `${left}:${right}:${zoom}:${track.first}:${track.last}:${today}`;
     if (key === headerKey) return;
     headerKey = key;
@@ -256,6 +266,19 @@ export function createScroller(o: ScrollerOptions): Scroller {
     paint(root.scrollLeft);
     if (next) root.scrollTop = Math.round(next.top + frac * next.heightPx);
     paint(root.scrollLeft);
+  }
+
+  /** Trait « maintenant » : écrit seulement si sa position, sa hauteur ou sa visibilité changent. */
+  function placeNow(sl: number, first: number, h: number) {
+    const x = GUTTER_PX + (dayNumber(today) - first) * pxPerDay;
+    // Sous la gouttière collée (liseré compris) : masqué.
+    const hidden = x - 1 < sl + GUTTER_PX;
+    const key = `${x}:${h}:${hidden}`;
+    if (key === nowKey) return;
+    nowKey = key;
+    nowEl.style.transform = `translateX(${x}px)`;
+    nowEl.style.height = `${h}px`;
+    nowEl.hidden = hidden;
   }
 
   /** Allonge la piste si `v` approche d'un bord ; rend le scrollLeft corrigé. */
