@@ -158,6 +158,11 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-dialog-error { color: var(--color-danger-text); }
 .wn-timeoff-declined { background-color: var(--surface-sunken); border-left-style: dotted; color: var(--text-muted); text-decoration: line-through; }
 .wn-quick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.wn-quick > label { display: inline-flex; align-items: center; gap: var(--space-2); }
+/* Contrôles natifs et sélection du texte aux couleurs du système, pas à celles du navigateur (sous-en-tête et grille du Planning). */
+.wn-subheader, .wn-schedule-container { accent-color: var(--accent); }
+.wn-subheader ::selection, .wn-schedule-container ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); color: inherit; }
+.wn-schedule > .wn-grid { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent; }
 .wn-quick-field { position: relative; flex: 1 1 280px; }
 .wn-quick-field input { width: 100%; box-sizing: border-box; }
 .wn-quick-preview { flex-basis: 100%; min-height: 1.2em; color: var(--color-text-soft); font-size: 13px; }
