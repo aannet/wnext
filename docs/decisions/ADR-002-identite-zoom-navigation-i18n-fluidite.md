@@ -51,7 +51,7 @@ Le lien est `account_members.person_id`, nullable, avec un index unique : une pe
 
 La cible est l'inverse d'un outil de gestion à formulaires. Exigences :
 - **Manipulation directe d'abord** : glisser sur des cellules vides crée un bloc, sans dialogue ; le bloc apparaît pendant le geste.
-- **Saisie rapide au clavier** : une barre de saisie accepte du langage simple (« Refonte 6h lun-mer », « 50 % jusqu'au 28 »), avec aperçu du bloc en direct avant validation.
+- ~~**Saisie rapide au clavier** : une barre de saisie accepte du langage simple (« Refonte 6h lun-mer », « 50 % jusqu'au 28 »), avec aperçu du bloc en direct avant validation.~~ **Amendé le 2026-10-23** (recette n°4, cadrage n°4 D1, RT-057, RT-060) : la barre de saisie rapide est retirée de l'écran ; le parseur reste dans le moteur (`packages/engine/src/quick-entry.ts`). L'équivalent clavier de la création est la touche `N`, qui ouvre le drawer de création prérempli (personne du bloc focalisé, sinon première ligne ; date du jour). Les raccourcis sont listés dans une aide de l'en-tête (RT-064).
 - **Aimantation** à la journée, au demi-jour ou à l'heure selon le zoom ; la valeur (dates, heures, %) s'affiche près du curseur pendant le geste.
 - **Optimistic UI** : aucune attente visible ; échec = retour arrière et message (principe du dossier §4.1).
 - **Budgets mesurables** [proposé] : création perçue < 100 ms ; drag et resize à 60 images/s ; INP p95 < 100 ms ; changement de zoom < 150 ms.

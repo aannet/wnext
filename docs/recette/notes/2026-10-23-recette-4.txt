@@ -1,0 +1,39 @@
+# Recette 3
+
+
+Les congés doivent être des plages manipulables comme les autres mais de type congé
+
+FOnctionnalité Charge par colonne : action du toogle 
+doit agir sur la visibilité des divs "wn-cap wn-cap-ok"
+
+
+
+Uniformiser les listing : 
+* avec des composants tableaux (listes triables, filtrables etc.… ) et boutons d'actions 
+* Projets
+* clients
+* Personnes
+
+Déplacer fonction import dans partie Réglage 
+
+
+
+Augmente la visibilité de la colonne now() qui n'est as assez marquée
+Augmente la visibilité des en-têtes jour, semaine, mois, qui ne ressort pas assez. 
+
+
+retire la barre de saisie rapide "wn-quick"
+Les fonctions de wn-views-row devraient être inclues dans les filtres
+
+Passer le CTRL+K dans le header à côté des notifications
+
+Supprimez le bouton « Nouvelle allocation et nouveaux congés ». La fonctionnalité reste, mais directement quand on clique dans le planning comme c'est déjà le cas 
+
+
+Les 17 personnes devraient plutôt être associées à la colonne des personnes. Faire disparaître « 8 h par jour par défaut » ou le mettre quelque part dans les espaces Réglages. 
+
+
+J'aimerais bien, léger, que ce soit un petit peu haptique quand la souris passe par-dessus un bloc d'allocation. Quelque chose de léger. 
+
+
+Dans la colonne qui affiche les noms des personnes figure la barre d'allocation, qui change : le pourcentage augmente en fonction de la plage d'affichage. J'aimerais que la couleur varie également pour indiquer plus rapidement : devenir orange, rouge quand il y a un problème de surcharge. 

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WNEXT — Cadrage n°4</title>
+<style>
+  :root { color-scheme: light; --bg:#f7f8fa; --card:#fff; --ink:#1c2330; --muted:#566074; --line:#e3e7ee; --accent:#2f5bea; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .layout { display:flex; align-items:flex-start; }
+  nav { position:sticky; top:0; width:230px; flex:none; height:100vh; overflow:auto; padding:24px 16px; border-right:1px solid var(--line); background:var(--card); }
+  nav h1 { font-size:17px; margin:0 0 4px; } nav .s { color:var(--muted); font-size:12px; margin:0 0 16px; }
+  nav a { display:block; padding:6px 10px; margin-bottom:2px; border-radius:6px; color:var(--muted); text-decoration:none; font-size:14px; }
+  nav a:hover { background:var(--bg); } nav a.active { background:#e8eefd; color:var(--accent); font-weight:600; }
+  main { flex:1; min-width:0; max-width:1100px; padding:32px 32px 80px; }
+  section { margin-bottom:44px; scroll-margin-top:16px; }
+  h2 { font-size:26px; line-height:1.25; margin:0 0 8px; } h3 { margin:0 0 6px; font-size:18px; }
+  .sub { color:var(--muted); font-weight:400; font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin-bottom:14px; }
+  .intent { background:#eef3fe; border-color:#c9d6fb; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  .stats ul { list-style:none; margin:6px 0 0; padding:0; } .stats li { padding:2px 0; }
+  .stats .big { font-size:40px; font-weight:700; line-height:1; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; font-size:13.5px; }
+  th,td { text-align:left; vertical-align:top; padding:8px 10px; border-top:1px solid var(--line); }
+  th { background:#eef1f6; border-top:0; font-size:12.5px; }
+  .nw { white-space:nowrap; } .tw { overflow-x:auto; }
+  blockquote { margin:6px 0 0; padding:2px 0 2px 10px; border-left:3px solid var(--line); color:var(--muted); font-size:13px; }
+  .gb { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:1px 8px; border-radius:10px; border:1px solid; white-space:nowrap; }
+  .gb i { width:8px; height:8px; display:inline-block; }
+  .g1 { background:#fde8e8; color:#9b1c1c; border-color:#9b1c1c; } .g1 i { background:#9b1c1c; }
+  .g2 { background:#fdf0dc; color:#8a4b00; border-color:#8a4b00; } .g2 i { background:#8a4b00; transform:rotate(45deg); }
+  .g3 { background:#fbf6d6; color:#6b5a00; border-color:#6b5a00; } .g3 i { background:#6b5a00; border-radius:50%; }
+  .g0 { background:#eef1f6; color:#445; border-color:#aab; font-weight:500; }
+  .reco { background:#eaf6ef; border:1px solid #1f7a4d; border-radius:8px; padding:8px 12px; margin-top:8px; }
+  .tagreco { display:inline-block; font-size:12px; font-weight:700; color:#17603c; margin-right:6px; text-transform:uppercase; }
+  .answer { border:1px dashed #98a2b3; border-radius:8px; padding:10px 12px; min-height:48px; color:var(--muted); margin:10px 0 0; }
+  .flow { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:10px 0 4px; }
+  .flow .chain { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px 14px; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  .node { border:2px solid var(--accent); border-radius:8px; padding:4px 12px; font-weight:700; background:#e8eefd; }
+  .node.role { border-color:#566074; background:#f2f4f8; font-weight:600; }
+  .arrow { color:var(--muted); font-weight:700; }
+  ul.plain { margin:6px 0; padding-left:20px; } ul.plain li { margin:3px 0; }
+  .hl { background:#fff7e0; border:1px solid #e0a100; border-radius:8px; padding:8px 12px; }
+  .dec h3 { display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; }
+  .dec h3 .q { color:var(--accent); }
+  .bar { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; background:#f2f4f8; border:1px solid var(--line); border-radius:8px; padding:8px 12px; margin:6px 0; overflow-x:auto; white-space:nowrap; }
+  .swatch { display:inline-block; width:28px; height:8px; border-radius:4px; vertical-align:middle; margin-right:6px; }
+  @media (max-width:880px) { .layout { display:block; } nav { position:static; width:auto; height:auto; border-right:0; border-bottom:1px solid var(--line); padding:12px 16px; } nav a { display:inline-block; } main { padding:20px 16px 60px; } }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav id="nav">
+  <h1>Cadrage n°4</h1><p class="s">Recette 4, 2026-10-23 · validé</p>
+  <a href="#resume">Résumé</a>
+  <a href="#transverses">Constats transverses</a>
+  <a href="#retours">Retours R1 à R13</a>
+  <a href="#decisions">Décisions à prendre</a>
+  <a href="#design">Proposition de design</a>
+  <a href="#barre">Planning cible</a>
+  <a href="#lots">Lots</a>
+  <a href="#design-md">DESIGN.md à réviser</a>
+  <a href="#ecarts">Écarts avec la v1</a>
+  <a href="#suite">Suite</a>
+</nav>
+<main>
+<section id="resume">
+  <h2>Résumé</h2>
+  <p class="sub">Note brute : <code>docs/recette/notes/2026-10-23-recette-4.txt</code> (intitulée « Recette 3 » à l'intérieur, verbatim non modifié). Analyses indépendantes d'un architecte et d'un designer (Opus), contre-vérifiées par le PM dans le code de <code>polish</code> à <code>14f62b7</code>.</p>
+  <div class="card intent"><b>Statut : validé par Alec le 2026-10-23</b> (D2 précisé le même jour). Exécution des lots enchaînée. Les retours sont au registre : RT-051 à RT-063, plus RT-064 (aide des raccourcis, issue de D1). ADR-002 §5 est amendé.</div>
+  <div class="stats">
+    <div class="card"><div class="big">13</div>retours, 4 lots<br><span class="sub">aucun lot de contrat, aucune migration</span></div>
+    <div class="card"><b>Par nature</b><ul><li><b>9</b> nouveaux</li><li><b>3</b> rouvrent un RT corrigé (RT-027, RT-030, RT-038)</li><li><b>1</b> anomalie trouvée (jauge, R13)</li></ul></div>
+    <div class="card"><b>Rouvrent une décision écrite</b><ul><li>ADR-002 §5 (R7, R10)</li><li>Seuils du 2026-10-18 (R13)</li><li>Q11 (R2)</li></ul></div>
+    <div class="card"><b>Par gravité</b><ul><li><span class="gb g1"><i></i>bloquante</span> <b>1</b> (R10 sans remplaçant clavier)</li><li><span class="gb g2"><i></i>majeure</span> <b>5</b></li><li><span class="gb g3"><i></i>mineure</span> <b>7</b></li></ul></div>
+  </div>
+</section>
+
+<section id="transverses">
+  <h2>Constats transverses</h2>
+  <div class="card"><ul class="plain">
+    <li><b>Trois retours rouvrent des décisions écrites</b>, ce sont des amendements à arbitrer, pas des corrections :
+      <ul class="plain">
+        <li>R7 et R10 contredisent ADR-002 §5 : « saisie rapide au clavier » (l. 54) et « chaque geste a un équivalent clavier » (l. 59).</li>
+        <li>R13 contredit la décision du 2026-10-18 : « Orange 90–100 % non retenu » (<code>docs/review/ux-ui.md:81</code>, <code>questions-ouvertes-avant-p1.md</code> ligne 5).</li>
+        <li>R2 amende Q11 (RT-030).</li>
+      </ul></li>
+    <li><b>Aucun contrat, aucune migration</b> avec les lectures recommandées : <code>PATCH</code> et <code>DELETE /timeoffs</code> existent avec <code>If-Match</code>, les congés passent dans <code>change_log</code>, l'annulation rejoue déjà les opérations sur <code>timeoffs</code> (<code>timeoff-flow.ts:100-115</code>).</li>
+    <li class="hl"><b>Création au clavier.</b> La grille n'a pas de focus de cellule : Entrée ne fait que focaliser le premier bloc (<code>ScheduleScreen.tsx:486-488</code>). Une allocation ne se crée au clavier que par <code>N</code> ou <code>/</code> (focus dans <code>wn-quick</code>, <code>:479</code>) ou par « + Allocation » (<code>:509</code>). Retirer les deux supprime toute création d'allocation au clavier. Au toucher, l'appui long existe (RT-043). Le congé garde <code>C</code> (<code>:484</code>).</li>
+    <li><b>Fichier sous tension</b> : R1, R2, R7, R8, R9, R10 et R11 touchent tous <code>ScheduleScreen.tsx</code>, déjà modifié par les commits « Polish » (<code>ca3ba15</code>, <code>14f62b7</code>). Un seul lot à la fois sur ce fichier.</li>
+    <li><b>Registre inexact</b> : L-L annonce une « Table shadcn » pour RT-031, mais aucun <code>table.tsx</code> n'existe dans <code>apps/web/src/design/ui/</code>.</li>
+    <li><b>Clients affiché deux fois</b> : Projets (<code>projects-screen.tsx:102</code>) et Réglages (<code>settings-screen.tsx:53</code>).</li>
+  </ul></div>
+</section>
+
+<section id="retours">
+  <h2>Retours R1 à R13</h2>
+  <p class="sub">Dans l'ordre de la note. « Constat » = vérifié dans le code.</p>
+  <div class="tw"><table>
+  <thead><tr><th>#</th><th>Retour (note)</th><th>Qualification</th><th>Constat</th><th>Contrat</th><th>Gravité</th><th>Lot</th></tr></thead>
+  <tbody>
+<tr id="r1"><td class="nw"><b>R1</b></td><td>Les congés doivent être des plages manipulables comme les autres, de type congé<blockquote>l. 4</blockquote></td><td>Gestes. Nouveau, prolonge RT-017</td><td>Fond pleine hauteur sous les blocs, demi-journées en demi-cellules (<code>grid-model.ts:177-193</code>). Exclu des gestes (<code>block-editor.ts:241</code>). Aujourd'hui : clic ou Entrée édite, double-clic crée. Chaque geste devra repasser par BR-04 et <code>TIMEOFF_OVERLAP</code> (409).</td><td>non</td><td><span class="gb g2"><i></i>majeure</span></td><td class="nw">L-X3</td></tr>
+<tr id="r2"><td class="nw"><b>R2</b></td><td>Le toggle « Charge par colonne » doit agir sur la visibilité des <code>wn-cap wn-cap-ok</code><blockquote>l. 6-7</blockquote></td><td>Changement de règle, rouvre RT-030 / Q11</td><td>Les <code>.wn-cap</code> sont la bande de capacité complète (confirmé, tentatif, dépassement, ligne de capacité), toujours visible (<code>grid-dom.ts:261-287</code>). Le toggle n'ajoute que le chiffre <code>::after</code> (<code>styles.css:108</code>). La bande fait partie de la hauteur de ligne (<code>density.ts:28-30</code>).</td><td>non</td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-X1</td></tr>
+<tr id="r3"><td class="nw"><b>R3</b></td><td>Uniformiser les listings Projets, Clients, Personnes : tableaux triables, filtrables, boutons d'actions<blockquote>l. 11-15</blockquote></td><td>Composant. Prolonge RT-031</td><td>Projets : table sans tri (<code>projects-screen.tsx:160</code>). Personnes : tri et regroupement (<code>people-screen.tsx:59</code>). Clients : liste <code>&lt;ul&gt;</code> (<code>clients-section.tsx:61</code>), affichée deux fois. Toutes les pages chargées : tri côté client possible.</td><td>non</td><td><span class="gb g2"><i></i>majeure</span></td><td class="nw">L-X4</td></tr>
+<tr id="r4"><td class="nw"><b>R4</b></td><td>Déplacer la fonction d'import dans Réglages<blockquote>l. 17</blockquote></td><td>Navigation. Nouveau</td><td>Import dans le Planning (<code>ScheduleContainer.tsx:136</code>) et dans Personnes (<code>people-screen.tsx:79</code>). Réservé owner et admin, comme Réglages. En démo, sans contrôle de rôle (<code>main.tsx:109</code>).</td><td>non</td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-X2</td></tr>
+<tr id="r5"><td class="nw"><b>R5</b></td><td>Augmenter la visibilité de la colonne now()<blockquote>l. 21</blockquote></td><td>Graphique. Rouvre RT-027</td><td>Teinte <code>--color-current</code> à 7 % : <b>1,10:1</b> sur blanc. Sur capture, le jour courant se confond avec les week-ends hachurés.</td><td>non</td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-X1</td></tr>
+<tr id="r6"><td class="nw"><b>R6</b></td><td>Augmenter la visibilité des en-têtes jour, semaine, mois<blockquote>l. 22</blockquote></td><td>Hiérarchie (contraste déjà correct, 6,25:1). Proche RT-026</td><td>Une rangée de 32 px (<code>scroller.ts:33</code>), <code>--text-muted</code> graisse 400, même fond que le corps. Pas de repère de mois en vue jour.</td><td>non</td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-X1</td></tr>
+<tr id="r7"><td class="nw"><b>R7</b></td><td>Retirer la barre de saisie rapide <code>wn-quick</code><blockquote>l. 25</blockquote></td><td>Contredit ADR-002 §5</td><td><code>quick-entry-ui.tsx:132</code>. <code>/</code> et <code>N</code> y donnent le focus. « 8 h par jour par défaut » est un aperçu de cette barre (<code>:165</code>).</td><td>non</td><td><span class="gb g2"><i></i>majeure</span></td><td class="nw">L-X2</td></tr>
+<tr id="r8"><td class="nw"><b>R8</b></td><td>Les fonctions de <code>wn-views-row</code> devraient être dans les filtres<blockquote>l. 26</blockquote></td><td>Architecture d'information. Nouveau</td><td>La barre ne porte <b>que</b> les vues sauvegardées (<code>views-ui.tsx:168</code>). Mais une vue enregistre aussi zoom et densité (<code>views-ui.tsx:5</code>) : l'appliquer depuis « Filtres » les changera.</td><td>non</td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-X2</td></tr>
+<tr id="r9"><td class="nw"><b>R9</b></td><td>Passer Ctrl+K dans le header, à côté des notifications<blockquote>l. 28</blockquote></td><td>Emplacement et portée. Rouvre RT-038</td><td>Bouton et écouteur dans <code>ScheduleScreen.tsx</code> (<code>:241-255</code>, <code>:503</code>) : la palette ne marche que dans le Planning. En-tête commun : <code>shell/app-header.tsx</code>.</td><td>non</td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-X2</td></tr>
+<tr id="r10"><td class="nw"><b>R10</b></td><td>Supprimer « Nouvelle allocation » et « Nouveau congé » ; la création reste au clic dans le planning<blockquote>l. 30</blockquote></td><td>Contredit ADR-002 §5 et RT-015</td><td><code>ScheduleScreen.tsx:509-510</code>. Restent : souris (clic, glisser), toucher (appui long, RT-043), <code>C</code> pour le congé. <b>Plus aucune création d'allocation au clavier</b> (WCAG 2.1.1). RT-049 devient sans objet. 6 tests unitaires et 6 tests navigateur à réécrire.</td><td>non</td><td><span class="gb g1"><i></i>bloquante</span><br><span class="sub">sans remplaçant</span></td><td class="nw">L-X2</td></tr>
+<tr id="r11"><td class="nw"><b>R11</b></td><td>« 17 personnes » associé à la colonne Personnes ; « 8 h par jour par défaut » retiré ou mis dans Réglages<blockquote>l. 33</blockquote></td><td>Placement. Nouveau</td><td>Compteur en fin de barre (<code>ScheduleScreen.tsx:545</code>). Le coin au-dessus de la colonne existe mais il est vide et <code>aria-hidden</code> (<code>grid-header.ts:37</code>). « 8 h » disparaît avec R7. Valeur codée deux fois (<code>quick-entry.ts:24</code>, <code>slot-model.ts:18</code>). <code>accounts.default_work_hours</code> n'est exposé ni par le contrat ni par l'API.</td><td>non<br><span class="sub">oui si réglable</span></td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-X2</td></tr>
+<tr id="r12"><td class="nw"><b>R12</b></td><td>Retour « haptique », léger, quand la souris passe sur un bloc<blockquote>l. 36</blockquote></td><td>Feedback visuel (la souris ne vibre pas). Nouveau</td><td>Aucun <code>:hover</code> sur <code>.wn-block</code>. La position passe par un <code>transform</code> en ligne (<code>grid-dom.ts:304</code>) qu'un <code>transform</code> de survol écraserait.</td><td>non</td><td><span class="gb g3"><i></i>mineure</span></td><td class="nw">L-X1</td></tr>
+<tr id="r13"><td class="nw"><b>R13</b></td><td>La barre d'allocation de la colonne des noms change de couleur : orange, rouge en surcharge<blockquote>l. 39</blockquote></td><td><b>Anomalie + changement de règle</b></td><td>La jauge change déjà de couleur : gris &lt; 80 %, vert 80-100 %, orange <b>seulement à 100 % exact</b>, rouge au-delà (<code>capacity-state.ts:44</code>). Mais elle classe la charge sur la <b>somme</b> de la période (<code>gaugeOf</code>, <code>grid-model.ts:277</code>) : un jour surchargé est compensé par les jours libres, la jauge reste verte. La bande de la même ligne passe au rouge dès qu'un jour est en surcharge (<code>toCap</code>, <code>:305</code>). <b>Les deux indicateurs se contredisent.</b></td><td>non<br><span class="sub">seuil fixe</span></td><td><span class="gb g2"><i></i>majeure</span></td><td class="nw">L-X1</td></tr>
+  </tbody></table></div>
+</section>
+
+<section id="decisions">
+  <h2>Décisions à prendre</h2>
+  <p class="sub">Réponses d'Alec du 2026-10-23.</p>
+
+  <div class="card dec" id="d1"><h3><span class="q">D1</span> Retrait de la saisie rapide et des boutons de création <span class="sub">R7, R10 · ADR-002 §5</span></h3>
+    <p>Amender ADR-002 §5 ? Quel remplaçant clavier ? Garder ou supprimer le parseur <code>engine/quick-entry.ts</code> ?</p>
+    <div class="reco"><span class="tagreco">Recommandation</span>Amender ADR-002 §5. <code>N</code> ouvre directement le drawer de création, prérempli avec la personne du bloc focalisé (ou la première ligne) et la date du jour. Annoncer <code>C</code> et <code>N</code> par <code>aria-keyshortcuts</code>. Garder le parseur dans le moteur (testé, sans coût), le retirer de l'écran.</div>
+    <div class="answer" style="color:var(--ink);border-style:solid;border-color:#1f7a4d;background:#f3faf6"><b>Réponse d'Alec (2026-10-23) :</b> <b>Oui</b> pour le remplaçant clavier (<code>N</code>). Parseur retiré de l'écran. Ajouter une bulle d'aide dans l'en-tête, à côté des notifications, qui affiche tous les raccourcis clavier (→ RT-064). <b>ADR-002 §5 amendé.</b></div></div>
+
+  <div class="card dec" id="d2"><h3><span class="q">D2</span> Couleur de la jauge <span class="sub">R13 · décision du 2026-10-18</span></h3>
+    <p>Règle du pic, ou orange de 90 à 100 % (rouvre la décision du 2026-10-18) ? Seuil fixe ou par compte (par compte = contrat) ? Colorer aussi la bande ?</p>
+    <div class="reco"><span class="tagreco">Recommandation</span>Règle du pic : orange quand la période est ≤ 100 % mais qu'au moins un jour est en surcharge (ou dépassement dû au seul tentatif) ; rouge quand le dépassement est confirmé sur la période. Elle corrige l'anomalie sans rouvrir les seuils. Seuils fixes, pas de contrat.</div>
+    <div class="answer" style="color:var(--ink);border-style:solid;border-color:#1f7a4d;background:#f3faf6"><b>Réponse d'Alec (2026-10-23) :</b> Un seul seuil : la barre passe au <b>rouge dès que le seuil de surcharge est atteint</b>, en s'appuyant sur le seuil réglable dans Réglages. Le seul seuil réglable étant celui de <b>sous-allocation</b> (<code>account.ts:24</code>), Alec a précisé : <b>rouge au-delà de 100 % (BR-38), jour par jour</b>, plus d'orange. Décision 5 du 2026-10-18 amendée.</div></div>
+
+  <div class="card dec" id="d3"><h3><span class="q">D3</span> Effet du toggle « Charge » <span class="sub">R2 · Q11</span></h3>
+    <p>Que masque le toggle éteint ?</p>
+    <div class="reco"><span class="tagreco">Recommandation</span>Les cellules saines (<code>ok</code>, <code>none</code>) sont masquées, hauteur réservée ; les cellules en dépassement restent <b>toujours</b> visibles (BR-01, BR-38). C'est ce que suggère la citation de <code>wn-cap-ok</code>. Alternative : masquer toute la bande et raccourcir les lignes (change les hauteurs calibrées par Q1).</div>
+    <div class="answer" style="color:var(--ink);border-style:solid;border-color:#1f7a4d;background:#f3faf6"><b>Réponse d'Alec (2026-10-23) :</b> Masquer <b>toute la bande</b> de charge de la journée, graphique et texte. Amende Q11.</div></div>
+
+  <div class="card dec" id="d4"><h3><span class="q">D4</span> Nature d'un congé manipulable <span class="sub">R1</span></h3>
+    <p>Gestes sur l'objet congé (lecture A), ou « allocation de type congé » (lecture B) ? Pas de la demi-journée ?</p>
+    <div class="reco"><span class="tagreco">Recommandation</span>Lecture A : le congé reste un objet distinct qui reçoit les mêmes gestes, au pas de la demi-journée, avec BR-04 à chaque geste. La lecture B demande une migration et la refonte de <code>daily_capacity</code> (un congé retire de la capacité, une allocation ajoute de la charge) : à rejeter.</div>
+    <div class="answer" style="color:var(--ink);border-style:solid;border-color:#1f7a4d;background:#f3faf6"><b>Réponse d'Alec (2026-10-23) :</b> Lecture A.</div></div>
+
+  <div class="card dec" id="d5"><h3><span class="q">D5</span> Portée de la recherche <span class="sub">R9</span></h3>
+    <div class="reco"><span class="tagreco">Recommandation</span>Palette globale, cohérente avec un bouton dans l'en-tête commun : une personne ouvre le Planning et révèle sa ligne, un projet ouvre sa fiche.</div>
+    <div class="answer" style="color:var(--ink);border-style:solid;border-color:#1f7a4d;background:#f3faf6"><b>Réponse d'Alec (2026-10-23) :</b> OK pour la recommandation.</div></div>
+
+  <div class="card dec" id="d6"><h3><span class="q">D6</span> Vues dans les filtres <span class="sub">R8</span></h3>
+    <p>Une vue garde-t-elle zoom et densité une fois rangée dans « Filtres » ?</p>
+    <div class="reco"><span class="tagreco">Recommandation</span>Oui, sans changer le contrat. Les vues sont en tête du panneau, et le bouton affiche le nom de la vue (« Filtres · Studio ● » si modifiée).</div>
+    <div class="answer" style="color:var(--ink);border-style:solid;border-color:#1f7a4d;background:#f3faf6"><b>Réponse d'Alec (2026-10-23) :</b> OK pour la recommandation.</div></div>
+
+  <div class="card dec" id="d7"><h3><span class="q">D7</span> En-têtes de colonnes <span class="sub">R6</span></h3>
+    <div class="reco"><span class="tagreco">Recommandation</span>Deux rangées (mois ou semaine au-dessus, jours dessous), 48 px au total, si la densité visée (12 personnes sur 1080 px) tient ; sinon une rangée renforcée.</div>
+    <div class="answer" style="color:var(--ink);border-style:solid;border-color:#1f7a4d;background:#f3faf6"><b>Réponse d'Alec (2026-10-23) :</b> Une rangée renforcée, traitement graphique : fond de couleur différente, texte en gras.</div></div>
+
+  <div class="card dec" id="d8"><h3><span class="q">D8</span> Où vit Clients, et quelles actions <span class="sub">R3</span></h3>
+    <div class="reco"><span class="tagreco">Recommandation</span>Dans Réglages seul (donnée de référence, comme départements et rôles) ; actions par ligne : Modifier, Supprimer avec confirmation.</div>
+    <div class="answer" style="color:var(--ink);border-style:solid;border-color:#1f7a4d;background:#f3faf6"><b>Réponse d'Alec (2026-10-23) :</b> OK pour la recommandation.</div></div>
+
+  <div class="card dec" id="d9"><h3><span class="q">D9</span> Import dans Personnes <span class="sub">R4</span></h3>
+    <div class="reco"><span class="tagreco">Recommandation</span>Le retirer aussi : un seul endroit, Réglages &gt; Import ; un lien depuis les états vides de Personnes et de Projets.</div>
+    <div class="answer" style="color:var(--ink);border-style:solid;border-color:#1f7a4d;background:#f3faf6"><b>Réponse d'Alec (2026-10-23) :</b> OK pour la recommandation.</div></div>
+
+  <div class="card dec" id="d10"><h3><span class="q">D10</span> Défaut de 8 h <span class="sub">R11</span></h3>
+    <div class="reco"><span class="tagreco">Recommandation</span>Le texte disparaît avec R7 ; la constante est dédoublonnée (une seule source dans le moteur). Un réglage par compte passe en T2 (lot de contrat).</div>
+    <div class="answer" style="color:var(--ink);border-style:solid;border-color:#1f7a4d;background:#f3faf6"><b>Réponse d'Alec (2026-10-23) :</b> OK pour la recommandation.</div></div>
+
+  <div class="card dec" id="d11"><h3><span class="q">D11</span> « Haptique » <span class="sub">R12</span></h3>
+    <div class="reco"><span class="tagreco">Recommandation</span>Retour visuel léger (soulèvement d'1 px et ombre) ; amender la règle Flat-By-Default de DESIGN.md pour les objets manipulables.</div>
+    <div class="answer" style="color:var(--ink);border-style:solid;border-color:#1f7a4d;background:#f3faf6"><b>Réponse d'Alec (2026-10-23) :</b> OK pour la recommandation.</div></div>
+
+  <div class="card dec" id="d12"><h3><span class="q">D12</span> Intitulé de la note</h3>
+    <p>Le fichier <code>2026-10-23-recette-4.txt</code> commence par « # Recette 3 ». Il s'agit bien de la recette n°4 ?</p>
+    <div class="answer" style="color:var(--ink);border-style:solid;border-color:#1f7a4d;background:#f3faf6"><b>Réponse d'Alec (2026-10-23) :</b> Oui, recette n°4.</div></div>
+</section>
+
+<section id="design">
+  <h2>Proposition de design</h2>
+  <p class="sub">Valeurs mesurables ; contrastes calculés en WCAG. Toutes les couleurs passent par <code>tokens.css</code>.</p>
+  <div class="tw"><table>
+  <thead><tr><th>#</th><th>Proposition</th><th>Critère d'acceptation</th></tr></thead>
+  <tbody>
+    <tr><td class="nw"><b>R1</b></td><td>Mêmes gestes, poignées et commandes clavier que les blocs (déplacer, étirer, Suppr, menu contextuel), au pas de la demi-journée (<code>start_half</code> / <code>end_half</code>). Rayon 3 px, teinte et bord gauche de 3 px du type conservés.</td><td>Un congé déposé sur des allocations déclenche BR-04 ; Ctrl+Z l'annule ; test au clavier et au toucher.</td></tr>
+    <tr><td class="nw"><b>R2</b></td><td><b>Retenu (D3)</b> : toggle éteint = toute la bande de capacité masquée (graphique et chiffres, dépassements compris), lignes raccourcies de sa hauteur. Toggle actif par défaut, état non sauvegardé (choix PM, à confirmer en recette).</td><td>Toggle éteint : aucun <code>.wn-cap</code> rendu, hauteur de ligne réduite de la hauteur de bande ; la jauge de la colonne Personnes reste affichée.</td></tr>
+    <tr><td class="nw"><b>R3</b></td><td>Un <code>DataTable</code> unique dans <code>design/ui/</code> : barre d'outils (recherche, filtres en puces, action primaire à droite) ; tri <code>aria-sort</code> ; colonne d'actions « … » (Modifier, Archiver, Supprimer en dernier avec confirmation) ; état vide en deux variantes (vide, ou filtré avec « Réinitialiser ») ; lignes de 40 px, en-têtes 12 px graisse 500.</td><td>Les trois écrans montent le même composant ; tri au clavier ; axe-core sans violation.</td></tr>
+    <tr><td class="nw"><b>R5</b></td><td>Trait de 2 px en <code>--accent</code> (<b>5,4:1</b>) au début du jour courant, sur toute la hauteur, au-dessus des blocs, sans capter le pointeur ; liseré de 1 px <code>--surface</code>. Teinte de colonne à 10 %. En semaine et mois, trait placé au prorata. Non annoncé aux lecteurs d'écran.</td><td>≥ 3:1 sur blanc, sur hachuré et sur toute couleur de projet ; visible dans les trois zooms.</td></tr>
+    <tr><td class="nw"><b>R6</b></td><td><b>Retenu (D7)</b> : une seule rangée, renforcée graphiquement : fond distinct du corps (<code>--surface-sunken</code>), texte <code>--text</code> (<b>15,1:1</b>) en graisse 600, bordure basse <code>--border-strong</code>, jour courant en pastille <code>--accent</code> texte blanc (5,4:1).</td><td>Hauteur d'en-tête inchangée (32 px) ; fond et graisse calculés conformes ; contraste ≥ 7:1.</td></tr>
+    <tr><td class="nw"><b>R8</b></td><td>En tête du panneau Filtres : « Vue » (liste), puis les filtres, et « Enregistrer la vue… » en pied. Le bouton affiche le nom de la vue.</td><td>Vue appliquée en un clic ; son nom est lisible sans ouvrir le panneau.</td></tr>
+    <tr><td class="nw"><b>R9</b></td><td>Loupe avec <code>kbd</code> dans <code>wn-appheader-end</code>, avant la cloche.</td><td>Ctrl+K fonctionne sur chaque écran.</td></tr>
+    <tr><td class="nw"><b>R10</b></td><td><code>N</code> ouvre le drawer de création prérempli ; <code>C</code> et <code>N</code> annoncés par <code>aria-keyshortcuts</code> ; sur une grille vide, une indication unique « Cliquez ou glissez dans la grille pour planifier ».</td><td>Création possible à la souris, au clavier et au toucher (test:browser).</td></tr>
+    <tr><td class="nw"><b>R11</b></td><td>« 17 personnes » dans le coin, 12 px graisse 500, <code>--text-muted</code>, zone <code>aria-live</code> polie (le coin n'est plus <code>aria-hidden</code>).</td><td>Le compteur reste visible au défilement et est annoncé.</td></tr>
+    <tr><td class="nw"><b>R12</b></td><td>Sous <code>@media (hover: hover) and (pointer: fine)</code> : <code>translate: 0 -1px</code> (propriété distincte, qui se compose avec le <code>transform</code> en ligne) et nouveau token <code>--shadow-hover: 0 2px 6px rgb(0 0 0 / .18)</code>, en <code>--duration-fast</code> (80 ms). Sous <code>prefers-reduced-motion</code> : l'ombre seule. Rien pendant un glisser.</td><td>Styles calculés conformes au survol ; rien ne bouge au toucher ; vérifier que <code>contain: strict</code> ne rogne pas l'ombre.</td></tr>
+    <tr><td class="nw"><b>R13</b></td><td>
+      <span class="swatch" style="background:#6b7c93"></span>gris sous 80 %<br>
+      <span class="swatch" style="background:#1e8e3e"></span>vert de 80 à 100 % (100 % compris)<br>
+      <span class="swatch" style="background:#b91c1c"></span><b>rouge</b> + ▲ +N h dès qu'<b>un jour</b> de la période dépasse sa capacité (&gt; 100 %, BR-38), même si la somme de la période reste sous 100 % ; N = somme des dépassements journaliers<br>
+      <b>Retenu (D2)</b> : plus d'orange. Infobulle « N jours en surcharge » ; barre de 6 px en compact. Le glyphe ▲ porte l'information sans la couleur.</td><td>Test : 80 % sur la période avec un jour à 120 % donne le rouge, ▲ et l'infobulle ; jauge et bande de la même ligne toujours d'accord.</td></tr>
+  </tbody></table></div>
+</section>
+
+<section id="barre">
+  <h2>Planning cible</h2>
+  <p class="sub">Après tous les retraits demandés et avec les recommandations : trois lignes au-dessus de la grille deviennent une seule, soit environ 90 px gagnés (mesuré sur capture).</p>
+  <div class="card">
+    <b>En-tête commun</b>
+    <div class="bar">WNEXT · Planning · Projets · Personnes … [🔍 Rechercher Ctrl K] [🔔] Réglages · Bonjour · avatar</div>
+    <b>Sous-en-tête du Planning</b>
+    <div class="bar">Planning · [Filtres · Vue X] puces … ● temps réel · Annuler · Rétablir · ‹ Aujourd'hui › · Jour / Semaine / Mois · Affichage (densité, toggle Charge)</div>
+    <b>Grille</b>
+    <div class="bar">[17 personnes] | en-tête mois / jours … colonne courante marquée d'un trait</div>
+    <p class="sub" style="margin:8px 0 0">Plus de bandeau de saisie rapide, plus de boutons de création, plus d'import dans le Planning.</p>
+  </div>
+</section>
+
+<section id="lots">
+  <h2>Lots</h2>
+  <p class="sub">Au plus deux lots en parallèle (mémoire de la VM, <code>free -h</code> avant chaque lancement), jamais deux lots sur <code>ScheduleScreen.tsx</code> ensemble. Test rouge avant chaque correctif.</p>
+  <div class="flow" role="img" aria-label="L-X1 et L-X4 en parallèle, puis L-X2, puis L-X3">
+    <div class="chain"><span class="node">L-X1 ∥ L-X4</span><span class="arrow">→</span><span class="node">L-X2</span><span class="arrow">→</span><span class="node">L-X3</span><span class="arrow">→</span><span class="node role">Alec : recette n°5</span></div>
+  </div>
+  <div class="tw"><table>
+  <thead><tr><th>Lot</th><th>Contenu</th><th>Retours</th><th>Modèle</th><th>Dépend de</th></tr></thead>
+  <tbody>
+    <tr><td class="nw"><b>L-X1</b><br>rendu de la grille</td><td><code>styles.css</code>, <code>tokens.css</code>, <code>grid-dom.ts</code>, <code>grid-header.ts</code> ; nouvel état dans <code>capacity-state.ts</code> (tests du moteur)</td><td>R5, R6, R12, R13, puis R2</td><td>Opus</td><td>D2, D3, D7</td></tr>
+    <tr><td class="nw"><b>L-X4</b><br>table partagée</td><td><code>design/ui/table.tsx</code> ; écrans Projets, Personnes, Clients ; retrait du doublon Clients</td><td>R3</td><td>Sonnet</td><td>D8</td></tr>
+    <tr><td class="nw"><b>L-X2</b><br>en-tête et barre</td><td><code>ScheduleScreen.tsx</code>, <code>ScheduleContainer.tsx</code>, <code>app-header.tsx</code>, <code>views-ui.tsx</code>, <code>filters-ui.tsx</code>, <code>settings-screen.tsx</code>, <code>main.tsx</code> ; amendement d'ADR-002 §5</td><td>R4, R7, R8, R9, R10, R11</td><td>Opus</td><td>L-X1 ; D1, D5, D6, D9, D10</td></tr>
+    <tr><td class="nw"><b>L-X3</b><br>gestes des congés</td><td><code>block-editor.ts</code>, <code>timeoff-flow.ts</code>, <code>ScheduleScreen.tsx</code></td><td>R1</td><td>Opus</td><td>L-X2 ; D4</td></tr>
+  </tbody></table></div>
+  <div class="card" style="margin-top:14px"><b>Tests qui vont casser</b> : <code>quick-entry-ui.test.tsx</code>, <code>schedule-header.test.tsx</code>, <code>views-ui.test.tsx</code>, <code>gauge-render.test.ts</code>, <code>capacity-strip.test.ts</code> ; dans <code>tests/browser/</code> : <code>quick-entry.spec.ts</code>, <code>recette.spec.ts</code>, a11y, overlays, search, slot-editor, timeoffs.</div>
+</section>
+
+<section id="design-md">
+  <h2>DESIGN.md à réviser</h2>
+  <p class="sub">Après décision, dans le lot concerné.</p>
+  <div class="card"><ul class="plain">
+    <li>Flat-By-Default : ajouter le survol des objets manipulables ; limiter « le survol ne se déplace pas » (l. 219) aux boutons.</li>
+    <li>Corriger la contradiction entre la l. 210 (« pas encore implémenté ») et la l. 117.</li>
+    <li>Paliers de la jauge : DESIGN.md dit « vert de 80 à 100 % », alors que le code met l'orange à 100 % exact.</li>
+    <li>Ajouter le trait « maintenant », l'en-tête à deux rangées et le gabarit <code>DataTable</code>.</li>
+  </ul></div>
+</section>
+
+<section id="ecarts">
+  <h2>Écarts avec la v1</h2>
+  <p class="sub">La première analyse (<code>cadrage-4.md</code> v1) avait été faite avec un modèle plus léger. Points corrigés :</p>
+  <div class="tw"><table>
+  <thead><tr><th>Point</th><th>v1</th><th>v2 (vérifiée)</th></tr></thead>
+  <tbody>
+    <tr><td><b>R13</b></td><td>Demande de palette ; seuil 90 % « décidé nulle part »</td><td><b>Anomalie</b> : la jauge compense les jours et contredit la bande. L'orange 90–100 % a été <b>écarté par écrit</b> le 2026-10-18</td></tr>
+    <tr><td><b>R7, R10</b></td><td>Risque d'accessibilité</td><td>Contradiction avec ADR-002 §5, à amender ; au toucher, l'appui long existe (RT-043)</td></tr>
+    <tr><td><b>R11</b></td><td>Lot de contrat pour le défaut de 8 h</td><td>Pas de contrat : le texte disparaît avec R7 ; valeur codée deux fois ; réglage en T2 si voulu</td></tr>
+    <tr><td><b>R2</b></td><td>Masquer bande ou libellé</td><td>Option nouvelle : masquer les cellules saines, garder les dépassements ; la bande fait partie de la hauteur de ligne</td></tr>
+    <tr><td><b>R8</b></td><td>La barre des vues porte zoom et densité</td><td>Faux : elle ne porte que les vues ; c'est la vue enregistrée qui contient zoom et densité</td></tr>
+    <tr><td><b>R4</b></td><td>Import dans le Planning</td><td>Aussi dans Personnes ; démo sans contrôle de rôle</td></tr>
+    <tr><td><b>R1</b></td><td>Une lecture</td><td>Deux lectures, la seconde (modèle unifié) à rejeter</td></tr>
+    <tr><td><b>Lots</b></td><td>Lot de contrat C</td><td>Aucun lot de contrat ; quatre lots L-X1 à L-X4</td></tr>
+  </tbody></table></div>
+</section>
+
+<section id="suite">
+  <h2>Suite</h2>
+  <div class="card"><ol style="margin:0;padding-left:20px">
+    <li>Alec remplit les réponses D1 à D12 (D1 à D3 d'abord : elles conditionnent les lots).</li>
+    <li>Le PM reporte les retours au registre (RT-051 et suivants), corrige l'entrée L-L (« Table shadcn ») et amende ADR-002 §5, Q11 et la décision des seuils selon les réponses.</li>
+    <li>Exécution des lots L-X1 ∥ L-X4, puis L-X2, puis L-X3, avec test rouge d'abord et <code>make check</code> vert avant chaque fusion ; suivi dans <code>docs/avancement.html</code>.</li>
+    <li>Recette n°5 par Alec avec <code>npm run dev:recette</code>.</li>
+  </ol></div>
+</section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll("#nav a")];
+const secs=links.map(a=>document.querySelector(a.getAttribute("href")));
+const onScroll=()=>{let cur=0;secs.forEach((s,i)=>{if(s&&s.getBoundingClientRect().top<120)cur=i;});links.forEach((a,i)=>a.classList.toggle("active",i===cur));};
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+</script>
+</body>
+</html>
