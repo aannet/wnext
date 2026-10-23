@@ -1,6 +1,7 @@
 // Import CSV simple (US-1.2) dans un vrai navigateur (démo ?demo=1, import local avec le moteur partagé) : fichier de 3 lignes
 // dont 1 en erreur -> aperçu (compteurs, tableau d'erreurs par ligne) -> import des 2 lignes valides (jamais implicite) ->
-// résultat ; ré-analyse du même fichier : plus rien à créer (idempotent).
+// résultat ; ré-analyse du même fichier : plus rien à créer (idempotent). Seule entrée depuis la recette n°4 : Réglages > Import
+// (RT-054), où l'ouvre le lien « Importer depuis un fichier CSV » d'un état vide (adresse /reglages?onglet=import).
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { openDemo } from "./helpers";
@@ -9,7 +10,11 @@ const CSV = "Nom;E-mail;Département;Heures/jour\r\nAlice Martin;alice@exemple.f
 
 test("3 lignes dont 1 en erreur : rapport, import des 2 valides, ré-import sans création", async ({ page }) => {
   await openDemo(page);
-  await page.getByRole("button", { name: "Importer" }).click();
+  await expect(page.getByRole("button", { name: /^Importer/ })).toHaveCount(0); // plus d'import dans le Planning (RT-054)
+  await page.goto("/reglages?demo=1&onglet=import");
+  await expect(page.getByRole("tab", { name: "Import", selected: true })).toBeVisible();
+  const open = page.getByRole("button", { name: "Importer un fichier CSV…" });
+  await open.click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("heading", { level: 2 })).toHaveText("Importer un fichier CSV");
   await dialog.getByLabel("Fichier CSV").setInputFiles({ name: "personnes.csv", mimeType: "text/csv", buffer: Buffer.from(CSV, "utf8") });
@@ -32,8 +37,8 @@ test("3 lignes dont 1 en erreur : rapport, import des 2 valides, ré-import sans
   // Ré-import : les 2 lignes déjà importées sont inchangées, seule l'erreur reste.
   await dialog.getByRole("button", { name: "Fermer", exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Importer" })).toBeFocused();
-  await page.getByRole("button", { name: "Importer" }).click();
+  await expect(open).toBeFocused();
+  await open.click();
   await dialog.getByLabel("Fichier CSV").setInputFiles({ name: "personnes.csv", mimeType: "text/csv", buffer: Buffer.from(CSV, "utf8") });
   await dialog.getByRole("button", { name: "Analyser" }).click();
   await expect(dialog.locator(".wn-import-counters li")).toHaveText(["3 lignes lues", "0 création", "0 mise à jour", "2 lignes inchangées", "1 ligne en erreur"]);

@@ -19,13 +19,18 @@ test("en-tête WNEXT, « Bonjour », navigation Planning -> Projets -> Planning 
   await expect(header.getByRole("link", { name: "Réglages" })).toBeVisible(); // hors navigation principale
   await expect(nav.getByRole("link", { name: "Réglages" })).toHaveCount(0);
 
-  // En-tête du Planning en deux niveaux (RT-025) : titre au niveau 1 sous l'en-tête applicatif, barre d'outils juste dessous.
+  // En-tête du Planning sur une seule ligne (recette n°4, « Planning cible ») : sous l'en-tête applicatif, le titre puis la barre
+  // d'outils, à sa droite et sur la même ligne.
   const title = page.getByRole("heading", { level: 1, name: "Planning" });
   const toolbar = page.getByRole("toolbar");
   const [h, t, b] = await Promise.all([header.boundingBox(), title.boundingBox(), toolbar.boundingBox()]);
   expect(t!.y).toBeGreaterThanOrEqual(h!.y + h!.height);
-  expect(b!.y).toBeGreaterThanOrEqual(t!.y + t!.height - 1);
-  expect(b!.y - (t!.y + t!.height)).toBeLessThan(40);
+  expect(b!.x).toBeGreaterThan(t!.x + t!.width);
+  expect(b!.y).toBeLessThan(t!.y + t!.height);
+  expect(b!.y + b!.height).toBeGreaterThan(t!.y);
+  // Recherche (RT-059) et aide des raccourcis (RT-064) dans l'en-tête commun, de part et d'autre de la cloche.
+  await expect(header.getByRole("button", { name: /^Rechercher/ })).toBeVisible();
+  await expect(header.getByRole("button", { name: "Raccourcis clavier" })).toBeVisible();
   await noViolations(page, "planning");
 
   await nav.getByRole("link", { name: "Projets" }).click();

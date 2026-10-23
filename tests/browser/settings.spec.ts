@@ -67,3 +67,16 @@ test("Compte : le fuseau se choisit dans une liste avec recherche", async ({ pag
   await expect(page.getByRole("tabpanel").getByText("Réglages du compte enregistrés.")).toBeVisible();
   await expect(zone).toHaveValue("America/New_York");
 });
+
+// RT-054 (D9) : l'import n'a plus qu'une entrée, Réglages > Import (owner et admin) ; axe propre sur la section.
+test("Import : dernier onglet des Réglages, bouton qui ouvre la boîte d'import ; axe-core", async ({ page }) => {
+  await page.goto("/reglages?demo=1&lang=fr");
+  const tabs = page.getByRole("tab");
+  await expect(tabs.last()).toHaveText("Import");
+  await tabs.last().click();
+  const panel = page.getByRole("tabpanel");
+  await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Importer des données");
+  await noViolations(page, "reglages-import");
+  await panel.getByRole("button", { name: "Importer un fichier CSV…" }).click();
+  await expect(page.getByRole("dialog").getByRole("heading", { level: 2 })).toHaveText("Importer un fichier CSV");
+});

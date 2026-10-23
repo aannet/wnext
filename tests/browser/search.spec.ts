@@ -19,13 +19,38 @@ const inView = (page: Page, name: string) => page.evaluate((n) => {
   return r.top >= head.bottom - 1 && r.bottom <= grid.bottom + 1;
 }, name);
 
-test("le bouton « Rechercher » du niveau 1 affiche son raccourci et ouvre la palette", async ({ page }) => {
+test("le bouton « Rechercher » de l'en-tête commun (RT-059) affiche son raccourci et ouvre la palette ; le Planning n'en a plus", async ({ page }) => {
   await openDemo(page);
-  const button = page.locator(".wn-subheader").getByRole("button", { name: /^Rechercher/ });
+  const button = page.locator(".wn-appheader").getByRole("button", { name: /^Rechercher/ });
   await expect(button).toContainText(/Ctrl K|⌘K/);
+  await expect(page.locator(".wn-schedule").getByRole("button", { name: /^Rechercher/ })).toHaveCount(0);
   await button.click();
   await expect(palette(page)).toBeVisible();
   await expect(field(page)).toBeFocused();
+});
+
+// RT-059 (D5) : palette globale. Hors du Planning, une personne ouvre le Planning sur sa ligne, un projet ouvre sa fiche.
+test("Ctrl+K depuis Projets : une personne lointaine ouvre le Planning, ligne visible et en évidence ; depuis Personnes, un projet ouvre sa fiche", async ({ page }) => {
+  await page.goto("/projets?demo=1");
+  await page.getByRole("heading", { level: 1, name: "Projets" }).waitFor();
+  await page.keyboard.press("Control+k");
+  await field(page).fill("PERSONNE 250");
+  await expect(palette(page).getByRole("option")).toHaveText(["Personne 250"]);
+  await page.keyboard.press("Enter");
+  await expect(palette(page)).toHaveCount(0);
+  await expect(page).toHaveURL(/\/\?demo=1$/); // ?personne= est retiré une fois la ligne révélée
+  await expect.poll(() => inView(page, "Personne 250")).toBe(true);
+  await expect(rowOf(page, "Personne 250")).toHaveAttribute("data-highlight", /.*/);
+  await expect(page.locator(".wn-notice")).toContainText("Personne 250");
+
+  await page.goto("/personnes?demo=1");
+  await page.getByRole("heading", { level: 1, name: "Personnes" }).waitFor();
+  await page.keyboard.press("Control+k");
+  await field(page).fill("projet c");
+  await expect(palette(page).getByRole("option")).toHaveText(["Projet C"]);
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/projets\?/);
+  await expect(page.getByRole("dialog")).toContainText("Projet C");
 });
 
 test("Ctrl+K, « per » : personnes groupées ; Entrée sur une personne lointaine : ligne visible, en évidence, focus à la grille", async ({ page }) => {
@@ -101,7 +126,7 @@ test("Échap ferme la palette et rend le focus à l'endroit d'où elle est venue
   await expect(palette(page)).toHaveCount(0);
   await expect(page.getByRole("grid")).toBeFocused();
 
-  const button = page.locator(".wn-subheader").getByRole("button", { name: /^Rechercher/ });
+  const button = page.locator(".wn-appheader").getByRole("button", { name: /^Rechercher/ });
   await button.click();
   await page.keyboard.press("Escape");
   await expect(button).toBeFocused();
@@ -109,7 +134,8 @@ test("Échap ferme la palette et rend le focus à l'endroit d'où elle est venue
 
 test("Ctrl+K est ignoré quand une autre fenêtre modale est ouverte", async ({ page }) => {
   await openDemo(page);
-  await page.getByRole("button", { name: "+ Allocation" }).click();
+  await page.getByRole("grid").focus();
+  await page.keyboard.press("n"); // drawer de création (RT-060 : plus de bouton « + Allocation »)
   const drawer = page.getByRole("dialog");
   await expect(drawer).toBeVisible();
   await page.keyboard.press("Control+k");
