@@ -1,5 +1,5 @@
 // Écran Réglages (lot L-F2 : RT-012 partie Réglages ; owner et admin, la coque masque la page aux autres rôles). Sections en onglets :
-// Équipes (= départements, décision Q4), Rôles, Clients (même gestion que l'écran Projets), Types de congé, Jours fériés (par
+// Équipes (= départements, décision Q4), Rôles, Clients (seul endroit où ils se gèrent, RT-053), Types de congé, Jours fériés (par
 // pays) et Compte (RT-041 : réglages du compte, modifiables par owner et admin).
 import type { I18n } from "@lingui/core";
 import type { AccountSettings, Client } from "@wnext/contracts";
@@ -52,7 +52,8 @@ export function SettingsScreen({ i18n, reference, projects, account, onAccountSa
         {tab === "clients" && (clients.state.status === "ready"
           ? <ClientsSection i18n={i18n} source={projects} clients={clients.state.data} canEdit={canEdit}
               onCreated={(c: Client) => clients.update((d) => (d.some((x) => x.id === c.id) ? d : [...d, c]))}
-              onRenamed={(c: Client) => clients.update((d) => d.map((x) => (x.id === c.id ? c : x)))} />
+              onRenamed={(c: Client) => clients.update((d) => d.map((x) => (x.id === c.id ? c : x)))}
+              onDeleted={(c: Client) => clients.update((d) => d.filter((x) => x.id !== c.id))} />
           : clients.state.status === "error"
             ? <p role="alert" className="wn-error">{t("people.error.load")} <Button size="sm" type="button" onClick={clients.reload}>{t("people.retry")}</Button></p>
             : <p className="wn-muted" role="status">{t("people.loading")}</p>)}

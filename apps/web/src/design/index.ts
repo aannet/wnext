@@ -8,3 +8,4 @@ export { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 export { RadioGroup, RadioItem, type RadioItemProps } from "./ui/radio-group";
 export { Switch } from "./ui/switch";
 export { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, type MenuPoint } from "./ui/dropdown-menu";
+export { compareText, DataTable, type ConfirmCopy, type DataTableColumn, type DataTableGroup, type DataTableProps, type RowAction, type TableSort } from "./ui/data-table";

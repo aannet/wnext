@@ -163,10 +163,10 @@ describe("colonne Accès (RT-040)", () => {
   const headers = () => [...document.body.querySelectorAll("thead th")].map((th) => th.textContent);
   const accessCells = () => [...document.body.querySelectorAll("tbody tr:not(.wn-group-row)")].map((tr) => tr.children[5]?.textContent);
 
-  it("servie (owner, admin, chef de projet) : « A un accès » ou « Sans accès » ; triable ; l'en-tête de groupe couvre 6 colonnes", async () => {
+  it("servie (owner, admin, chef de projet) : « A un accès » ou « Sans accès » ; triable ; l'en-tête de groupe couvre 7 colonnes (6 + actions)", async () => {
     const d = directory(["2", "5"]);
     await mount(d.people, d.reference);
-    expect(headers()).toEqual(["Nom", "Rôle", "Équipe", "Type", "Horaire", "Accès"]);
+    expect(headers()).toEqual(["Nom", "Rôle", "Équipe", "Type", "Horaire", "Accès", "Actions"]);
     const rows = [...document.body.querySelectorAll("tbody tr")];
     const of = (name: string) => rows.find((tr) => tr.querySelector("th")!.textContent!.endsWith(name))!.children[5]!.textContent;
     expect([of("Personne 2"), of("Personne 5"), of("Personne 1")]).toEqual(["A un accès", "A un accès", "Sans accès"]);
@@ -178,7 +178,7 @@ describe("colonne Accès (RT-040)", () => {
     await click(sortButton);
     expect(accessCells().at(-1)).toBe("A un accès");
     await click([...document.body.querySelectorAll<HTMLElement>("[role=switch]")].find((b) => b.textContent === "Regrouper par équipe"));
-    expect(document.body.querySelector("th[scope=rowgroup]")!.getAttribute("colspan")).toBe("6");
+    expect(document.body.querySelector("th[scope=rowgroup]")!.getAttribute("colspan")).toBe("7");
   });
 
   it("absente quand l'API ne sert pas le champ (member, guest)", async () => {
@@ -208,7 +208,7 @@ describe("colonne Accès (RT-040)", () => {
   it("anglais : Access, Has access, No access", async () => {
     const d = directory(["1"]);
     await mount(d.people, d.reference, { locale: "en" });
-    expect(headers().at(-1)).toBe("Access");
+    expect(headers().at(-2)).toBe("Access");
     expect(new Set(accessCells())).toEqual(new Set(["Has access", "No access"]));
   });
 });

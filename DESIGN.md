@@ -222,6 +222,15 @@ Chaque composant part du caractère sobre actuel. Le caractère « franc et tact
 - **Style:** fond papier froid, bordure 1 px, rayon plein. Texte 12 px.
 - **State:** le retrait est un petit bouton circulaire de 20 px. Survol : fond bordure.
 
+### DataTable (listes Projets, Personnes, Clients ; RT-053)
+- **Composant unique :** `apps/web/src/design/ui/data-table.tsx` ; les trois écrans le montent, seules les colonnes, les filtres et les actions changent. Clients ne vit que dans Réglages.
+- **Barre d'outils :** recherche à gauche (`type=search`, nom accessible = placeholder), emplacement des filtres (sélecteurs ou puces) ensuite, action primaire à droite (`Nouveau …`, masquée à qui ne peut pas écrire).
+- **Lignes et en-têtes :** lignes de 40 px, séparateurs `--color-border-subtle`, survol `--surface-sunken`, ligne ouverte (`data-current`) idem. En-têtes 12 px graisse 500, `--text-muted`, 32 px de haut.
+- **Tri :** côté client. Un en-tête triable est un bouton (Tab, Entrée, Espace) ; premier clic croissant, second décroissant ; `aria-sort` sur l'en-tête actif seulement, flèche en CSS.
+- **Colonne d'actions :** à droite, 48 px, menu « … » (`dropdown-menu.tsx`), nom accessible « Actions pour {nom} ». Actions non destructives d'abord, destructive en dernier (texte `--color-danger-text`, filet au-dessus) avec confirmation (Modal, bouton danger, focus sur la confirmation). La colonne disparaît si aucune ligne n'a d'action (lecture seule). Après confirmation ou annulation, le focus revient au menu de la ligne, sinon à la table : jamais sur `<body>`.
+- **États vides :** liste vide (titre, texte, action de création) ou résultat filtré vide (titre, texte, « Réinitialiser » ou « Effacer les filtres ») ; la barre d'outils reste.
+- **Regroupement :** optionnel (`groups`), un `tbody` par groupe, en-tête de groupe sur toutes les colonnes (Personnes par équipe, RT-031).
+
 ### Cards / Containers
 - **Corner Style:** 8 px pour les popovers et cartes, 6 px pour les panneaux de filtres.
 - **Background:** blanc sur fond blanc, ou papier froid pour les panneaux.

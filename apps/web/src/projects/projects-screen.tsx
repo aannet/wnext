@@ -1,16 +1,15 @@
 // Écran Projets (lot L-F1 : RT-010, RT-012 partie Projets, RT-018, US-2.1). Une liste filtrable (recherche par nom ou code, client,
-// statut), un panneau latéral pour le détail d'un projet ou la création réduite (dossier §4.1 principes 1 et 6), et la gestion
-// minimale des clients (liste, création, renommage) dans un second onglet. Lecture seule pour member et guest (GET /me).
+// statut) sur le DataTable commun (RT-053 : tri, menu d'actions), un panneau latéral pour le détail d'un projet ou la création
+// réduite (dossier §4.1 principes 1 et 6). Les clients se gèrent dans Réglages seul. Lecture seule pour member et guest (GET /me).
 // Aucune navigation : ouvrir ou fermer le panneau ne change pas de page, le focus revient au déclencheur à la fermeture.
 import type { I18n } from "@lingui/core";
 import type { Client, ProjectDetail } from "@wnext/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectsSource } from "../data/projects-source";
 import type { TeamRemovalEditor } from "../data/team-removal";
-import { Button, Drawer, Tabs, TabsContent, TabsList, TabsTrigger } from "../design";
+import { Button, compareText, DataTable, Drawer, type DataTableColumn } from "../design";
 import { suggestColor } from "../design/project-palette";
 import type { MessageKey } from "../i18n";
-import { ClientsSection } from "./clients-section";
 import { ProjectForm } from "./project-form";
 import { ProjectPanel } from "./project-panel";
 import { resolveClient } from "./projects-actions";
@@ -29,14 +28,12 @@ export interface ProjectsScreenProps {
   onOpenProjectHandled?(): void;
 }
 
-type Tab = "projects" | "clients";
 type Side = { kind: "none" } | { kind: "create" } | { kind: "project"; id: string };
 
 export function ProjectsScreen({ i18n, source, canEdit, editor, openProjectId, onOpenProjectHandled }: ProjectsScreenProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const projects = useLoad(() => source.listProjects(), "projects");
   const clients = useLoad(() => source.listClients(), "clients");
-  const [tab, setTab] = useState<Tab>("projects");
   const [filters, setFilters] = useState<ProjectFilters>(NO_FILTERS);
   const [side, setSide] = useState<Side>(() => (openProjectId ? { kind: "project", id: openProjectId } : { kind: "none" }));
   const trigger = useRef<HTMLElement | null>(null);
@@ -70,16 +67,9 @@ export function ProjectsScreen({ i18n, source, canEdit, editor, openProjectId, o
   const addClient = (c: Client) => clients.update((d) => (d.some((x) => x.id === c.id) ? d : [...d, c]));
 
   return (
-    <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} render={<main className="wn-page wn-projects" />}>
+    <main className="wn-page wn-projects">
       <div className="wn-subheader">
         <h1 tabIndex={-1} className="wn-subheader-title">{t("shell.nav.projects")}</h1>
-        <TabsList aria-label={t("projects.tabs.label")}>
-          <TabsTrigger value="projects">{t("projects.tabs.projects")}</TabsTrigger>
-          <TabsTrigger value="clients">{t("projects.tabs.clients")}</TabsTrigger>
-        </TabsList>
-        {tab === "projects" && canEdit && (
-          <Button type="button" variant="primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("projects.new")}</Button>
-        )}
       </div>
 
       {(projects.state.status === "loading" || clients.state.status === "loading") && <p className="wn-muted" role="status">{t("projects.loading")}</p>}
@@ -90,41 +80,28 @@ export function ProjectsScreen({ i18n, source, canEdit, editor, openProjectId, o
       {ready && (
         <div className="wn-projects-body">
           <div className="wn-projects-main">
-            <TabsContent value="projects" keepMounted>
-              <Filters i18n={i18n} filters={filters} clients={clientList} onChange={setFilters} />
-              {shown.length === 0 ? (
-                <EmptyState i18n={i18n} filtered={all.length > 0} canEdit={canEdit} onCreate={(el) => open({ kind: "create" }, el)} onReset={() => setFilters(NO_FILTERS)} />
-              ) : (
-                <ProjectTable i18n={i18n} projects={shown} clients={clientList} currentId={side.kind === "project" ? side.id : null} onOpen={(p, el) => open({ kind: "project", id: p.id }, el)} />
-              )}
-            </TabsContent>
-            <TabsContent value="clients" keepMounted>
-              <ClientsSection i18n={i18n} source={source} clients={clientList} canEdit={canEdit}
-                onCreated={addClient} onRenamed={(c) => clients.update((d) => d.map((x) => (x.id === c.id ? c : x)))} />
-            </TabsContent>
+            <ProjectTable i18n={i18n} projects={shown} total={all.length} clients={clientList} canEdit={canEdit} currentId={side.kind === "project" ? side.id : null}
+              filters={filters} onFilters={setFilters} onOpen={(p, el) => open({ kind: "project", id: p.id }, el)} onCreate={(el) => open({ kind: "create" }, el)} />
           </div>
-          {tab === "projects" && side.kind === "create" && (
+          {side.kind === "create" && (
             <CreatePanel i18n={i18n} source={source} clients={clientList} others={all} onClose={close}
               onClientCreated={addClient} onCreated={(p) => { upsertProject(p); setSide({ kind: "project", id: p.id }); }} />
           )}
-          {tab === "projects" && selected && (
+          {selected && (
             <ProjectPanel i18n={i18n} source={source} project={selected} clients={clientList} others={all} canEdit={canEdit} editor={editor}
               onUpdated={upsertProject} onClientCreated={addClient} onClose={close} />
           )}
         </div>
       )}
-    </Tabs>
+    </main>
   );
 }
 
+/** Filtres de la barre d'outils (client, statut) ; la recherche est celle du DataTable. */
 function Filters({ i18n, filters, clients, onChange }: { i18n: I18n; filters: ProjectFilters; clients: readonly Client[]; onChange(f: ProjectFilters): void }) {
   const t = (k: MessageKey) => i18n._(k);
   return (
-    <form className="wn-filters" role="search" aria-label={t("projects.filters.label")} onSubmit={(e) => e.preventDefault()}>
-      <div className="wn-field">
-        <label htmlFor="wn-filter-search">{t("projects.filters.search")}</label>
-        <input id="wn-filter-search" type="search" value={filters.search} autoComplete="off" onChange={(e) => onChange({ ...filters, search: e.target.value })} />
-      </div>
+    <>
       <div className="wn-field">
         <label htmlFor="wn-filter-client">{t("projects.filters.client")}</label>
         <select id="wn-filter-client" value={filters.clientId} onChange={(e) => onChange({ ...filters, clientId: e.target.value })}>
@@ -140,57 +117,58 @@ function Filters({ i18n, filters, clients, onChange }: { i18n: I18n; filters: Pr
           {STATUSES.map((s) => <option key={s} value={s}>{t(STATUS_KEY[s])}</option>)}
         </select>
       </div>
-    </form>
+    </>
   );
 }
 
-function EmptyState({ i18n, filtered, canEdit, onCreate, onReset }: { i18n: I18n; filtered: boolean; canEdit: boolean; onCreate(el: HTMLElement): void; onReset(): void }) {
-  const t = (k: MessageKey) => i18n._(k);
-  return (
-    <section className="wn-soon wn-empty" aria-labelledby="wn-empty-title">
-      <h2 id="wn-empty-title">{t(filtered ? "projects.empty.filtered.title" : "projects.empty.title")}</h2>
-      <p>{t(filtered ? "projects.empty.filtered.body" : "projects.empty.body")}</p>
-      {filtered
-        ? <Button type="button" onClick={onReset}>{t("projects.filters.reset")}</Button>
-        : canEdit && <Button type="button" variant="primary" onClick={(e) => onCreate(e.currentTarget)}>{t("projects.new")}</Button>}
-    </section>
-  );
+interface ProjectTableProps {
+  i18n: I18n;
+  projects: readonly ProjectDetail[];
+  /** Nombre de projets avant filtrage (distingue « aucun projet » de « aucun résultat »). */
+  total: number;
+  clients: readonly Client[];
+  canEdit: boolean;
+  currentId: string | null;
+  filters: ProjectFilters;
+  onFilters(f: ProjectFilters): void;
+  onOpen(p: ProjectDetail, el: HTMLElement): void;
+  onCreate(el: HTMLElement): void;
 }
 
-function ProjectTable({ i18n, projects, clients, currentId, onOpen }: { i18n: I18n; projects: readonly ProjectDetail[]; clients: readonly Client[]; currentId: string | null; onOpen(p: ProjectDetail, el: HTMLElement): void }) {
+function ProjectTable({ i18n, projects, total, clients, canEdit, currentId, filters, onFilters, onOpen, onCreate }: ProjectTableProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const fmt = useMemo(() => new Intl.DateTimeFormat(i18n.locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }), [i18n.locale]);
   const day = (iso: string | null) => (iso ? fmt.format(new Date(`${iso}T00:00:00Z`)) : "");
+  const dates = (p: ProjectDetail) => (p.startDate || p.endDate ? `${day(p.startDate)} – ${day(p.endDate)}` : "");
+  const columns: DataTableColumn<ProjectDetail>[] = [
+    {
+      id: "name", header: t("projects.col.name"), rowHeader: true, compare: (a, b) => compareText(a.name, b.name),
+      cell: (p) => (
+        <Button variant="link" aria-expanded={p.id === currentId} {...(p.id === currentId ? { "aria-current": "true" as const } : {})}
+          onClick={(e) => onOpen(p, e.currentTarget)}>
+          <span className="wn-dot" aria-hidden="true" style={{ background: p.color }} />
+          {p.name}
+        </Button>
+      ),
+    },
+    { id: "code", header: t("projects.col.code"), compare: (a, b) => compareText(a.projectCode ?? "", b.projectCode ?? ""), cell: (p) => p.projectCode ?? "" },
+    { id: "client", header: t("projects.col.client"), compare: (a, b) => compareText(clientName(clients, a.clientId), clientName(clients, b.clientId)), cell: (p) => clientName(clients, p.clientId) },
+    { id: "status", header: t("projects.col.status"), compare: (a, b) => STATUSES.indexOf(a.status) - STATUSES.indexOf(b.status), cell: (p) => t(STATUS_KEY[p.status]) },
+    { id: "dates", header: t("projects.col.dates"), compare: (a, b) => (a.startDate ?? "9999").localeCompare(b.startDate ?? "9999"), cell: dates },
+  ];
   return (
-    <table className="wn-table">
-      <caption className="wn-visually-hidden">{t("projects.table.caption", { count: projects.length })}</caption>
-      <thead>
-        <tr>
-          <th scope="col">{t("projects.col.name")}</th>
-          <th scope="col">{t("projects.col.code")}</th>
-          <th scope="col">{t("projects.col.client")}</th>
-          <th scope="col">{t("projects.col.status")}</th>
-          <th scope="col">{t("projects.col.dates")}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {projects.map((p) => (
-          <tr key={p.id} data-current={p.id === currentId || undefined}>
-            <th scope="row">
-              <Button variant="link" aria-expanded={p.id === currentId} {...(p.id === currentId ? { "aria-current": "true" as const } : {})}
-                onClick={(e) => onOpen(p, e.currentTarget)}>
-                <span className="wn-dot" aria-hidden="true" style={{ background: p.color }} />
-                {p.name}
-              </Button>
-            </th>
-            <td>{p.projectCode ?? ""}</td>
-            <td>{clientName(clients, p.clientId)}</td>
-            <td>{t(STATUS_KEY[p.status])}</td>
-            <td>{p.startDate || p.endDate ? `${day(p.startDate)} – ${day(p.endDate)}` : ""}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <DataTable<ProjectDetail>
+      rows={projects} totalCount={total} rowKey={(p) => p.id} columns={columns} caption={t("projects.table.caption", { count: projects.length })}
+      toolbarLabel={t("projects.filters.label")}
+      search={{ value: filters.search, onChange: (v) => onFilters({ ...filters, search: v }), label: t("projects.filters.search") }}
+      filters={<Filters i18n={i18n} filters={filters} clients={clients} onChange={onFilters} />}
+      primaryAction={canEdit ? <Button type="button" variant="primary" onClick={(e) => onCreate(e.currentTarget)}>{t("projects.new")}</Button> : undefined}
+      isCurrent={(p) => p.id === currentId}
+      actions={(p) => (canEdit ? [{ id: "edit", label: t("table.edit"), onSelect: (_row, el) => { if (el) onOpen(p, el); } }] : [])}
+      actionsHeader={t("table.actions.header")} actionsLabel={(p) => t("table.actions.for", { name: p.name })}
+      empty={{ title: t("projects.empty.title"), body: t("projects.empty.body"), ...(canEdit ? { action: <Button type="button" variant="primary" onClick={(e) => onCreate(e.currentTarget)}>{t("projects.new")}</Button> } : {}) }}
+      emptyFiltered={{ title: t("projects.empty.filtered.title"), body: t("projects.empty.filtered.body"), resetLabel: t("projects.filters.reset"), onReset: () => onFilters(NO_FILTERS) }}
+    />
   );
 }
 

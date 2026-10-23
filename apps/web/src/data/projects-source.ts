@@ -31,6 +31,8 @@ export interface ProjectsSource {
   listClients(): Promise<ProjectsResult<Client[]>>;
   createClient(name: string): Promise<ProjectsResult<Client>>;
   renameClient(client: Client, name: string): Promise<ProjectsResult<Client>>;
+  /** If-Match = client.version ; REFERENCE_IN_USE tant que des projets y sont rattachés. */
+  deleteClient(client: Client): Promise<ProjectsResult<null>>;
   createProject(input: ProjectInput): Promise<ProjectsResult<ProjectDetail>>;
   /** If-Match = project.version. */
   updateProject(project: ProjectDetail, patch: ProjectPatchInput): Promise<ProjectsResult<ProjectDetail>>;
@@ -55,7 +57,7 @@ const ifMatch = (version: number) => ({ "If-Match": `"${version}"` });
 const PAGE = 200;
 
 type ApiLike = Pick<ReturnType<typeof createClient>,
-  "listProjects" | "getProject" | "createProject" | "updateProject" | "listClients" | "createClient" | "updateClient"
+  "listProjects" | "getProject" | "createProject" | "updateProject" | "listClients" | "createClient" | "updateClient" | "deleteClient"
   | "listProjectTasks" | "createProjectTask" | "updateProjectTask" | "deleteProjectTask" | "listPhases" | "listMilestones"
   | "listProjectTeam" | "addManyToTeam" | "listPeople">;
 
@@ -97,6 +99,10 @@ export function createApiProjectsSource(api: ApiLike): ProjectsSource {
     listClients: () => all((c) => api.listClients({ limit: PAGE, ...withCursor(c) })),
     createClient: (name) => call(() => api.createClient({ body: { name } })),
     renameClient: (client, name) => call(() => api.updateClient({ path: { id: client.id }, headers: ifMatch(client.version), body: { name } })),
+    async deleteClient(client) {
+      const r = await call(() => api.deleteClient({ path: { id: client.id }, headers: ifMatch(client.version) }));
+      return r.ok ? { ok: true, value: null } : r;
+    },
     createProject: (input) => call(() => api.createProject({ body: toBody(input) as never })),
     updateProject: (project, patch) => call(() => api.updateProject({ path: { id: project.id }, headers: ifMatch(project.version), body: toBody(patch) as never })),
     async reloadProject(id) {
@@ -173,6 +179,15 @@ export function createDemoProjectsSource(schedule: ScheduleResponse, hooks: Demo
       if (cur.version !== client.version) return fail("VERSION_CONFLICT", { currentVersion: cur.version });
       Object.assign(cur, { name, version: cur.version + 1 });
       return ok({ ...cur });
+    },
+    async deleteClient(client) {
+      const cur = find(clients, client);
+      if (!cur) return fail("NOT_FOUND", { entity: "client" });
+      if (cur.version !== client.version) return fail("VERSION_CONFLICT", { currentVersion: cur.version });
+      const used = projects.filter((p) => p.clientId === cur.id).length;
+      if (used > 0) return fail("REFERENCE_IN_USE", { entity: "client", projects: used });
+      clients.splice(clients.indexOf(cur), 1);
+      return ok(null);
     },
     async createProject(input) {
       const bad = validate(input, input.projectCode, null);
