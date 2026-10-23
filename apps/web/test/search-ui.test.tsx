@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
-// Palette de recherche du Planning (RT-038) : Ctrl+K / ⌘K et bouton, résultats groupés, personne lointaine amenée dans la vue et
+// Palette de recherche dans le Planning (RT-038 ; RT-059 : bouton et palette montés par la coque, le Planning en est la cible) :
+// Ctrl+K / ⌘K et bouton, résultats groupés, personne lointaine amenée dans la vue et
 // mise en évidence, personne masquée par un filtre (filtres retirés puis ligne montrée), projet confié à onOpenProject, Échap,
 // raccourci ignoré dans une autre fenêtre modale, FR et EN.
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ScheduleScreen } from "../src/ScheduleScreen";
+import { SearchButton, SearchProvider } from "../src/shell/global-search";
 import { demoSchedule } from "../src/demo";
 import { createDemoViewsSource, demoSeedViews } from "../src/data/views-source";
 import { createI18n } from "../src/i18n";
@@ -29,9 +31,14 @@ async function mount(opts: { onOpenProject?: (id: string) => void; locale?: "fr"
   root = createRoot(host);
   const data = demoSchedule(TODAY, 40);
   const views = opts.views ? createDemoViewsSource(demoSeedViews(), memory()) : undefined;
+  const i18n = createI18n(opts.locale ?? "fr");
+  // RT-059 : la palette et son bouton appartiennent à la coque (en-tête commun) ; le Planning s'y inscrit comme cible.
   act(() => root!.render(
-    <ScheduleScreen i18n={createI18n(opts.locale ?? "fr")} data={data} today={TODAY} widthPx={GUTTER_PX + 960} heightPx={480} clock={clock}
-      {...(views ? { views } : {})} {...(opts.onOpenProject ? { onOpenProject: opts.onOpenProject } : {})} />));
+    <SearchProvider i18n={i18n}>
+      <header className="wn-appheader"><div className="wn-appheader-end"><SearchButton i18n={i18n} /></div></header>
+      <ScheduleScreen i18n={i18n} data={data} today={TODAY} widthPx={GUTTER_PX + 960} heightPx={480} clock={clock}
+        {...(views ? { views } : {})} {...(opts.onOpenProject ? { onOpenProject: opts.onOpenProject } : {})} />
+    </SearchProvider>));
   await flush();
 }
 
@@ -41,7 +48,7 @@ const options = () => [...document.body.querySelectorAll<HTMLElement>('[role="op
 const optionTexts = () => options().map((o) => o.textContent);
 const groupLabels = () => [...document.body.querySelectorAll('[role="group"][aria-labelledby]')].map((g) => document.getElementById(g.getAttribute("aria-labelledby")!)?.textContent);
 const grid = () => host.querySelector<HTMLElement>("[role=grid]")!;
-const searchButton = () => [...host.querySelectorAll<HTMLButtonElement>(".wn-subheader button")].find((b) => /^(Rechercher|Search)/.test(b.textContent ?? ""))!;
+const searchButton = () => [...host.querySelectorAll<HTMLButtonElement>(".wn-appheader-end button")].find((b) => /^(Rechercher|Search)/.test(b.textContent ?? ""))!;
 const press = (target: EventTarget, init: KeyboardEventInit) =>
   act(() => { target.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init })); });
 async function type(value: string) {
@@ -62,8 +69,9 @@ describe("raccourci et bouton", () => {
     expect([searchShortcutLabel("MacIntel"), searchShortcutLabel("Linux x86_64")]).toEqual(["⌘K", "Ctrl K"]);
   });
 
-  it("le bouton « Rechercher » du niveau 1 affiche le raccourci et ouvre la fenêtre, focus dans le champ", async () => {
+  it("le bouton « Rechercher » de l'en-tête commun affiche le raccourci et ouvre la fenêtre, focus dans le champ ; le Planning n'en a plus", async () => {
     await mount();
+    expect([...host.querySelectorAll(".wn-schedule button")].some((b) => /^Rechercher/.test(b.textContent ?? ""))).toBe(false);
     expect(searchButton().textContent).toMatch(/^Rechercher(Ctrl K|⌘K)$/);
     expect(searchButton().getAttribute("aria-keyshortcuts")).toBe("Control+K Meta+K");
     await act(async () => { searchButton().click(); });

@@ -1,4 +1,5 @@
-// En-tête applicatif (RT-001, RT-003) : nom de l'app, navigation principale (Planning, Projets, Personnes), puis à droite la cloche
+// En-tête applicatif (RT-001, RT-003) : nom de l'app, navigation principale (Planning, Projets, Personnes), puis à droite le bouton
+// « Rechercher » et sa pastille Ctrl K (RT-059, recherche globale : shell/global-search), la cloche
 // des notifications, l'entrée Réglages (hors navigation principale, dossier §4.1 principe 1), « Bonjour {prénom} » et l'avatar à
 // initiales, qui ouvre le menu utilisateur (Déconnexion) quand une session peut être fermée.
 import type { I18n } from "@lingui/core";
@@ -8,6 +9,7 @@ import type { NotificationsSource } from "../data/notifications-source";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, PopoverRoot } from "../design";
 import type { MessageKey } from "../i18n";
 import { NotificationBell, NotificationsPanel } from "../notifications/notifications-ui";
+import { SearchButton } from "./global-search";
 import { canAdminister, firstName, initials } from "./me";
 import type { RouteId } from "./router";
 
@@ -44,6 +46,7 @@ export function AppHeader({ i18n, me, route, href, onNavigate, notifications, on
         {MAIN_NAV.map((id) => <span key={id}>{link(id)}</span>)}
       </nav>
       <div className="wn-appheader-end">
+        <SearchButton i18n={i18n} />
         {notifications && <NotificationsMenu i18n={i18n} source={notifications} />}
         {canAdminister(me) && link("settings", "wn-settings-link")}
         <span className="wn-greeting">{t("shell.greeting", { name: firstName(me.user.name) })}</span>

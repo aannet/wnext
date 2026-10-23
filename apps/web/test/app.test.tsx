@@ -69,11 +69,9 @@ describe("ScheduleScreen", () => {
 
   it("pseudo-locale : tout le texte de l'interface passe par le catalogue (seuls les noms restent)", () => {
     mount("pseudo");
-    // Seule exception : la pastille du raccourci de recherche (kbd[data-shortcut], un nom de touche et non un texte traduit),
-    // dont le contenu doit être exactement l'une des deux valeurs autorisées.
-    const shortcuts = [...host.querySelectorAll("kbd[data-shortcut]")];
-    expect(shortcuts).toHaveLength(1);
-    expect(["Ctrl K", "⌘K"]).toContain(shortcuts[0]!.textContent);
+    // La pastille du raccourci de recherche (kbd[data-shortcut], un nom de touche) a quitté le Planning pour l'en-tête commun
+    // (RT-059, testée dans global-search) : l'écran n'a plus aucune exception.
+    expect(host.querySelectorAll("kbd[data-shortcut]")).toHaveLength(0);
     const texts = [...host.querySelectorAll("button, [role=toolbar] span")].map((e) => [...e.childNodes].filter((n) => !(n as Element).matches?.("kbd[data-shortcut]")).map((n) => n.textContent).join(""));
     expect(texts.length).toBeGreaterThan(5);
     for (const t of texts) expect(t).toMatch(/^\[.*\]$/);

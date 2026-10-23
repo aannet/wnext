@@ -1,4 +1,5 @@
-// Palette de recherche du Planning (RT-038, Ctrl+K ou ⌘K, bouton « Rechercher » du niveau 1 de l'en-tête) : une fenêtre modale
+// Palette de recherche (RT-038 ; RT-059 : globale, montée par la coque, shell/global-search ; Ctrl+K ou ⌘K, bouton « Rechercher » de
+// l'en-tête commun) : une fenêtre modale
 // (design/Modal) avec un champ et, dessous, les résultats groupés « Personnes » / « Projets ». Elle ne fait que chercher et
 // rendre le choix (`onPick`) : défiler jusqu'à la personne ou ouvrir la fiche du projet est l'affaire de l'écran.
 //  * Autocomplete de Base UI en mode `inline` (liste dans la fenêtre, sans portail : un portail masquerait la page aux lecteurs
@@ -18,6 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Modal } from "../design";
 import type { MessageKey } from "../i18n";
 import { searchEntries, type SearchItem, type SearchPerson, type SearchProject } from "./search-model";
+import { matches } from "../shell/shortcuts";
 
 export interface SearchPaletteProps {
   i18n: I18n;
@@ -39,7 +41,7 @@ export function searchShortcutLabel(platform = globalThis.navigator?.platform ??
 
 /** Ctrl+K ou ⌘K, sans Alt ni Maj. */
 export function isSearchShortcut(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">): boolean {
-  return (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k";
+  return matches("search", e); // source unique des raccourcis (shell/shortcuts, RT-064)
 }
 
 export function SearchPalette({ i18n, people, hiddenIds, projects, listProjects, onPick, onClose }: SearchPaletteProps) {
