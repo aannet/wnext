@@ -268,6 +268,18 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 - **Quand** j'ouvre la ligne de Yasmine, passe le statut à « tentative », choisis « Tout le groupe » puis « Confirmer ». **Alors** les trois lignes sont tentatives ; un Ctrl+Z annule d'un coup.
 - **Attendu** : annuler aussi le changement de Thomas (Ctrl+Z) en fin de scénario.
 
+### R-33 — Manipuler un congé comme un bloc
+- **Couvre** : RT-051 (décision D4 : le congé reste un objet distinct et reçoit les gestes des blocs), BR-04, BR-40.
+- **Faisable** : oui.
+- **Préconditions** : seed de recette, Planning en vue jour ; **Lucas Morel** est libre les semaines S+2 et S+3. Poser pour lui un congé « Congés payés » le mardi S+2 (touche C).
+- **Quand** je clique sur le congé. **Alors** il est sélectionné (contour, poignées de début et de fin, pas de poignée de hauteur) ; un double clic ou Entrée ouvre le drawer « Modifier le congé ».
+- **Quand** je le glisse d'une demi-journée vers la droite. **Alors** « Congé déplacé. » ; il couvre du mardi après-midi au mercredi matin (libellé et demi-cellules) ; Ctrl+Z le remet en place.
+- **Quand** je le focalise et appuie sur Maj + → deux fois puis Entrée. **Alors** il s'allonge d'une journée (« Congé modifié. ») ; Alt + ← allonge par le début ; en vue semaine, le pas est la journée.
+- **Quand** je le glisse sur un jour où Lucas a une allocation (en poser une d'abord). **Alors** le drawer « Ce congé recouvre des allocations de Lucas Morel » s'ouvre ; rien n'est écrit avant le choix ; « Garder tel quel » ou « Reprogrammer… » comme en R-18 ; fermer le drawer laisse le congé à sa place.
+- **Quand** je le glisse sur un autre congé de Lucas. **Alors** « Ce congé chevauche un autre congé de cette personne : changez les dates. », rien n'est écrit.
+- **Quand** j'appuie sur Suppr (ou clic droit puis « Supprimer », ou Maj+F10). **Alors** « Congé supprimé. » ; Ctrl+Z le rend.
+- **Attendu** : au toucher, un tap sélectionne le congé et un appui long arme son déplacement (comme R-30 pour un bloc). L'aide des raccourcis (« ? ») a un groupe « Congé sélectionné ». Retirer le congé de Lucas en fin de scénario.
+
 ## Suivi
 
 La colonne « Pré-recette auto » vient de `npm run test:recette` (`tests/browser/recette.spec.ts`, dernier passage le 2026-10-22 sur `main` : 30 tests verts ; R-06 et R-21 non automatisés) ; elle ne remplace pas votre passage : la colonne « Statut » reste à vous.
@@ -306,5 +318,6 @@ La colonne « Pré-recette auto » vient de `npm run test:recette` (`tests/brows
 | R-30 | Appui long tactile | oui | OK | — |
 | R-31 | Portée d'une série | oui | OK | — |
 | R-32 | Portée d'un groupe | oui | OK | — |
+| R-33 | Manipuler un congé comme un bloc | oui | non automatisé (spec navigateur `timeoffs.spec.ts` sur la démo) | — |
 
 Ces statuts de pré-recette seront mis à jour après le dernier passage.
