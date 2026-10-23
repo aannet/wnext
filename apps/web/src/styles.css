@@ -226,6 +226,17 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-filter select[multiple] { min-width: 160px; }
 /* Import CSV (US-1.2) : bouton de la barre d'état, boîte de dialogue, tableau des erreurs par ligne. */
 .wn-notifications-open { font-size: 12px; display: inline-flex; gap: 4px; align-items: center; }
+/* Aide des raccourcis clavier (RT-064) : bouton carré « ? » à côté de la cloche, fenêtre groupée (touches à gauche, action à droite). */
+.wn-help-open { width: 32px; padding: 0; justify-content: center; font-weight: var(--font-weight-semibold); }
+.wn-shortcuts-group + .wn-shortcuts-group { margin-top: var(--space-4); }
+.wn-shortcuts-group h3 { margin: 0 0 var(--space-1); color: var(--text-muted); font-size: var(--text-label); font-weight: var(--font-weight-semibold); }
+.wn-shortcuts dl { margin: 0; }
+.wn-shortcut { display: grid; grid-template-columns: minmax(150px, 40%) 1fr; gap: var(--space-3); align-items: baseline; padding: var(--space-1) 0; border-top: 1px solid var(--border); }
+.wn-shortcut dt { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; }
+.wn-shortcut dd { margin: 0; }
+.wn-shortcut-combo { display: inline-flex; gap: 2px; }
+.wn-shortcut kbd { min-width: 20px; box-sizing: border-box; padding: 0 var(--space-1); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--surface-sunken); font: inherit; font-size: var(--text-caption); text-align: center; white-space: nowrap; }
+.wn-shortcut-or { color: var(--text-muted); font-size: var(--text-caption); }
 .wn-badge { min-width: 16px; padding: 0 4px; border-radius: 8px; background: var(--cap-over); color: var(--color-on-focus); font-size: 11px; line-height: 16px; text-align: center; }
 .wn-notifications { width: 380px; }
 .wn-notifications h2 { margin: 0 0 8px; font-size: 14px; }
