@@ -336,6 +336,50 @@ describe("clients et droits", () => {
     expect(body().querySelector("[role=tabpanel]")!.textContent).toContain("Initech");
   });
 
+  const clientNames = () => [...body().querySelectorAll("[role=tabpanel] tbody th")].map((e) => e.textContent);
+  const menuOf = async (name: string) => {
+    await click(body().querySelector(`[aria-label="Actions pour ${name}"]`));
+    return [...body().querySelectorAll("[role=menuitem]")];
+  };
+
+  it("clients (RT-053) : DataTable, Modifier renomme en ligne, Supprimer demande confirmation", async () => {
+    await mount(setup());
+    await tab("Clients");
+    expect(clientNames()).toEqual(["Acme", "Globex"]);
+    await type(field("Nouveau client"), "Initech");
+    await click(button("Ajouter"));
+    expect(clientNames()).toEqual(["Acme", "Globex", "Initech"]);
+    // Modifier = renommage en ligne
+    let items = await menuOf("Initech");
+    expect(items.map((e) => e.textContent)).toEqual(["Modifier", "Supprimer"]);
+    await click(items[0]);
+    await type(field("Nouveau nom du client Initech"), "Initrode");
+    await click(button("Enregistrer"));
+    expect(clientNames()).toEqual(["Acme", "Globex", "Initrode"]);
+    // Supprimer : confirmation d'abord, annuler ne supprime rien
+    items = await menuOf("Initrode");
+    await click(items[1]);
+    const dialog = () => body().querySelector("[role=dialog]")!;
+    expect(dialog().querySelector("h2")!.textContent).toBe("Supprimer le client « Initrode » ?");
+    await click(button("Annuler", dialog()));
+    expect(clientNames()).toContain("Initrode");
+    items = await menuOf("Initrode");
+    await click(items[1]);
+    await click(button("Supprimer", dialog()));
+    expect(clientNames()).toEqual(["Acme", "Globex"]);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it("clients : la suppression d'un client encore utilisé est refusée et le dit", async () => {
+    await mount(setup());
+    await tab("Clients");
+    const items = await menuOf("Acme");
+    await click(items[1]);
+    await click(button("Supprimer", body().querySelector("[role=dialog]")!));
+    expect(clientNames()).toContain("Acme");
+    expect(body().querySelector("[role=alert]")!.textContent).toContain("Suppression impossible");
+  });
+
   it("lecture seule : listes visibles, aucune action d'écriture", async () => {
     await mount(setup(), { canEdit: false });
     expect(rows()).toHaveLength(3);

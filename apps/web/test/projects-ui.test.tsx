@@ -322,22 +322,23 @@ describe("panneau d'un projet", () => {
   });
 });
 
-describe("clients", () => {
-  it("liste, crée et renomme un client", async () => {
+describe("clients (RT-053 : gérés dans Réglages seul)", () => {
+  it("l'écran Projets n'a plus d'onglet ni de section Clients", async () => {
     await mount(demo());
-    await click(byText("[role=tab]", "Clients"));
-    const names = () => [...document.body.querySelectorAll("[role=tabpanel]:not([hidden]) .wn-row-name")].map((e) => e.textContent);
-    expect(names()).toEqual(["Acme", "Globex"]);
-    await type(field("Nouveau client"), "Initech");
-    await click(byText("[role=tabpanel]:not([hidden]) button[type=submit]", "Ajouter"));
-    expect(names()).toEqual(["Acme", "Globex", "Initech"]);
-    await click(button("Renommer Initech"));
-    await type(field("Nouveau nom du client Initech"), "Initrode");
-    await click(byText("[role=tabpanel]:not([hidden]) button[type=submit]", "Enregistrer"));
-    expect(names()).toEqual(["Acme", "Globex", "Initrode"]);
-    await type(field("Nouveau client"), "acme");
-    await click(byText("[role=tabpanel]:not([hidden]) button[type=submit]", "Ajouter"));
-    expect(alerts().join(" ")).toContain("Un client porte déjà ce nom");
+    expect(document.body.querySelector("[role=tab]")).toBeNull();
+    expect(button("Ajouter")).toBeUndefined();
+    expect(document.body.querySelector(".wn-clients")).toBeNull();
+  });
+
+  it("le menu « … » d'une ligne porte l'action Modifier et ouvre la fiche", async () => {
+    await mount(demo());
+    const trigger = q<HTMLButtonElement>('[data-row-actions]')!;
+    expect(trigger.getAttribute("aria-label")).toBe("Actions pour Projet A");
+    await click(trigger);
+    const items = [...document.body.querySelectorAll("[role=menuitem]")].map((e) => e.textContent);
+    expect(items).toEqual(["Modifier"]);
+    await click(document.body.querySelector("[role=menuitem]"));
+    expect(panel()).not.toBeNull();
   });
 });
 
@@ -351,8 +352,7 @@ describe("droits (member, guest : lecture seule)", () => {
     expect(button("Enregistrer")).toBeUndefined();
     expect(button("Ajouter")).toBeUndefined();
     expect(button(/^Retirer /)).toBeUndefined();
-    await click(byText("[role=tab]", "Clients"));
-    expect(host.querySelector("[role=tabpanel]:not([hidden]) form")).toBeNull();
+    expect(q("[data-row-actions]")).toBeNull();
   });
 
   it("vide : pas d'action de création pour un lecteur", async () => {
