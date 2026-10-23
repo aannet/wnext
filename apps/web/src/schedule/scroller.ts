@@ -25,7 +25,7 @@ import {
 import type { EditHost } from "./block-editor";
 import { createGridRenderer } from "./grid-dom";
 import { columnsBackground, createHeaderRenderer, type HeaderItem } from "./grid-header";
-import { DENSITY_METRICS, type Density } from "./density";
+import { rowMetrics, type Density } from "./density";
 import { buildGrid, visibleRows, type GridBlock, type GridCap, type GridGauge, type GridModel, type GridTimeoff } from "./grid-model";
 
 /** Largeur de la colonne des personnes (gouttière collée à gauche : avatar, nom, rôle, département, jauge ; ux-ui §2.1). */
@@ -78,6 +78,8 @@ export interface ScrollerOptions {
   gaugeLabel?(g: GridGauge): { text: string; title: string };
   /** Densité initiale (défaut : compacte, les hauteurs historiques, comme buildGrid ; l'écran passe la sienne). */
   density?: Density;
+  /** Bande de capacité affichée (bascule « Charge », RT-052) ; défaut : oui. */
+  showLoad?: boolean;
   /** Jour au centre de la vue au montage (défaut : aujourd'hui) et défilement vertical initial. */
   center?: number;
   scrollTop?: number;
@@ -94,6 +96,9 @@ export interface Scroller {
   density(): Density;
   /** Nouvelles hauteurs de ligne ; la personne en haut de la vue y reste. */
   setDensity(d: Density): void;
+  showLoad(): boolean;
+  /** Affiche ou masque toute la bande de capacité (RT-052) ; lignes raccourcies, la personne en haut de la vue y reste. */
+  setShowLoad(on: boolean): void;
   /**
    * Amène la ligne d'une personne dans la vue (défilement vertical seul, rien si elle est déjà entièrement visible) et la met en
    * évidence quelques secondes. False si elle n'est pas dans le modèle (écartée par les filtres) : rien ne bouge.
@@ -145,6 +150,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
 
   let data = o.data;
   let density: Density = o.density ?? "compact";
+  let showLoad = o.showLoad ?? true;
   let zoom: Zoom = o.zoom ?? "day";
   let pxPerDay = DEFAULT_PX_PER_DAY[zoom];
   let widthPx = o.widthPx;
@@ -172,7 +178,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
 
   function rebuild(v: Viewport) {
     const range = chunkCover(v, weekStart(), neighborDays(v));
-    model = build(data, range, pxPerDay, zoom, DENSITY_METRICS[density]);
+    model = build(data, range, pxPerDay, zoom, rowMetrics(density, showLoad));
     modelKey = `${range.from}..${range.to}`;
     builds++;
   }
@@ -232,6 +238,24 @@ export function createScroller(o: ScrollerOptions): Scroller {
     }));
     header.render(items, surfaceWidth);
     grid.surface.style.background = columnsBackground(items);
+  }
+
+  /**
+   * Change les hauteurs de ligne (densité, bande de capacité) et reconstruit le modèle ; ancre : la ligne sous le haut de la
+   * vue (la surface commence sous l'en-tête de dates) et la fraction déjà défilée.
+   */
+  function reflow(change: () => void) {
+    const before = model;
+    const y = root.scrollTop;
+    const i = before ? visibleRows(before, y, 1, 0)[0] : undefined;
+    const row = i === undefined ? undefined : before!.rows[i];
+    const frac = row ? (y - row.top) / row.heightPx : 0;
+    change();
+    rebuild(current());
+    const next = i === undefined ? undefined : model!.rows[i];
+    paint(root.scrollLeft);
+    if (next) root.scrollTop = Math.round(next.top + frac * next.heightPx);
+    paint(root.scrollLeft);
   }
 
   /** Allonge la piste si `v` approche d'un bord ; rend le scrollLeft corrigé. */
@@ -351,18 +375,12 @@ export function createScroller(o: ScrollerOptions): Scroller {
     density: () => density,
     setDensity(d) {
       if (d === density) return;
-      // Ancre : la ligne sous le haut de la vue (la surface commence sous l'en-tête de dates) et la fraction déjà défilée.
-      const before = model;
-      const y = root.scrollTop;
-      const i = before ? visibleRows(before, y, 1, 0)[0] : undefined;
-      const row = i === undefined ? undefined : before!.rows[i];
-      const frac = row ? (y - row.top) / row.heightPx : 0;
-      density = d;
-      rebuild(current());
-      const next = i === undefined ? undefined : model!.rows[i];
-      paint(root.scrollLeft);
-      if (next) root.scrollTop = Math.round(next.top + frac * next.heightPx);
-      paint(root.scrollLeft);
+      reflow(() => { density = d; });
+    },
+    showLoad: () => showLoad,
+    setShowLoad(on) {
+      if (on === showLoad) return;
+      reflow(() => { showLoad = on; });
     },
     revealPerson(personId) {
       const row = model?.rows.find((r) => r.personId === personId);

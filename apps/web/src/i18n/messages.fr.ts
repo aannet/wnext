@@ -40,7 +40,7 @@ export const fr = {
   "schedule.filters.restored": "Filtres rétablis",
   "schedule.search.revealed": "{name} : ligne affichée dans le planning",
   "schedule.search.revealed.cleared": "{name} : filtres retirés, ligne affichée dans le planning",
-  "schedule.display.load": "Charge par colonne",
+  "schedule.display.load": "Charge",
   "schedule.density.compact": "Compacte",
   "schedule.density.standard": "Standard",
   "schedule.density.airy": "Aérée",

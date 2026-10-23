@@ -37,7 +37,8 @@
 //  * En-tête en deux niveaux (RT-025) : niveau 1 = titre, vue sauvegardée, statut et actions de création ; niveau 2 (barre
 //    d'outils) = Filtres (compteur, puces, panneau dépliable, schedule/filters-ui), annuler / rétablir, navigation, zoom,
 //    menu Affichage, nombre de personnes.
-//  * Menu Affichage (Popover) : densité et bascule « Charge par colonne » (RT-030, Q11 : état en mémoire, éteint au montage).
+//  * Menu Affichage (Popover) : densité et bascule « Charge » (RT-052, D3, amende Q11) : affiche ou masque toute la bande de
+//    capacité (graphique et chiffres) ; éteinte, les lignes sont raccourcies. Active au montage, état en mémoire seulement.
 //  * Densité (RT-005 à RT-007, schedule/density) : contrôle segmenté (groupe de boutons radio, flèches gauche / droite) dans
 //    le menu Affichage, appliquée à la volée (hauteurs du modèle, tailles CSS par data-density), mémorisée dans ce navigateur
 //    et portée par les vues sauvegardées. Colonne de gauche : avatar, nom, rôle, département et jauge de la période visible.
@@ -162,8 +163,10 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   const changeFilters = (f: ViewFilters) => { setRemovedFilters(null); setFilters(f); };
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
-  /** Charge chiffrée dans chaque colonne de temps (Q11) : en mémoire seulement, jamais enregistrée. */
-  const [showLoad, setShowLoad] = useState(false);
+  /** Bande de capacité affichée (RT-052) : active au montage, en mémoire seulement, jamais enregistrée. */
+  const [showLoad, setShowLoad] = useState(true);
+  const showLoadRef = useRef(showLoad);
+  showLoadRef.current = showLoad;
   const displayButton = useRef<HTMLButtonElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchOpenRef = useRef(false);
@@ -380,7 +383,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   const { widthPx, heightPx } = size;
   useEffect(() => {
     const s = createScroller({
-      root: gridRef.current!, data: shown, today, widthPx, heightPx, clock, zoom: zoomRef.current, density: densityRef.current, ...labelsFor(i18n),
+      root: gridRef.current!, data: shown, today, widthPx, heightPx, clock, zoom: zoomRef.current, density: densityRef.current, showLoad: showLoadRef.current, ...labelsFor(i18n),
       onViewChange: (v) => viewChange.current?.(v),
       ...(memory?.center !== undefined ? { center: memory.center } : {}), ...(memory?.scrollTop !== undefined ? { scrollTop: memory.scrollTop } : {}),
     });
@@ -494,7 +497,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   };
 
   return (
-    <div className="wn-schedule" data-density={density} {...(showLoad ? { "data-load": "on" } : {})}>
+    <div className="wn-schedule" data-density={density}>
       <div className="wn-subheader">
         {heading}
         {views && <ViewsBar i18n={i18n} shownCount={shown.people.length} source={views} filters={filters} zoom={zoom} density={density} onFilters={changeFilters} onZoom={zoomTo} onDensity={densityTo} />}
@@ -551,7 +554,7 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
             className="inline-flex overflow-hidden rounded-md border border-solid border-input">
             {DENSITIES.map((d) => <RadioItem key={d} value={d} variant="segment">{t(`schedule.density.${d}`)}</RadioItem>)}
           </RadioGroup>
-          <Switch checked={showLoad} onCheckedChange={setShowLoad}>{t("schedule.display.load")}</Switch>
+          <Switch checked={showLoad} onCheckedChange={(on) => { scroller.current?.setShowLoad(on); setShowLoad(on); }}>{t("schedule.display.load")}</Switch>
         </Popover>
       )}
       {records && (

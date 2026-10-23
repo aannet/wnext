@@ -14,7 +14,8 @@
 //    c'est le conflit BR-04). Demi-journée = demi-cellule (après-midi : commence au milieu du jour ; matin : finit au milieu).
 //    Couleur dérivée du type (le contrat n'en porte pas), statut « en attente » / « refusé » rendu par un motif (grid-dom).
 //  * Densité (schedule/density, RT-005) : hauteurs de bloc et de bande passées en paramètre (défaut : compacte, les valeurs
-//    d'avant le réglage) et portées par le modèle (les gestes lisent rowUnitPx).
+//    d'avant le réglage) et portées par le modèle (les gestes lisent rowUnitPx). Bande de hauteur 0 (bascule « Charge »
+//    éteinte, RT-052) : aucune cellule, mais les charges de la jauge restent calculées.
 //  * Jauge par personne (RT-008, Q3 : période visible) : sommes cumulées par jour des heures de capacité, planifiées et
 //    tentatives (les mêmes lignes utilization() que la bande), calculées une fois par tranche ; la jauge d'une période
 //    quelconque en sort en O(1) (gaugeOf), état par classifyCapacity du moteur. Rôle, département et initiales : données.
@@ -246,7 +247,8 @@ function capCells(s: ScheduleResponse, range: { from: string; to: string }, zoom
   const rows = utilization({ ...input, allocations, from: r.from, to: r.to });
   const origin = dayNumber(range.from);
   const out = new Map<string, GridCap[]>();
-  for (const [id, cells] of capacityCellsByPerson(rows, r, zoom, s.account.weekStart, input.thresholds)) {
+  // Bande masquée (capPx = 0, RT-052) : aucune cellule ; les charges de la jauge restent calculées.
+  if (capPx > 0) for (const [id, cells] of capacityCellsByPerson(rows, r, zoom, s.account.weekStart, input.thresholds)) {
     out.set(id, cells.filter((c) => c.from >= r.from && c.to <= r.to)
       .map((c) => toCap(c, zoom, (dayNumber(c.from) - origin) * pxPerDay, (dayNumber(c.to) - dayNumber(c.from) + 1) * pxPerDay, capPx)));
   }

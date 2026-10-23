@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // En-tête du Schedule en deux niveaux (recette n°2, L-J : RT-025, RT-030) : niveau 1 = titre, vue, actions de création ;
 // niveau 2 (barre d'outils) = Filtres (compteur, puces retirables, panneau dépliable), navigation, zoom, annuler / rétablir,
-// menu Affichage (densité, bascule « Charge » en mémoire seulement, Q11), nombre de personnes.
+// menu Affichage (densité, bascule « Charge » en mémoire seulement : RT-052, amende Q11), nombre de personnes.
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
@@ -83,24 +83,30 @@ describe("en-tête en deux niveaux (RT-025)", () => {
     expect(toolbar().textContent).toContain("12 personnes");
   });
 
-  it("Affichage : menu avec la densité (radios) et la bascule « Charge », éteinte au montage et jamais mémorisée (Q11)", async () => {
+  // RT-052 (D3, amende Q11) : la bascule masque toute la bande de capacité ; active au montage, jamais mémorisée.
+  it("Affichage : menu avec la densité (radios) et la bascule « Charge », active au montage, qui masque la bande, jamais mémorisée", async () => {
     localStorage.clear();
     await mount();
+    const caps = () => [...host.querySelectorAll<HTMLElement>(".wn-cap")].filter((c) => c.style.display !== "none");
+    const rowH = () => parseInt(host.querySelector<HTMLElement>(".wn-row:not([style*='display: none'])")!.style.height, 10);
+    expect(caps().length).toBeGreaterThan(0);
+    const before = rowH();
     const display = buttonIn(toolbar(), "Affichage")!;
     expect(display.getAttribute("aria-haspopup")).toBe("dialog");
     await click(display);
     const menu = document.body.querySelector<HTMLElement>("[role=dialog][aria-label=Affichage]")!;
     expect([...menu.querySelectorAll("[role=radiogroup] [role=radio]")].map((r) => r.textContent)).toEqual(["Compacte", "Standard", "Aérée"]);
     const load = menu.querySelector<HTMLButtonElement>("[role=switch]")!;
-    expect([load.textContent, load.getAttribute("aria-checked")]).toEqual(["Charge par colonne", "false"]);
+    expect([load.textContent, load.getAttribute("aria-checked")]).toEqual(["Charge", "true"]);
     await click(load);
-    expect(load.getAttribute("aria-checked")).toBe("true");
-    expect(host.querySelector(".wn-schedule")!.getAttribute("data-load")).toBe("on");
+    expect(load.getAttribute("aria-checked")).toBe("false");
+    expect(caps()).toHaveLength(0);
+    expect(rowH()).toBeLessThan(before);
     expect(JSON.stringify({ ...localStorage })).not.toContain("load");
     act(() => root!.unmount());
     host.remove();
     await mount();
-    expect(host.querySelector(".wn-schedule")!.hasAttribute("data-load")).toBe(false);
+    expect(caps().length).toBeGreaterThan(0);
   });
 });
 
@@ -113,7 +119,7 @@ describe("charge chiffrée par colonne (RT-030, Q11)", () => {
     expect(capacityTexter(createI18n("en"))(cell(6, 8))).toBe("75%");
   });
 
-  it("chaque cellule de capacité porte son texte (data-load) ; la bascule l'affiche par CSS, sans redessin", async () => {
+  it("chaque cellule de capacité porte son texte (data-load), affiché avec la bande", async () => {
     await mount();
     const caps = [...host.querySelectorAll<HTMLElement>(".wn-cap")].filter((c) => c.style.display !== "none");
     expect(caps.length).toBeGreaterThan(0);

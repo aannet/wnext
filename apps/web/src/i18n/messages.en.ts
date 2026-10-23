@@ -41,7 +41,7 @@ export const en: Record<MessageKey, string> = {
   "schedule.filters.restored": "Filters restored",
   "schedule.search.revealed": "{name}: row shown in the schedule",
   "schedule.search.revealed.cleared": "{name}: filters removed, row shown in the schedule",
-  "schedule.display.load": "Load per column",
+  "schedule.display.load": "Load",
   "schedule.density.compact": "Compact",
   "schedule.density.standard": "Standard",
   "schedule.density.airy": "Comfortable",

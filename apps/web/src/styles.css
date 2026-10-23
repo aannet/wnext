@@ -105,8 +105,9 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 
 /* Bande de capacité en pied de ligne (BR-01, BR-07). Contrastes >= 3:1 sur le fond (WCAG 1.4.11) ; l'information ne repose
    jamais sur la couleur seule : tentatif = hachures bleues, dépassement = hachures rouges + ligne de capacité + cadre. */
-/* Charge par colonne (RT-030, Q11) : le texte de chaque cellule (data-load) ne s'affiche que si la bascule est active. */
-.wn-schedule[data-load="on"] .wn-cap::after { content: attr(data-load); position: absolute; right: 2px; bottom: 0; padding: 0 3px; border-radius: 2px; background: var(--surface); color: var(--text); font-size: 10px; line-height: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+/* Charge chiffrée de chaque cellule (data-load, RT-030). La bascule « Charge » (RT-052) affiche ou masque toute la bande :
+   éteinte, aucune cellule n'est dessinée (scroller, capPx = 0) ; allumée, graphique et chiffres sont visibles. */
+.wn-cap::after { content: attr(data-load); position: absolute; right: 2px; bottom: 0; padding: 0 3px; border-radius: 2px; background: var(--surface); color: var(--text); font-size: 10px; line-height: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
 .wn-cap { contain: strict; box-sizing: border-box; border-left: 1px solid var(--surface); background-color: var(--border); }
 .wn-cap.wn-cap-none { background-color: var(--surface-sunken); }
 .wn-cap.wn-cap-over { box-shadow: inset 0 0 0 1px var(--cap-over); }

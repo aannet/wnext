@@ -84,7 +84,7 @@ export interface GridRendererOptions {
   overscan?: number;
   /** Libellé accessible (aria-label et infobulle) d'une cellule de capacité ; absent : aucun libellé. */
   capLabel?(c: GridCap): string;
-  /** Charge chiffrée d'une cellule (data-load, affichée par CSS si la bascule « Charge » est active, Q11) ; absent : rien. */
+  /** Charge chiffrée d'une cellule (data-load, affichée par CSS avec la bande, RT-030 ; RT-052) ; absent : rien. */
   capText?(c: GridCap): string;
   /** Libellé accessible d'un bloc (projet, dates, quantité) ; recalculé seulement si l'un d'eux change. */
   blockLabel?(b: GridBlock): string;
