@@ -386,7 +386,7 @@ export function createGridRenderer(root: HTMLElement, options: GridRendererOptio
     if (v.state !== g.state) head.gauge.className = `wn-gauge wn-gauge-${g.state}`;
     if (v.fill !== g.fill) head.fill.style.width = `${g.fill}%`;
     if (v.from !== g.from || v.to !== g.to || v.plannedHours !== g.plannedHours || v.capacityHours !== g.capacityHours || v.percent !== g.percent
-      || v.overHours !== g.overHours || v.state !== g.state) {
+      || v.overHours !== g.overHours || v.overDays !== g.overDays || v.state !== g.state) {
       const l = (opts.gaugeLabel ?? defaultGaugeLabel)(g);
       head.value.data = l.text;
       head.gauge.title = l.title;
