@@ -194,6 +194,7 @@ export const fr = {
   "views.filter.chip": "{label} : {values}",
   "views.filter.chip.remove": "Retirer le filtre {label} : {values}",
   "views.filters.count": "Filtres ({count})",
+  "views.filters.modified": "(vue modifiée)",
   "views.filter.department": "Département",
   "views.filter.role": "Rôle",
   "views.filter.project": "Projet",

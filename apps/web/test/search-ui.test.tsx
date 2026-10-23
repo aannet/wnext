@@ -353,8 +353,13 @@ describe("choix", () => {
 
   it("vue sauvegardée : « modifiée » après le retrait, état d'origine après le rétablissement ; un changement de vue enterre le bouton", async () => {
     await mount({ views: true });
-    const viewSelect = () => host.querySelector<HTMLSelectElement>(".wn-views-row select")!;
+    // Les vues sont en tête du panneau Filtres (RT-058), ouvert ici avant de choisir.
+    const viewSelect = () => host.querySelector<HTMLSelectElement>(".wn-filters-panel .wn-views-pick select")!;
     const modified = () => host.querySelector(".wn-views-modified");
+    if (!host.querySelector(".wn-filters-panel")) {
+      await act(async () => { [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] button")].find((b) => /^Filtres/.test(b.textContent ?? ""))!.click(); });
+      await flush();
+    }
     const choose = async (id: string) => {
       await act(async () => { viewSelect().value = id; viewSelect().dispatchEvent(new Event("change", { bubbles: true })); });
       await flush();

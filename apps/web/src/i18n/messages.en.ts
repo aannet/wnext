@@ -195,6 +195,7 @@ export const en: Record<MessageKey, string> = {
   "views.filter.chip": "{label}: {values}",
   "views.filter.chip.remove": "Remove filter {label}: {values}",
   "views.filters.count": "Filters ({count})",
+  "views.filters.modified": "(view modified)",
   "views.filter.department": "Department",
   "views.filter.role": "Role",
   "views.filter.project": "Project",

@@ -71,7 +71,7 @@ import { isSearchShortcut, SearchPalette, searchShortcutLabel } from "./schedule
 import type { SearchItem } from "./schedule/search-model";
 import { DENSITIES, readStoredDensity, storeDensity, type Density } from "./schedule/density";
 import { gaugeLabeler } from "./schedule/gauge-label";
-import { ViewsBar } from "./schedule/views-ui";
+import { useSavedViews } from "./schedule/views-ui";
 import { FilterChips, FiltersButton, FiltersPanel } from "./schedule/filters-ui";
 import { useTeamRemoval, type MenuCommand } from "./schedule/team-removal-ui";
 import type { TeamRemovalEditor } from "./data/team-removal";
@@ -498,29 +498,28 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     else if (onBlock) return;
     else if (matches("scroll", e)) { e.preventDefault(); s.nudge(e.key === "ArrowLeft" ? -1 : 1); }
   };
+  const saved = useSavedViews({ i18n, shownCount: shown.people.length, source: views, filters, zoom, density, onFilters: changeFilters, onZoom: zoomTo, onDensity: densityTo });
 
   return (
     <div className="wn-schedule" data-density={density}>
+      {/* Une seule ligne au-dessus de la grille (recette n°4, « Planning cible ») : le titre, puis la barre d'outils. */}
       <div className="wn-subheader">
         {heading}
-        {views && <ViewsBar i18n={i18n} shownCount={shown.people.length} source={views} filters={filters} zoom={zoom} density={density} onFilters={changeFilters} onZoom={zoomTo} onDensity={densityTo} />}
-        <div className="wn-subheader-end">
-          {actions}
-          <Button ref={searchButton} type="button" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" onClick={() => setSearchOpen(true)}>
-            {t("schedule.search.open")}
-            <kbd data-shortcut="" className="rounded-sm border border-solid border-input bg-muted px-1 font-[inherit] text-caption text-muted-foreground">{searchShortcutLabel()}</kbd>
-          </Button>
-        </div>
-      </div>
-      <div role="toolbar" aria-label={t("schedule.toolbar.label")} className="wn-toolbar">
+        <div role="toolbar" aria-label={t("schedule.toolbar.label")} className="wn-toolbar">
         {views && (
           <>
-            <FiltersButton i18n={i18n} filters={filters} expanded={filtersOpen} controls={`${uid}-filters`} onToggle={() => setFiltersOpen((o) => !o)} />
+            <FiltersButton i18n={i18n} filters={filters} expanded={filtersOpen} controls={`${uid}-filters`} onToggle={() => setFiltersOpen((o) => !o)} view={saved.current} />
             <FilterChips i18n={i18n} data={data} filters={filters} onFilters={changeFilters} />
             {removedFilters && <Button type="button" onClick={restoreFilters}>{t("schedule.filters.restore")}</Button>}
+            {saved.status}
           </>
         )}
         <div className="wn-toolbar-spacer" />
+        {actions}
+        <Button ref={searchButton} type="button" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" onClick={() => setSearchOpen(true)}>
+          {t("schedule.search.open")}
+          <kbd data-shortcut="" className="rounded-sm border border-solid border-input bg-muted px-1 font-[inherit] text-caption text-muted-foreground">{searchShortcutLabel()}</kbd>
+        </Button>
         {history && (
           <>
             <Button type="button" disabled={!stack.canUndo} aria-keyshortcuts="Control+Z Meta+Z" onClick={() => stepRef.current("undo")}>
@@ -542,8 +541,10 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
           ))}
         </div>
         <Button ref={displayButton} type="button" aria-haspopup="dialog" aria-expanded={displayOpen} onClick={() => setDisplayOpen((o) => !o)}>{t("schedule.display")}</Button>
+        </div>
       </div>
-      {views && filtersOpen && <FiltersPanel i18n={i18n} data={data} filters={filters} onFilters={changeFilters} id={`${uid}-filters`} />}
+      {views && filtersOpen && <FiltersPanel i18n={i18n} data={data} filters={filters} onFilters={changeFilters} id={`${uid}-filters`} header={saved.picker} footer={saved.actions} />}
+      {saved.dialog}
       {displayOpen && displayButton.current && (
         <Popover anchor={displayButton.current} label={t("schedule.display")} className="wn-display-menu" onClose={() => setDisplayOpen(false)}>
           <RadioGroup aria-label={t("schedule.density.label")} value={density} onValueChange={(v) => densityTo(v as Density)}

@@ -103,8 +103,14 @@ describe("contrôle de densité", () => {
 });
 
 describe("densité et vues sauvegardées", () => {
-  const viewSelect = () => host.querySelector<HTMLSelectElement>(".wn-views-row select")!;
+  // Les vues sont en tête du panneau Filtres (RT-058) : il est ouvert d'abord.
+  const viewSelect = () => host.querySelector<HTMLSelectElement>(".wn-filters-panel .wn-views-pick select")!;
+  const openFilters = async () => {
+    if (host.querySelector(".wn-filters-panel")) return;
+    await click([...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] button")].find((b) => /^Filtres/.test(b.textContent ?? "")));
+  };
   const choose = async (id: string) => {
+    await openFilters();
     await act(async () => { viewSelect().value = id; viewSelect().dispatchEvent(new Event("change", { bubbles: true })); });
     await flush();
   };
@@ -133,7 +139,8 @@ describe("densité et vues sauvegardées", () => {
     const views = createDemoViewsSource(demoSeedViews(), store());
     await mount({ views });
     await click(radios()[0]);
-    await click([...host.querySelectorAll<HTMLButtonElement>(".wn-views button")].find((b) => b.textContent === "Enregistrer la vue…"));
+    await openFilters();
+    await click([...host.querySelectorAll<HTMLButtonElement>(".wn-views-actions button")].find((b) => b.textContent === "Enregistrer la vue…"));
     const input = document.body.querySelector<HTMLInputElement>(".wn-views-form input[type=text]")!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Compacte");

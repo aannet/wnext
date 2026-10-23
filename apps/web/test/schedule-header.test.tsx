@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-// En-tête du Schedule en deux niveaux (recette n°2, L-J : RT-025, RT-030) : niveau 1 = titre, vue, actions de création ;
-// niveau 2 (barre d'outils) = Filtres (compteur, puces retirables, panneau dépliable), navigation, zoom, annuler / rétablir,
-// menu Affichage (densité, bascule « Charge » en mémoire seulement : RT-052, amende Q11), nombre de personnes.
+// En-tête du Schedule (recette n°2, L-J : RT-025, RT-030 ; recette n°4 : RT-057 à RT-061) : une seule ligne, le titre puis la
+// barre d'outils = Filtres (compteur, nom de la vue, puces retirables, panneau dépliable avec les vues), annuler / rétablir,
+// navigation, zoom, menu Affichage (densité, bascule « Charge » en mémoire seulement : RT-052, amende Q11). Le nombre de
+// personnes est dans le coin de la grille ; ni saisie rapide ni boutons de création.
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
@@ -52,13 +53,13 @@ async function pick(label: string, values: string[]) {
 }
 
 describe("en-tête en deux niveaux (RT-025)", () => {
-  it("niveau 1 : titre, vue, sans boutons de création (RT-060) ; niveau 2 : Filtres, navigation, zoom, Affichage, personnes", async () => {
+  it("une seule ligne (recette n°4) : titre puis barre d'outils (Filtres, navigation, zoom, Affichage) ; ni vue à part ni création (RT-058, RT-060)", async () => {
     await mount();
     expect(level1().querySelector("h1")!.textContent).toBe("Planning");
-    expect(level1().querySelector(".wn-views select")).not.toBeNull();
+    expect(level1().querySelector("select")).toBeNull(); // la vue est dans le panneau Filtres
     expect(buttonIn(level1(), "+ Allocation")).toBeUndefined();
     expect(buttonIn(level1(), "Nouveau congé")).toBeUndefined();
-    expect(level1().contains(toolbar())).toBe(false);
+    expect(level1().contains(toolbar())).toBe(true);
     for (const label of ["Filtres", "Période précédente", "Aujourd’hui", "Période suivante", "Jour", "Semaine", "Mois", "Annuler", "Rétablir", "Affichage"]) {
       expect(buttonIn(toolbar(), label), label).toBeDefined();
     }

@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 // Vues sauvegardées dans l'écran Schedule : lignes filtrées côté client, choix d'une vue, enregistrement (nom, partagée),
 // mise à jour, renommage, suppression avec confirmation, erreurs traduites, reflet dans l'URL (?view=).
+// RT-058 (D6) : plus de ligne des vues ; « Vue » est en tête du panneau Filtres, les actions d'enregistrement en pied, et le
+// bouton Filtres porte le nom de la vue active (« Filtres · Studio », ● si modifiée).
 import { DEFAULT_PX_PER_DAY } from "@wnext/engine";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -37,20 +39,24 @@ async function mount(views: ViewsSource = createDemoViewsSource(demoSeedViews(),
 // Grille virtualisée : le nombre de personnes se lit dans le coin de la grille (les lignes DOM ne sont que celles de la fenêtre).
 const rows = () => [...host.querySelectorAll("[role=rowheader] .wn-person-name")].map((e) => e.textContent).filter(Boolean); // lignes recyclées vides écartées
 const count = () => Number(/(\d+) personnes?/.exec(host.querySelector(".wn-corner")!.textContent!)![1]); // compteur dans le coin de la grille (RT-061)
-const viewSelect = () => host.querySelector<HTMLSelectElement>(".wn-views-row select")!;
-const button = (label: string) => [...document.body.querySelectorAll<HTMLButtonElement>(".wn-views button, .wn-filters-panel button, [role=dialog] button")].find((b) => b.textContent === label);
-const status = () => host.querySelector(".wn-views [role=status]")!.textContent;
+const panel = () => host.querySelector<HTMLElement>(".wn-filters-panel");
+/** Liste des vues, en tête du panneau Filtres (ouvert par openPanel). */
+const viewSelect = () => panel()!.querySelector<HTMLSelectElement>(".wn-views-pick select")!;
+const button = (label: string) => [...document.body.querySelectorAll<HTMLButtonElement>(".wn-filters-panel button, [role=dialog] button")].find((b) => b.textContent === label);
+const status = () => host.querySelector("[data-views-status]")!.textContent;
 const optionNames = () => [...viewSelect().options].map((o) => o.textContent);
 const filtersButton = () => [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] button")].find((b) => /^Filtres/.test(b.textContent ?? ""))!;
 const zoomPressed = () => [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] [aria-pressed=true]")].map((b) => b.textContent);
+async function openPanel() { if (!panel()) await click(filtersButton()); }
 
 async function choose(id: string) {
+  await openPanel();
   await act(async () => { viewSelect().value = id; viewSelect().dispatchEvent(new Event("change", { bubbles: true })); });
   await flush();
 }
 /** Filtres du panneau dépliable sous la barre d'outils (RT-025) : le panneau est ouvert s'il ne l'est pas. */
 async function pickOptions(label: string, values: string[]) {
-  if (!host.querySelector(".wn-filter")) await click(filtersButton());
+  await openPanel();
   const select = [...host.querySelectorAll<HTMLElement>(".wn-filter")].find((l) => l.firstElementChild?.textContent === label)!.querySelector("select")!;
   await act(async () => {
     for (const o of select.options) o.selected = values.includes(o.value);
@@ -65,16 +71,43 @@ async function type(input: HTMLInputElement, value: string) {
   });
 }
 async function saveCurrent(name: string, shared = false) {
+  await openPanel();
   await click(button("Enregistrer la vue…"));
   await type(document.body.querySelector<HTMLInputElement>(".wn-views-form input[type=text]")!, name);
   if (shared) await act(async () => { document.body.querySelector<HTMLInputElement>(".wn-views-form input[type=checkbox]")!.click(); });
   await click(button("Enregistrer"));
 }
 
+describe("vues dans le panneau Filtres (RT-058)", () => {
+  it("plus de ligne des vues : « Vue » en tête du panneau, puis les filtres, et les actions d'enregistrement en pied", async () => {
+    await mount();
+    expect(host.querySelector(".wn-views-row")).toBeNull();
+    expect(host.querySelector("select")).toBeNull(); // panneau fermé : aucune liste hors du panneau
+    await openPanel();
+    const parts = [...panel()!.children].map((c) => c.className.split(" ")[0]);
+    expect(parts).toEqual(["wn-views-pick", "wn-filters", "wn-views-actions"]);
+    expect(panel()!.querySelector(".wn-views-pick label")!.textContent).toContain("Vue");
+    expect([...panel()!.querySelectorAll(".wn-views-actions button")].map((b) => b.textContent)).toEqual(["Enregistrer la vue…"]);
+  });
+
+  it("le bouton Filtres porte le nom de la vue active, et ● (annoncé « vue modifiée ») quand elle est modifiée", async () => {
+    await mount();
+    expect(filtersButton().textContent).toBe("Filtres");
+    await choose("demo-view-1"); // Design seniors : département 1 et rôle 1
+    expect(filtersButton().textContent).toBe("Filtres (2) · Design seniors");
+    await pickOptions("Département", ["1", "2"]);
+    expect(filtersButton().textContent).toBe("Filtres (2) · Design seniors ● (vue modifiée)");
+    expect(filtersButton().querySelector("[aria-hidden=true]")!.textContent).toContain("●");
+    await choose("");
+    expect(filtersButton().textContent).toBe("Filtres");
+  });
+});
+
 describe("vues sauvegardées dans l'écran", () => {
   it("par défaut « Tout le monde » : toutes les lignes, vues de la source listées (partagées signalées)", async () => {
     await mount();
     expect(count()).toBe(12);
+    await openPanel();
     expect(viewSelect().value).toBe("");
     expect(optionNames()).toEqual(["Tout le monde", "Design seniors (partagée)", "Projet A", "Équipe Produit par rôle (partagée)"]);
   });
@@ -170,23 +203,26 @@ describe("vues sauvegardées dans l'écran", () => {
   it("?view=<id> à l'ouverture applique la vue (rechargement) ; id inconnu ignoré", async () => {
     history.replaceState(null, "", "/?view=demo-view-1");
     await mount();
+    await openPanel();
     expect(viewSelect().value).toBe("demo-view-1");
     expect(count()).toBeLessThan(12);
     act(() => root!.unmount());
     host.remove();
     history.replaceState(null, "", "/?view=nope");
     await mount();
+    await openPanel();
     expect(viewSelect().value).toBe("");
     expect(count()).toBe(12);
   });
 
-  it("sans source de vues, ni barre ni filtres", async () => {
+  it("sans source de vues, ni vues ni filtres", async () => {
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
     act(() => root!.render(<ScheduleScreen i18n={createI18n("fr")} data={demoSchedule(TODAY, 3)} today={TODAY} widthPx={GUTTER_PX + 960} heightPx={480} clock={clock} />));
     await flush();
-    expect(host.querySelector(".wn-views")).toBeNull();
+    expect(host.querySelector("[data-views-status]")).toBeNull();
+    expect([...host.querySelectorAll("button")].some((b) => /^Filtres/.test(b.textContent ?? ""))).toBe(false);
     expect(count()).toBe(3);
   });
 
