@@ -114,7 +114,7 @@ WNEXT est un outil de travail de professionnel : un registre tenu à jour, où l
 
 Le système est plat. Le fond est blanc, le texte anthracite, et une seule couleur d'accent, le pétrole, sert aux actions principales et à la période courante. Les ombres n'apparaissent que pour les popovers et le panneau latéral. Tout le reste se sépare par une bordure de 1 px.
 
-Le caractère voulu pour les composants est « franc et tactile » (décision du 2026-10-23). Ce caractère n'est pas encore implémenté : aujourd'hui, le retour au survol et à l'appui ne passe que par la couleur (voir Components).
+Le caractère voulu pour les composants est « franc et tactile » (décision du 2026-10-23). Il est en place dans la barre du Planning : un bouton s'enfonce d'un pixel à l'appui. Le survol reste une variation de couleur (voir Components).
 
 **Key Characteristics:**
 - Fond blanc, texte anthracite, une seule couleur d'accent.
@@ -216,7 +216,7 @@ Chaque composant part du caractère sobre actuel. Le caractère « franc et tact
 - **Outline:** fond blanc, bordure forte, texte anthracite. Survol : fond papier froid. État enfoncé : fond papier froid et graisse 600.
 - **Destructive:** fond rouge alerte plein, texte blanc. Réservé aux confirmations (BR-04, BR-10, BR-31).
 - **Link:** nom d'une ligne (projet, personne) qui ouvre sa fiche. Sans cadre, souligné au survol.
-- **Gap to the intended character (not implemented):** le caractère « franc et tactile » demande un retour au survol et à l'appui plus marqué (léger déplacement ou élévation). Aujourd'hui, seul le changement de couleur existe. À traiter en raffinement, sans changer les formes.
+- **Tactile (en place dans le Planning) :** à l'appui, le bouton descend d'un pixel (`translateY(1px)`), transition de 80 ms. Le survol ne se déplace pas : l'ombre reste réservée aux états superposés (Flat-By-Default Rule).
 
 ### Chips (filtres)
 - **Style:** fond papier froid, bordure 1 px, rayon plein. Texte 12 px.

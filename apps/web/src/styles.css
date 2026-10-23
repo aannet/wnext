@@ -44,7 +44,9 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-display-menu { display: flex; flex-direction: column; gap: var(--space-3); }
 .wn-header { background: var(--surface); border-bottom: 1px solid var(--border); }
 .wn-corner { background: var(--surface); }
-.wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; overflow: hidden; white-space: nowrap; color: var(--text-muted); border-left: 1px solid var(--wn-grid-line); }
+.wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; white-space: nowrap; color: var(--text-muted); border-left: 1px solid var(--wn-grid-line); }
+/* Libellé collant (grid-header.ts) : son défilement est celui de la grille, pas celui de la cellule ; il est coupé dans la cellule. */
+.wn-colheader-label { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: top; }
 /* Calendrier (L-I) : samedi et dimanche grisés en vue jour (Q9) ; période courante en couleur d'accent, soulignée (RT-027). */
 .wn-colheader-weekend { background: var(--wn-nonwork-hatch); }
 .wn-colheader-current { box-shadow: inset 0 -3px 0 var(--accent); background-color: var(--wn-col-current); color: var(--color-accent); font-weight: var(--font-weight-semibold); }
@@ -163,6 +165,9 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-subheader, .wn-schedule-container { accent-color: var(--accent); }
 .wn-subheader ::selection, .wn-schedule-container ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); color: inherit; }
 .wn-schedule > .wn-grid { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent; }
+/* Caractère « franc et tactile » (DESIGN.md, Components) : un bouton du Planning s'enfonce d'un pixel à l'appui. */
+.wn-subheader button, .wn-toolbar button, .wn-quick button { transition: transform var(--duration-fast) var(--ease-standard), background-color var(--duration-fast), border-color var(--duration-fast); }
+.wn-subheader button:not(:disabled):active, .wn-toolbar button:not(:disabled):active, .wn-quick button:not(:disabled):active { transform: translateY(1px); }
 .wn-quick-field { position: relative; flex: 1 1 280px; }
 .wn-quick-field input { width: 100%; box-sizing: border-box; }
 .wn-quick-preview { flex-basis: 100%; min-height: 1.2em; color: var(--color-text-soft); font-size: 13px; }

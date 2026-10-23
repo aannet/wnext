@@ -21,11 +21,13 @@ export function columnsBackground(items: readonly HeaderItem[]): string {
 
 export interface HeaderRenderer {
   render(items: readonly HeaderItem[], surfaceWidth: number): void;
+  /** Décale les libellés des colonnes à moitié cachées par le coin, à chaque défilement (sans repeindre les cellules). */
+  scroll(scrollLeft: number): void;
   stats(): { cellsCreated: number };
   destroy(): void;
 }
 
-interface CellEl { el: HTMLDivElement; text: Text; x: number; w: number; label: string; kind: string }
+interface CellEl { el: HTMLDivElement; labelEl: HTMLSpanElement; text: Text; x: number; w: number; label: string; kind: string }
 
 export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number; gutterPx: number }): HeaderRenderer {
   const bar = document.createElement("div");
@@ -43,6 +45,15 @@ export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number
   const free: CellEl[] = [];
   let cellsCreated = 0;
   let width = -1;
+  let scrolled = 0;
+
+  // Une colonne qui commence avant la zone visible (sous le coin) garde son libellé visible : il glisse jusqu'à la limite de sa cellule.
+  const placeLabel = (c: CellEl) => {
+    const hidden = scrolled + opts.gutterPx - c.x;
+    const room = Math.max(0, c.w - 2 * 4 - c.labelEl.offsetWidth);
+    const shift = Math.min(Math.max(0, hidden), room);
+    c.labelEl.style.transform = shift > 0 ? `translateX(${shift}px)` : "";
+  };
 
   const take = (): CellEl => {
     const c = free.pop();
@@ -53,10 +64,13 @@ export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number
     el.setAttribute("role", "columnheader");
     el.style.position = "absolute";
     el.style.top = "0";
+    const labelEl = document.createElement("span");
+    labelEl.className = "wn-colheader-label";
     const text = document.createTextNode("");
-    el.appendChild(text);
+    labelEl.appendChild(text);
+    el.appendChild(labelEl);
     bar.appendChild(el);
-    return { el, text, x: NaN, w: NaN, label: "", kind: "" };
+    return { el, labelEl, text, x: NaN, w: NaN, label: "", kind: "" };
   };
 
   return {
@@ -80,6 +94,7 @@ export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number
         if (c.x !== i.x) { c.el.style.transform = `translateX(${i.x}px)`; c.x = i.x; }
         if (c.w !== i.w) { c.el.style.width = `${i.w}px`; c.w = i.w; }
         if (c.label !== i.label) { c.text.data = i.label; c.label = i.label; }
+        placeLabel(c);
         const kind = `${i.current ? "c" : ""}${i.weekend ? "w" : ""}`;
         if (c.kind !== kind) {
           c.el.className = `wn-colheader${i.current ? " wn-colheader-current" : ""}${i.weekend ? " wn-colheader-weekend" : ""}`;
@@ -88,6 +103,10 @@ export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number
           c.kind = kind;
         }
       }
+    },
+    scroll(scrollLeft) {
+      scrolled = scrollLeft;
+      for (const c of active.values()) placeLabel(c);
     },
     stats: () => ({ cellsCreated }),
     destroy() {

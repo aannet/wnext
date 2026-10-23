@@ -214,6 +214,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
     const originX = GUTTER_PX + (dayNumber(m.from) - first) * pxPerDay;
     const period = visibleRange(viewAtScroll(track, sl, zoom, tl(), pxPerDay));
     grid.render(m, Math.max(0, root.scrollTop - HEADER_PX), heightPx - HEADER_PX, { surfaceWidth, originX, left, right }, period);
+    header.scroll(sl);
     const key = `${left}:${right}:${zoom}:${track.first}:${track.last}:${today}`;
     if (key === headerKey) return;
     headerKey = key;
