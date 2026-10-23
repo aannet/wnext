@@ -103,6 +103,8 @@ const options = async (label: string) => {
 };
 const dblclick = async (el: Element) => { act(() => { el.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })); }); await flush(); };
 const submit = async () => { act(() => { dialog()!.querySelector("form")!.requestSubmit(); }); await flush(); };
+/** Création au clavier : touche N sur la grille (le bouton « + Allocation » est retiré, RT-060). */
+const newAllocation = async () => { const g = host.querySelector<HTMLElement>("[role=grid]")!; act(() => g.focus()); key(g, "n"); await flush(); };
 
 describe("édition d'un bloc (RT-011, RT-013, RT-014)", () => {
   it("double clic : pop-in ancrée, onglet Projet / tâche, champs du bloc", async () => {
@@ -158,12 +160,11 @@ describe("édition d'un bloc (RT-011, RT-013, RT-014)", () => {
 });
 
 describe("création (RT-015, RT-016)", () => {
-  it("« + Allocation » pour deux personnes : un groupe, deux blocs ; Ctrl+Z retire les deux", async () => {
+  it("touche N (RT-060) pour deux personnes : un groupe, deux blocs ; Ctrl+Z retire les deux", async () => {
     const { src, history } = mount([]);
-    await click("+ Allocation");
+    await newAllocation();
     expect(title()).toBe("Nouvelle allocation");
-    const boxes = [...dialog()!.querySelectorAll<HTMLInputElement>(".wn-slot-people input[type=checkbox]")];
-    act(() => { boxes[0]!.click(); });
+    // N prérempli la première ligne visible (Alice) : on ajoute Bruno.
     act(() => { [...dialog()!.querySelectorAll<HTMLInputElement>(".wn-slot-people input[type=checkbox]")].find((b) => !b.checked)!.click(); });
     expect(dialog()!.textContent).toContain("2 personnes sélectionnées");
     await choose("Projet", "ref");
@@ -179,7 +180,9 @@ describe("création (RT-015, RT-016)", () => {
 
   it("sans personne ni projet : contrôles affichés, rien d'écrit", async () => {
     const { src } = mount([]);
-    await click("+ Allocation");
+    await newAllocation();
+    // La personne préremplie par N (Alice) est décochée.
+    act(() => { dialog()!.querySelector<HTMLInputElement>(".wn-slot-people input:checked")!.click(); });
     await submit();
     expect([...dialog()!.querySelectorAll("[role=alert] li")].map((l) => l.textContent)).toEqual(["Choisissez au moins une personne.", "Choisissez un projet."]);
     expect(src.getState().data!.allocations).toEqual([]);
@@ -385,7 +388,7 @@ describe("éditeur en drawer (RT-024, Q8) et formulaire modifié (Q7)", () => {
     expect(dialog()!.dataset.variant).toBe("drawer");
     expect(dialog()!.style.position).toBe("");
     await click("Annuler");
-    await click("+ Allocation");
+    await newAllocation();
     expect(title()).toBe("Nouvelle allocation");
     expect(dialog()!.dataset.variant).toBe("drawer");
   });

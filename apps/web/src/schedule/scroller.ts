@@ -102,6 +102,8 @@ export interface Scroller {
   showLoad(): boolean;
   /** Affiche ou masque toute la bande de capacité (RT-052) ; lignes raccourcies, la personne en haut de la vue y reste. */
   setShowLoad(on: boolean): void;
+  /** Texte du coin au-dessus de la colonne des personnes (compteur, RT-061), annoncé poliment à chaque changement. */
+  setCornerLabel(text: string): void;
   /**
    * Amène la ligne d'une personne dans la vue (défilement vertical seul, rien si elle est déjà entièrement visible) et la met en
    * évidence quelques secondes. False si elle n'est pas dans le modèle (écartée par les filtres) : rien ne bouge.
@@ -405,6 +407,7 @@ export function createScroller(o: ScrollerOptions): Scroller {
       if (on === showLoad) return;
       reflow(() => { showLoad = on; });
     },
+    setCornerLabel: (text) => header.setCorner(text),
     revealPerson(personId) {
       const row = model?.rows.find((r) => r.personId === personId);
       if (!row) return false;

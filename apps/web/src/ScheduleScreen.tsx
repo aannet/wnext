@@ -11,19 +11,24 @@
 //    si la pile est vide, et raccourcis Ctrl+Z, Ctrl+Maj+Z, Ctrl+Y (Cmd sur Mac) écoutés sur le document, ignorés dans un
 //    champ de saisie ou une boîte de dialogue. Le résultat est annoncé dans la région aria-live des écritures.
 //  * Pop-in du créneau (schedule/slot-editor-ui, RT-011 à RT-018) si une source d'écritures est fournie (`records`) : Q5
-//    (clic = sélection ; double clic, Entrée ou clic sur le bloc sélectionné = édition), création par le bouton
-//    « + Allocation » ou par clic / glisser en zone libre (bloc provisoire), onglets « Projet / tâche » et « Congé ».
-//  * Congés (BR-04, schedule/timeoff-ui, dans l'onglet « Congé » de la pop-in) : bouton « Nouveau congé » et
-//    touche C sur la grille (sur un bloc : sa personne et son premier jour ; sur un congé, ou un jour couvert par un congé :
+//    (clic = sélection ; double clic, Entrée ou clic sur le bloc sélectionné = édition), création par clic / glisser en zone
+//    libre (bloc provisoire) ou par la touche N (RT-060), onglets « Projet / tâche » et « Congé ».
+//  * Création au clavier (recette n°4, D1 : RT-057, RT-060, ADR-002 §5 amendé) : ni barre de saisie rapide ni boutons de
+//    création. N ouvre le drawer de création prérempli (personne du bloc focalisé, sinon première ligne visible ; jour du bloc,
+//    sinon aujourd'hui). Fermé sans écriture, il rend le focus au bloc d'origine, sinon à la grille. N, C et T sont annoncés
+//    par aria-keyshortcuts sur la grille ; les touches viennent de shell/shortcuts (source unique de l'aide, RT-064). Une
+//    grille sans aucun bloc porte une indication unique (« Cliquez ou glissez dans la grille pour planifier »).
+//  * Congés (BR-04, schedule/timeoff-ui, dans l'onglet « Congé » de la pop-in) : touche C sur la grille (sur un bloc : sa
+//    personne et son premier jour ; sinon la première ligne visible ; sur un congé, ou un jour couvert par un congé :
 //    modification), clic ou Entrée sur un congé pour le modifier, double clic sur une case vide pour en créer un.
-//  * Saisie rapide (schedule/quick-entry-ui) si une source d'écritures est fournie : barre au-dessus de la grille, touche
-//    « / » ou N sur la grille (sur un bloc : sa personne), création annulable par Ctrl+Z.
 //  * Vues sauvegardées (schedule/views-ui) si une source de vues est fournie : filtres (département, rôle, projet, personne, tri)
 //    appliqués côté client aux lignes (schedule/view-filters) ; seule la grille reçoit les données filtrées, les éditeurs gardent
-//    les données complètes.
-//  * Recherche (RT-038, schedule/search-ui) : bouton « Rechercher » du niveau 1 et raccourci Ctrl+K (Cmd+K sur Mac), ignoré
-//    dans une autre fenêtre modale, dans une zone de texte (textarea, contenteditable) et quand l'événement est déjà traité. Une
-//    personne choisie est amenée dans la vue et mise en évidence (Scroller.revealPerson), focus à la grille, annoncé. Si un filtre la
+//    les données complètes. Les vues vivent dans le panneau Filtres (RT-058) : « Vue » en tête, enregistrement en pied, nom de
+//    la vue active sur le bouton Filtres.
+//  * Recherche (RT-038, RT-059) : le bouton « Rechercher », le raccourci Ctrl+K et la palette appartiennent à la coque
+//    (shell/global-search) ; l'écran s'y inscrit comme cible (useSearchTarget) avec ses personnes, celles masquées par les
+//    filtres, ses projets et son choix. Une personne choisie est amenée dans la vue et mise en évidence (Scroller.revealPerson),
+//    focus à la grille, annoncé ; `reveal` fait de même au montage (Planning ouvert depuis un autre écran, ?personne=). Si un filtre la
 //    masque, la palette demande confirmation ; confirmée, les critères sont retirés (le tri est gardé) et la barre des filtres propose
 //    « Rétablir les filtres » (les critères d'avant, à l'identique) jusqu'au prochain changement de filtre ou de vue. Cela n'a rien
 //    à voir avec l'historique des allocations (Ctrl+Z). Un projet choisi est confié à `onOpenProject` (écran Projets). Rien n'est
@@ -34,9 +39,10 @@
 //    de portée série / groupe dans le drawer), Ctrl+D (Cmd+D) duplique juste après le bloc (copie sélectionnée et focalisée),
 //    S ouvre l'étape « Scinder » ; mêmes commandes en tête du menu contextuel, et Alt + glisser à la souris copie le bloc à la
 //    place du fantôme. Toutes annulables par Ctrl+Z, sauf la suppression d'une occurrence (découpe).
-//  * En-tête en deux niveaux (RT-025) : niveau 1 = titre, vue sauvegardée, statut et actions de création ; niveau 2 (barre
-//    d'outils) = Filtres (compteur, puces, panneau dépliable, schedule/filters-ui), annuler / rétablir, navigation, zoom,
-//    menu Affichage, nombre de personnes.
+//  * En-tête sur une seule ligne (RT-025 ; recette n°4, « Planning cible ») : le titre puis la barre d'outils = Filtres (compteur,
+//    nom de la vue, puces, panneau dépliable avec les vues, schedule/filters-ui), statut (`actions`), annuler / rétablir,
+//    navigation, zoom, menu Affichage. Le nombre de personnes affichées est dans le coin de la grille, au-dessus de la colonne
+//    Personnes (RT-061).
 //  * Menu Affichage (Popover) : densité et bascule « Charge » (RT-052, D3, amende Q11) : affiche ou masque toute la bande de
 //    capacité (graphique et chiffres) ; éteinte, les lignes sont raccourcies. Active au montage, état en mémoire seulement.
 //  * Densité (RT-005 à RT-007, schedule/density) : contrôle segmenté (groupe de boutons radio, flèches gauche / droite) dans
@@ -63,17 +69,17 @@ import { useScheduleEdits, type FocusTarget } from "./schedule/edits-ui";
 import type { History, HistoryDirection, HistoryResult, HistoryState } from "./schedule/history";
 import { createScroller, type Clock, type Scroller } from "./schedule/scroller";
 import { useSlotEditor, type SlotCatalog } from "./schedule/slot-editor-ui";
-import { QuickEntry, type QuickEntryHandle } from "./schedule/quick-entry-ui";
 import { applyViewFilters, clearCriteria, type ViewFilters } from "./schedule/view-filters";
-import { isSearchShortcut, SearchPalette, searchShortcutLabel } from "./schedule/search-ui";
 import type { SearchItem } from "./schedule/search-model";
+import { useSearchTarget } from "./shell/global-search";
 import { DENSITIES, readStoredDensity, storeDensity, type Density } from "./schedule/density";
 import { gaugeLabeler } from "./schedule/gauge-label";
-import { ViewsBar } from "./schedule/views-ui";
+import { useSavedViews } from "./schedule/views-ui";
 import { FilterChips, FiltersButton, FiltersPanel } from "./schedule/filters-ui";
 import { useTeamRemoval, type MenuCommand } from "./schedule/team-removal-ui";
 import type { TeamRemovalEditor } from "./data/team-removal";
 import { Button, Popover, RadioGroup, RadioItem, Switch } from "./design";
+import { ariaKeys, matches } from "./shell/shortcuts";
 
 export interface ScheduleScreenProps {
   i18n: I18n;
@@ -96,7 +102,7 @@ export interface ScheduleScreenProps {
   onOpenProject?(projectId: string): void;
   /** Titre de l'écran (h1), en tête du sous-header ; absent : sous-header sans titre. */
   heading?: ReactNode;
-  /** Zone à droite du sous-header (statut, import) ; absent : rien. */
+  /** Zone de la barre d'outils, après les filtres (statut du temps réel, chargement) ; absent : rien. */
   actions?: ReactNode;
   /** Écritures brutes de la source (congés, report assisté) ; absent : congés en lecture seule. */
   records?: Pick<ScheduleSource, "getState" | "updateAllocation" | "splitOccurrence" | "createTimeoff" | "updateTimeoff" | "deleteTimeoff"
@@ -108,6 +114,8 @@ export interface ScheduleScreenProps {
   me?: Pick<Me, "role" | "person"> & Partial<Pick<Me, "user">>;
   /** État gardé d'un montage à l'autre (PO-02) ; absent : l'écran repart d'aujourd'hui, zoom jour. */
   memory?: ScheduleMemory;
+  /** Personne à révéler au montage (recherche lancée depuis un autre écran, ?personne=, RT-059) ; `onDone` prévient l'appelant. */
+  reveal?: { personId: string; onDone?(): void };
 }
 
 /** Ce que l'écran rend au montage suivant (objet mutable tenu par l'appelant). */
@@ -127,19 +135,9 @@ function ownsUndo(t: EventTarget | null): boolean {
   return t.isContentEditable || t.matches("input, textarea, select") || t.closest("[role=dialog]") !== null;
 }
 
-/** Cible dans une zone de texte multiligne ou un élément contenteditable : Ctrl+K y garde son sens d'édition. */
-function inTextArea(t: EventTarget | null): boolean {
-  if (!(t instanceof HTMLElement)) return false;
-  return t.isContentEditable || t.closest('textarea, [contenteditable]:not([contenteditable="false"])') !== null;
-}
-
 /** Raccourci d'historique d'un événement clavier (Ctrl ou Cmd, sans Alt), ou null. */
 export function historyShortcut(e: Pick<globalThis.KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">): HistoryDirection | null {
-  if (!(e.ctrlKey || e.metaKey) || e.altKey) return null;
-  const k = e.key.toLowerCase();
-  if (k === "z") return e.shiftKey ? "redo" : "undo";
-  if (k === "y" && !e.shiftKey) return "redo";
-  return null;
+  return matches("undo", e) ? "undo" : matches("redo", e) ? "redo" : null;
 }
 
 function headerFormatter(locale: string) {
@@ -151,7 +149,7 @@ function headerFormatter(locale: string) {
   return (c: HeaderCell) => fmt[c.kind].format(new Date(`${c.from}T00:00:00Z`));
 }
 
-export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, heightPx: initialHeightPx, onViewChange, clock, editor, history, records, views, heading, actions, memory, catalog, me, onOpenProject }: ScheduleScreenProps) {
+export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, heightPx: initialHeightPx, onViewChange, clock, editor, history, records, views, heading, actions, memory, catalog, me, onOpenProject, reveal }: ScheduleScreenProps) {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [zoom, setZoom] = useState<Zoom>(memory?.zoom ?? "day");
   const [density, setDensityState] = useState<Density>(() => readStoredDensity());
@@ -168,10 +166,6 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
   const showLoadRef = useRef(showLoad);
   showLoadRef.current = showLoad;
   const displayButton = useRef<HTMLButtonElement>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const searchOpenRef = useRef(false);
-  searchOpenRef.current = searchOpen;
-  const searchButton = useRef<HTMLButtonElement>(null);
   /** Personne choisie dans la recherche, à montrer dès que les lignes affichées sont à jour. */
   const pendingReveal = useRef<{ id: string; name: string; cleared: boolean } | null>(null);
   const uid = useId();
@@ -244,25 +238,11 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [history]);
-  useEffect(() => {
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (!isSearchShortcut(e)) return;
-      if (searchOpenRef.current) { e.preventDefault(); return; }
-      // Événement déjà traité, ou zone de texte où la touche sert à l'édition (un champ simple, lui, ouvre la palette).
-      if (e.defaultPrevented || inTextArea(e.target)) return;
-      // Une autre fenêtre modale (pop-in, import, confirmation) garde le clavier ; un menu ancré (aria-modal=false) ne le garde pas.
-      if (document.querySelector('[role="dialog"]:not([aria-modal="false"]), [role="alertdialog"]')) return;
-      e.preventDefault();
-      setSearchOpen(true);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
   const dataRef = useRef(data);
   dataRef.current = data;
   const blocksRef = useRef<BlockEditor | null>(null);
-  /** Bouton de l'en-tête qui a ouvert le drawer (« Nouveau congé », « + Allocation ») : il retrouve le focus à la fermeture (RT-049). */
-  const slotOpener = useRef<HTMLElement | null>(null);
+  /** Bloc focalisé quand N ou C a ouvert le drawer : il retrouve le focus à la fermeture sans écriture (sinon la grille). */
+  const slotOrigin = useRef<string | null>(null);
   // Projets du référentiel pour les droits d'un chef de projet (BR-33) : lus au montage et relus quand la liste des projets change
   // (source temps réel, écran Projets) ; tant qu'ils manquent (ou sans référentiel), aucune commande : refus par défaut.
   const [managed, setManaged] = useState<ProjectDetail[] | null>(null);
@@ -293,30 +273,38 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     onClosed: ({ key, focus }) => {
       if (focus) focusKey(key ?? "", focus);
       else if (key) focusKey(key);
-      else if (slotOpener.current?.isConnected) slotOpener.current.focus({ preventScroll: true });
+      else if (slotOrigin.current) focusKey(slotOrigin.current); // bloc d'origine (N ou C sur un bloc), sinon la grille
       else gridRef.current?.focus({ preventScroll: true }); // depuis la grille (touche C, N…), congé et création rendent le focus à la grille
-      slotOpener.current = null;
+      slotOrigin.current = null;
     },
   });
   const slotRef = useRef(slot);
   slotRef.current = slot;
-  /** Personne et jour visés par une touche C (bloc focalisé, sinon première ligne au centre de la vue). */
+  /** Première ligne visible (sous l'en-tête collant), sinon la première du modèle. */
+  const firstVisiblePerson = (): string | undefined => {
+    const rows = scroller.current?.host.model()?.rows ?? [];
+    const top = gridRef.current?.scrollTop ?? 0;
+    return (rows.find((r) => r.top + r.heightPx > top) ?? rows[0])?.personId;
+  };
+  /** Personne et jour visés par une touche C (bloc focalisé, sinon première ligne visible au centre de la vue). */
   const openTimeoffAt = (target: EventTarget | null) => {
     const s = scroller.current;
     if (!s) return;
     const off = s.host.timeoffAt?.(target);
     if (off) { slot.openTimeoffEdit(off.timeoff.timeoffId); return; }
     const hit = s.host.blockAt(target);
-    const personId = hit?.row.personId ?? s.host.model()?.rows[0]?.personId;
+    const personId = hit?.row.personId ?? firstVisiblePerson();
+    slotOrigin.current = hit?.block.key ?? null;
     if (personId) slot.openTimeoffAt(personId, hit?.block.startDate ?? fromDayNumber(Math.floor(s.view().center)));
   };
-  /** « + Allocation » : personne du bloc focalisé (sinon à choisir), jour au centre de la vue (ou celui du bloc). */
-  const openCreate = () => {
+  /** Touche N (RT-060) : personne du bloc focalisé, sinon première ligne visible ; jour du bloc, sinon aujourd'hui. */
+  const openCreate = (target: EventTarget | null) => {
     const s = scroller.current;
     if (!s) return;
-    const hit = s.host.blockAt(document.activeElement);
-    const day = hit?.block.startDate ?? fromDayNumber(Math.floor(s.view().center));
-    slot.openCreate({ personId: hit?.row.personId ?? null, startDate: day, endDate: day, draft: null });
+    const hit = s.host.blockAt(target);
+    const day = hit?.block.startDate ?? today;
+    slotOrigin.current = hit?.block.key ?? null;
+    slot.openCreate({ personId: hit?.row.personId ?? firstVisiblePerson() ?? null, startDate: day, endDate: day, draft: null });
   };
   /** Double clic sur une case vide : personne de la ligne, jour de la colonne. */
   const onDoubleClick = (e: { target: EventTarget; clientX: number; clientY: number }) => {
@@ -366,7 +354,6 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     gridRef, blockAt: (t) => scroller.current?.host.blockAt(t) ?? null, announce: (text) => editsRef.current.announce(text),
     onRemoved: (ids) => history?.invalidate("allocations", ids),
     ...(records && editor ? { commands: menuCommands, writable: (id: string) => writableRef.current(allocationOf(id)) } : {}) });
-  const quickRef = useRef<QuickEntryHandle>(null);
   const editorRef = useRef(editor);
   editorRef.current = editor;
 
@@ -422,12 +409,16 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     if (p) focusAt(p.key, p.at, p.select);
     revealPending();
   }, [shown]);
-  // Fenêtre refermée : la personne choisie est montrée ; sans choix, le focus ne reste pas perdu sur le corps de la page.
+  // Compteur de personnes affichées dans le coin de la grille (RT-061), annoncé poliment.
+  const peopleCount = t("schedule.people.count", { count: shown.people.length });
+  useEffect(() => { scroller.current?.setCornerLabel(peopleCount); }, [peopleCount]);
+  // Planning ouvert depuis la recherche d'un autre écran (?personne=, RT-059) : la personne est montrée au montage.
   useEffect(() => {
-    if (searchOpen) return;
-    if (pendingReveal.current) revealPending();
-    else if (document.activeElement === document.body && searchButton.current?.isConnected) searchButton.current.focus({ preventScroll: true });
-  }, [searchOpen]);
+    if (!reveal) return;
+    const person = dataRef.current.people.find((p) => p.id === reveal.personId);
+    if (person) { pendingReveal.current = { id: person.id, name: person.name, cleared: false }; revealPending(); }
+    reveal.onDone?.();
+  }, []);
   useEffect(() => { scroller.current?.resize(widthPx, heightPx); }, [widthPx, heightPx]);
   useEffect(() => {
     const el = gridRef.current;
@@ -450,14 +441,19 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     gridRef.current?.focus({ preventScroll: true });
     editsRef.current.announce(t(p.cleared ? "schedule.search.revealed.cleared" : "schedule.search.revealed", { name: p.name }));
   }
+  /** Choix de la palette (appelé une fois la fenêtre refermée, shell/global-search). */
   const pickSearch = (item: SearchItem) => {
-    setSearchOpen(false);
     if (item.kind === "project") { onOpenProject?.(item.id); return; }
     // La palette a déjà obtenu la confirmation d'une personne masquée.
     const cleared = hiddenIds.has(item.id);
     pendingReveal.current = { id: item.id, name: item.name, cleared };
     if (cleared) { setRemovedFilters(filters); setFilters(clearCriteria(filters)); }
+    else revealPending();
   };
+  useSearchTarget({
+    people: searchPeople, hiddenIds, onPick: pickSearch,
+    ...(onOpenProject ? { projects: searchProjects, ...(records?.listProjects ? { listProjects: records.listProjects } : {}) } : {}),
+  });
   const restoreFilters = () => {
     if (!removedFilters) return;
     setFilters(removedFilters);
@@ -473,81 +469,65 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     const onBlock = e.target !== e.currentTarget;
     if (onBlock && e.key === "Escape") { e.preventDefault(); gridRef.current?.focus({ preventScroll: true }); return; }
     const hit = onBlock ? s.host.blockAt(e.target) : null;
-    const command = hit && hit.el === e.target && !e.altKey && !e.shiftKey
-      ? (e.key === "Delete" || e.key === "Backspace") && !e.ctrlKey && !e.metaKey ? "delete"
-        : (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d" ? "duplicate"
-        : (e.key === "s" || e.key === "S") && !e.ctrlKey && !e.metaKey ? "split" : null
+    const command = hit && hit.el === e.target
+      ? matches("delete", e) ? "delete" : matches("duplicate", e) ? "duplicate" : matches("split", e) ? "split" : null
       : null;
     if (hit && command && writable(allocationOf(hit.block.allocationId))) { e.preventDefault(); blockCommand(command, hit.block.key, hit.block.allocationId); return; }
-    if (records && (e.key === "/" || e.key === "n" || e.key === "N") && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      quickRef.current?.focus(s.host.blockAt(e.target)?.row.personId);
-      return;
-    }
-    if (records && (e.key === "c" || e.key === "C") && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); openTimeoffAt(e.target); return; }
+    if (records && matches("create", e)) { e.preventDefault(); openCreate(e.target); return; }
+    if (records && matches("timeoff", e)) { e.preventDefault(); openTimeoffAt(e.target); return; }
     if (records && e.key === "Enter" && s.host.timeoffAt?.(e.target)) { e.preventDefault(); openTimeoffAt(e.target); return; }
-    if (!onBlock && e.key === "Enter") {
+    if (!onBlock && matches("firstBlock", e)) {
       const first = gridRef.current?.querySelector<HTMLElement>(".wn-block[data-key]");
       if (first) { e.preventDefault(); first.focus({ preventScroll: true }); }
       return;
     }
-    if (e.key === "t" || e.key === "T") s.today();
+    if (matches("today", e)) s.today();
     else if (onBlock) return;
-    else if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); s.nudge(e.key === "ArrowLeft" ? -1 : 1); }
+    else if (matches("scroll", e)) { e.preventDefault(); s.nudge(e.key === "ArrowLeft" ? -1 : 1); }
   };
+  const saved = useSavedViews({ i18n, shownCount: shown.people.length, source: views, filters, zoom, density, onFilters: changeFilters, onZoom: zoomTo, onDensity: densityTo });
 
   return (
     <div className="wn-schedule" data-density={density}>
+      {/* Une seule ligne au-dessus de la grille (recette n°4, « Planning cible ») : le titre, puis la barre d'outils. */}
       <div className="wn-subheader">
         {heading}
-        {views && <ViewsBar i18n={i18n} shownCount={shown.people.length} source={views} filters={filters} zoom={zoom} density={density} onFilters={changeFilters} onZoom={zoomTo} onDensity={densityTo} />}
-        <div className="wn-subheader-end">
-          {actions}
-          <Button ref={searchButton} type="button" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" onClick={() => setSearchOpen(true)}>
-            {t("schedule.search.open")}
-            <kbd data-shortcut="" className="rounded-sm border border-solid border-input bg-muted px-1 font-[inherit] text-caption text-muted-foreground">{searchShortcutLabel()}</kbd>
-          </Button>
-          {records && (
+        <div role="toolbar" aria-label={t("schedule.toolbar.label")} className="wn-toolbar">
+          {views && (
             <>
-              <Button type="button" aria-keyshortcuts="C" aria-haspopup="dialog" onClick={(e) => { const from = document.activeElement; slotOpener.current = e.currentTarget; openTimeoffAt(from); }}>{t("schedule.timeoff.new")}</Button>
-              <Button type="button" variant="primary" aria-haspopup="dialog" onClick={(e) => { slotOpener.current = e.currentTarget; openCreate(); }}>{t("schedule.slot.add")}</Button>
+              <FiltersButton i18n={i18n} filters={filters} expanded={filtersOpen} controls={`${uid}-filters`} onToggle={() => setFiltersOpen((o) => !o)} view={saved.current} />
+              <FilterChips i18n={i18n} data={data} filters={filters} onFilters={changeFilters} />
+              {removedFilters && <Button type="button" onClick={restoreFilters}>{t("schedule.filters.restore")}</Button>}
+              {saved.status}
             </>
           )}
+          <div className="wn-toolbar-spacer" />
+          {actions}
+          {history && (
+            <>
+              <Button type="button" disabled={!stack.canUndo} aria-keyshortcuts={ariaKeys("undo")} onClick={() => stepRef.current("undo")}>
+                {t("schedule.history.undo")}
+              </Button>
+              <Button type="button" disabled={!stack.canRedo} aria-keyshortcuts={ariaKeys("redo")} onClick={() => stepRef.current("redo")}>
+                {t("schedule.history.redo")}
+              </Button>
+            </>
+          )}
+          <Button type="button" onClick={() => scroller.current?.step(-1)}>{t("schedule.prev")}</Button>
+          <Button type="button" onClick={() => scroller.current?.today()}>{t("schedule.today")}</Button>
+          <Button type="button" onClick={() => scroller.current?.step(1)}>{t("schedule.next")}</Button>
+          <div role="group" aria-label={t("schedule.zoom.label")} className="wn-button-group">
+            {ZOOMS.map((z) => (
+              <Button key={z} type="button" aria-pressed={zoom === z} onClick={() => zoomTo(z)}>
+                {t(`schedule.zoom.${z}`)}
+              </Button>
+            ))}
+          </div>
+          <Button ref={displayButton} type="button" aria-haspopup="dialog" aria-expanded={displayOpen} onClick={() => setDisplayOpen((o) => !o)}>{t("schedule.display")}</Button>
         </div>
       </div>
-      <div role="toolbar" aria-label={t("schedule.toolbar.label")} className="wn-toolbar">
-        {views && (
-          <>
-            <FiltersButton i18n={i18n} filters={filters} expanded={filtersOpen} controls={`${uid}-filters`} onToggle={() => setFiltersOpen((o) => !o)} />
-            <FilterChips i18n={i18n} data={data} filters={filters} onFilters={changeFilters} />
-            {removedFilters && <Button type="button" onClick={restoreFilters}>{t("schedule.filters.restore")}</Button>}
-          </>
-        )}
-        <div className="wn-toolbar-spacer" />
-        {history && (
-          <>
-            <Button type="button" disabled={!stack.canUndo} aria-keyshortcuts="Control+Z Meta+Z" onClick={() => stepRef.current("undo")}>
-              {t("schedule.history.undo")}
-            </Button>
-            <Button type="button" disabled={!stack.canRedo} aria-keyshortcuts="Control+Shift+Z Control+Y Meta+Shift+Z" onClick={() => stepRef.current("redo")}>
-              {t("schedule.history.redo")}
-            </Button>
-          </>
-        )}
-        <Button type="button" onClick={() => scroller.current?.step(-1)}>{t("schedule.prev")}</Button>
-        <Button type="button" onClick={() => scroller.current?.today()}>{t("schedule.today")}</Button>
-        <Button type="button" onClick={() => scroller.current?.step(1)}>{t("schedule.next")}</Button>
-        <div role="group" aria-label={t("schedule.zoom.label")} className="wn-button-group">
-          {ZOOMS.map((z) => (
-            <Button key={z} type="button" aria-pressed={zoom === z} onClick={() => zoomTo(z)}>
-              {t(`schedule.zoom.${z}`)}
-            </Button>
-          ))}
-        </div>
-        <Button ref={displayButton} type="button" aria-haspopup="dialog" aria-expanded={displayOpen} onClick={() => setDisplayOpen((o) => !o)}>{t("schedule.display")}</Button>
-        <span className="wn-people-count">{t("schedule.people.count", { count: shown.people.length })}</span>
-      </div>
-      {views && filtersOpen && <FiltersPanel i18n={i18n} data={data} filters={filters} onFilters={changeFilters} id={`${uid}-filters`} />}
+      {views && filtersOpen && <FiltersPanel i18n={i18n} data={data} filters={filters} onFilters={changeFilters} id={`${uid}-filters`} header={saved.picker} footer={saved.actions} />}
+      {saved.dialog}
       {displayOpen && displayButton.current && (
         <Popover anchor={displayButton.current} label={t("schedule.display")} className="wn-display-menu" onClose={() => setDisplayOpen(false)}>
           <RadioGroup aria-label={t("schedule.density.label")} value={density} onValueChange={(v) => densityTo(v as Density)}
@@ -557,18 +537,12 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
           <Switch checked={showLoad} onCheckedChange={(on) => { scroller.current?.setShowLoad(on); setShowLoad(on); }}>{t("schedule.display.load")}</Switch>
         </Popover>
       )}
-      {records && (
-        <QuickEntry ref={quickRef} i18n={i18n} data={data} today={today} createAllocation={records.createAllocation} listProjects={records.listProjects} onProjectsChange={records.onProjectsChange} record={history?.record}
-          announce={(text) => editsRef.current.announce(text)} onExit={() => gridRef.current?.focus({ preventScroll: true })} />
-      )}
+      {records && data.allocations.length === 0 && <p className="wn-grid-hint">{t("schedule.grid.hint")}</p>}
       <div ref={gridRef} role="grid" aria-label={t("schedule.grid.label")} tabIndex={0} onKeyDown={onKeyDown}
+        aria-keyshortcuts={records ? ariaKeys("create", "timeoff", "today") : ariaKeys("today")}
         onClick={(e) => { const off = records && scroller.current?.host.timeoffAt?.(e.target); if (off) slot.openTimeoffEdit(off.timeoff.timeoffId); }}
         onDoubleClick={records ? onDoubleClick : undefined}
         className="wn-grid" />
-      {searchOpen && (
-        <SearchPalette i18n={i18n} people={searchPeople} hiddenIds={hiddenIds} onPick={pickSearch} onClose={() => setSearchOpen(false)}
-          {...(onOpenProject ? { projects: searchProjects, ...(records?.listProjects ? { listProjects: records.listProjects } : {}) } : {})} />
-      )}
       {slot.element}
       {removal.element}
       {edits.element}

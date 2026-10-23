@@ -144,7 +144,7 @@ describe("scroller : séparateurs, période courante, week-end (RT-026, RT-027, 
     expect(cell("2026-10-19")!.getAttribute("aria-current")).toBe("date");
     expect(document.querySelectorAll(".wn-colheader-weekend")).toHaveLength(0);
     const surface = s.host.surface;
-    const cells = document.querySelectorAll("[role=columnheader]").length;
+    const cells = document.querySelectorAll("[role=columnheader][data-from]").length;
     expect(surface.style.background.match(/var\(--wn-grid-line\)/g)).toHaveLength(2 * cells);
     expect(surface.style.background).toContain("var(--wn-col-current)");
     s.destroy();

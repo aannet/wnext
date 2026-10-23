@@ -1,13 +1,12 @@
 // @vitest-environment jsdom
 // Écran Personnes (lot L-F2 : RT-012, US-1.1, BR-19, BR-31) : liste filtrable, création en trois champs, fiche dans le Drawer commun
 // (horaire sur 7 jours selon week_start, modification datée, refus PERSON_HISTORY_LOCKED traduit, conflit de version), désactivation avec
-// récapitulatif, lecture seule pour member et guest, import CSV réservé aux owner et admin.
+// récapitulatif, lecture seule pour member et guest ; plus d'import ici (RT-054 : Réglages > Import, test import-button).
 import type { Me } from "@wnext/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { demoSchedule } from "../src/demo";
-import { createDemoImportSource, demoImportSnapshot, type ImportSource } from "../src/data/import-source";
 import { createDemoDirectory, type PeopleSource, type ReferenceSource } from "../src/data/people-source";
 import { createI18n } from "../src/i18n";
 import { PeopleScreen } from "../src/people/people-screen";
@@ -28,13 +27,13 @@ function directory(memberIds?: readonly string[]) {
 const account = (weekStart = 1): Me["account"] => ({ id: "1", name: "Démo", timezone: "Europe/Paris", weekStart, defaultLocale: "fr" });
 const now = () => new Date(`${TODAY}T10:00:00Z`);
 
-async function mount(source: PeopleSource, reference: ReferenceSource, props: { canEdit?: boolean; weekStart?: number; locale?: "fr" | "en"; imports?: ImportSource; ownOnly?: boolean } = {}) {
+async function mount(source: PeopleSource, reference: ReferenceSource, props: { canEdit?: boolean; weekStart?: number; locale?: "fr" | "en"; ownOnly?: boolean } = {}) {
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
   act(() => root!.render(
     <PeopleScreen i18n={createI18n(props.locale ?? "fr")} source={source} reference={reference} account={account(props.weekStart)} canEdit={props.canEdit ?? true} now={now}
-      {...(props.imports ? { imports: props.imports } : {})} {...(props.ownOnly ? { ownOnly: true } : {})} />,
+      {...(props.ownOnly ? { ownOnly: true } : {})} />,
   ));
   await flush();
 }
@@ -396,15 +395,11 @@ describe("droits", () => {
     expect(top().textContent).toContain("Vous n’avez pas le droit de faire cette modification.");
   });
 
-  it("l'import CSV n'est offert qu'avec une source d'import (owner, admin)", async () => {
+  // RT-054 : l'import n'a plus qu'une entrée, Réglages > Import (lien depuis l'état vide : import-button.test.tsx).
+  it("aucun bouton « Importer » dans Personnes", async () => {
     const d = directory();
     await mount(d.people, d.reference);
     expect(button("Importer", page())).toBeUndefined();
-    act(() => root!.unmount());
-    host.remove();
-    await mount(d.people, d.reference, { imports: createDemoImportSource(demoImportSnapshot(demoSchedule(TODAY), TODAY)) });
-    await click(button("Importer", page()));
-    expect(top().querySelector("h2")!.textContent).toBe("Importer un fichier CSV");
   });
 });
 

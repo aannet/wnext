@@ -7,15 +7,15 @@
 import type { Me, ProjectDetail } from "@wnext/contracts";
 import type { ScheduleResponse } from "@wnext/contracts";
 import { AllocationGroupMax } from "@wnext/contracts";
-import { addDays, addMonths, dayNumber, expandOccurrences } from "@wnext/engine";
+import { addDays, addMonths, dayNumber, DEFAULT_HOURS_PER_DAY, expandOccurrences } from "@wnext/engine";
 import type { AllocationCreate, AllocationGroupCreate } from "../api/client.gen";
 import { localSplit, type Allocation, type AllocationEdit, type EditError } from "../data/allocation-edits";
 import { allocationFromCreate } from "../data/record-edits";
 import type { MessageKey } from "../i18n";
 import { editWarnings } from "./edit-warnings";
 
-/** Charge d'une création sans quantité précisée (décision 2026-10-19). */
-export const DEFAULT_HOURS = 8;
+/** Charge d'une création sans quantité précisée (décision 2026-10-19) : une seule source, le moteur (RT-061, D10). */
+export const DEFAULT_HOURS = DEFAULT_HOURS_PER_DAY;
 
 export interface SlotDraft {
   /** null : création. */

@@ -2,18 +2,19 @@
 //  * Par défaut : branché sur l'API (proxy Vite /api) avec temps réel. Identité selon VITE_AUTH_MODE (src/data/auth-fetch.ts) :
 //    `dev` (défaut) en-têtes x-dev-* ; `oidc` écran de connexion WNEXT (bouton « Se connecter » = flux OIDC PKCE, src/data/oidc.ts)
 //    tant qu'il n'y a pas de session. Le profil (GET /me : nom, rôle) est chargé avant la coque (shell/), qui en tire l'en-tête
-//    (« Bonjour {prénom} ») et le masquage des actions réservées (import et réglages : owner, admin ; écritures du planning :
+//    (« Bonjour {prénom} ») et le masquage des actions réservées (réglages, dont l'import, seule entrée : Réglages > Import, RT-054 :
+//    owner, admin, démo comprise ; écritures du planning :
 //    owner, admin, project_manager).
 //  * ?demo=1 : démo locale sans API ni connexion (src/demo.ts), utilisateur fictif « Alec » ; les gestes s'y appliquent
 //    localement (src/data/demo-source.ts), quelques notifications locales (src/data/notifications-source.ts).
 //  * Le Planning est démonté quand on le quitte ; son zoom et sa position sont gardés ici (`memory`, PO-02).
-import type { AccountSettings } from "@wnext/contracts";
+import type { AccountSettings, Me } from "@wnext/contracts";
 import { todayIn } from "@wnext/engine";
 import { createRoot } from "react-dom/client";
 import { createClient } from "./api/client.gen";
 import { createAuthFetch, devAuthProvider, oidcAuthProvider, type AuthProvider } from "./data/auth-fetch";
 import { createDemoSource } from "./data/demo-source";
-import { createApiImportSource, createDemoImportSource, demoImportSnapshot } from "./data/import-source";
+import { createApiImportSource, createDemoImportSource, demoImportSnapshot, type ImportSource } from "./data/import-source";
 import { createApiNotificationsSource, createDemoNotificationsSource, demoNotifications } from "./data/notifications-source";
 import { createApiViewsSource, createDemoViewsSource, demoSeedViews } from "./data/views-source";
 import { browserOidcDeps, createOidcSession, oidcConfigFromEnv, type OidcSession } from "./data/oidc";
@@ -24,7 +25,9 @@ import { createApiAccountSource, createDemoAccountSource, meAccountOf, scheduleA
 import { ScheduleContainer } from "./ScheduleContainer";
 import { ProjectsScreen } from "./projects/projects-screen";
 import { canEditProjects, scheduleProjectOf } from "./projects/projects-model";
-import { createApiPeopleSource, createApiReferenceSource, createDemoDirectory } from "./data/people-source";
+import { createApiPeopleSource, createApiReferenceSource, createDemoDirectory, type PeopleSource } from "./data/people-source";
+import type { ProjectsSource } from "./data/projects-source";
+import { searchSources } from "./shell/global-search";
 import { canEditPeople } from "./people/people-model";
 import { PeopleScreen } from "./people/people-screen";
 import { SettingsScreen } from "./settings/settings-screen";
@@ -32,7 +35,7 @@ import type { ScheduleMemory } from "./ScheduleScreen";
 import { demoSchedule, demoTasks } from "./demo";
 import { App } from "./shell/app";
 import { canAdminister, canEditSchedule, demoMe, loadMe, type MeState } from "./shell/me";
-import { browserRouter } from "./shell/router";
+import { browserRouter, carriedSearch, hrefOf } from "./shell/router";
 import { LoginFailure, LoginScreen } from "./shell/screens";
 
 const params = new URLSearchParams(location.search);
@@ -52,6 +55,24 @@ const projectsProps = () => {
   const id = router.param("projet");
   return id ? { openProjectId: id, onOpenProjectHandled: () => router.clearParam("projet") } : {};
 };
+/** Planning : personne choisie dans la recherche d'un autre écran (/?personne=<id>, RT-059), révélée une seule fois. */
+const revealProps = () => {
+  const id = router.param("personne");
+  return id ? { reveal: { personId: id, onDone: () => router.clearParam("personne") } } : {};
+};
+/** Réglages > Import (RT-054), seule entrée de l'import : lien des états vides de Personnes et Projets, pour owner et admin. */
+const importLinkFor = (user: Me) => (canAdminister(user)
+  ? { importLink: { href: hrefOf("settings", carriedSearch(location.search, { onglet: "import" })), onOpen: () => router.navigate("settings", { onglet: "import" }) } }
+  : {});
+/** Réglages : source d'import (owner, admin ; la page ne s'ouvre qu'à eux) et onglet demandé par l'adresse (une seule fois). */
+const settingsProps = (user: Me, imports: ImportSource) => {
+  const tab = router.param("onglet");
+  if (tab) router.clearParam("onglet");
+  return { ...(canAdminister(user) ? { imports } : {}), ...(tab ? { initialTab: tab } : {}) };
+};
+/** Recherche globale (RT-059) : personnes et projets déjà chargés par l'app ; une personne ouvre le Planning sur sa ligne. */
+const searchFor = (people: PeopleSource, projects: ProjectsSource) =>
+  searchSources({ people, projects, openPerson: (id) => router.navigate("planning", { personne: id }), openProject });
 
 function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, session?: OidcSession) {
   let show: (me: MeState) => void = () => {};
@@ -65,23 +86,24 @@ function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, sessio
   const people = createApiPeopleSource(api);
   const reference = createApiReferenceSource(api);
   const account = createApiAccountSource(api);
+  const search = searchFor(people, projects);
   const memory: ScheduleMemory = {};
   const reconnect = session && (() => void session.login());
   const load = () => { show({ status: "loading" }); void loadMe(api).then(show); };
   // Compte écrit (RT-041, pas de temps réel) : Planning mis à jour, /me relu sans repasser par l'écran de chargement.
   const accountSaved = (s: AccountSettings) => { source.accountChanged?.(scheduleAccountOf(s)); void loadMe(api).then((m) => { if (m.status === "ready") show(m); }); };
   show = (me) => root.render(
-    <App i18n={i18n} router={router} me={me} notifications={notifications} onRetry={load}
+    <App i18n={i18n} router={router} me={me} notifications={notifications} onRetry={load} search={search}
       {...(session ? { onLogout: () => void session.logout() } : {})} {...(reconnect ? { onReconnect: reconnect } : {})}
       renderPlanning={(user) => (
         <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} readOnly={!canEditSchedule(user)} memory={memory} catalog={projects} me={user} onOpenProject={openProject}
-          {...(reconnect ? { onReconnect: reconnect } : {})} {...(canAdminister(user) ? { imports } : {})} />
+          {...(reconnect ? { onReconnect: reconnect } : {})} {...revealProps()} />
       )}
-      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} {...projectsProps()} />}
+      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} {...projectsProps()} {...importLinkFor(user)} />}
       renderPeople={(user) => (
-        <PeopleScreen i18n={i18n} source={people} reference={reference} account={user.account} canEdit={canEditPeople(user)} ownOnly={user.role === "member"} {...(canAdminister(user) ? { imports } : {})} />
+        <PeopleScreen i18n={i18n} source={people} reference={reference} account={user.account} canEdit={canEditPeople(user)} ownOnly={user.role === "member"} {...importLinkFor(user)} />
       )}
-      renderSettings={(user) => <SettingsScreen i18n={i18n} reference={reference} projects={projects} account={account} onAccountSaved={accountSaved} canEdit={canAdminister(user)} />} />,
+      renderSettings={(user) => <SettingsScreen i18n={i18n} reference={reference} projects={projects} account={account} onAccountSaved={accountSaved} canEdit={canAdminister(user)} {...settingsProps(user, imports)} />} />,
   );
   load();
 }
@@ -104,12 +126,13 @@ if (params.get("demo") === "1") {
   const account = createDemoAccountSource({ ...me.account, version: 1, capacityThresholds: demo.account.capacityThresholds });
   const accountSaved = (s: AccountSettings) => { me = { ...me, account: meAccountOf(s) }; source.accountChanged?.(scheduleAccountOf(s)); renderDemo(); };
   const memory: ScheduleMemory = {};
+  const search = searchFor(directory.people, projects);
   const renderDemo = () => root.render(
-    <App i18n={i18n} router={router} me={{ status: "ready", me }} notifications={createDemoNotificationsSource(demoNotifications(today))}
-      renderPlanning={(user) => <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} imports={imports} memory={memory} catalog={projects} me={user} onOpenProject={openProject} />}
-      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} {...projectsProps()} />}
-      renderPeople={(user) => <PeopleScreen i18n={i18n} source={directory.people} reference={directory.reference} account={user.account} canEdit={canEditPeople(user)} imports={imports} />}
-      renderSettings={(user) => <SettingsScreen i18n={i18n} reference={directory.reference} projects={projects} account={account} onAccountSaved={accountSaved} canEdit={canAdminister(user)} />} />,
+    <App i18n={i18n} router={router} me={{ status: "ready", me }} notifications={createDemoNotificationsSource(demoNotifications(today))} search={search}
+      renderPlanning={(user) => <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} memory={memory} catalog={projects} me={user} onOpenProject={openProject} {...revealProps()} />}
+      renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} {...projectsProps()} {...importLinkFor(user)} />}
+      renderPeople={(user) => <PeopleScreen i18n={i18n} source={directory.people} reference={directory.reference} account={user.account} canEdit={canEditPeople(user)} {...importLinkFor(user)} />}
+      renderSettings={(user) => <SettingsScreen i18n={i18n} reference={directory.reference} projects={projects} account={account} onAccountSaved={accountSaved} canEdit={canAdminister(user)} {...settingsProps(user, imports)} />} />,
   );
   renderDemo();
 } else if (import.meta.env.VITE_AUTH_MODE === "oidc") {

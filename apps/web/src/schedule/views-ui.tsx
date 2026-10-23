@@ -1,35 +1,49 @@
-// Vues sauvegardées du Schedule (FR-10), au niveau 1 de l'en-tête : choisir une vue (par défaut « Tout le monde »),
-// enregistrer la vue courante (nom, partagée ou non), la mettre à jour, la renommer, la supprimer. L'état courant se reflète
-// dans l'URL (?view=<id>, remplacé sans empiler l'historique).
-//  * Les filtres sont portés par l'écran et édités au niveau 2 (schedule/filters-ui) ; la barre les lit et les enregistre.
+// Vues sauvegardées du Schedule (FR-10), rangées dans le panneau Filtres depuis la recette n°4 (RT-058, D6) : choisir une vue
+// (par défaut « Tout le monde ») en tête du panneau, enregistrer la vue courante (nom, partagée ou non), la mettre à jour, la
+// renommer, la supprimer en pied. L'état courant se reflète dans l'URL (?view=<id>, remplacé sans empiler l'historique).
+//  * `useSavedViews` porte l'état (liste, vue courante, « modifiée ») au niveau de l'écran, panneau ouvert ou non : la liste se
+//    charge au montage, ?view= s'applique sans ouvrir le panneau, et le bouton Filtres affiche le nom de la vue (« Filtres ·
+//    Studio », ● si modifiée). Il rend les morceaux à placer : `picker` (en tête du panneau), `actions` (en pied), `status`
+//    (région role=status toujours montée : les annonces sont masquées, les erreurs visibles) et `dialog` (formulaires).
+//  * Les filtres sont portés par l'écran (schedule/filters-ui) ; les vues les lisent et les enregistrent.
 //  * Une vue enregistre les filtres, le zoom ET la densité au moment de l'enregistrement ; l'appliquer remet les trois (une
-//    vue enregistrée sans zoom ni densité ne les change pas).
+//    vue enregistrée sans zoom ni densité ne les change pas). Contrat saved-views inchangé.
 //  * Seules les vues que l'appelant peut gérer (`canManage`) offrent mise à jour, renommage et suppression.
-//  * Erreurs : codes stables de l'API, traduits ici ; sur VERSION_CONFLICT la vue est relue. Annonces dans une région role=status.
+//  * Erreurs : codes stables de l'API, traduits ici ; sur VERSION_CONFLICT la vue est relue.
 import type { I18n } from "@lingui/core";
 import type { SavedView } from "@wnext/contracts";
 import type { Zoom } from "@wnext/engine";
 import type { Density } from "./density";
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { ViewsErrorCode, ViewsResult, ViewsSource } from "../data/views-source";
 import { Button, Modal } from "../design";
 import type { MessageKey } from "../i18n";
 import { normalizeFilters, sameFilters, type ViewFilters } from "./view-filters";
 
-export interface ViewsBarProps {
+export interface SavedViewsOptions {
   i18n: I18n;
   /** Nombre de personnes affichées après filtrage (annonce). */
   shownCount: number;
-  source: ViewsSource;
+  /** Source des vues ; absente : aucune vue (tous les morceaux sont null). */
+  source: ViewsSource | undefined;
   filters: ViewFilters;
   zoom: Zoom;
-  /** Densité courante (absente : la barre ne l'enregistre pas) et son application par une vue. */
+  /** Densité courante (absente : les vues ne l'enregistrent pas) et son application par une vue. */
   density?: Density;
   onFilters(f: ViewFilters): void;
   onZoom(z: Zoom): void;
   onDensity?(d: Density): void;
   /** Reflète la vue courante dans l'URL (défaut : oui). */
   urlSync?: boolean;
+}
+
+export interface SavedViews {
+  /** Vue active (nom affiché sur le bouton Filtres) et son état « modifiée ». */
+  current: { name: string; modified: boolean } | null;
+  picker: ReactNode;
+  actions: ReactNode;
+  status: ReactNode;
+  dialog: ReactNode;
 }
 
 type Form = "save" | "rename" | "delete" | null;
@@ -57,7 +71,7 @@ const screenFilters = (f: ViewFilters): ViewFilters => { const { zoom: _zoom, de
 
 const byPosition = (a: SavedView, b: SavedView) => a.position - b.position || a.name.localeCompare(b.name);
 
-export function ViewsBar({ i18n, shownCount, source, filters, zoom, density, onFilters, onZoom, onDensity, urlSync = true }: ViewsBarProps) {
+export function useSavedViews({ i18n, shownCount, source, filters, zoom, density, onFilters, onZoom, onDensity, urlSync = true }: SavedViewsOptions): SavedViews {
   const t = (k: MessageKey, values?: Record<string, unknown>) => i18n._(k, values);
   const [views, setViews] = useState<SavedView[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -88,6 +102,7 @@ export function ViewsBar({ i18n, shownCount, source, filters, zoom, density, onF
   };
 
   useEffect(() => {
+    if (!source) return;
     let live = true;
     void source.list().then((r) => {
       if (!live) return;
@@ -114,6 +129,8 @@ export function ViewsBar({ i18n, shownCount, source, filters, zoom, density, onF
     say(t("views.status.applied", { name: current.name, count: shownCount }));
   }, [current?.id, shownCount]);
 
+  if (!source) return { current: null, picker: null, actions: null, status: null, dialog: null };
+
   const patchList = (v: SavedView) => setViews((vs) => vs.map((x) => (x.id === v.id ? v : x)));
   /** Après un échec : sur conflit de version, relit la vue (ou la retire si elle a disparu). */
   const afterFailure = async (code: ViewsErrorCode, view: SavedView | null) => {
@@ -139,7 +156,15 @@ export function ViewsBar({ i18n, shownCount, source, filters, zoom, density, onF
     setMessage(null);
     setForm(f);
   };
-  const closeForm = () => { setForm(null); queueMicrotask(() => opener.current?.focus()); };
+  const closeForm = () => {
+    setForm(null);
+    // Le bouton d'ouverture a pu disparaître (vue supprimée : « Supprimer… » n'existe plus) : le focus va au pied du panneau.
+    queueMicrotask(() => {
+      const el = opener.current;
+      if (el?.isConnected) el.focus();
+      else document.getElementById(`${uid}-actions`)?.querySelector<HTMLElement>("button")?.focus();
+    });
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -163,57 +188,61 @@ export function ViewsBar({ i18n, shownCount, source, filters, zoom, density, onF
   };
 
   const sorted = [...views].sort(byPosition);
-  return (
-    <div role="group" aria-label={t("views.toolbar.label")} className="wn-views">
-      <div className="wn-views-row">
-        <label>
-          <span id={`${uid}-view`}>{t("views.label")}</span>{" "}
-          <select aria-labelledby={`${uid}-view`} value={currentId ?? ""} onChange={(e) => apply(views.find((v) => v.id === e.currentTarget.value) ?? null)}>
-            <option value="">{t("views.all")}</option>
-            {sorted.map((v) => <option key={v.id} value={v.id}>{v.shared ? t("views.shared", { name: v.name }) : v.name}</option>)}
-          </select>
-        </label>
-        {modified && <span className="wn-views-modified">{t("views.modified")}</span>}
-        <Button type="button" onClick={() => openForm("save")}>{t("views.save")}</Button>
-        {current?.canManage && (
-          <>
-            <Button type="button" disabled={!modified || busy} onClick={update}>{t("views.update")}</Button>
-            <Button size="sm" type="button" onClick={() => openForm("rename")}>{t("views.rename")}</Button>
-            <Button type="button" onClick={() => openForm("delete")}>{t("views.delete")}</Button>
-          </>
-        )}
-        <span role="status" className={message?.error ? "wn-views-error" : "wn-views-status"}>{message?.text ?? ""}</span>
-      </div>
-      {form && (
-        <Modal title={t(form === "save" ? "views.dialog.save" : form === "rename" ? "views.dialog.rename" : "views.dialog.delete")} closeLabel={t("dialog.close")} onClose={closeForm} busy={busy}
-          footer={
-            <>
-              <Button onClick={closeForm}>{t("views.form.cancel")}</Button>
-              <Button type="submit" form={`${uid}-form`} variant={form === "delete" ? "danger" : "primary"} disabled={busy || (form !== "delete" && !name.trim())} autoFocus={form === "delete"}>
-                {t(form === "save" ? "views.form.save" : form === "rename" ? "views.form.rename" : "views.delete.submit")}
-              </Button>
-            </>
-          }>
-          <form id={`${uid}-form`} className="wn-views-form" onSubmit={submit}>
-            {form === "delete" ? (
-              <p>{t("views.delete.confirm", { name: current?.name ?? "" })}</p>
-            ) : (
-              <>
-                <label>
-                  <span>{t("views.form.name")}</span>{" "}
-                  <input type="text" value={name} required maxLength={100} autoFocus onChange={(e) => setName(e.currentTarget.value)} />
-                </label>
-                {form === "save" && (
-                  <label>
-                    <input type="checkbox" checked={shared} onChange={(e) => setShared(e.currentTarget.checked)} /> <span>{t("views.form.shared")}</span>
-                  </label>
-                )}
-              </>
-            )}
-            {message?.error && <p className="wn-dialog-error">{message.text}</p>}
-          </form>
-        </Modal>
+  const picker = (
+    <div className="wn-views-pick">
+      <label>
+        <span id={`${uid}-view`}>{t("views.label")}</span>{" "}
+        <select aria-labelledby={`${uid}-view`} value={currentId ?? ""} onChange={(e) => apply(views.find((v) => v.id === e.currentTarget.value) ?? null)}>
+          <option value="">{t("views.all")}</option>
+          {sorted.map((v) => <option key={v.id} value={v.id}>{v.shared ? t("views.shared", { name: v.name }) : v.name}</option>)}
+        </select>
+      </label>
+      {modified && <span className="wn-views-modified">{t("views.modified")}</span>}
+    </div>
+  );
+  const actions = (
+    <div id={`${uid}-actions`} role="group" aria-label={t("views.toolbar.label")} className="wn-views-actions">
+      <Button type="button" onClick={() => openForm("save")}>{t("views.save")}</Button>
+      {current?.canManage && (
+        <>
+          <Button type="button" disabled={!modified || busy} onClick={update}>{t("views.update")}</Button>
+          <Button type="button" onClick={() => openForm("rename")}>{t("views.rename")}</Button>
+          <Button type="button" onClick={() => openForm("delete")}>{t("views.delete")}</Button>
+        </>
       )}
     </div>
   );
+  // Annonces des vues masquées à l'écran (le compteur et le bouton Filtres disent déjà l'effet) ; une erreur reste visible.
+  const status = <span role="status" data-views-status="" className={message?.error ? "wn-views-error" : "wn-visually-hidden"}>{message?.text ?? ""}</span>;
+  const dialog = form && (
+    <Modal title={t(form === "save" ? "views.dialog.save" : form === "rename" ? "views.dialog.rename" : "views.dialog.delete")} closeLabel={t("dialog.close")} onClose={closeForm} busy={busy}
+      footer={
+        <>
+          <Button onClick={closeForm}>{t("views.form.cancel")}</Button>
+          <Button type="submit" form={`${uid}-form`} variant={form === "delete" ? "danger" : "primary"} disabled={busy || (form !== "delete" && !name.trim())} autoFocus={form === "delete"}>
+            {t(form === "save" ? "views.form.save" : form === "rename" ? "views.form.rename" : "views.delete.submit")}
+          </Button>
+        </>
+      }>
+      <form id={`${uid}-form`} className="wn-views-form" onSubmit={submit}>
+        {form === "delete" ? (
+          <p>{t("views.delete.confirm", { name: current?.name ?? "" })}</p>
+        ) : (
+          <>
+            <label>
+              <span>{t("views.form.name")}</span>{" "}
+              <input type="text" value={name} required maxLength={100} autoFocus onChange={(e) => setName(e.currentTarget.value)} />
+            </label>
+            {form === "save" && (
+              <label>
+                <input type="checkbox" checked={shared} onChange={(e) => setShared(e.currentTarget.checked)} /> <span>{t("views.form.shared")}</span>
+              </label>
+            )}
+          </>
+        )}
+        {message?.error && <p className="wn-dialog-error">{message.text}</p>}
+      </form>
+    </Modal>
+  );
+  return { current: current && { name: current.name, modified }, picker, actions, status, dialog };
 }

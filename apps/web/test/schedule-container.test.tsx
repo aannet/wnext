@@ -130,17 +130,19 @@ describe("ScheduleContainer", () => {
     expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Se reconnecter")).toBe(false);
   });
 
-  it("en-tête en deux niveaux (RT-025) : titre h1 et statut au niveau 1, barre d'outils juste dessous au niveau 2", async () => {
+  // Recette n°4 (« Planning cible ») : une seule ligne au-dessus de la grille, titre puis barre d'outils (statut compris).
+  it("une seule ligne au-dessus de la grille : titre h1, puis la barre d'outils qui porte le statut du temps réel", async () => {
     mount(async (q) => ({ status: 200, body: body(q) }));
     await flush();
     const sub = host.querySelector(".wn-subheader")!;
+    expect(sub.firstElementChild!.tagName).toBe("H1");
     expect(sub.querySelector("h1")!.textContent).toBe("Planning");
-    expect(sub.querySelector(".wn-statusbar [role=status]")).not.toBeNull();
-    expect(sub.querySelector("[role=toolbar]")).toBeNull();
-    expect(sub.nextElementSibling!.getAttribute("role")).toBe("toolbar");
+    expect(sub.children[1]!.getAttribute("role")).toBe("toolbar");
+    expect(sub.querySelector("[role=toolbar] .wn-statusbar [role=status]")).not.toBeNull();
+    expect(host.querySelectorAll("[role=toolbar]")).toHaveLength(1);
   });
 
-  it("lecture seule (member, guest) : ni boutons Annuler / Rétablir, ni « Nouveau congé », ni saisie rapide", async () => {
+  it("lecture seule (member, guest) : ni boutons Annuler / Rétablir (ni création : boutons et saisie rapide retirés pour tous, RT-057, RT-060)", async () => {
     mount(async (q) => ({ status: 200, body: body(q) }), undefined, undefined, true);
     await flush();
     const labels = [...host.querySelectorAll("button")].map((b) => b.textContent);

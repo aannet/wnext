@@ -47,12 +47,12 @@ test("connexion OIDC PKCE de bout en bout", async ({ page }) => {
   expect(await schedule.request().headerValue("authorization")).toMatch(/^Bearer [\w-]+\.[\w-]+\.[\w-]+$/);
   await page.getByRole("rowheader").first().waitFor();
   expect(page.url()).toBe(`${REDIRECT}?lang=fr`); // code, state et iss retirés
-  // Profil (GET /me) : « Bonjour Alec » à droite de l'en-tête ; owner : Réglages et Importer visibles.
+  // Profil (GET /me) : « Bonjour Alec » à droite de l'en-tête ; owner : Réglages visible (l'import y vit seul depuis RT-054).
   const header = page.getByRole("banner");
   await expect(header.getByText("Bonjour Alec")).toBeVisible();
   await expect(header.getByRole("link", { name: "WNEXT", exact: true })).toBeVisible();
   await expect(header.getByRole("link", { name: "Réglages" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Importer" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Importer/ })).toHaveCount(0);
   await expect(page.locator(".wn-realtime-live")).toHaveText("En direct"); // puce verte seule, texte réservé aux lecteurs d'écran (Q12)
 
   // Temps réel : une allocation créée par un autre client apparaît sans rechargement.
@@ -95,8 +95,7 @@ test("connexion OIDC PKCE de bout en bout", async ({ page }) => {
   await expect(ownOnly).toBeVisible();
   await expect(page.getByRole("grid")).toHaveCount(0);
   await expect(page.getByRole("banner").getByRole("link", { name: "Réglages" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Importer" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Nouveau congé" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Importer/ })).toHaveCount(0);
   await page.getByRole("banner").getByRole("link", { name: "Personnes" }).click();
   await expect(ownOnly).toBeVisible();
   await expect(page.getByRole("button", { name: "Nouvelle personne" })).toHaveCount(0);

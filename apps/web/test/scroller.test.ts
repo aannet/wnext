@@ -84,7 +84,7 @@ function setup(over: Partial<ScrollerOptions> = {}) {
     m.frame();
   };
   const center = () => dateAtX(s.view(), s.view().widthPx / 2);
-  const cols = () => [...root.querySelectorAll("[role=columnheader]")].map((e) => e.getAttribute("data-from")!);
+  const cols = () => [...root.querySelectorAll("[role=columnheader][data-from]")].map((e) => e.getAttribute("data-from")!);
   return { root, s, m, views, scrollTo, center, cols, ranges, builds: () => builds };
 }
 
@@ -306,7 +306,7 @@ describe("navigation", () => {
     h.s.setLabels({ label: (c) => `x${c.from}` });
     h.m.frame();
     expect(h.root.scrollLeft).toBe(sl);
-    const first = h.root.querySelector("[role=columnheader]")!;
+    const first = h.root.querySelector("[role=columnheader][data-from]")!;
     expect(first.textContent).toBe(`x${first.getAttribute("data-from")}`);
   });
 

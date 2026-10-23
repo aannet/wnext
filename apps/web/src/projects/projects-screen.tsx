@@ -14,6 +14,7 @@ import { ProjectForm } from "./project-form";
 import { ProjectPanel } from "./project-panel";
 import { resolveClient } from "./projects-actions";
 import { clientName, errorKey, filterProjects, inputOf, NO_CLIENT, NO_FILTERS, STATUS_KEY, STATUSES, type FormErrors, type FormValues, type ProjectFilters } from "./projects-model";
+import { ImportSettingsLink, type ImportLink } from "../imports/import-link";
 import { useLoad } from "./use-load";
 
 export interface ProjectsScreenProps {
@@ -26,11 +27,13 @@ export interface ProjectsScreenProps {
   openProjectId?: string;
   /** Appelé une fois, quand `openProjectId` a été pris en compte (l'adresse n'a plus à le porter). */
   onOpenProjectHandled?(): void;
+  /** Lien vers Réglages > Import dans l'état vide (owner, admin ; RT-054) ; absent : pas de lien. */
+  importLink?: ImportLink;
 }
 
 type Side = { kind: "none" } | { kind: "create" } | { kind: "project"; id: string };
 
-export function ProjectsScreen({ i18n, source, canEdit, editor, openProjectId, onOpenProjectHandled }: ProjectsScreenProps) {
+export function ProjectsScreen({ i18n, source, canEdit, editor, openProjectId, onOpenProjectHandled, importLink }: ProjectsScreenProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const projects = useLoad(() => source.listProjects(), "projects");
   const clients = useLoad(() => source.listClients(), "clients");
@@ -81,7 +84,8 @@ export function ProjectsScreen({ i18n, source, canEdit, editor, openProjectId, o
         <div className="wn-projects-body">
           <div className="wn-projects-main">
             <ProjectTable i18n={i18n} projects={shown} total={all.length} clients={clientList} canEdit={canEdit} currentId={side.kind === "project" ? side.id : null}
-              filters={filters} onFilters={setFilters} onOpen={(p, el) => open({ kind: "project", id: p.id }, el)} onCreate={(el) => open({ kind: "create" }, el)} />
+              filters={filters} onFilters={setFilters} onOpen={(p, el) => open({ kind: "project", id: p.id }, el)} onCreate={(el) => open({ kind: "create" }, el)}
+              {...(importLink ? { importLink } : {})} />
           </div>
           {side.kind === "create" && (
             <CreatePanel i18n={i18n} source={source} clients={clientList} others={all} onClose={close}
@@ -133,9 +137,10 @@ interface ProjectTableProps {
   onFilters(f: ProjectFilters): void;
   onOpen(p: ProjectDetail, el: HTMLElement): void;
   onCreate(el: HTMLElement): void;
+  importLink?: ImportLink;
 }
 
-function ProjectTable({ i18n, projects, total, clients, canEdit, currentId, filters, onFilters, onOpen, onCreate }: ProjectTableProps) {
+function ProjectTable({ i18n, projects, total, clients, canEdit, currentId, filters, onFilters, onOpen, onCreate, importLink }: ProjectTableProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const fmt = useMemo(() => new Intl.DateTimeFormat(i18n.locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }), [i18n.locale]);
   const day = (iso: string | null) => (iso ? fmt.format(new Date(`${iso}T00:00:00Z`)) : "");
@@ -166,7 +171,10 @@ function ProjectTable({ i18n, projects, total, clients, canEdit, currentId, filt
       isCurrent={(p) => p.id === currentId}
       actions={(p) => (canEdit ? [{ id: "edit", label: t("table.edit"), onSelect: (_row, el) => { if (el) onOpen(p, el); } }] : [])}
       actionsHeader={t("table.actions.header")} actionsLabel={(p) => t("table.actions.for", { name: p.name })}
-      empty={{ title: t("projects.empty.title"), body: t("projects.empty.body"), ...(canEdit ? { action: <Button type="button" variant="primary" onClick={(e) => onCreate(e.currentTarget)}>{t("projects.new")}</Button> } : {}) }}
+      empty={{ title: t("projects.empty.title"), body: t("projects.empty.body"), ...(canEdit || importLink ? { action: <>
+        {canEdit && <Button type="button" variant="primary" onClick={(e) => onCreate(e.currentTarget)}>{t("projects.new")}</Button>}
+        {importLink && <ImportSettingsLink i18n={i18n} link={importLink} />}
+      </> } : {}) }}
       emptyFiltered={{ title: t("projects.empty.filtered.title"), body: t("projects.empty.filtered.body"), resetLabel: t("projects.filters.reset"), onReset: () => onFilters(NO_FILTERS) }}
     />
   );

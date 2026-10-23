@@ -104,15 +104,18 @@ describe("createGridRenderer", () => {
 });
 
 describe("createHeaderRenderer", () => {
-  it("en-tête collé en haut, cellules de la fenêtre seulement, nœuds recyclés ; coin masqué aux lecteurs d'écran", () => {
+  it("en-tête collé en haut, cellules de la fenêtre seulement, nœuds recyclés ; coin = en-tête de la colonne Personnes, compteur annoncé (RT-061)", () => {
     const root = document.createElement("div");
     const h = createHeaderRenderer(root, { heightPx: 32, gutterPx: 140 });
     const items = (from: number, n: number) => Array.from({ length: n }, (_, i) => ({ from: `d${from + i}`, x: 140 + (from + i) * 10, w: 10, label: `L${from + i}` }));
     h.render(items(0, 5), 1000);
     const bar = root.firstElementChild as HTMLElement;
     expect([bar.getAttribute("role"), bar.style.position, bar.style.width]).toEqual(["row", "sticky", "1000px"]);
-    expect(bar.querySelector(".wn-corner")!.getAttribute("aria-hidden")).toBe("true");
-    const cells = () => [...root.querySelectorAll("[role=columnheader]")].map((e) => [e.getAttribute("data-from"), e.textContent]);
+    const corner = bar.querySelector<HTMLElement>(".wn-corner")!;
+    expect([corner.getAttribute("aria-hidden"), corner.getAttribute("role"), corner.hasAttribute("data-from")]).toEqual([null, "columnheader", false]);
+    h.setCorner("12 personnes");
+    expect(corner.querySelector("[aria-live=polite]")!.textContent).toBe("12 personnes");
+    const cells = () => [...root.querySelectorAll("[role=columnheader][data-from]")].map((e) => [e.getAttribute("data-from"), e.textContent]);
     expect(cells()[0]).toEqual(["d0", "L0"]);
     for (let s = 1; s < 200; s++) h.render(items(s, 5), 3000);
     expect(h.stats().cellsCreated).toBe(5);

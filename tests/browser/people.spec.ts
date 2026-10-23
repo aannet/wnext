@@ -18,7 +18,7 @@ test("création en trois champs : la personne est dans la liste, puis dans le Pl
   await nav(page).getByRole("link", { name: "Personnes" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Personnes" })).toBeVisible();
   await expect(page.getByRole("table")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Importer" })).toBeVisible(); // owner : import CSV
+  await expect(page.getByRole("button", { name: /^Importer/ })).toHaveCount(0); // RT-054 : l'import n'est que dans Réglages > Import
   await noViolations(page, "personnes-liste");
 
   await page.getByRole("button", { name: "Nouvelle personne" }).click();
