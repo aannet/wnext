@@ -39,7 +39,7 @@
 //    place du fantôme. Toutes annulables par Ctrl+Z, sauf la suppression d'une occurrence (découpe).
 //  * En-tête en deux niveaux (RT-025) : niveau 1 = titre, vue sauvegardée, statut et actions de création ; niveau 2 (barre
 //    d'outils) = Filtres (compteur, puces, panneau dépliable, schedule/filters-ui), annuler / rétablir, navigation, zoom,
-//    menu Affichage, nombre de personnes.
+//    menu Affichage. Le nombre de personnes affichées est dans le coin de la grille, au-dessus de la colonne Personnes (RT-061).
 //  * Menu Affichage (Popover) : densité et bascule « Charge » (RT-052, D3, amende Q11) : affiche ou masque toute la bande de
 //    capacité (graphique et chiffres) ; éteinte, les lignes sont raccourcies. Active au montage, état en mémoire seulement.
 //  * Densité (RT-005 à RT-007, schedule/density) : contrôle segmenté (groupe de boutons radio, flèches gauche / droite) dans
@@ -428,6 +428,9 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
     if (p) focusAt(p.key, p.at, p.select);
     revealPending();
   }, [shown]);
+  // Compteur de personnes affichées dans le coin de la grille (RT-061), annoncé poliment.
+  const peopleCount = t("schedule.people.count", { count: shown.people.length });
+  useEffect(() => { scroller.current?.setCornerLabel(peopleCount); }, [peopleCount]);
   // Fenêtre refermée : la personne choisie est montrée ; sans choix, le focus ne reste pas perdu sur le corps de la page.
   useEffect(() => {
     if (searchOpen) return;
@@ -539,7 +542,6 @@ export function ScheduleScreen({ i18n, data, today, widthPx: initialWidthPx, hei
           ))}
         </div>
         <Button ref={displayButton} type="button" aria-haspopup="dialog" aria-expanded={displayOpen} onClick={() => setDisplayOpen((o) => !o)}>{t("schedule.display")}</Button>
-        <span className="wn-people-count">{t("schedule.people.count", { count: shown.people.length })}</span>
       </div>
       {views && filtersOpen && <FiltersPanel i18n={i18n} data={data} filters={filters} onFilters={changeFilters} id={`${uid}-filters`} />}
       {displayOpen && displayButton.current && (

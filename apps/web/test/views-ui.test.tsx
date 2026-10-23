@@ -34,9 +34,9 @@ async function mount(views: ViewsSource = createDemoViewsSource(demoSeedViews(),
   return views;
 }
 
-// Grille virtualisée : le nombre de personnes se lit dans la barre d'outils (les lignes DOM ne sont que celles de la fenêtre).
+// Grille virtualisée : le nombre de personnes se lit dans le coin de la grille (les lignes DOM ne sont que celles de la fenêtre).
 const rows = () => [...host.querySelectorAll("[role=rowheader] .wn-person-name")].map((e) => e.textContent).filter(Boolean); // lignes recyclées vides écartées
-const count = () => Number(/(\d+) personnes?/.exec(host.querySelector("[role=toolbar]")!.textContent!)![1]);
+const count = () => Number(/(\d+) personnes?/.exec(host.querySelector(".wn-corner")!.textContent!)![1]); // compteur dans le coin de la grille (RT-061)
 const viewSelect = () => host.querySelector<HTMLSelectElement>(".wn-views-row select")!;
 const button = (label: string) => [...document.body.querySelectorAll<HTMLButtonElement>(".wn-views button, .wn-filters-panel button, [role=dialog] button")].find((b) => b.textContent === label);
 const status = () => host.querySelector(".wn-views [role=status]")!.textContent;
@@ -85,7 +85,7 @@ describe("vues sauvegardées dans l'écran", () => {
     expect(count()).toBe(4);
     expect(rows()).toEqual(["Personne 2", "Personne 5", "Personne 8", "Personne 11"]);
     expect(filtersButton().textContent).toBe("Filtres (1)");
-    expect(host.querySelector("[role=toolbar]")!.textContent).toContain("4 personnes");
+    expect(host.querySelector(".wn-corner")!.textContent).toBe("4 personnes");
     await pickOptions("Rôle", ["1"]);
     expect(count()).toBeLessThan(4);
     await click(button("Effacer les filtres"));

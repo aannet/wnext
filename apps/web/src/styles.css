@@ -35,7 +35,6 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-button-group > button:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); margin-left: 0; }
 .wn-button-group > button:last-child { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
 .wn-button-group > button[aria-pressed="true"] { position: relative; z-index: 1; }
-.wn-people-count { color: var(--text-muted); font-size: var(--text-label); white-space: nowrap; }
 /* Grille sans aucun bloc (RT-060) : une indication unique et discrète au-dessus de la grille. */
 .wn-grid-hint { flex: none; margin: 0 0 var(--space-2); color: var(--text-muted); font-size: var(--text-label); }
 .wn-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
@@ -48,7 +47,9 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 /* En-tête de colonnes renforcé (RT-056, D7) : une seule rangée de 32 px, fond distinct du corps, texte --text en graisse 600
    (15:1 sur --surface-sunken), bordure basse forte ; la période courante est une pastille d'accent, texte blanc. */
 .wn-header { box-sizing: border-box; background: var(--surface-sunken); border-bottom: 1px solid var(--color-border-strong); }
-.wn-corner { background: var(--surface-sunken); border-right: 1px solid var(--border); }
+.wn-corner { box-sizing: border-box; display: flex; align-items: center; padding: 0 var(--space-3); background: var(--surface-sunken); border-right: 1px solid var(--border); }
+/* Compteur de personnes (RT-061, D10) : 12 px graisse 500, --text-muted (6:1 sur --surface-sunken), aligné sur les noms. */
+.wn-corner-label { overflow: hidden; color: var(--text-muted); font-size: var(--text-label); font-weight: var(--font-weight-medium); line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .wn-colheader { box-sizing: border-box; height: 100%; padding: 4px; white-space: nowrap; color: var(--text); font-weight: var(--font-weight-semibold); line-height: 22px; border-left: 1px solid var(--wn-grid-line); }
 /* Libellé collant (grid-header.ts) : son défilement est celui de la grille, pas celui de la cellule ; il est coupé dans la cellule. */
 .wn-colheader-label { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: top; }

@@ -37,6 +37,8 @@ async function mount() {
 }
 const level1 = () => host.querySelector<HTMLElement>(".wn-subheader")!;
 const toolbar = () => host.querySelector<HTMLElement>("[role=toolbar]")!;
+const corner = () => host.querySelector<HTMLElement>(".wn-corner")!;
+const count = () => corner().textContent;
 const buttonIn = (el: ParentNode, label: string | RegExp) => [...el.querySelectorAll<HTMLButtonElement>("button")]
   .find((b) => (typeof label === "string" ? b.textContent === label : label.test(b.textContent ?? "")));
 const click = async (b: HTMLElement | undefined) => { if (!b) throw new Error("bouton absent"); await act(async () => { b.click(); }); await flush(); };
@@ -60,8 +62,36 @@ describe("en-tête en deux niveaux (RT-025)", () => {
     for (const label of ["Filtres", "Période précédente", "Aujourd’hui", "Période suivante", "Jour", "Semaine", "Mois", "Annuler", "Rétablir", "Affichage"]) {
       expect(buttonIn(toolbar(), label), label).toBeDefined();
     }
-    expect(toolbar().textContent).toContain("12 personnes");
+    expect(toolbar().textContent).not.toContain("personnes"); // RT-061 : le compteur est dans le coin de la grille
     expect(toolbar().querySelector("[role=radiogroup]")).toBeNull(); // la densité est dans le menu Affichage
+  });
+
+  // RT-061 (D10) : le compteur va dans le coin au-dessus de la colonne Personnes, annoncé (aria-live polie).
+  it("compteur de personnes dans le coin de la grille : visible, annoncé, à jour avec les filtres", async () => {
+    await mount();
+    const c = corner();
+    expect(c.getAttribute("aria-hidden")).toBeNull();
+    expect(c.getAttribute("role")).toBe("columnheader");
+    const live = c.querySelector<HTMLElement>("[aria-live=polite]")!;
+    expect(live.textContent).toBe("12 personnes");
+    expect(host.querySelector(".wn-people-count")).toBeNull();
+    await click(buttonIn(toolbar(), "Filtres"));
+    await pick("Département", ["2"]);
+    expect(corner().querySelector("[aria-live=polite]")!.textContent).toBe("4 personnes");
+  });
+
+  it("le texte « 8 h par jour par défaut » n'existe plus, et la valeur de 8 h vient du moteur", async () => {
+    await mount();
+    expect(host.textContent).not.toMatch(/par jour par défaut/);
+    const { readFileSync } = await import("node:fs");
+    const { fileURLToPath } = await import("node:url");
+    const { dirname, join } = await import("node:path");
+    // Chemin de fichier (l'URL de jsdom n'est pas celle de Node, que fs attend).
+    const slotModel = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../src/schedule/slot-model.ts"), "utf8");
+    expect(slotModel).not.toMatch(/DEFAULT_HOURS\s*=\s*\d/);
+    const { DEFAULT_HOURS } = await import("../src/schedule/slot-model");
+    const { DEFAULT_HOURS_PER_DAY } = await import("@wnext/engine");
+    expect(DEFAULT_HOURS).toBe(DEFAULT_HOURS_PER_DAY);
   });
 
   it("Filtres : panneau dépliable (aria-expanded), compteur, une puce par filtre actif, retirable", async () => {
@@ -74,13 +104,13 @@ describe("en-tête en deux niveaux (RT-025)", () => {
     expect(document.getElementById(filters.getAttribute("aria-controls")!)!.querySelector(".wn-filter")).not.toBeNull();
     await pick("Département", ["2"]);
     expect(filters.textContent).toBe("Filtres (1)");
-    expect(toolbar().textContent).toContain("4 personnes");
+    expect(count()).toBe("4 personnes");
     const chip = toolbar().querySelector<HTMLElement>(".wn-chip")!;
     expect(chip.textContent).toContain("Département : Design");
     await click(chip.querySelector<HTMLButtonElement>("button[aria-label='Retirer le filtre Département : Design']")!);
     expect(toolbar().querySelector(".wn-chip")).toBeNull();
     expect(buttonIn(toolbar(), /^Filtres/)!.textContent).toBe("Filtres");
-    expect(toolbar().textContent).toContain("12 personnes");
+    expect(count()).toBe("12 personnes");
   });
 
   // RT-052 (D3, amende Q11) : la bascule masque toute la bande de capacité ; active au montage, jamais mémorisée.

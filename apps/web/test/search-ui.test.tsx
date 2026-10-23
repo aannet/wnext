@@ -52,7 +52,7 @@ async function type(value: string) {
   await flush();
 }
 const lit = () => [...host.querySelectorAll<HTMLElement>(".wn-row[data-highlight]")].map((e) => e.dataset.person);
-const announced = () => host.querySelector("[aria-live]")?.textContent ?? "";
+const announced = () => host.querySelector(".wn-notice[aria-live]")?.textContent ?? "";
 
 describe("raccourci et bouton", () => {
   it("isSearchShortcut : Ctrl+K et ⌘K, ni Alt ni Maj ; libellé du bouton selon la plateforme", () => {
@@ -262,7 +262,7 @@ describe("choix", () => {
     await flush();
     return select;
   }
-  const count = () => Number(/(\d+) personnes?/.exec(host.querySelector("[role=toolbar]")!.textContent!)![1]);
+  const count = () => Number(/(\d+) personnes?/.exec(host.querySelector(".wn-corner")!.textContent!)![1]); // compteur dans le coin de la grille (RT-061)
   const dialogButton = (label: string | RegExp) => [...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find((b) => (typeof label === "string" ? b.textContent === label : label.test(b.textContent ?? "")));
   const restoreButton = () => [...host.querySelectorAll<HTMLButtonElement>("[role=toolbar] button")].find((b) => b.textContent === "Rétablir les filtres");
   async function searchHidden() {

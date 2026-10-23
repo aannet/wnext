@@ -35,7 +35,7 @@ function mount(locale: UiLocale) {
 }
 afterEach(() => { act(() => root?.unmount()); host.remove(); root = null; });
 const button = (name: string) => [...host.querySelectorAll("button")].find((b) => b.textContent === name)!;
-const headers = () => [...host.querySelectorAll("[role=columnheader]")];
+const headers = () => [...host.querySelectorAll("[role=columnheader][data-from]")]; // dates (le coin est l’en-tête des personnes, RT-061)
 const grid = () => host.querySelector("[role=grid]") as HTMLElement;
 const key = (k: string) => act(() => grid().dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })));
 
