@@ -19,16 +19,17 @@ const slot = (date: string, half: DayHalf) => Math.round(toMs(date) / DAY_MS) * 
 const dateOf = (s: number) => toIso(Math.floor(s / 2) * DAY_MS);
 const halfOf = (s: number): DayHalf => (((s % 2) + 2) % 2 === 1 ? "pm" : "am");
 
-/** Champs changés par le geste (null : aucun changement). */
-export function applyTimeoffGesture(t: TimeoffSpan, g: TimeoffGesture): Partial<TimeoffSpan> | null {
+/** Champs changés par le geste (null : aucun changement). Réduire garde au moins `step` demi-journées (un congé partiel d'un jour
+ *  reste am..pm), sans jamais agrandir un congé déjà plus court. */
+export function applyTimeoffGesture(t: TimeoffSpan, g: TimeoffGesture, step: 1 | 2 = 1): Partial<TimeoffSpan> | null {
   const s0 = slot(t.startDate, t.startHalf);
   const e0 = slot(t.endDate, t.endHalf);
   const d = Math.round(g.halves);
   let s = s0;
   let e = e0;
   if (g.kind === "move") { s += d; e += d; }
-  else if (g.kind === "resizeStart") s = Math.min(s0 + d, e0);
-  else e = Math.max(e0 + d, s0);
+  else if (g.kind === "resizeStart") s = Math.min(s0 + d, Math.max(s0, e0 - step + 1));
+  else e = Math.max(e0 + d, Math.min(e0, s0 + step - 1));
   const next: TimeoffSpan = { startDate: dateOf(s), startHalf: halfOf(s), endDate: dateOf(e), endHalf: halfOf(e) };
   const patch: Partial<TimeoffSpan> = {};
   for (const k of ["startDate", "startHalf", "endDate", "endHalf"] as const) if (next[k] !== t[k]) (patch as Record<string, string>)[k] = next[k];

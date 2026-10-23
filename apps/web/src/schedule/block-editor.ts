@@ -427,7 +427,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       d.started = true;
       root.classList.add("wn-dragging");
     }
-    d.span = { ...d.span0, ...(applyTimeoffGesture(d.span0, timeoffPointerGesture(d.kind, dx, ppd, d.step)) ?? {}) };
+    d.span = { ...d.span0, ...(applyTimeoffGesture(d.span0, timeoffPointerGesture(d.kind, dx, ppd, d.step), d.step) ?? {}) };
     showOffGhost(d);
   }
 
@@ -780,7 +780,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     e.preventDefault();
     e.stopPropagation();
     okb = s;
-    s.span = { ...s.span, ...(applyTimeoffGesture(s.span, g) ?? {}) };
+    s.span = { ...s.span, ...(applyTimeoffGesture(s.span, g, s.step) ?? {}) };
     showOffGhost(s);
     o.onTimeoffPreview?.({ timeoff: s.off, draft: s.span });
   }

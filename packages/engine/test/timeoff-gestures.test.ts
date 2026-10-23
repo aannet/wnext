@@ -28,6 +28,15 @@ describe("applyTimeoffGesture", () => {
     const pm = span({ startHalf: "pm", endHalf: "am", endDate: "2026-03-04" });
     expect(applyTimeoffGesture(pm, { kind: "move", halves: 2 })).toEqual({ startDate: "2026-03-03", endDate: "2026-03-05" });
   });
+
+  it("au pas de la journée, réduire garde au moins un pas : un congé partiel d'un jour reste am..pm (chk_timeoff_halves)", () => {
+    const day = span({ endDate: "2026-03-02" });
+    expect(applyTimeoffGesture(day, { kind: "resizeEnd", halves: -2 }, 2)).toBeNull();
+    expect(applyTimeoffGesture(day, { kind: "resizeStart", halves: 2 }, 2)).toBeNull();
+    expect(applyTimeoffGesture(span(), { kind: "resizeEnd", halves: -4 }, 2)).toEqual({ endDate: "2026-03-02" });
+    // Déjà sous le pas (une demi-journée, vue semaine) : réduire ne l'agrandit pas.
+    expect(applyTimeoffGesture(span({ endDate: "2026-03-02", endHalf: "am" }), { kind: "resizeEnd", halves: -2 }, 2)).toBeNull();
+  });
 });
 
 describe("pas selon le zoom", () => {
