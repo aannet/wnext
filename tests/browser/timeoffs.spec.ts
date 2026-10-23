@@ -60,3 +60,71 @@ test("congé journée entière sur un bloc : avertissement, reporter, bloc déca
   await expect.poll(async () => (await firstRowBlocks(page)).find((x) => x.key === b!.key)?.label).toBe(b!.label);
   await expect(posed(page)).toHaveCount(0);
 });
+
+// RT-051 (D4) : le congé posé (seul sur son jour après le report) se manipule comme un bloc — clic = sélection et poignées ;
+// glisser d'une demi-journée en vue jour : vers la veille (jeudi après-midi, planifié) l'avertissement BR-04 s'ouvre et l'on
+// garde les allocations ; vers le samedi matin (rien de planifié) il est déplacé tout de suite. Ctrl+Z, Suppr.
+test("congé : glisser d'une demi-journée (avertissement BR-04 ou écriture directe), Ctrl+Z, Suppr", async ({ page }) => {
+  await openDemo(page);
+  const g = (await page.getByRole("grid").boundingBox())!;
+  const b = (await firstRowBlocks(page)).find((x) => /^Projet [A-F], (du|le) (lun|mar|mer|jeu|ven)\./.test(x.label) && !x.label.includes("chaque")
+    && x.x >= g.x + GUTTER_PX + 8 && x.x <= g.x + g.width - 300);
+  expect(b, "un bloc visible convenable").toBeTruthy();
+  await page.locator(`.wn-block[data-key="${b!.key}"]`).focus();
+  await page.keyboard.press("c");
+  await dialog(page).getByRole("button", { name: "Enregistrer" }).click();
+  await dialog(page).getByRole("button", { name: "Reprogrammer…" }).click();
+  await dialog(page).getByRole("button", { name: "Appliquer" }).click();
+  await expect(dialog(page)).toHaveCount(0);
+  await expect(posed(page)).toBeVisible();
+  const label = (await posed(page).getAttribute("aria-label"))!;
+  const id = (await posed(page).getAttribute("data-timeoff"))!;
+  const el = page.locator(`.wn-timeoff[data-timeoff="${id}"]`);
+  const box = (await el.boundingBox())!;
+  const ppd = box.width; // congé d'un jour : largeur d'un jour
+
+  // Clic : sélection (poignées de début et de fin, pas de hauteur), sans ouvrir de fenêtre.
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(el).toHaveClass(/wn-selected/);
+  await expect(el.locator("[data-handle]")).toHaveCount(2);
+  await expect(dialog(page)).toHaveCount(0);
+
+  const halfDay = async (dir: 1 | -1) => {
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + dir * ppd / 4, y, { steps: 4 });
+    await page.mouse.move(x + dir * (ppd / 2 + 4), y, { steps: 4 });
+    await page.mouse.up();
+  };
+  const halves = /^Congés payés, du .+ \(après-midi\) au .+ \(matin\)$/;
+
+  // Vers la veille : jeudi après-midi est planifié, l'avertissement s'ouvre ; « Garder tel quel ».
+  await halfDay(-1);
+  await expect(dialog(page).getByRole("heading")).toHaveText("Ce congé recouvre des allocations de Personne 1");
+  await dialog(page).getByRole("button", { name: "Garder tel quel" }).click();
+  await expect(dialog(page)).toHaveCount(0);
+  await expect(el).toHaveAttribute("aria-label", halves);
+  await expect.poll(async () => (await el.boundingBox())!.x).toBeCloseTo(box.x - ppd / 2, 0);
+  await page.keyboard.press("Control+z");
+  await expect(notice(page)).toHaveText("Modification du congé annulée.");
+  await expect(el).toHaveAttribute("aria-label", label);
+
+  // Vers le samedi matin : rien de planifié, déplacé tout de suite.
+  await halfDay(1);
+  await expect(notice(page)).toHaveText("Congé déplacé.");
+  await expect(dialog(page)).toHaveCount(0);
+  await expect(el).toHaveAttribute("aria-label", halves);
+  await expect.poll(async () => (await el.boundingBox())!.x).toBeCloseTo(box.x + ppd / 2, 0);
+  await page.keyboard.press("Control+z");
+  await expect(el).toHaveAttribute("aria-label", label);
+
+  // Suppr sur le congé focalisé : supprimé ; Ctrl+Z le rend.
+  await el.focus();
+  await page.keyboard.press("Delete");
+  await expect(notice(page)).toHaveText("Congé supprimé.");
+  await expect(posed(page)).toHaveCount(0);
+  await page.keyboard.press("Control+z");
+  await expect(posed(page)).toHaveAttribute("aria-label", label);
+});

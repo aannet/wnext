@@ -258,6 +258,7 @@ Chaque composant part du caractère sobre actuel. Le caractère « franc et tact
 - **Focus / armed:** contour encre 2 px ; poignées de geste de 6 px.
 - **Hover (souris seulement, `(hover: hover) and (pointer: fine)`) :** soulèvement d'1 px (propriété `translate`, qui se compose avec le `transform` de position) et ombre `--shadow-hover`, en 80 ms. Mouvement réduit : l'ombre seule. Rien pendant un glisser ni sur un bloc armé. La ligne n'a plus `contain: paint` (elle rognait l'ombre) : `contain: size layout style` et `isolation: isolate`.
 - **Time off:** fond de la teinte du type de congé, bord gauche 3 px, en attente en tirets et hachures blanches, refusé barré.
+- **Time off, gestes (RT-051) :** le congé se manipule comme un bloc, sous les blocs : curseur « saisir », clic = sélection (contour encre 2 px, décalé vers l'intérieur), double clic ou Entrée = drawer du congé. Deux poignées seulement (début, fin ; pas de hauteur), zones de 44 px au toucher une fois sélectionné. Fantôme en tirets à la teinte du type. Pas de la demi-journée en vue jour, de la journée en vues semaine et mois. Le congé reste sur la ligne de sa personne.
 
 ### Capacity band
 - **Under:** gris ardoise. **OK:** fond neutre et ligne de capacité. **Over:** hachures rouges sur fond rouge clair, cadre rouge, ligne encre. Affiche la charge en texte (caption). La bascule « Charge » affiche ou masque toute la bande (voir Layout).

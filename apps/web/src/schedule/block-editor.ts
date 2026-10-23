@@ -28,9 +28,17 @@
 //    est bornée aux jours visibles (pas de défilement automatique) et relâcher hors de la zone des blocs abandonne la création.
 //  * Alt + glisser à la souris (RT-047, convention Float) : copie au lieu de déplacer ; le bloc reste en place, le fantôme montre
 //    la copie et onCopy reçoit sa place (personne, dates) au lâcher. Sans onCopy, ou au toucher : un déplacement.
+//  * Congés (RT-051, D4 : objet distinct, mêmes gestes que les blocs) si onTimeoffCommit est fourni : glisser (souris, appui
+//    long au toucher), poignées de début et de fin (pas de poignée de hauteur : un congé n'a pas d'heures), flèches au clavier
+//    (Maj : fin, Alt : début ; ni ↑ ↓ ni changement de personne), sélection au clic ou au tap, ouverture (onTimeoffOpen) au double
+//    clic, à Entrée ou au clic sur le congé déjà sélectionné. Pas du moteur (timeoffStepHalves) : la demi-journée en vue jour, la
+//    journée en vues semaine et mois et pour un congé partiel. Le congé reste sur la ligne de sa personne (pas de changement de
+//    personne : un congé suit la personne, et le report assisté BR-04 se calcule pour elle). Le fantôme reste figé tant que la
+//    promesse d'onTimeoffCommit (avertissement BR-04 ouvert, écriture) n'est pas réglée.
 import type { ScheduleResponse } from "@wnext/contracts";
 import {
-  applyGesture, dayNumber, expandOccurrences, fromDayNumber, keyGesture, pointerGesture, referenceHours, workDaysHoursOn, type BlockPatch, type Gesture, type GestureBlock,
+  applyGesture, applyTimeoffGesture, dayNumber, expandOccurrences, fromDayNumber, keyGesture, pointerGesture, referenceHours, timeoffKeyGesture, timeoffPointerGesture,
+  timeoffStepHalves, workDaysHoursOn, type BlockPatch, type Gesture, type GestureBlock, type TimeoffGestureKind, type TimeoffSpan,
 } from "@wnext/engine";
 import { diffBlocks, gestureBlockOf, type Allocation } from "../data/allocation-edits";
 import { ROW_UNIT_PX, type GridBlock, type GridModel, type GridRow, type GridTimeoff } from "./grid-model";
@@ -87,6 +95,23 @@ export interface BlockEditorOptions {
   onCreate?(r: CreateRequest): void;
   /** Alt + glisser (RT-047) : copie du bloc (de l'occurrence pour une série) à la place du fantôme ; absent : déplacement. */
   onCopy?(r: CopyRequest): void;
+  /** Geste validé sur un congé (RT-051) ; absent : les congés ne reçoivent aucun geste. Une promesse garde le fantôme figé. */
+  onTimeoffCommit?(r: TimeoffEditRequest): void | Promise<unknown>;
+  /** Ouvrir le congé (double clic, Entrée, clic sur le congé sélectionné) ; absent : rien. */
+  onTimeoffOpen?(r: { timeoffId: string; el: HTMLElement }): void;
+  /** Pas clavier sur un congé (brouillon courant) ; null quand le brouillon est validé ou annulé. */
+  onTimeoffPreview?(p: { timeoff: Timeoff; draft: TimeoffSpan } | null): void;
+}
+
+type Timeoff = ScheduleResponse["timeoffs"][number];
+export interface TimeoffEditRequest {
+  timeoffId: string;
+  /** Congé tel qu'avant le geste. */
+  timeoff: Timeoff;
+  /** Champs changés (dates, demi-journées). */
+  patch: Partial<TimeoffSpan>;
+  draft: TimeoffSpan & { personId: string };
+  via: "pointer" | "keyboard";
 }
 
 export interface CopyRequest { allocation: Allocation; key: string; draft: GestureBlock }
@@ -123,6 +148,12 @@ interface Drag extends Session {
   /** Alt + glisser : copie au lieu de déplacer (RT-047). */
   copy: boolean;
 }
+/** Geste sur un congé (RT-051) : `key` = « timeoff:id » (clé de sélection), `step` : pas en demi-journées, fixé au début. */
+interface OffSession { key: string; off: Timeoff; span0: TimeoffSpan; span: TimeoffSpan; step: 1 | 2; tone: number; h: number }
+interface OffDrag extends OffSession {
+  kind: TimeoffGestureKind; pointerId: number; x0: number; y0: number; sd0: number; cx: number; cy: number; started: boolean;
+  wasSelected: boolean; el: HTMLElement; touch: boolean;
+}
 /** `touch` : création par appui long (RT-043), abandonnée si le doigt sort de la zone des blocs ou si un deuxième doigt se pose. */
 interface Creating { pointerId: number; personId: string; anchor: number; day: number; touch: boolean }
 
@@ -131,9 +162,18 @@ const THRESHOLD_PX = 3;
 /** Mouvement toléré pendant l'appui long : au-delà, c'est un défilement. */
 const SLOP_PX = 8;
 type Hit = NonNullable<ReturnType<EditHost["blockAt"]>>;
+type OffHit = NonNullable<ReturnType<NonNullable<EditHost["timeoffAt"]>>>;
 type Slot = { row: GridRow; day: number };
-/** Appui en attente au toucher : sur un bloc (`hit`) ou sur une case libre (`slot`, création RT-043). */
-interface Pending { pointerId: number; x0: number; y0: number; cx: number; cy: number; hit: Hit | null; slot: Slot | null; timer: unknown }
+/** Appui en attente au toucher : sur un bloc (`hit`), un congé (`off`) ou une case libre (`slot`, création RT-043). */
+interface Pending { pointerId: number; x0: number; y0: number; cx: number; cy: number; hit: Hit | null; off: OffHit | null; slot: Slot | null; timer: unknown }
+const TIMEOFF_KEY = "timeoff:";
+const offKey = (id: string) => `${TIMEOFF_KEY}${id}`;
+/** Clé de sélection d'un nœud : bloc (data-key) ou congé (« timeoff:id »). */
+const keyOfEl = (el: HTMLElement) => el.dataset.key ?? (el.dataset.timeoff ? offKey(el.dataset.timeoff) : undefined);
+const spanOf = (t: Timeoff): TimeoffSpan => ({ startDate: t.startDate, endDate: t.endDate, startHalf: t.startHalf, endHalf: t.endHalf });
+const SPAN_FIELDS = ["startDate", "startHalf", "endDate", "endHalf"] as const;
+const diffSpan = (a: TimeoffSpan, b: TimeoffSpan): Partial<TimeoffSpan> =>
+  Object.fromEntries(SPAN_FIELDS.filter((k) => a[k] !== b[k]).map((k) => [k, b[k]]));
 const step = (b: GestureBlock, g: Gesture): GestureBlock => ({ ...b, ...(applyGesture(b, g)?.patch ?? {}) });
 
 export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
@@ -145,6 +185,8 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   const doc = root.ownerDocument;
   let drag: Drag | null = null;
   let kb: Session | null = null;
+  let odrag: OffDrag | null = null;
+  let okb: OffSession | null = null;
   let frozen = false;
   let frame = 0;
   let ghost: HTMLDivElement | null = null;
@@ -173,6 +215,18 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     };
   }
 
+  /** Congé sous `target`, si les congés reçoivent des gestes (onTimeoffCommit fourni, écriture permise). */
+  function offAt(target: EventTarget | null): OffHit | null {
+    if (!o.onTimeoffCommit || !host.timeoffAt || (o.enabled && !o.enabled())) return null;
+    return host.timeoffAt(target);
+  }
+  function offSession(hit: OffHit): OffSession | null {
+    const off = host.data().timeoffs.find((t) => t.id === hit.timeoff.timeoffId);
+    if (!off) return null;
+    const span0 = spanOf(off);
+    return { key: offKey(off.id), off, span0, span: span0, step: timeoffStepHalves(host.pxPerDay(), off.scope), tone: hit.timeoff.tone, h: hit.timeoff.h };
+  }
+
   function rowAt(y: number): GridRow | null {
     const rows = host.model()?.rows ?? [];
     let lo = 0;
@@ -193,7 +247,6 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     if (!row) return;
     if (!ghost) {
       ghost = doc.createElement("div");
-      ghost.className = "wn-ghost";
       ghost.setAttribute("aria-hidden", "true");
       ghost.style.position = "absolute";
       ghost.style.top = "0";
@@ -201,6 +254,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       ghost.style.pointerEvents = "none";
     }
     if (ghost.parentNode !== host.surface) host.surface.appendChild(ghost);
+    ghost.className = "wn-ghost";
     const ppd = host.pxPerDay();
     const days = dayNumber(s.occ.endDate) - dayNumber(s.occ.startDate) + 1;
     const ratio = s.occ0.mode === "hours" ? (s.occ.hoursPerDay ?? 0) / (s.occ0.hoursPerDay || 1) : (s.occ.percent ?? 0) / (s.occ0.percent || 1);
@@ -212,6 +266,40 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     ghost.style.display = "";
   }
   const hideGhost = () => { if (ghost) ghost.style.display = "none"; };
+
+  /** Fantôme d'un congé : sur la ligne de sa personne, demi-journées en demi-cellules, teinte du type. */
+  function showOffGhost(s: OffSession) {
+    const row = host.model()?.rows.find((r) => r.personId === s.off.personId);
+    if (!row) return;
+    if (!ghost) {
+      ghost = doc.createElement("div");
+      ghost.setAttribute("aria-hidden", "true");
+      Object.assign(ghost.style, { position: "absolute", top: "0", left: "0", pointerEvents: "none" });
+    }
+    if (ghost.parentNode !== host.surface) host.surface.appendChild(ghost);
+    ghost.className = `wn-ghost wn-timeoff-tone-${s.tone}`;
+    const half = host.pxPerDay() / 2;
+    const x = host.xOfDate(s.span.startDate) + (s.span.startHalf === "pm" ? half : 0);
+    const right = host.xOfDate(s.span.endDate) + (s.span.endHalf === "am" ? half : 2 * half);
+    ghost.style.transform = `translate(${x}px, ${row.top}px)`;
+    ghost.style.width = `${right - x}px`;
+    ghost.style.height = `${s.h}px`;
+    ghost.style.backgroundColor = "";
+    ghost.style.display = "";
+  }
+
+  function commitOff(s: OffSession, via: TimeoffEditRequest["via"]) {
+    const patch = diffSpan(s.span0, s.span);
+    if (Object.keys(patch).length === 0) { hideGhost(); return; }
+    const r = o.onTimeoffCommit!({ timeoffId: s.off.id, timeoff: s.off, patch, draft: { ...s.span, personId: s.off.personId }, via });
+    if (!r) { hideGhost(); return; }
+    frozen = true;
+    void Promise.resolve(r).catch(() => {}).finally(() => { frozen = false; hideGhost(); });
+  }
+  function openOff(timeoffId: string, el: HTMLElement) {
+    if (!o.onTimeoffOpen || (o.enabled && !o.enabled())) return;
+    o.onTimeoffOpen({ timeoffId, el });
+  }
 
   function commit(s: Session, via: EditRequest["via"]) {
     const patch = diffBlocks(s.ser0 ?? s.occ0, s.ser ?? s.occ);
@@ -331,8 +419,20 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     showGhost(d);
   }
 
+  function updateOff(d: OffDrag) {
+    const ppd = host.pxPerDay();
+    const dx = d.cx - d.x0 + (host.scrollDay() - d.sd0) * ppd;
+    if (!d.started) {
+      if (Math.abs(dx) < THRESHOLD_PX && Math.abs(d.cy - d.y0) < THRESHOLD_PX) return;
+      d.started = true;
+      root.classList.add("wn-dragging");
+    }
+    d.span = { ...d.span0, ...(applyTimeoffGesture(d.span0, timeoffPointerGesture(d.kind, dx, ppd, d.step), d.step) ?? {}) };
+    showOffGhost(d);
+  }
+
   /** Vitesse de défilement automatique (px par image) selon la distance aux bords de la zone des blocs. */
-  function edgeSpeed(d: Drag): { x: number; y: number } {
+  function edgeSpeed(d: { cx: number; cy: number }): { x: number; y: number } {
     const r = root.getBoundingClientRect();
     if (!r.width || !r.height) return { x: 0, y: 0 };
     const v = (dist: number) => (dist < edge ? Math.round(maxSpeed * Math.min(1, (edge - dist) / edge)) : 0);
@@ -344,24 +444,36 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
 
   function tick() {
     frame = 0;
-    const d = drag;
+    const d = drag ?? odrag;
     if (!d) return;
-    if (!d.started) update(d);
+    const step = () => (drag ? update(drag) : updateOff(odrag!));
+    if (!d.started) step();
+    // Un congé ne change pas de ligne : seul le défilement horizontal le suit.
     const s = d.started ? edgeSpeed(d) : { x: 0, y: 0 };
+    if (!drag) s.y = 0;
     if (s.x) root.scrollLeft = Math.max(0, root.scrollLeft + s.x);
     if (s.y) root.scrollTop = Math.max(0, root.scrollTop + s.y);
-    update(d);
+    step();
     if (s.x || s.y) schedule();
   }
   const schedule = () => { if (!frame) frame = raf(tick); };
 
-  function endDrag(): Drag | null {
-    const d = drag;
-    drag = null;
+  function stopGesture() {
     if (frame) { caf(frame); frame = 0; }
     unlisten();
     root.classList.remove("wn-dragging");
     for (const el of root.querySelectorAll(".wn-armed")) el.classList.remove("wn-armed");
+  }
+  function endDrag(): Drag | null {
+    const d = drag;
+    drag = null;
+    stopGesture();
+    return d;
+  }
+  function endOffDrag(): OffDrag | null {
+    const d = odrag;
+    odrag = null;
+    stopGesture();
     return d;
   }
 
@@ -380,20 +492,30 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     doc.removeEventListener("touchmove", onTouchMove, true);
   }
   /** Glisser armé ou création : le navigateur ne doit plus défiler (touch-action n'est pas relu en cours de geste). */
-  function onTouchMove(e: TouchEvent) { if ((drag || creating) && e.cancelable) e.preventDefault(); }
+  function onTouchMove(e: TouchEvent) { if ((drag || odrag || creating) && e.cancelable) e.preventDefault(); }
 
   // ---------- toucher : sélection, appui long ----------
 
+  /** Nœud affiché d'une clé de sélection (bloc ou congé). */
+  function elOfKey(key: string): HTMLElement | undefined {
+    const sel = key.startsWith(TIMEOFF_KEY) ? `.wn-timeoff[data-timeoff="${key.slice(TIMEOFF_KEY.length)}"]` : `.wn-block[data-key="${key}"]`;
+    return [...root.querySelectorAll<HTMLElement>(sel)].find((x) => x.style.display !== "none");
+  }
+  /** Poignées posées dans un nœud : les trois pour un bloc, début et fin seulement pour un congé. */
+  function placeHandles(el: HTMLElement) {
+    const off = el.classList.contains("wn-timeoff");
+    if (handles[0]!.parentNode === el && (handles[2]!.parentNode === el) !== off) return;
+    if (off) { handles[2]!.remove(); el.append(handles[0]!, handles[1]!); } else el.append(...handles);
+  }
   function applySelection() {
     for (const el of root.querySelectorAll<HTMLElement>(".wn-selected")) {
-      if (el.dataset.key !== selectedKey || el.style.display === "none") { el.classList.remove("wn-selected"); el.removeAttribute("aria-selected"); }
+      if (keyOfEl(el) !== selectedKey || el.style.display === "none") { el.classList.remove("wn-selected"); el.removeAttribute("aria-selected"); }
     }
-    const el = selectedKey === null ? undefined
-      : [...root.querySelectorAll<HTMLElement>(`.wn-block[data-key="${selectedKey}"]`)].find((x) => x.style.display !== "none");
+    const el = selectedKey === null ? undefined : elOfKey(selectedKey);
     if (!el) { for (const h of handles) h.remove(); return; }
     el.classList.add("wn-selected");
     el.setAttribute("aria-selected", "true");
-    if (handles[0]!.parentNode !== el) el.append(...handles);
+    placeHandles(el);
   }
   function select(key: string | null) {
     selectedKey = key;
@@ -402,7 +524,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     if (key === null) return;
     // Les nœuds sont recyclés au défilement : la sélection suit la clé, pas le nœud.
     const MO = doc.defaultView?.MutationObserver;
-    if (MO) { observer ??= new MO(applySelection); observer.observe(root, { subtree: true, attributes: true, attributeFilter: ["data-key"] }); }
+    if (MO) { observer ??= new MO(applySelection); observer.observe(root, { subtree: true, attributes: true, attributeFilter: ["data-key", "data-timeoff"] }); }
   }
 
   function cancelPending() {
@@ -418,6 +540,16 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       select(null);
       startCreate(p.pointerId, p.slot, true);
       vibrate();
+      return;
+    }
+    if (p.off) {
+      const os = offSession(p.off);
+      if (!os) { unlisten(); return; }
+      select(os.key);
+      p.off.el.classList.add("wn-armed");
+      vibrate();
+      odrag = { ...os, kind: "move", pointerId: p.pointerId, x0: p.cx, y0: p.cy, cx: p.cx, cy: p.cy, sd0: host.scrollDay(), started: false, wasSelected: false, el: p.off.el, touch: true };
+      try { p.off.el.setPointerCapture?.(p.pointerId); } catch { /* pointeur déjà relâché */ }
       return;
     }
     const s = p.hit && session(p.hit);
@@ -452,41 +584,70 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     cancelPending();
     if (creating?.touch) endCreate(false);
     if (drag?.touch) { endDrag(); hideGhost(); }
+    if (odrag?.touch) { endOffDrag(); hideGhost(); }
   }
   function onAnyUp(e: PointerEvent) { if (e.pointerType === "touch") touches.delete(e.pointerId); }
 
   function onDownTouch(e: PointerEvent) {
     if (touches.size > 1) return;
     const hit = host.blockAt(e.target);
+    const off = hit ? null : offAt(e.target);
     if (kb) cancelKeyboard();
+    if (okb) cancelOffKeyboard();
     const onHandle = !!(e.target as Element).closest?.("[data-handle]");
     if (hit && (onHandle || hit.block.key === selectedKey)) {
       const s = session(hit);
       if (s) beginDrag(e, hit, s);
       return;
     }
+    if (off && (onHandle || offKey(off.timeoff.timeoffId) === selectedKey)) {
+      const s = offSession(off);
+      if (s) beginOffDrag(e, off, s);
+      return;
+    }
     // Pas de preventDefault : tant que l'appui long n'est pas armé, le doigt fait défiler la grille.
-    const slot = !hit && o.onCreate ? freeSlotAt(e.target, e.clientX, e.clientY) : null;
-    const p: Pending = { pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY, hit, slot, timer: undefined };
+    const slot = !hit && !off && o.onCreate ? freeSlotAt(e.target, e.clientX, e.clientY) : null;
+    const p: Pending = { pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY, hit, off, slot, timer: undefined };
     pending = p;
-    if (hit || slot) p.timer = setTimer(() => { if (pending === p) arm(p); }, o.longPressMs ?? 400);
+    if (hit || off || slot) p.timer = setTimer(() => { if (pending === p) arm(p); }, o.longPressMs ?? 400);
     listen();
   }
 
   function onDown(e: PointerEvent) {
-    if (e.button !== 0 || drag || pending || creating || frozen || (o.enabled && !o.enabled())) return;
+    if (e.button !== 0 || drag || odrag || pending || creating || frozen || (o.enabled && !o.enabled())) return;
     if (e.pointerType === "touch") { onDownTouch(e); return; }
     const hit = host.blockAt(e.target);
     if (!hit) {
+      const off = offAt(e.target);
+      const os = off && offSession(off);
+      if (off && os) {
+        if (kb) cancelKeyboard();
+        if (okb) cancelOffKeyboard();
+        e.preventDefault();
+        off.el.focus({ preventScroll: true });
+        beginOffDrag(e, off, os);
+        return;
+      }
       if (o.onCreate && beginCreate(e)) select(null);
       return;
     }
     const s = session(hit);
     if (!s) return;
     if (kb) cancelKeyboard();
+    if (okb) cancelOffKeyboard();
     e.preventDefault();
     hit.el.focus({ preventScroll: true });
     beginDrag(e, hit, s);
+  }
+  function beginOffDrag(e: PointerEvent, hit: OffHit, s: OffSession) {
+    const handle = (e.target as Element).closest?.("[data-handle]")?.getAttribute("data-handle");
+    const kind: TimeoffGestureKind = handle === "start" ? "resizeStart" : handle === "end" ? "resizeEnd" : "move";
+    odrag = {
+      ...s, kind, pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY, sd0: host.scrollDay(), started: false,
+      wasSelected: selectedKey === s.key, el: hit.el, touch: e.pointerType === "touch",
+    };
+    try { hit.el.setPointerCapture?.(e.pointerId); } catch { /* pointeur déjà relâché */ }
+    listen();
   }
   function beginDrag(e: PointerEvent, hit: Hit, s: Session) {
     const handle = (e.target as Element).closest?.("[data-handle]")?.getAttribute("data-handle");
@@ -513,6 +674,12 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       if (Math.hypot(pending.cx - pending.x0, pending.cy - pending.y0) > SLOP_PX) cancelPending();
       return;
     }
+    if (odrag && e.pointerId === odrag.pointerId) {
+      odrag.cx = e.clientX;
+      odrag.cy = e.clientY;
+      schedule();
+      return;
+    }
     if (!drag || e.pointerId !== drag.pointerId) return;
     drag.cx = e.clientX;
     drag.cy = e.clientY;
@@ -521,10 +688,10 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   function onUp(e: PointerEvent) {
     if (pending && e.pointerId === pending.pointerId) {
       // Tap : sélectionne le bloc touché, ou désélectionne s'il n'y en a pas.
-      const hit = pending.hit;
+      const { hit, off } = pending;
       cancelPending();
-      select(hit ? hit.block.key : null);
-      hit?.el.focus({ preventScroll: true });
+      select(hit ? hit.block.key : off ? offKey(off.timeoff.timeoffId) : null);
+      (hit ?? off)?.el.focus({ preventScroll: true });
       return;
     }
     if (creating && e.pointerId === creating.pointerId) {
@@ -532,6 +699,17 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
       const day = inside ? dayAt(e.clientX) : null;
       if (day !== null && day !== creating.day) { creating.day = day; showDraft(creating); }
       endCreate(inside);
+      return;
+    }
+    if (odrag && e.pointerId === odrag.pointerId) {
+      odrag.cx = e.clientX;
+      odrag.cy = e.clientY;
+      updateOff(odrag);
+      const d = endOffDrag()!;
+      if (d.started) { commitOff(d, "pointer"); return; }
+      // Clic sans glisser (Q5, comme un bloc) : sélectionne ; sur le congé déjà sélectionné, l'ouvre.
+      select(d.key);
+      if (d.wasSelected) openOff(d.off.id, d.el);
       return;
     }
     if (!drag || e.pointerId !== drag.pointerId) return;
@@ -549,9 +727,10 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     if (creating) endCreate(false);
     if (pending) cancelPending();
     if (drag) { endDrag(); hideGhost(); }
+    if (odrag) { endOffDrag(); hideGhost(); }
   }
   function onDocKey(e: KeyboardEvent) {
-    if (e.key !== "Escape" || !(drag || creating)) return;
+    if (e.key !== "Escape" || !(drag || odrag || creating)) return;
     e.preventDefault();
     e.stopPropagation();
     onCancel();
@@ -565,9 +744,55 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     o.onPreview?.(null);
   }
 
+  function cancelOffKeyboard() {
+    okb = null;
+    hideGhost();
+    o.onTimeoffPreview?.(null);
+  }
+
+  /** Clavier sur un congé focalisé : flèches cumulées dans un brouillon (pas du zoom), Entrée valide ou ouvre, Échap annule. */
+  function onOffKey(e: KeyboardEvent, hit: OffHit) {
+    if (drag || odrag || frozen) return;
+    if (e.key === "Enter" && !okb) {
+      if (!o.onTimeoffOpen) return;
+      e.preventDefault();
+      e.stopPropagation();
+      select(offKey(hit.timeoff.timeoffId));
+      openOff(hit.timeoff.timeoffId, hit.el);
+      return;
+    }
+    if (e.key === "Escape" || e.key === "Enter") {
+      if (!okb) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const s = okb;
+      if (e.key === "Escape") { cancelOffKeyboard(); return; }
+      okb = null;
+      o.onTimeoffPreview?.(null);
+      commitOff(s, "keyboard");
+      refocus(s.key);
+      return;
+    }
+    const s = okb && okb.key === offKey(hit.timeoff.timeoffId) ? okb : offSession(hit);
+    if (!s) return;
+    const g = timeoffKeyGesture(e, s.step);
+    if (!g) return;
+    e.preventDefault();
+    e.stopPropagation();
+    okb = s;
+    s.span = { ...s.span, ...(applyTimeoffGesture(s.span, g, s.step) ?? {}) };
+    showOffGhost(s);
+    o.onTimeoffPreview?.({ timeoff: s.off, draft: s.span });
+  }
+
   function onKey(e: KeyboardEvent) {
     const hit = host.blockAt(e.target);
-    if (!hit || e.target !== hit.el || drag || frozen) return;
+    if (!hit) {
+      const off = offAt(e.target);
+      if (off && e.target === off.el) onOffKey(e, off);
+      return;
+    }
+    if (e.target !== hit.el || drag || odrag || frozen) return;
     if (e.key === "Enter" && !kb && o.onOpen && !(o.enabled && !o.enabled())) {
       e.preventDefault();
       e.stopPropagation();
@@ -604,7 +829,7 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   /** Le bloc validé a pu changer de nœud (recyclage après le nouveau rendu) : on rend le focus à sa clé. */
   function refocus(key: string) {
     raf(() => raf(() => {
-      const el = root.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`);
+      const el = elOfKey(key);
       const at = doc.activeElement;
       // Le focus parti ailleurs (choix de portée d'une série) n'est pas repris.
       if (el && at !== el && (at === doc.body || at === null || root.contains(at))) el.focus({ preventScroll: true });
@@ -613,6 +838,8 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
 
   function onFocusOut(e: FocusEvent) {
     if (kb && host.blockAt(e.target)?.block.key === kb.key) cancelKeyboard();
+    const off = okb && host.timeoffAt?.(e.target);
+    if (okb && off && offKey(off.timeoff.timeoffId) === okb.key) cancelOffKeyboard();
   }
 
   const handles = ["start", "end", "height"].map((h) => {
@@ -623,16 +850,23 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
     return el;
   });
   function onOver(e: PointerEvent) {
-    if (drag || e.pointerType === "touch" || (o.enabled && !o.enabled())) return;
-    const hit = host.blockAt(e.target);
-    if (hit && handles[0]!.parentNode !== hit.el) hit.el.append(...handles);
+    if (drag || odrag || e.pointerType === "touch" || (o.enabled && !o.enabled())) return;
+    const el = host.blockAt(e.target)?.el ?? offAt(e.target)?.el;
+    if (el) placeHandles(el);
   }
 
   /** Pas de menu contextuel du navigateur pendant un appui long, un glisser ou une création au toucher. */
-  function onContextMenu(e: Event) { if (pending || drag || creating) e.preventDefault(); }
+  function onContextMenu(e: Event) { if (pending || drag || odrag || creating) e.preventDefault(); }
   function onDblClick(e: MouseEvent) {
     const hit = host.blockAt(e.target);
-    if (!hit || drag || frozen) return;
+    if (!hit) {
+      const off = offAt(e.target);
+      if (!off || odrag || frozen) return;
+      select(offKey(off.timeoff.timeoffId));
+      openOff(off.timeoff.timeoffId, off.el);
+      return;
+    }
+    if (drag || frozen) return;
     select(hit.block.key);
     open({ key: hit.block.key, allocationId: hit.block.allocationId, el: hit.el });
   }
@@ -647,12 +881,13 @@ export function createBlockEditor(o: BlockEditorOptions): BlockEditor {
   root.addEventListener("focusout", onFocusOut);
 
   return {
-    busy: () => drag !== null || pending !== null || kb !== null || creating !== null || frozen,
+    busy: () => drag !== null || odrag !== null || pending !== null || kb !== null || okb !== null || creating !== null || frozen,
     clearDraft,
     select,
     destroy() {
       cancelPending();
       endDrag();
+      endOffDrag();
       creating = null;
       draftEl?.remove();
       doc.removeEventListener("pointerdown", onAnyDown, true);

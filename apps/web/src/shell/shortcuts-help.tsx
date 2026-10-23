@@ -1,8 +1,10 @@
 // Aide des raccourcis clavier (RT-064, née de la décision D1 de la recette n°4) : un bouton « ? » dans l'en-tête commun, juste
 // après la cloche des notifications, et la touche « ? » ouvrent une fenêtre (design/Modal) qui liste tous les raccourcis, par
-// groupe (partout, grille du planning, bloc sélectionné). La liste vient de shell/shortcuts, la source des gestionnaires de touches.
+// groupe (partout, grille du planning, bloc sélectionné, congé sélectionné). La liste vient de shell/shortcuts, la source des gestionnaires de touches.
 //  * « ? » est ignoré dans un champ de saisie, une zone de texte, un contenteditable, une autre fenêtre modale, et quand
 //    l'événement est déjà traité.
+//  * La liste est une région focalisable (tabindex 0, nommée) : plus haute que la fenêtre, elle défile au clavier (axe,
+//    scrollable-region-focusable) ; elle reçoit le focus à l'ouverture.
 //  * Fermée, la fenêtre rend le focus au bouton (Dialog) ; ouverte au clavier sans focus utile, au bouton aussi.
 import type { I18n } from "@lingui/core";
 import { Fragment, useEffect, useRef, useState } from "react";
@@ -14,6 +16,7 @@ const SCOPES: readonly { scope: ShortcutScope; label: MessageKey }[] = [
   { scope: "global", label: "shortcuts.scope.global" },
   { scope: "planning", label: "shortcuts.scope.planning" },
   { scope: "block", label: "shortcuts.scope.block" },
+  { scope: "timeoff", label: "shortcuts.scope.timeoff" },
 ];
 
 /** Cible où « ? » est un caractère à saisir. */
@@ -48,6 +51,7 @@ export function ShortcutsHelp({ i18n }: { i18n: I18n }) {
       </Button>
       {open && (
         <Modal title={t("shortcuts.title")} closeLabel={t("dialog.close")} onClose={close} className="wn-shortcuts">
+          <div role="region" tabIndex={0} aria-label={t("shortcuts.title")} className="wn-shortcuts-list">
           {SCOPES.map(({ scope, label }) => (
             <section key={scope} className="wn-shortcuts-group">
               <h3>{t(label)}</h3>
@@ -68,6 +72,7 @@ export function ShortcutsHelp({ i18n }: { i18n: I18n }) {
               </dl>
             </section>
           ))}
+          </div>
         </Modal>
       )}
     </>

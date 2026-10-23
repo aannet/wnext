@@ -7,6 +7,7 @@
 //  2. « Retirer du projet » envoie la confirmation de ce qui a été vu (POST removal). État changé entre-temps : message et
 //     nouveau récapitulatif, rien supprimé, il faut confirmer à nouveau. Succès : annonce (aria-live), focus rendu à la grille.
 // Suppression définitive : elle n'entre pas dans l'historique d'annulation (BR-40 : Ctrl+Z ne rejoue pas les cascades BR-10).
+// Congé (RT-051) : même menu, avec les commandes du congé (« Modifier… », « Supprimer ») et sans retrait.
 // Les écouteurs sont posés sur le document : ils passent après ceux de la grille (block-editor bloque le menu du navigateur
 // pendant un glisser au toucher, defaultPrevented est alors déjà posé et le menu ne s'ouvre pas).
 import type { I18n } from "@lingui/core";
@@ -25,6 +26,7 @@ interface Target { personId: string; projectId: string; key: string; allocationI
 export interface MenuCommand { id: string; label: string; shortcut: string; keys: string; onSelect(): void }
 type Step =
   | { kind: "menu"; target: Target; x: number; y: number }
+  | { kind: "offmenu"; timeoffId: string; commands: MenuCommand[]; x: number; y: number }
   | { kind: "dialog"; target: Target; summary: RemovalSummary | null; error: string | null; stale: boolean; busy: boolean };
 
 const SHOWN = new Set<EditError>(["FORBIDDEN", "NETWORK", "NOT_FOUND"]);
@@ -43,14 +45,18 @@ export interface TeamRemovalDeps {
   commands?(target: { allocationId: string; key: string }): MenuCommand[];
   /** Le bloc accepte-t-il des écritures (BR-33) ? Faux : pas de menu. Absent : oui. */
   writable?(allocationId: string): boolean;
+  /** Congé sous la cible (RT-051) ; absent : pas de menu sur un congé. */
+  timeoffAt?: EditHost["timeoffAt"];
+  /** Commandes d'un congé ; aucune : pas de menu. */
+  timeoffCommands?(timeoffId: string): MenuCommand[];
 }
 
-export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce, onRemoved, commands, writable }: TeamRemovalDeps): { element: ReactNode } {
+export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce, onRemoved, commands, writable, timeoffAt, timeoffCommands }: TeamRemovalDeps): { element: ReactNode } {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const [step, setStep] = useState<Step | null>(null);
-  const deps = useRef({ editor, data, blockAt, onRemoved, commands, writable });
-  deps.current = { editor, data, blockAt, onRemoved, commands, writable };
-  const enabled = editor !== undefined || commands !== undefined;
+  const deps = useRef({ editor, data, blockAt, onRemoved, commands, writable, timeoffAt, timeoffCommands });
+  deps.current = { editor, data, blockAt, onRemoved, commands, writable, timeoffAt, timeoffCommands };
+  const enabled = editor !== undefined || commands !== undefined || timeoffCommands !== undefined;
 
   useEffect(() => {
     if (!enabled) return;
@@ -63,7 +69,17 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
       const target = { personId: a.personId, projectId: a.projectId, key: hit.block.key, allocationId: a.id };
       return deps.current.editor || (deps.current.commands?.(target).length ?? 0) > 0 ? { target, el: hit.el } : null;
     };
+    /** Congé sous la cible et ses commandes (au moins une), sinon null. */
+    const offOf = (e: Event): { timeoffId: string; commands: MenuCommand[]; el: HTMLElement } | null => {
+      const grid = gridRef.current;
+      if (e.defaultPrevented || !grid || !(e.target instanceof Node) || !grid.contains(e.target) || deps.current.blockAt(e.target)) return null;
+      const off = deps.current.timeoffAt?.(e.target);
+      const list = off ? deps.current.timeoffCommands?.(off.timeoff.timeoffId) ?? [] : [];
+      return off && list.length > 0 ? { timeoffId: off.timeoff.timeoffId, commands: list, el: off.el } : null;
+    };
     const onMenu = (e: MouseEvent) => {
+      const off = offOf(e);
+      if (off) { e.preventDefault(); setStep({ kind: "offmenu", timeoffId: off.timeoffId, commands: off.commands, x: e.clientX, y: e.clientY }); return; }
       const hit = targetOf(e);
       if (!hit) return;
       e.preventDefault();
@@ -71,6 +87,13 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "ContextMenu" && !(e.key === "F10" && e.shiftKey)) return;
+      const off = offOf(e);
+      if (off && e.target === off.el) {
+        e.preventDefault();
+        const r = off.el.getBoundingClientRect();
+        setStep({ kind: "offmenu", timeoffId: off.timeoffId, commands: off.commands, x: r.left, y: r.bottom });
+        return;
+      }
       const hit = targetOf(e);
       if (!hit || e.target !== hit.el) return;
       e.preventDefault();
@@ -83,10 +106,10 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
   }, [enabled, gridRef]);
 
   /** Ferme et rend le focus au bloc (encore là) ou à la grille. */
-  const close = (key?: string) => {
+  const close = (key?: string, timeoffId?: string) => {
     setStep(null);
     const grid = gridRef.current;
-    const el = key ? grid?.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`) : null;
+    const el = key ? grid?.querySelector<HTMLElement>(`.wn-block[data-key="${key}"]`) : timeoffId ? grid?.querySelector<HTMLElement>(`.wn-timeoff[data-timeoff="${timeoffId}"]`) : null;
     (el ?? grid)?.focus({ preventScroll: true });
   };
 
@@ -124,8 +147,30 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
     return { person: d.people.find((p) => p.id === target.personId)?.name ?? "", project: d.projects.find((p) => p.id === target.projectId)?.name ?? "" };
   };
 
+  /** Éléments du menu : libellé, raccourci affiché (aria-keyshortcuts). */
+  const items = (list: readonly MenuCommand[]) => list.map((c) => (
+    <DropdownMenuItem key={c.id} aria-keyshortcuts={c.keys} className="flex items-center justify-between gap-4"
+      onClick={() => { setStep(null); c.onSelect(); }}>
+      <span data-label="">{c.label}</span>
+      <kbd aria-hidden="true" className="font-[inherit] text-caption opacity-80">{c.shortcut}</kbd>
+    </DropdownMenuItem>
+  ));
   let element: ReactNode = null;
-  if (step?.kind === "menu") {
+  if (step?.kind === "offmenu") {
+    const { timeoffId } = step;
+    element = (
+      <DropdownMenu open onOpenChange={(open, details) => {
+        if (open || details.reason === "item-press") return;
+        if (details.reason === "outside-press") setStep(null);
+        else close(undefined, timeoffId);
+      }}>
+        <DropdownMenuContent point={{ x: step.x, y: step.y }} align="start" aria-label={t("schedule.timeoff.menu.label")}
+          onKeyDown={(e) => { if (e.key === "Tab") { e.preventDefault(); close(undefined, timeoffId); } }}>
+          {items(step.commands)}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  } else if (step?.kind === "menu") {
     const { target } = step;
     const list = deps.current.commands?.(target) ?? [];
     element = (
@@ -136,13 +181,7 @@ export function useTeamRemoval({ i18n, editor, data, gridRef, blockAt, announce,
       }}>
         <DropdownMenuContent point={{ x: step.x, y: step.y }} align="start" aria-label={t("schedule.removal.menu.label")}
           onKeyDown={(e) => { if (e.key === "Tab") { e.preventDefault(); close(target.key); } }}>
-          {list.map((c) => (
-            <DropdownMenuItem key={c.id} aria-keyshortcuts={c.keys} className="flex items-center justify-between gap-4"
-              onClick={() => { setStep(null); c.onSelect(); }}>
-              <span data-label="">{c.label}</span>
-              <kbd aria-hidden="true" className="font-[inherit] text-caption opacity-80">{c.shortcut}</kbd>
-            </DropdownMenuItem>
-          ))}
+          {items(list)}
           {editor && <DropdownMenuItem onClick={() => void openDialog(target)}>{t("schedule.removal.menu.item", names(target))}</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>

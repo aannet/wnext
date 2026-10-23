@@ -145,7 +145,7 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 /* Édition par gestes : poignées de 6 px (début, fin, hauteur), fantôme du geste, choix de portée d'une série, annonces. */
 .wn-block { cursor: grab; }
 .wn-block:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 1px; }
-.wn-dragging, .wn-dragging .wn-block { cursor: grabbing; user-select: none; }
+.wn-dragging, .wn-dragging .wn-block, .wn-dragging .wn-timeoff { cursor: grabbing; user-select: none; }
 .wn-handle { position: absolute; touch-action: none; }
 .wn-handle-start, .wn-handle-end { top: 0; bottom: 6px; width: 6px; cursor: ew-resize; }
 .wn-handle-start { left: 0; }
@@ -159,7 +159,9 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 
 /* Congés (BR-04) : fond derrière les blocs, sur la hauteur des blocs, teinte du type (texte sombre, contraste >= 4,5:1) et
    bord gauche marqué. En attente : hachures blanches et bord en tirets ; refusé : sans fond, barré. Demi-journée = demi-cellule. */
-.wn-timeoff { contain: strict; box-sizing: border-box; padding: 2px 4px; overflow: hidden; white-space: nowrap; font-size: var(--wn-meta-size); color: var(--text); border-left: 3px solid; cursor: pointer; }
+.wn-timeoff { contain: strict; box-sizing: border-box; padding: 2px 4px; overflow: hidden; white-space: nowrap; font-size: var(--wn-meta-size); color: var(--text); border-left: 3px solid; cursor: grab; }
+/* Gestes sur un congé (RT-051) : poignées de début et de fin seulement (pas de hauteur), sur toute la hauteur. */
+.wn-timeoff .wn-handle-start, .wn-timeoff .wn-handle-end { bottom: 0; }
 .wn-timeoff:focus-visible { outline: 2px solid var(--color-ink); outline-offset: -2px; }
 .wn-timeoff-tone-0 { background-color: var(--color-timeoff-0-bg); border-color: var(--color-timeoff-0-border); }
 .wn-timeoff-tone-1 { background-color: var(--color-timeoff-1-bg); border-color: var(--color-timeoff-1-border); }
@@ -200,16 +202,20 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-subheader button:not(:disabled):active, .wn-toolbar button:not(:disabled):active { transform: translateY(1px); }
 
 /* Toucher (WCAG 2.5.7) : bloc non sélectionné = le doigt défile la grille ; sélectionné ou glisser armé (appui long) = le geste
-   est au bloc. Poignées d'un bloc sélectionné : zones de saisie de 44 px (dans le bloc, contain: strict le rogne), repère visible. */
-.wn-block { touch-action: pan-x pan-y; -webkit-touch-callout: none; }
-.wn-block.wn-selected, .wn-block.wn-armed { touch-action: none; }
-.wn-block.wn-selected { outline: 2px solid var(--color-ink); outline-offset: 1px; }
-.wn-block.wn-armed { outline: 3px solid var(--focus); box-shadow: var(--shadow-armed); }
-.wn-block.wn-selected .wn-handle-start, .wn-block.wn-selected .wn-handle-end { top: 0; bottom: 0; width: min(44px, 40%); min-width: 22px; }
+   est au bloc. Poignées d'un bloc sélectionné : zones de saisie de 44 px (dans le bloc, contain: strict le rogne), repère visible.
+   Même règle pour un congé (RT-051), avec ses seules poignées de début et de fin. */
+.wn-block, .wn-timeoff { touch-action: pan-x pan-y; -webkit-touch-callout: none; }
+.wn-block.wn-selected, .wn-block.wn-armed, .wn-timeoff.wn-selected, .wn-timeoff.wn-armed { touch-action: none; }
+.wn-block.wn-selected, .wn-timeoff.wn-selected { outline: 2px solid var(--color-ink); outline-offset: 1px; }
+.wn-timeoff.wn-selected { outline-offset: -2px; }
+.wn-block.wn-armed, .wn-timeoff.wn-armed { outline: 3px solid var(--focus); box-shadow: var(--shadow-armed); }
+.wn-block.wn-selected .wn-handle-start, .wn-block.wn-selected .wn-handle-end,
+.wn-timeoff.wn-selected .wn-handle-start, .wn-timeoff.wn-selected .wn-handle-end { top: 0; bottom: 0; width: min(44px, 40%); min-width: 22px; }
 .wn-block.wn-selected .wn-handle-height { left: min(44px, 40%); right: min(44px, 40%); bottom: 0; height: min(44px, 50%); min-height: 16px; }
-.wn-block.wn-selected .wn-handle::after { content: ""; position: absolute; background: var(--color-ink); box-shadow: 0 0 0 1px var(--surface); border-radius: 2px; }
-.wn-block.wn-selected .wn-handle-start::after, .wn-block.wn-selected .wn-handle-end::after { top: 25%; bottom: 25%; width: 4px; left: 3px; }
-.wn-block.wn-selected .wn-handle-end::after { left: auto; right: 3px; }
+.wn-block.wn-selected .wn-handle::after, .wn-timeoff.wn-selected .wn-handle::after { content: ""; position: absolute; background: var(--color-ink); box-shadow: 0 0 0 1px var(--surface); border-radius: 2px; }
+.wn-block.wn-selected .wn-handle-start::after, .wn-block.wn-selected .wn-handle-end::after,
+.wn-timeoff.wn-selected .wn-handle-start::after, .wn-timeoff.wn-selected .wn-handle-end::after { top: 25%; bottom: 25%; width: 4px; left: 3px; }
+.wn-block.wn-selected .wn-handle-end::after, .wn-timeoff.wn-selected .wn-handle-end::after { left: auto; right: 3px; }
 .wn-block.wn-selected .wn-handle-height::after { left: 25%; right: 25%; height: 4px; bottom: 3px; }
 /* Vues sauvegardées (schedule/views-ui) */
 .wn-views-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -228,6 +234,7 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-notifications-open { font-size: 12px; display: inline-flex; gap: 4px; align-items: center; }
 /* Aide des raccourcis clavier (RT-064) : bouton carré « ? » à côté de la cloche, fenêtre groupée (touches à gauche, action à droite). */
 .wn-help-open { width: 32px; padding: 0; justify-content: center; font-weight: var(--font-weight-semibold); }
+.wn-shortcuts-list:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
 .wn-shortcuts-group + .wn-shortcuts-group { margin-top: var(--space-4); }
 .wn-shortcuts-group h3 { margin: 0 0 var(--space-1); color: var(--text-muted); font-size: var(--text-label); font-weight: var(--font-weight-semibold); }
 .wn-shortcuts dl { margin: 0; }
