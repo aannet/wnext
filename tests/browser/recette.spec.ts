@@ -419,7 +419,12 @@ test("R-12 — Éditer un bloc posé et changer son projet", async ({ page }) =>
   const after = `Site vitrine, du ${fr(day(14))} au ${fr(day(16))}, 8 h par jour`;
   const block = (p: Page, label: string) => p.locator(`.wn-row[data-person="1"] .wn-block[aria-label="${label}"]:visible`);
   const original = block(page, before);
-  const box = (await original.boundingBox())!;
+  // Position dans le contenu de la grille (x + scrollLeft) : Playwright peut faire défiler la grille en réessayant un clic
+  // (bloc en transition au survol, RT-062) ; « même place » ne doit pas dépendre de ce défilement.
+  const gridScroll = (p: Page) => p.locator(".wn-grid").evaluate((g) => ({ x: g.scrollLeft, y: g.scrollTop }));
+  const s0 = await gridScroll(page);
+  const b0 = (await original.boundingBox())!;
+  const box = { x: b0.x + s0.x, y: b0.y + s0.y };
   const color = await original.evaluate((e) => (e as HTMLElement).style.backgroundColor);
 
   // Un clic simple sélectionne (poignées), il n'ouvre rien ; un double-clic ouvre le drawer prérempli.
@@ -444,7 +449,9 @@ test("R-12 — Éditer un bloc posé et changer son projet", async ({ page }) =>
   await expect(notice(page)).toContainText("Allocation modifiée. Ctrl+Z annule.");
   const changed = block(page, after);
   await expect(changed).toBeVisible();
-  const movedBox = (await changed.boundingBox())!;
+  const s1 = await gridScroll(page);
+  const b1 = (await changed.boundingBox())!;
+  const movedBox = { x: b1.x + s1.x, y: b1.y + s1.y };
   expect(Math.abs(movedBox.x - box.x)).toBeLessThan(2); // même place
   expect(Math.abs(movedBox.y - box.y)).toBeLessThan(2);
   expect(await changed.evaluate((e) => (e as HTMLElement).style.backgroundColor)).not.toBe(color);
