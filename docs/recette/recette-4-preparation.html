@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WNEXT — Préparation de la recette n°4</title>
+<style>
+  :root { color-scheme: light; --bg:#f7f8fa; --card:#fff; --ink:#1c2330; --muted:#566074; --line:#e3e7ee; --accent:#2f5bea; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .layout { display:flex; align-items:flex-start; }
+  nav { position:sticky; top:0; width:230px; flex:none; height:100vh; overflow:auto; padding:24px 16px; border-right:1px solid var(--line); background:var(--card); }
+  nav h1 { font-size:17px; margin:0 0 4px; } nav .s { color:var(--muted); font-size:12px; margin:0 0 16px; }
+  nav a { display:block; padding:6px 10px; margin-bottom:2px; border-radius:6px; color:var(--muted); text-decoration:none; font-size:14px; }
+  nav a:hover { background:var(--bg); } nav a.active { background:#e8eefd; color:var(--accent); font-weight:600; }
+  main { flex:1; min-width:0; max-width:1000px; padding:32px 32px 80px; }
+  section { margin-bottom:44px; scroll-margin-top:16px; }
+  h2 { font-size:26px; line-height:1.2; margin:0 0 8px; } h3 { margin:0 0 6px; font-size:19px; line-height:1.3; }
+  .sub { color:var(--muted); font-weight:400; font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin-bottom:14px; }
+  .intent { background:#f3f6fe; border-color:#c9d6fb; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  .stats ul { list-style:none; margin:6px 0 0; padding:0; } .stats li { padding:2px 0; }
+  .stats .big { font-size:40px; font-weight:700; line-height:1; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; font-size:13.5px; }
+  th,td { text-align:left; vertical-align:top; padding:8px 10px; border-top:1px solid var(--line); }
+  th { background:#eef1f6; border-top:0; font-size:12.5px; }
+  tr.group td { background:#f7f8fa; font-weight:700; font-size:13px; color:var(--muted); }
+  .nw { white-space:nowrap; } .tw { overflow-x:auto; margin-bottom:14px; }
+  .reco { background:#eaf6ef; border:1px solid #1f7a4d; border-radius:8px; padding:8px 12px; }
+  .tagreco { display:inline-block; font-size:12px; font-weight:700; color:#17603c; margin-right:6px; text-transform:uppercase; }
+  .answer { border:1px dashed #98a2b3; border-radius:8px; padding:10px 12px; min-height:48px; color:var(--muted); margin:10px 0 0; }
+  ul.plain { margin:6px 0; padding-left:20px; } ul.plain li { margin:3px 0; }
+  .hl { background:#fff7e0; border:1px solid #e0a100; border-radius:8px; padding:8px 12px; }
+  .pill { display:inline-block; font-size:12px; font-weight:600; padding:1px 8px; border-radius:10px; background:#eef1f6; color:#445; border:1px solid #aab; white-space:nowrap; }
+  .pill.maj { background:#fdf0dc; color:#8a4b00; border-color:#8a4b00; }
+  @media (max-width:880px) { .layout { display:block; } nav { position:static; width:auto; height:auto; border-right:0; border-bottom:1px solid var(--line); padding:12px 16px; } nav a { display:inline-block; } main { padding:20px 16px 60px; } }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav id="nav">
+  <h1>Recette n°4</h1><p class="s">Préparation, 2026-10-23</p>
+  <a href="#resume">Résumé</a>
+  <a href="#demarrer">Démarrer la recette</a>
+  <a href="#verifier">Ce qu'il faut vérifier</a>
+  <a href="#decisions">Choix à confirmer</a>
+  <a href="#limites">Limites connues</a>
+  <a href="#points">Points ouverts reportés</a>
+  <a href="#relectures">Relectures humaines</a>
+  <a href="#prerecette">Contrôles automatisés</a>
+  <a href="#methode">Méthode et écarts</a>
+  <a href="#suite">Suite</a>
+</nav>
+<main>
+<section id="resume">
+  <h2>Résumé</h2>
+  <p class="sub">Tout ce qu'il te faut pour la recette n°4, au bout du cadrage n°4 que tu as validé le 2026-10-23. Sources : <a href="cadrage-4.html"><code>cadrage-4.html</code></a>, <code>docs/recette/registre.md</code> (section « Note n°4 »), <code>docs/recette/scenarios.md</code>.</p>
+  <div class="card intent"><b>En une phrase.</b> Les <b>14 retours</b> de ta note n°4 (RT-051 à RT-064) sont livrés en <b>4 lots</b> (L-X1 à L-X4) sur la branche <code>polish</code>. Il te reste à les <b>vérifier à l'écran</b>, à <b>confirmer ou annuler</b> les choix que j'ai faits sans toi, et à trancher les points ouverts toujours en attente.</div>
+  <div class="stats">
+    <div class="card"><div class="big">14</div>retours livrés<br><span class="sub">RT-051 à RT-064, dont 3 majeurs</span></div>
+    <div class="card"><div class="big">30/30</div>scénarios de pré-recette réussis<br><span class="sub">vraie pile, seed de recette, OIDC</span></div>
+    <div class="card"><b>Contrôles sur <code>polish</code></b><ul><li><code>make check</code> : 2 657 tests réussis</li><li><code>test:browser</code> 93/93 (axe)</li><li><code>test:browser:oidc</code> 1/1</li><li><code>bench:browser</code> : 59,9 images/s</li></ul></div>
+    <div class="card"><b>À faire par toi</b><ul><li><b>14</b> retours à vérifier</li><li><b>9</b> choix à confirmer</li><li><b>6</b> points ouverts (PO-11 à PO-16)</li></ul></div>
+  </div>
+</section>
+
+<section id="demarrer">
+  <h2>Démarrer la recette</h2>
+  <div class="hl" style="margin-bottom:14px"><b>Branche <code>polish</code>, pas <code>main</code>.</b> Le travail du cadrage n°4 n'est pas sur <code>main</code>. Vérifie avec <code>git branch --show-current</code> avant de lancer la pile.</div>
+  <div class="card"><ol style="margin:0;padding-left:20px">
+    <li>Arrête une pile qui tournerait encore (Ctrl-C dans son terminal) : elle aurait l'ancien code.</li>
+    <li><code>npm run dev:recette:seed</code> lance le compte « WNEXT Recette » sur une base dédiée (<code>.dev-pg-recette/</code>). Ta base <code>.dev-pg</code> n'est pas touchée. Ajoute <code>-- --reset</code> pour repartir du jeu initial. Pour un compte vide : <code>npm run dev:recette:vide</code>.</li>
+    <li>Ouvre <code>http://localhost:5173/</code>, clique « Se connecter », puis choisis un compte :
+      <ul class="plain">
+        <li><b>Alec</b> (owner) ;</li>
+        <li>Admin Recette ;</li>
+        <li><b>Camille Roy</b> (member) ;</li>
+        <li><b>Nadia Benali</b> (chef de projet) ;</li>
+        <li>Invité Recette (guest) ;</li>
+        <li>Admin Autre Société.</li>
+      </ul></li>
+    <li>Joue les scénarios de <code>docs/recette/scenarios.md</code>, de R-01 à R-33. R-33 est nouveau : il couvre les gestes sur un congé. Note tes retours en vrac dans <code>docs/recette/notes/</code>, comme d'habitude.</li>
+  </ol></div>
+  <p class="sub">Aucune nouvelle migration ni aucun changement de contrat dans ce cadrage : le cycle ne touche que l'écran.</p>
+</section>
+
+<section id="verifier">
+  <h2>Ce qu'il faut vérifier</h2>
+  <p class="sub">Un retour par ligne, rangé par endroit de l'écran. Ta phrase d'origine est dans <a href="cadrage-4.html#retours">le cadrage</a>.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Id</th><th>Ce qui a changé</th><th>Où le voir</th><th>Lot</th></tr></thead>
+  <tbody>
+<tr class="group"><td colspan="4">Grille du Planning</td></tr>
+<tr><td class="nw"><b>RT-051</b> <span class="pill maj">majeure</span></td><td>Un congé se manipule comme un bloc :
+  <ul class="plain">
+    <li>le déplacer en le glissant ;</li>
+    <li>l'étirer ou le réduire par ses poignées de début et de fin ;</li>
+    <li>au clavier : les flèches, Maj + ← → pour la fin, Alt + ← → pour le début ;</li>
+    <li>au toucher : un appui long ;</li>
+    <li>Suppr pour le supprimer, et un menu au clic droit.</li>
+  </ul>
+  Le pas est la demi-journée en vue jour, la journée en vues semaine et mois. Un congé qui en chevaucherait un autre est refusé. S'il tombe sur des allocations, l'avertissement BR-04 s'ouvre avant toute écriture. Tout s'annule par Ctrl+Z.</td><td>R-33 ; aide « ? », groupe « Congé sélectionné »</td><td>L-X3</td></tr>
+<tr><td class="nw"><b>RT-052</b></td><td>Éteinte, la bascule « Charge » masque toute la bande de capacité, graphique et chiffres, et les lignes raccourcissent.</td><td>Menu « Affichage » &gt; « Charge »</td><td>L-X1</td></tr>
+<tr><td class="nw"><b>RT-055</b></td><td>Un trait d'accent de 2 px marque le jour courant, dans les trois zooms, et la colonne est un peu plus teintée.</td><td>Planning, bouton « Aujourd'hui »</td><td>L-X1</td></tr>
+<tr><td class="nw"><b>RT-056</b></td><td>Les en-têtes de colonnes ont un fond distinct, un texte en gras et une bordure basse plus forte. La période courante est en pastille d'accent.</td><td>Haut de la grille, en jour, semaine et mois</td><td>L-X1</td></tr>
+<tr><td class="nw"><b>RT-062</b></td><td>Survolé à la souris, un bloc se soulève d'1 px avec une ombre légère. Si ton système réduit les animations, seule l'ombre apparaît.</td><td>Survol d'un bloc</td><td>L-X1</td></tr>
+<tr><td class="nw"><b>RT-063</b></td><td>La jauge de la colonne Personnes passe au rouge dès qu'un jour de la période affichée dépasse 100 %, et l'orange a disparu. « +N h » donne la somme des dépassements jour par jour, et l'infobulle le nombre de jours en surcharge.</td><td>Thomas Girard (surbooking S0), Julie Lambert S+2 (R-04)</td><td>L-X1</td></tr>
+<tr><td class="nw"><b>RT-061</b></td><td>Le nombre de personnes affichées est dans le coin, au-dessus de la colonne Personnes. « 8 h par jour par défaut » n'apparaît plus nulle part.</td><td>Coin haut gauche de la grille ; appliquer un filtre</td><td>L-X2</td></tr>
+<tr class="group"><td colspan="4">Barre et en-tête</td></tr>
+<tr><td class="nw"><b>RT-057</b> <span class="pill maj">majeure</span></td><td>La barre de saisie rapide est retirée de l'écran. Le parseur reste dans le moteur (ADR-002 §5 amendé).</td><td>Au-dessus de la grille</td><td>L-X2</td></tr>
+<tr><td class="nw"><b>RT-060</b> <span class="pill maj">majeure</span></td><td>Les boutons « + Allocation » et « Nouveau congé » sont retirés.
+  <ul class="plain">
+    <li><b>N</b> ouvre le drawer de création prérempli : la personne du bloc focalisé, sinon la première ligne visible ; le jour du bloc, sinon aujourd'hui.</li>
+    <li><b>C</b> ouvre le drawer de congé, de la même façon.</li>
+    <li>Fermé sans rien créer, le drawer rend le focus au bloc d'origine.</li>
+    <li>Une grille vide affiche une seule indication.</li>
+  </ul></td><td>R-10, R-11 ; compte vide (R-06)</td><td>L-X2</td></tr>
+<tr><td class="nw"><b>RT-058</b></td><td>Les vues sauvegardées sont dans le panneau Filtres : « Vue » en tête, enregistrement en pied. Le bouton affiche « Filtres (n) · Studio », avec ● quand la vue est modifiée. Le titre et la barre d'outils tiennent sur une seule ligne.</td><td>Bouton « Filtres » (R-22)</td><td>L-X2</td></tr>
+<tr><td class="nw"><b>RT-059</b></td><td>Le bouton de recherche est dans l'en-tête commun, juste avant la cloche, et Ctrl+K marche sur tous les écrans. Hors du Planning, choisir une personne ouvre le Planning sur sa ligne, et choisir un projet ouvre sa fiche.</td><td>Ctrl+K depuis Projets ou Personnes (R-22)</td><td>L-X2</td></tr>
+<tr><td class="nw"><b>RT-064</b></td><td>Un bouton « ? », placé après la cloche, ou la touche ? (hors d'un champ de saisie) ouvre l'aide des raccourcis, rangés en quatre groupes :
+  <ul class="plain">
+    <li>partout ;</li>
+    <li>grille ;</li>
+    <li>bloc sélectionné ;</li>
+    <li>congé sélectionné.</li>
+  </ul>
+  La liste vient du même fichier que les gestionnaires de touches.</td><td>En-tête, sur tous les écrans</td><td>L-X2</td></tr>
+<tr class="group"><td colspan="4">Listes et Réglages</td></tr>
+<tr><td class="nw"><b>RT-053</b></td><td>Projets, Personnes et Clients s'affichent dans un même tableau (DataTable) : tri par colonne, filtre, actions par ligne. Une suppression demande confirmation. Clients ne se gère plus que dans Réglages, avec Modifier et Supprimer. Un client utilisé par un projet ne se supprime pas.</td><td>Projets, Personnes, Réglages &gt; Clients</td><td>L-X4</td></tr>
+<tr><td class="nw"><b>RT-054</b></td><td>L'import CSV n'a plus qu'une entrée, Réglages &gt; Import, pour owner et admin. Les listes vides de Personnes et de Projets y renvoient par un lien.</td><td>Réglages &gt; Import (R-21) ; compte vide (R-06)</td><td>L-X2</td></tr>
+<tr class="group"><td colspan="4">Points ouverts tranchés le 2026-10-24 et corrigés</td></tr>
+<tr><td class="nw"><b>PO-11</b></td><td>Après un geste qui change les dates d'une occurrence d'une série mensuelle (autre que la première), seule « Cette occurrence » est proposée, avec la raison.</td><td>Planning, série mensuelle</td><td><code>007edb3</code></td></tr>
+<tr><td class="nw"><b>PO-12</b></td><td>Dans le drawer, la fin d'une occurrence peut dépasser la fin de la série ; « Toute la série » repousse la fin de série jusque-là.</td><td>Drawer d'une série, dernière occurrence</td><td><code>a12ec9d</code></td></tr>
+<tr><td class="nw"><b>PO-14</b></td><td>Le bouton du menu utilisateur s'annonce « AA, menu utilisateur de … » : les initiales visibles en tête.</td><td>Avatar de l'en-tête (connexion OIDC)</td><td><code>9491e9b</code></td></tr>
+<tr><td class="nw"><b>PO-16</b></td><td>Sans <code>?lang=</code>, l'écran prend la langue du compte, sinon celle du navigateur ; changer la langue du compte dans Réglages &gt; Compte fait basculer l'écran aussitôt. La langue propre à l'utilisateur viendra avec le profil (T2).</td><td>Réglages &gt; Compte</td><td><code>4978f2e</code></td></tr>
+  </tbody></table></div>
+</section>
+
+<section id="decisions">
+  <h2>Choix à confirmer</h2>
+  <p class="sub">Pris sans toi pendant l'exécution, en choisissant chaque fois l'option la plus réversible. Pour chacun : confirme, ou dis ce que tu veux à la place.</p>
+  <div class="card"><h3>C1 <span class="sub">(RT-052, bascule « Charge »)</span></h3><p>La bascule est active par défaut. Son état n'est gardé ni dans les vues ni d'une session à l'autre.</p><p class="reco"><span class="tagreco">Recommandation</span> Garder. L'enregistrer dans les vues serait un petit lot si tu le veux.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+  <div class="card"><h3>C2 <span class="sub">(RT-051, pas d'un congé)</span></h3><p>Le pas est la demi-journée en vue jour, la journée en vues semaine et mois. Un congé partiel (quelques heures par jour) se déplace toujours à la journée, contrainte imposée par la base.</p><p class="reco"><span class="tagreco">Recommandation</span> Garder : en semaine et en mois, une demi-journée fait 4 à 14 px, trop peu pour la viser.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+  <div class="card"><h3>C3 <span class="sub">(RT-051, personne d'un congé)</span></h3><p>Un congé ne change pas de personne par un geste : il reste sur sa ligne. Pour le donner à quelqu'un d'autre, on passe par le drawer.</p><p class="reco"><span class="tagreco">Recommandation</span> Garder : un congé appartient à quelqu'un, et le report BR-04 se calcule pour cette personne.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+  <div class="card"><h3>C4 <span class="sub">(RT-051, clic sur un congé)</span></h3><p>Un clic sélectionne le congé. Le double clic, Entrée ou un second clic l'ouvrent, exactement comme pour un bloc (Q5). <b>Avant, un simple clic l'ouvrait.</b></p><p class="reco"><span class="tagreco">Recommandation</span> Garder, par cohérence avec les blocs : un clic qui ouvrirait le drawer empêcherait de glisser le congé.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+  <div class="card"><h3>C5 <span class="sub">(RT-057, touche « / »)</span></h3><p>La touche <code>/</code> est retirée : elle ne servait qu'à aller dans la barre de saisie rapide.</p><p class="reco"><span class="tagreco">Recommandation</span> Garder.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+  <div class="card"><h3>C6 <span class="sub">(RT-060, cible de N et C)</span></h3><p>Sans bloc focalisé, N et C visent la <b>première ligne visible</b> (sous l'en-tête), pas la première ligne de la liste.</p><p class="reco"><span class="tagreco">Recommandation</span> Garder.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+  <div class="card"><h3>C7 <span class="sub">(RT-061, réglage des 8 h)</span></h3><p>La valeur par défaut de la saisie rapide (8 h) n'est pas encore réglable par compte. Il faudrait toucher au contrat : c'est reporté en T2 (D10).</p><p class="reco"><span class="tagreco">Recommandation</span> Reporter en T2, comme décidé.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+  <div class="card"><h3>C8 <span class="sub">(RT-054, démo)</span></h3><p>En démo (<code>?demo=1</code>), l'import ne contrôlait pas le rôle. Il est maintenant réservé à owner et admin, comme sur la vraie pile.</p><p class="reco"><span class="tagreco">Recommandation</span> Garder.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+  <div class="card"><h3>C9 <span class="sub">(RT-058, annonces des vues)</span></h3><p>Les annonces « Vue enregistrée » et « Vue appliquée » ne sont lues que par les lecteurs d'écran, plus affichées. Les erreurs, elles, restent visibles.</p><p class="reco"><span class="tagreco">Recommandation</span> Garder : le nom de la vue sur le bouton Filtres suffit comme retour visuel.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+</section>
+
+<section id="limites">
+  <h2>Limites connues</h2>
+  <p class="sub">Connues, non corrigées dans ce cycle. Dis si l'une d'elles te gêne.</p>
+  <div class="card"><ul class="plain">
+    <li><b>Congé recouvert</b> : un congé caché sous des blocs à 8 h ne s'attrape pas à la souris, car les blocs sont au-dessus. Aucun chemin clavier ne mène à un congé : la touche Tab ne focalise que les blocs. Ces deux limites existaient avant RT-051.</li>
+    <li><b>Focus après BR-04</b> : après un geste qui ouvre l'avertissement BR-04, le focus revient à la grille, pas au congé.</li>
+    <li><b>Lecteurs d'écran</b> : le bouton « Aujourd'hui » n'annonce pas la touche T, qui n'agit que sur la grille.</li>
+    <li><b>Test tactile instable</b> : « glisser au-dessus de la grille » (<code>touch.spec</code>) échoue environ une fois sur quatre, déjà sur le code d'avant ces lots. Il a réussi au dernier passage complet.</li>
+  </ul></div>
+</section>
+
+<section id="points">
+  <h2>Points ouverts reportés</h2>
+  <p class="sub">Relevés au cadrage n°3, tranchés le 2026-10-24 (recommandations retenues). PO-11, PO-12, PO-14 et PO-16 sont corrigés (voir « À vérifier ») ; PO-13 et PO-15 restent en l'état, comme recommandé.</p>
+<div class="card"><h3>PO-11 <span class="sub">(gestes, séries mensuelles)</span></h3><p>Déplacer par un geste une occurrence d'une série mensuelle décale toute la série, depuis n'importe quelle occurrence. Ce n'est pas réversible en fin de mois. Le drawer, lui, ne le permet que depuis la première occurrence.</p><p class="reco"><span class="tagreco">Recommandation</span> Aligner les gestes sur la règle du drawer (petit lot).</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+<div class="card"><h3>PO-12 <span class="sub">(drawer, fin de série)</span></h3><p>Dans le drawer, la fin d'une occurrence ne peut pas dépasser la fin de la série. Un geste, lui, le permet.</p><p class="reco"><span class="tagreco">Recommandation</span> L'autoriser dans le drawer avec « Toute la série » (la fin de série suit), comme le geste.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+<div class="card"><h3>PO-13 <span class="sub">(annulation de groupe)</span></h3><p>« Tout le groupe » n'est pas annulable si une ligne n'a pas pu être relue (c'est annoncé). Une ligne recréée par Ctrl+Z sort de son groupe.</p><p class="reco"><span class="tagreco">Recommandation</span> Garder en l'état pour le MVP ; ajouter une route de rattachement en T2 si le besoin apparaît.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+<div class="card"><h3>PO-14 <span class="sub">(accessibilité, menu utilisateur)</span></h3><p>Le bouton affiche des initiales, mais son nom accessible est « Menu utilisateur de … » : axe signale cet écart en mode OIDC.</p><p class="reco"><span class="tagreco">Recommandation</span> Corriger l'accessibilité dans le prochain lot.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+<div class="card"><h3>PO-15 <span class="sub">(seed)</span></h3><p>Le seed garde un congé « en attente » (Chloé Bernard), alors que l'écran ne peut plus en créer (RT-022).</p><p class="reco"><span class="tagreco">Recommandation</span> Le garder : il vérifie qu'un congé en attente déjà existant reste lisible.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+<div class="card"><h3>PO-16 <span class="sub">(langue)</span></h3><p>Changer la langue par défaut du compte ne change pas la langue de l'écran, qui vient de <code>?lang=</code>.</p><p class="reco"><span class="tagreco">Recommandation</span> Prendre la langue de l'utilisateur, sinon celle du compte, sinon celle du navigateur (petit lot).</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
+</section>
+
+<section id="relectures">
+  <h2>Relectures humaines</h2>
+  <p class="sub">Le cadrage n°4 n'en ajoute aucune (ni contrat, ni migration). Celles des cycles précédents attendent toujours.</p>
+  <div class="card"><ul class="plain">
+    <li><b>Commits de contrat (CODEOWNERS)</b> : <code>ce25e1f</code> (L-H), <code>562dc2b</code>, <code>329634a</code> et <code>94d52e6</code>, <code>c77071d</code>, <code>4694afa</code> et <code>18030ac</code>, <code>a69d28e</code> et <code>3b7b5ec</code>.</li>
+    <li><b>Migration</b> <code>migrations/0006_change_log_person.sql</code>, et le CODEOWNERS revu en RT-045.</li>
+    <li><b>Tests SQL</b> : <code>docs/review/relecture-tests-sql.md</code>.</li>
+    <li><b>ADR et décisions amendés</b> : ADR-002 §5 (barre de saisie rapide retirée, touche N, aide des raccourcis) ; ligne 5 de <code>questions-ouvertes-avant-p1.md</code> (seuils : plus d'orange, rouge dès qu'un jour dépasse 100 %).</li>
+  </ul></div>
+</section>
+
+<section id="prerecette">
+  <h2>Contrôles automatisés</h2>
+  <div class="card"><p style="margin-top:0">Tous joués sur <code>polish</code> après la dernière fusion :</p>
+  <ul class="plain">
+    <li><code>make check</code> : 2 657 tests vitest, plus 60 et 384, tous réussis.</li>
+    <li><code>test:browser</code> : 93/93, axe compris.</li>
+    <li><code>test:browser:oidc</code> : 1/1.</li>
+    <li><code>test:recette</code> : 30/30 sur la vraie pile.</li>
+    <li><code>bench:browser</code> : 59,9 images/s en médiane dans les trois zooms. L'objectif d'ADR-005 est atteint.</li>
+  </ul>
+  <p><b>R-12, R-14 et R-17</b> échouaient depuis L-X1. Avec le survol des blocs, Playwright fait défiler la grille en réessayant ses clics ; le bloc, lui, ne bouge pas. R-12 mesure maintenant la position dans le contenu de la grille, et les trois scénarios passent.</p>
+  <p style="margin-bottom:0">Ne sont pas automatisés : R-06 (compte vide), R-21 (import CSV) et R-33 (gestes sur un congé, couvert seulement par une spec navigateur en démo). Les automates ne remplacent pas ton passage : la perception visuelle, le toucher réel et l'ergonomie restent à toi.</p></div>
+</section>
+
+<section id="methode">
+  <h2>Méthode et écarts</h2>
+  <div class="card"><ul class="plain">
+    <li><b>Organisation</b> : un lot par sous-agent Opus, chacun dans son worktree. Ordre : L-X1 et L-X4 en parallèle, puis L-X2, puis L-X3. Chaque lot : <code>make check</code> vert, relecture du diff, puis fusion <code>--no-ff</code> dans <code>polish</code>.</li>
+    <li><b>Pas de revue croisée</b> par un modèle d'une autre famille : je suis le seul à avoir relu. Au cadrage n°3, cette revue avait renvoyé 9 lots sur 12.</li>
+    <li><b>Test rouge d'abord</b> : respecté pour L-X1, L-X2 et L-X3. Les écarts :
+      <ul class="plain">
+        <li>L-X4 a écrit ses tests après le code ;</li>
+        <li>dans L-X3, la spec navigateur du glisser d'un congé aussi.</li>
+      </ul></li>
+    <li><b>Corrections faites à la relecture</b> :
+      <ul class="plain">
+        <li>dans L-X3, réduire un congé partiel d'un jour produisait une plage refusée par la base (corrigé, test d'abord) ;</li>
+        <li>un test du tableau Clients dépendait de la charge de la machine (corrigé).</li>
+      </ul></li>
+    <li><b>Ta base <code>.dev-pg</code></b> n'a jamais été touchée : tous les tests ont tourné sur des bases temporaires.</li>
+  </ul></div>
+</section>
+
+<section id="suite">
+  <h2>Suite</h2>
+  <div class="card"><ol style="margin:0;padding-left:20px">
+    <li>Ta recette n°4 sur <code>polish</code>, et tes notes dans <code>docs/recette/notes/</code>.</li>
+    <li>Tes réponses aux choix C1 à C9 et aux points PO-11 à PO-16, ici ou dans ta note.</li>
+    <li>Le cadrage de ta note (RT-065 et suivants).</li>
+    <li>La fusion de <code>polish</code> dans <code>main</code> une fois la recette passée.</li>
+    <li>Le gate P6 : registre sans retour bloquant ni majeur ouvert, et scénarios passés à la main.</li>
+  </ol></div>
+</section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll("#nav a")];
+const secs=links.map(a=>document.querySelector(a.getAttribute("href")));
+const onScroll=()=>{let cur=0;secs.forEach((s,i)=>{if(s&&s.getBoundingClientRect().top<120)cur=i;});links.forEach((a,i)=>a.classList.toggle("active",i===cur));};
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+</script>
+</body>
+</html>

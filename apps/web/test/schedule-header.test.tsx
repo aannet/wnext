@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-// En-tête du Schedule en deux niveaux (recette n°2, L-J : RT-025, RT-030) : niveau 1 = titre, vue, actions de création ;
-// niveau 2 (barre d'outils) = Filtres (compteur, puces retirables, panneau dépliable), navigation, zoom, annuler / rétablir,
-// menu Affichage (densité, bascule « Charge » en mémoire seulement, Q11), nombre de personnes.
+// En-tête du Schedule (recette n°2, L-J : RT-025, RT-030 ; recette n°4 : RT-057 à RT-061) : une seule ligne, le titre puis la
+// barre d'outils = Filtres (compteur, nom de la vue, puces retirables, panneau dépliable avec les vues), annuler / rétablir,
+// navigation, zoom, menu Affichage (densité, bascule « Charge » en mémoire seulement : RT-052, amende Q11). Le nombre de
+// personnes est dans le coin de la grille ; ni saisie rapide ni boutons de création.
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
@@ -37,6 +38,8 @@ async function mount() {
 }
 const level1 = () => host.querySelector<HTMLElement>(".wn-subheader")!;
 const toolbar = () => host.querySelector<HTMLElement>("[role=toolbar]")!;
+const corner = () => host.querySelector<HTMLElement>(".wn-corner")!;
+const count = () => corner().textContent;
 const buttonIn = (el: ParentNode, label: string | RegExp) => [...el.querySelectorAll<HTMLButtonElement>("button")]
   .find((b) => (typeof label === "string" ? b.textContent === label : label.test(b.textContent ?? "")));
 const click = async (b: HTMLElement | undefined) => { if (!b) throw new Error("bouton absent"); await act(async () => { b.click(); }); await flush(); };
@@ -50,18 +53,46 @@ async function pick(label: string, values: string[]) {
 }
 
 describe("en-tête en deux niveaux (RT-025)", () => {
-  it("niveau 1 : titre, vue, + Allocation et Nouveau congé ; niveau 2 : Filtres, navigation, zoom, Affichage, personnes", async () => {
+  it("une seule ligne (recette n°4) : titre puis barre d'outils (Filtres, navigation, zoom, Affichage) ; ni vue à part ni création (RT-058, RT-060)", async () => {
     await mount();
     expect(level1().querySelector("h1")!.textContent).toBe("Planning");
-    expect(level1().querySelector(".wn-views select")).not.toBeNull();
-    expect(buttonIn(level1(), "+ Allocation")).toBeDefined();
-    expect(buttonIn(level1(), "Nouveau congé")).toBeDefined();
-    expect(level1().contains(toolbar())).toBe(false);
+    expect(level1().querySelector("select")).toBeNull(); // la vue est dans le panneau Filtres
+    expect(buttonIn(level1(), "+ Allocation")).toBeUndefined();
+    expect(buttonIn(level1(), "Nouveau congé")).toBeUndefined();
+    expect(level1().contains(toolbar())).toBe(true);
     for (const label of ["Filtres", "Période précédente", "Aujourd’hui", "Période suivante", "Jour", "Semaine", "Mois", "Annuler", "Rétablir", "Affichage"]) {
       expect(buttonIn(toolbar(), label), label).toBeDefined();
     }
-    expect(toolbar().textContent).toContain("12 personnes");
+    expect(toolbar().textContent).not.toContain("personnes"); // RT-061 : le compteur est dans le coin de la grille
     expect(toolbar().querySelector("[role=radiogroup]")).toBeNull(); // la densité est dans le menu Affichage
+  });
+
+  // RT-061 (D10) : le compteur va dans le coin au-dessus de la colonne Personnes, annoncé (aria-live polie).
+  it("compteur de personnes dans le coin de la grille : visible, annoncé, à jour avec les filtres", async () => {
+    await mount();
+    const c = corner();
+    expect(c.getAttribute("aria-hidden")).toBeNull();
+    expect(c.getAttribute("role")).toBe("columnheader");
+    const live = c.querySelector<HTMLElement>("[aria-live=polite]")!;
+    expect(live.textContent).toBe("12 personnes");
+    expect(host.querySelector(".wn-people-count")).toBeNull();
+    await click(buttonIn(toolbar(), "Filtres"));
+    await pick("Département", ["2"]);
+    expect(corner().querySelector("[aria-live=polite]")!.textContent).toBe("4 personnes");
+  });
+
+  it("le texte « 8 h par jour par défaut » n'existe plus, et la valeur de 8 h vient du moteur", async () => {
+    await mount();
+    expect(host.textContent).not.toMatch(/par jour par défaut/);
+    const { readFileSync } = await import("node:fs");
+    const { fileURLToPath } = await import("node:url");
+    const { dirname, join } = await import("node:path");
+    // Chemin de fichier (l'URL de jsdom n'est pas celle de Node, que fs attend).
+    const slotModel = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../src/schedule/slot-model.ts"), "utf8");
+    expect(slotModel).not.toMatch(/DEFAULT_HOURS\s*=\s*\d/);
+    const { DEFAULT_HOURS } = await import("../src/schedule/slot-model");
+    const { DEFAULT_HOURS_PER_DAY } = await import("@wnext/engine");
+    expect(DEFAULT_HOURS).toBe(DEFAULT_HOURS_PER_DAY);
   });
 
   it("Filtres : panneau dépliable (aria-expanded), compteur, une puce par filtre actif, retirable", async () => {
@@ -74,33 +105,39 @@ describe("en-tête en deux niveaux (RT-025)", () => {
     expect(document.getElementById(filters.getAttribute("aria-controls")!)!.querySelector(".wn-filter")).not.toBeNull();
     await pick("Département", ["2"]);
     expect(filters.textContent).toBe("Filtres (1)");
-    expect(toolbar().textContent).toContain("4 personnes");
+    expect(count()).toBe("4 personnes");
     const chip = toolbar().querySelector<HTMLElement>(".wn-chip")!;
     expect(chip.textContent).toContain("Département : Design");
     await click(chip.querySelector<HTMLButtonElement>("button[aria-label='Retirer le filtre Département : Design']")!);
     expect(toolbar().querySelector(".wn-chip")).toBeNull();
     expect(buttonIn(toolbar(), /^Filtres/)!.textContent).toBe("Filtres");
-    expect(toolbar().textContent).toContain("12 personnes");
+    expect(count()).toBe("12 personnes");
   });
 
-  it("Affichage : menu avec la densité (radios) et la bascule « Charge », éteinte au montage et jamais mémorisée (Q11)", async () => {
+  // RT-052 (D3, amende Q11) : la bascule masque toute la bande de capacité ; active au montage, jamais mémorisée.
+  it("Affichage : menu avec la densité (radios) et la bascule « Charge », active au montage, qui masque la bande, jamais mémorisée", async () => {
     localStorage.clear();
     await mount();
+    const caps = () => [...host.querySelectorAll<HTMLElement>(".wn-cap")].filter((c) => c.style.display !== "none");
+    const rowH = () => parseInt(host.querySelector<HTMLElement>(".wn-row:not([style*='display: none'])")!.style.height, 10);
+    expect(caps().length).toBeGreaterThan(0);
+    const before = rowH();
     const display = buttonIn(toolbar(), "Affichage")!;
     expect(display.getAttribute("aria-haspopup")).toBe("dialog");
     await click(display);
     const menu = document.body.querySelector<HTMLElement>("[role=dialog][aria-label=Affichage]")!;
     expect([...menu.querySelectorAll("[role=radiogroup] [role=radio]")].map((r) => r.textContent)).toEqual(["Compacte", "Standard", "Aérée"]);
     const load = menu.querySelector<HTMLButtonElement>("[role=switch]")!;
-    expect([load.textContent, load.getAttribute("aria-checked")]).toEqual(["Charge par colonne", "false"]);
+    expect([load.textContent, load.getAttribute("aria-checked")]).toEqual(["Charge", "true"]);
     await click(load);
-    expect(load.getAttribute("aria-checked")).toBe("true");
-    expect(host.querySelector(".wn-schedule")!.getAttribute("data-load")).toBe("on");
+    expect(load.getAttribute("aria-checked")).toBe("false");
+    expect(caps()).toHaveLength(0);
+    expect(rowH()).toBeLessThan(before);
     expect(JSON.stringify({ ...localStorage })).not.toContain("load");
     act(() => root!.unmount());
     host.remove();
     await mount();
-    expect(host.querySelector(".wn-schedule")!.hasAttribute("data-load")).toBe(false);
+    expect(caps().length).toBeGreaterThan(0);
   });
 });
 
@@ -113,7 +150,7 @@ describe("charge chiffrée par colonne (RT-030, Q11)", () => {
     expect(capacityTexter(createI18n("en"))(cell(6, 8))).toBe("75%");
   });
 
-  it("chaque cellule de capacité porte son texte (data-load) ; la bascule l'affiche par CSS, sans redessin", async () => {
+  it("chaque cellule de capacité porte son texte (data-load), affiché avec la bande", async () => {
     await mount();
     const caps = [...host.querySelectorAll<HTMLElement>(".wn-cap")].filter((c) => c.style.display !== "none");
     expect(caps.length).toBeGreaterThan(0);

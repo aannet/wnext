@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Symbole WNEXT : trois strates aux bouts arrondis (diagramme de charge, Gantt) et le point du jalon, la prochaine étape.
+     SVG 1.1 monochrome : la couleur vient du texte (currentColor). Le composant Logo.tsx reprend ces formes. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 100 100" fill="currentColor">
+  <rect x="15" y="20" width="70" height="12" rx="6" />
+  <rect x="15" y="44" width="45" height="12" rx="6" />
+  <rect x="15" y="68" width="70" height="12" rx="6" />
+  <circle cx="75" cy="50" r="6" />
+</svg>

@@ -23,6 +23,25 @@ export function pseudoLocalize(message: string): string {
   return `[${out}]`;
 }
 
+const SUPPORTED = ["fr", "en"] as const;
+const supported = (tag: string | null | undefined): UiLocale | null => {
+  const base = tag?.toLowerCase().split("-")[0];
+  return SUPPORTED.find((l) => l === base) ?? null;
+};
+
+/**
+ * Langue de l'écran (PO-16) : `?lang=` explicite (en, fr, pseudo : essais et tests), sinon la langue par défaut du compte (connue
+ * après /me), sinon la première du navigateur prise en charge, sinon le français. La langue propre à l'utilisateur
+ * (`users.locale`) viendra avec le profil utilisateur (T2) : /me ne la porte pas encore.
+ */
+export function resolveLocale(p: { query: string | null; account: string | null; browser: readonly string[] }): UiLocale {
+  if (p.query === "pseudo") return "pseudo";
+  return supported(p.query) ?? supported(p.account) ?? p.browser.map(supported).find((l) => l !== null) ?? "fr";
+}
+
+/** Attribut `lang` du document pour une langue de l'écran (la pseudo-locale est du français). */
+export const htmlLang = (l: UiLocale): string => (l === "en" ? "en" : "fr");
+
 export function createI18n(locale: UiLocale): I18n {
   const i18n = setupI18n();
   i18n.setMessagesCompiler(compileMessage);

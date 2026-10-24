@@ -110,7 +110,7 @@
 
     <section id="recette">
       <h2>Recette</h2>
-      <p class="sub">Retours d'Alec tracés dans <a href="recette/registre.md"><code>docs/recette/registre.md</code></a>, cadrés par note (<a href="recette/cadrage-1.html"><code>cadrage-1.html</code></a>, <a href="recette/cadrage-2.html"><code>cadrage-2.html</code></a>, <a href="recette/cadrage-3.html"><code>cadrage-3.html</code></a> autonome). Préparation de la recette n°3 : <a href="recette/recette-3-preparation.html"><code>recette-3-preparation.html</code></a>. Scénarios : <a href="recette/scenarios.md"><code>docs/recette/scenarios.md</code></a>.</p>
+      <p class="sub">Retours d'Alec tracés dans <a href="recette/registre.md"><code>docs/recette/registre.md</code></a>, cadrés par note (<a href="recette/cadrage-1.html"><code>cadrage-1.html</code></a>, <a href="recette/cadrage-2.html"><code>cadrage-2.html</code></a>, <a href="recette/cadrage-3.html"><code>cadrage-3.html</code></a> autonome, <a href="recette/cadrage-4.html"><code>cadrage-4.html</code></a>). Préparation des recettes : <a href="recette/recette-3-preparation.html"><code>n°3</code></a>, <a href="recette/recette-4-preparation.html"><code>n°4</code></a>. Scénarios : <a href="recette/scenarios.md"><code>docs/recette/scenarios.md</code></a>.</p>
       <div class="card" id="rc-notes"></div>
       <div class="card"><ul class="kpis" id="rc-kpis"></ul><div class="tw"><table class="t" id="rc-lots"></table></div></div>
     </section>
@@ -146,6 +146,7 @@ const RECETTE = {
     { id: 1, date: "2026-10-21", file: "docs/recette/notes/2026-10-21-note-1.txt", cadrage: "docs/recette/cadrage-1.html", status: "cadrage validé (2026-10-21)" },
     { id: 2, date: "2026-10-21", file: "docs/recette/notes/2026-10-21-recette-2.txt", cadrage: "docs/recette/cadrage-2.html", status: "cadrage validé (2026-10-21, Q12 amendée)" },
     { id: 3, date: "2026-10-22", file: "(sans note : points ouverts PO-04 à PO-10, pré-recette automatisée)", cadrage: "docs/recette/cadrage-3.html", status: "cadrage autonome, exécuté sans validation intermédiaire : à confirmer en recette n°3" },
+    { id: 4, date: "2026-10-23", file: "docs/recette/notes/2026-10-23-recette-4.txt", cadrage: "docs/recette/cadrage-4.html", status: "cadrage validé (2026-10-23), lots L-X1 à L-X4 exécutés sur polish" },
   ],
   retours: [
     { id: "RT-001", t: "Pas d'en-tête applicatif portant le nom de l'app ; la barre d'outils doit s'intégrer à un header ou un sous-header", nature: "manque", gravite: "majeure", lot: "L-B", statut: "corrigé" },
@@ -198,6 +199,20 @@ const RECETTE = {
     { id: "RT-048", t: "Un member ne voit que sa personne (US-6.1, REST et temps réel, migration 0006)", nature: "anomalie", gravite: "majeure", lot: "L-V", statut: "corrigé" },
     { id: "RT-049", t: "Focus rendu au bouton qui a ouvert le drawer", nature: "anomalie", gravite: "mineure", lot: "L-W", statut: "corrigé" },
     { id: "RT-050", t: "Densité : noms et blocs grossissent de nouveau (régression de RT-006)", nature: "anomalie", gravite: "mineure", lot: "L-W", statut: "corrigé" },
+    { id: "RT-051", t: "Congés manipulables comme les blocs (lecture A, demi-journée, BR-04 à chaque geste)", nature: "évolution", gravite: "majeure", lot: "L-X3", statut: "corrigé" },
+    { id: "RT-052", t: "La bascule « Charge » masque toute la bande de capacité", nature: "évolution", gravite: "mineure", lot: "L-X1", statut: "corrigé" },
+    { id: "RT-053", t: "Projets, Personnes et Clients dans un même tableau (DataTable)", nature: "ergonomie", gravite: "mineure", lot: "L-X4", statut: "corrigé" },
+    { id: "RT-054", t: "Import : seule entrée dans Réglages > Import", nature: "ergonomie", gravite: "mineure", lot: "L-X2", statut: "corrigé" },
+    { id: "RT-055", t: "Trait « maintenant » sur le jour courant", nature: "graphique", gravite: "mineure", lot: "L-X1", statut: "corrigé" },
+    { id: "RT-056", t: "En-têtes de colonnes renforcés", nature: "graphique", gravite: "mineure", lot: "L-X1", statut: "corrigé" },
+    { id: "RT-057", t: "Barre de saisie rapide retirée (parseur gardé)", nature: "décision", gravite: "majeure", lot: "L-X2", statut: "corrigé" },
+    { id: "RT-058", t: "Vues sauvegardées dans le panneau Filtres", nature: "ergonomie", gravite: "mineure", lot: "L-X2", statut: "corrigé" },
+    { id: "RT-059", t: "Recherche Ctrl+K dans l'en-tête commun, sur tous les écrans", nature: "ergonomie", gravite: "mineure", lot: "L-X2", statut: "corrigé" },
+    { id: "RT-060", t: "Boutons de création retirés, touche N", nature: "décision", gravite: "majeure", lot: "L-X2", statut: "corrigé" },
+    { id: "RT-061", t: "Compteur de personnes dans le coin de la grille", nature: "ergonomie", gravite: "mineure", lot: "L-X2", statut: "corrigé" },
+    { id: "RT-062", t: "Survol d'un bloc : soulèvement léger", nature: "graphique", gravite: "mineure", lot: "L-X1", statut: "corrigé" },
+    { id: "RT-063", t: "Jauge rouge dès qu'un jour dépasse 100 %", nature: "évolution", gravite: "mineure", lot: "L-X1", statut: "corrigé" },
+    { id: "RT-064", t: "Aide des raccourcis clavier (bouton « ? », touche ?)", nature: "évolution", gravite: "mineure", lot: "L-X2", statut: "corrigé" },
   ],
   lots: [
     { id: "L-A", t: "Tailwind v4 et design tokens (socle sans changement visible, garde-fou anti-couleurs en dur)", statut: "fait" },
@@ -225,6 +240,10 @@ const RECETTE = {
     { id: "L-U", t: "Supprimer, dupliquer, scinder", statut: "livré" },
     { id: "L-V", t: "Visibilité du member (REST, temps réel, migration 0006)", statut: "livré" },
     { id: "L-W", t: "Focus rendu au bouton, tailles de densité", statut: "livré" },
+    { id: "L-X1", t: "Rendu de la grille : jauge par jour, bascule Charge, trait « maintenant », en-têtes, survol", statut: "livré" },
+    { id: "L-X2", t: "En-tête et barre du Planning : touche N, vues dans Filtres, Ctrl+K global, import dans Réglages, aide des raccourcis", statut: "livré" },
+    { id: "L-X3", t: "Gestes des congés (demi-journée, BR-04, annulables)", statut: "livré" },
+    { id: "L-X4", t: "DataTable partagé : Projets, Personnes, Clients", statut: "livré" },
   ],
 };
 
@@ -372,18 +391,21 @@ const PHASES = [
       { t: "Supprimer, dupliquer, scinder une allocation (US-3.2, RT-047)", s: "done", n: "trouvé par la pré-recette ; Suppr, Ctrl+D, S, Alt+glisser, menu du bloc, actions du drawer, annulables" },
       { t: "Visibilité du member (US-6.1, RT-048)", s: "done", n: "REST et temps réel filtrés par personne, migration 0006 (change_log.person_ids)" },
       { t: "Pré-recette automatisée : 4 écarts trouvés et corrigés (RT-047 à RT-050)", s: "done", n: "premier passage 24/30 (2 fragilités de test, 4 écarts du produit), dernier passage 30/30" },
-      { t: "Points ouverts du cadrage n°3 (PO-11 à PO-16) tranchés par Alec", s: "todo", n: "séries mensuelles par geste, fin de série dans le drawer, annulation de groupe, nom accessible du menu utilisateur, congé en attente du seed, langue du compte" },
+      { t: "Points ouverts du cadrage n°3 (PO-11 à PO-16) tranchés par Alec", s: "done", n: "séries mensuelles par geste, fin de série dans le drawer, annulation de groupe, nom accessible du menu utilisateur, congé en attente du seed, langue du compte" },
+      { t: "Identité de marque : symbole, mot-symbole, favicon", s: "done", n: "logo fourni par Alec (SVG 1.1, currentColor) dans l'en-tête et les écrans d'accès ; « WNEXT » en Plus Jakarta Sans ExtraBold servie en local ; favicon redessiné pour 16 px (SVG + repli PNG) ; DESIGN.md § Brand" },
       { t: "Assistant de première allocation et « Trouver quelqu'un de dispo »", s: "todo" },
       { t: "Approbation des congés", s: "defer", n: "retirée par Alec (RT-022, PO-01) : un congé posé est approuvé d'emblée (Q6)" },
-      { t: "Aide des raccourcis et palette Ctrl+K", s: "part", n: "palette Ctrl+K livrée (RT-038) ; raccourcis affichés dans le menu du bloc (RT-047), pas d'aide dédiée" },
+      { t: "Aide des raccourcis et palette Ctrl+K", s: "done", n: "palette Ctrl+K dans l'en-tête commun, sur tous les écrans (RT-059) ; aide des raccourcis « ? » tirée de la source des gestionnaires (RT-064)" },
       { t: "Lancement de recette : une commande met l'écran en OIDC (RT-035, bloquante)", s: "done", n: "npm run dev:recette (29de368) : pile --oidc, attente de l'API, puis Vite en VITE_AUTH_MODE=oidc ; parcours vérifié jusqu'à « Bonjour Alec »" },
       { t: "Seed et recette automatisée (test:recette)", s: "done", n: "npm run dev:recette:seed / dev:recette:vide (bases dédiées gardées) ; npm run test:recette : 30/30 sur main le 2026-10-22 (R-06, R-21 non automatisés)" },
+      { t: "Cadrage n°4 (RT-051 à RT-064, lots L-X1 à L-X4)", s: "done", n: "validé par Alec le 2026-10-23 ; exécuté sur polish : make check vert (2657 tests), test:recette 30/30, test:browser 93/93, test:browser:oidc 1/1, bench:browser 59,9 fps médian ; revue par l'orchestrateur seul (pas de second modèle)" },
       { t: "Recette humaine par Alec, registre sans bloquant ni majeur", s: "todo" },
       { t: "Gate P6 signé", s: "todo" },
     ] },
 ];
 
 const NEXT = [
+  "<b>Recette n°4 par Alec</b> sur la branche <code>polish</code> : vérifier RT-051 à RT-064 (<a href=\"recette/cadrage-4.html\"><code>cadrage-4.html</code></a>), confirmer les choix pris seuls C1 à C9, trancher PO-11 à PO-16 ; dossier <a href=\"recette/recette-4-preparation.html\"><code>recette-4-preparation.html</code></a>.",
   "<b>Recette n°3 par Alec</b> : <code>npm run dev:recette:seed</code> (compte « WNEXT Recette ») puis <code>http://localhost:5173/</code> ; dossier <a href=\"recette/recette-3-preparation.html\"><code>recette-3-preparation.html</code></a> : confirmer ou annuler les décisions autonomes RT-036 à RT-050, trancher PO-11 à PO-16.",
   "<b>Relectures CODEOWNERS des commits de contrat</b> : <code>ce25e1f</code> (L-H), <code>562dc2b</code>, <code>329634a</code> et <code>94d52e6</code>, <code>c77071d</code>, <code>4694afa</code> et <code>18030ac</code>, <code>a69d28e</code> et <code>3b7b5ec</code> ; migration <code>0006_change_log_person</code> (désormais sous CODEOWNERS, RT-045).",
   "<b>Relecture des tests SQL</b> avec <code>docs/review/relecture-tests-sql.md</code>.",

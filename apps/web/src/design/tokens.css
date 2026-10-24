@@ -94,10 +94,12 @@
   --color-grid-line: #e3e5e0;
   --color-nonwork: rgb(17 24 39 / 0.035);
   --color-nonwork-line: rgb(17 24 39 / 0.09);
-  --color-current: rgb(14 116 144 / 0.07);
+  --color-current: rgb(14 116 144 / 0.1); /* 10 % (RT-055, était 7 %) */
 
   /* §3.2 Typographie. Écart : Inter n'est pas encore chargée, la pile reste celle de l'écran actuel. */
   --font-sans: system-ui, sans-serif;
+  /* Mot-symbole « WNEXT » seulement : Plus Jakarta Sans ExtraBold, servie en local (@fontsource, graisse 800, latin). */
+  --font-brand: "Plus Jakarta Sans", var(--font-sans);
   --text-caption: 11px;
   --text-caption--line-height: 16px;
   --text-label: 12px;
@@ -133,10 +135,11 @@
   --radius-lg: 8px;
   --radius-full: 999px;
 
-  /* Élévation : popover seulement, le reste est plat (bordure 1 px). */
+  /* Élévation : popover, tiroir, bloc armé ou survolé ; le reste est plat (bordure 1 px). */
   --shadow-popover: 0 4px 16px rgb(0 0 0 / 0.12);
   --shadow-drawer: -8px 0 24px rgb(0 0 0 / 0.16); /* panneau latéral */
   --shadow-armed: 0 4px 10px rgb(0 0 0 / 0.35); /* bloc armé au toucher (hors spec) */
+  --shadow-hover: 0 2px 6px rgb(0 0 0 / .18); /* survol d'un bloc manipulable à la souris (RT-062) */
 
   /* Z-index : grille 0, en-têtes sticky 10, popover 30, toast 50, modal 60. */
   --z-grid: 0;

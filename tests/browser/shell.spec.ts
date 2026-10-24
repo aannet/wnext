@@ -19,13 +19,18 @@ test("en-tête WNEXT, « Bonjour », navigation Planning -> Projets -> Planning 
   await expect(header.getByRole("link", { name: "Réglages" })).toBeVisible(); // hors navigation principale
   await expect(nav.getByRole("link", { name: "Réglages" })).toHaveCount(0);
 
-  // En-tête du Planning en deux niveaux (RT-025) : titre au niveau 1 sous l'en-tête applicatif, barre d'outils juste dessous.
+  // En-tête du Planning sur une seule ligne (recette n°4, « Planning cible ») : sous l'en-tête applicatif, le titre puis la barre
+  // d'outils, à sa droite et sur la même ligne.
   const title = page.getByRole("heading", { level: 1, name: "Planning" });
   const toolbar = page.getByRole("toolbar");
   const [h, t, b] = await Promise.all([header.boundingBox(), title.boundingBox(), toolbar.boundingBox()]);
   expect(t!.y).toBeGreaterThanOrEqual(h!.y + h!.height);
-  expect(b!.y).toBeGreaterThanOrEqual(t!.y + t!.height - 1);
-  expect(b!.y - (t!.y + t!.height)).toBeLessThan(40);
+  expect(b!.x).toBeGreaterThan(t!.x + t!.width);
+  expect(b!.y).toBeLessThan(t!.y + t!.height);
+  expect(b!.y + b!.height).toBeGreaterThan(t!.y);
+  // Recherche (RT-059) et aide des raccourcis (RT-064) dans l'en-tête commun, de part et d'autre de la cloche.
+  await expect(header.getByRole("button", { name: /^Rechercher/ })).toBeVisible();
+  await expect(header.getByRole("button", { name: "Raccourcis clavier" })).toBeVisible();
   await noViolations(page, "planning");
 
   await nav.getByRole("link", { name: "Projets" }).click();
@@ -63,4 +68,19 @@ test("EN : en-tête traduit", async ({ page }) => {
   await openDemo(page, "en");
   await expect(page.getByRole("banner").getByText("Hello Alec")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link")).toHaveText(["Schedule", "Projects", "People"]);
+});
+
+test("marque : symbole et « WNEXT » en Plus Jakarta Sans ExtraBold servie en local ; favicons servis", async ({ page }) => {
+  await openDemo(page);
+  const text = page.getByRole("banner").locator(".wn-brand .wn-brand-text");
+  await expect(text).toHaveText("WNEXT");
+  await page.evaluate(() => document.fonts.ready);
+  const font = await text.evaluate((el) => ({ family: getComputedStyle(el).fontFamily, weight: getComputedStyle(el).fontWeight }));
+  expect(font.family).toMatch(/^"?Plus Jakarta Sans"?/);
+  expect(font.weight).toBe("800");
+  expect(await page.evaluate(() => document.fonts.check('800 16px "Plus Jakarta Sans"'))).toBe(true);
+  const box = (await page.getByRole("banner").locator(".wn-brand svg").boundingBox())!;
+  expect([box.width, box.height]).toEqual([20, 20]);
+  for (const icon of ["/favicon.svg", "/favicon-16.png"]) expect((await page.request.get(icon)).status(), icon).toBe(200);
+  await noViolations(page, "marque");
 });

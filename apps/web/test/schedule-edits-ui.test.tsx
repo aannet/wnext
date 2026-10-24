@@ -172,6 +172,37 @@ describe("série : choix de portée", () => {
     await flush();
     expect(ed.updateAllocation).toHaveBeenCalledTimes(1);
   });
+
+  // PO-11 : même règle que le drawer (L-P) : décaler une série mensuelle en jours depuis une autre occurrence que la première
+  // n'est pas réversible (fins de mois ramenées) ; « toute la série » n'est pas proposée, la raison est dite.
+  const MONTHLY = alloc("m", { startDate: "2026-09-21", endDate: "2026-09-21", repeatState: "monthly", repeatEndDate: "2027-01-31" });
+
+  it("série mensuelle déplacée depuis l'occurrence 1 : seule « cette occurrence », raison affichée", async () => {
+    const ed = fakeEditor();
+    mount(data([MONTHLY]), ed);
+    drag(block("m:1"), DAY);
+    expect(buttons()).toEqual(["Cette occurrence", "Annuler"]);
+    expect(document.body.querySelector("[role=dialog]")!.textContent).toContain("une série mensuelle ne se déplace que depuis sa première occurrence");
+    click("Cette occurrence");
+    await flush();
+    expect(ed.splitOccurrence).toHaveBeenCalledWith("m", 1, { startDate: "2026-10-22", endDate: "2026-10-22" });
+    expect(ed.updateAllocation).not.toHaveBeenCalled();
+  });
+
+  it("série mensuelle, occurrence 1 non découpable : aucun choix, Annuler seul, rien d'écrit", async () => {
+    const ed = fakeEditor({ ok: true }, { ok: false, error: "SERIES_SPLIT_UNSUPPORTED", reason: "monthly_clamped" });
+    mount(data([MONTHLY]), ed);
+    drag(block("m:1"), DAY);
+    click("Cette occurrence");
+    await flush();
+    const text = document.body.querySelector("[role=dialog]")!.textContent;
+    expect(text).toContain("la répétition mensuelle tombe en fin de mois");
+    expect(text).toContain("une série mensuelle ne se déplace que depuis sa première occurrence");
+    expect(buttons()).toEqual(["Annuler"]);
+    click("Annuler");
+    await flush();
+    expect(ed.updateAllocation).not.toHaveBeenCalled();
+  });
 });
 
 describe("résultat d'une écriture", () => {

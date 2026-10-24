@@ -1,8 +1,10 @@
 // En-tête de dates du Schedule (ADR-005 A2), dans le conteneur qui défile : `position: sticky; top: 0` le garde en haut et
 // le défilement horizontal natif le garde aligné sur les blocs, sans recalage en JS.
 //  * Seules les cellules de la fenêtre horizontale existent ; leurs nœuds sont recyclés (clé = date de début).
-//  * Accessibilité : role=row, cellules role=columnheader (data-from = date de début) ; le coin au-dessus des noms de
-//    personnes est collé à gauche et masqué aux lecteurs d'écran (aucun texte d'interface).
+//  * Accessibilité : role=row, cellules role=columnheader (data-from = date de début). Le coin au-dessus des noms de
+//    personnes, collé à gauche, est l'en-tête de cette colonne (role=columnheader, sans data-from) : il porte le compteur de
+//    personnes (RT-061, texte fourni par l'appelant) dans une zone aria-live polie. Il passe au-dessus des libellés de dates
+//    qui glissent sous lui au défilement (fond opaque, z-index), et ces libellés restent lisibles à sa droite (placeLabel).
 //  * Le libellé est fourni par l'appelant (formatage localisé) : ce module ne porte aucune chaîne.
 //  * Période courante (RT-027) : classe wn-colheader-current et aria-current="date" (l'information ne repose pas sur la
 //    couleur seule) ; samedi et dimanche en vue jour (Q9) : classe wn-colheader-weekend. Marques retirées au recyclage.
@@ -21,11 +23,15 @@ export function columnsBackground(items: readonly HeaderItem[]): string {
 
 export interface HeaderRenderer {
   render(items: readonly HeaderItem[], surfaceWidth: number): void;
+  /** Décale les libellés des colonnes à moitié cachées par le coin, à chaque défilement (sans repeindre les cellules). */
+  scroll(scrollLeft: number): void;
+  /** Texte du coin (compteur de personnes), annoncé poliment ; inchangé : rien n'est réécrit (pas de nouvelle annonce). */
+  setCorner(text: string): void;
   stats(): { cellsCreated: number };
   destroy(): void;
 }
 
-interface CellEl { el: HTMLDivElement; text: Text; x: number; w: number; label: string; kind: string }
+interface CellEl { el: HTMLDivElement; labelEl: HTMLSpanElement; text: Text; x: number; w: number; label: string; kind: string }
 
 export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number; gutterPx: number }): HeaderRenderer {
   const bar = document.createElement("div");
@@ -34,8 +40,12 @@ export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number
   Object.assign(bar.style, { position: "sticky", top: "0", height: `${opts.heightPx}px`, zIndex: "2" });
   const corner = document.createElement("div");
   corner.className = "wn-corner";
-  corner.setAttribute("aria-hidden", "true");
+  corner.setAttribute("role", "columnheader");
   Object.assign(corner.style, { position: "sticky", left: "0", width: `${opts.gutterPx}px`, height: "100%", zIndex: "1" });
+  const cornerText = document.createElement("span");
+  cornerText.className = "wn-corner-label";
+  cornerText.setAttribute("aria-live", "polite");
+  corner.appendChild(cornerText);
   bar.appendChild(corner);
   root.insertBefore(bar, root.firstChild);
 
@@ -43,6 +53,15 @@ export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number
   const free: CellEl[] = [];
   let cellsCreated = 0;
   let width = -1;
+  let scrolled = 0;
+
+  // Une colonne qui commence avant la zone visible (sous le coin) garde son libellé visible : il glisse jusqu'à la limite de sa cellule.
+  const placeLabel = (c: CellEl) => {
+    const hidden = scrolled + opts.gutterPx - c.x;
+    const room = Math.max(0, c.w - 2 * 4 - c.labelEl.offsetWidth);
+    const shift = Math.min(Math.max(0, hidden), room);
+    c.labelEl.style.transform = shift > 0 ? `translateX(${shift}px)` : "";
+  };
 
   const take = (): CellEl => {
     const c = free.pop();
@@ -53,10 +72,13 @@ export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number
     el.setAttribute("role", "columnheader");
     el.style.position = "absolute";
     el.style.top = "0";
+    const labelEl = document.createElement("span");
+    labelEl.className = "wn-colheader-label";
     const text = document.createTextNode("");
-    el.appendChild(text);
+    labelEl.appendChild(text);
+    el.appendChild(labelEl);
     bar.appendChild(el);
-    return { el, text, x: NaN, w: NaN, label: "", kind: "" };
+    return { el, labelEl, text, x: NaN, w: NaN, label: "", kind: "" };
   };
 
   return {
@@ -80,6 +102,7 @@ export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number
         if (c.x !== i.x) { c.el.style.transform = `translateX(${i.x}px)`; c.x = i.x; }
         if (c.w !== i.w) { c.el.style.width = `${i.w}px`; c.w = i.w; }
         if (c.label !== i.label) { c.text.data = i.label; c.label = i.label; }
+        placeLabel(c);
         const kind = `${i.current ? "c" : ""}${i.weekend ? "w" : ""}`;
         if (c.kind !== kind) {
           c.el.className = `wn-colheader${i.current ? " wn-colheader-current" : ""}${i.weekend ? " wn-colheader-weekend" : ""}`;
@@ -88,6 +111,13 @@ export function createHeaderRenderer(root: HTMLElement, opts: { heightPx: number
           c.kind = kind;
         }
       }
+    },
+    scroll(scrollLeft) {
+      scrolled = scrollLeft;
+      for (const c of active.values()) placeLabel(c);
+    },
+    setCorner(text) {
+      if (cornerText.textContent !== text) cornerText.textContent = text;
     },
     stats: () => ({ cellsCreated }),
     destroy() {

@@ -85,7 +85,7 @@ describe("en-tête applicatif", () => {
     const onLogout = vi.fn();
     mount({ onLogout });
     const trigger = host.querySelector<HTMLButtonElement>(".wn-avatar-button")!;
-    expect(trigger.getAttribute("aria-label")).toBe("Menu utilisateur de Alec Annet");
+    expect(trigger.getAttribute("aria-label")).toBe("AA, menu utilisateur de Alec Annet");
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     click(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
@@ -100,6 +100,17 @@ describe("en-tête applicatif", () => {
     click(trigger);
     click(document.querySelector("[role=menuitem]"));
     expect(onLogout).toHaveBeenCalledTimes(1);
+  });
+
+  // axe ne tranche pas cette règle sous jsdom (pas de rendu) : la vraie pile la vérifie (login.oidc.ts).
+  it("menu utilisateur : le nom accessible commence par les initiales visibles (WCAG 2.5.3, PO-14) ; EN aussi", () => {
+    for (const [locale, expected] of [["fr", "AA, menu utilisateur de Alec Annet"], ["en", "AA, user menu for Alec Annet"]] as const) {
+      mount({ onLogout: vi.fn(), locale });
+      const trigger = host.querySelector<HTMLButtonElement>(".wn-avatar-button")!;
+      expect(trigger.getAttribute("aria-label")).toBe(expected);
+      act(() => root!.unmount()); host.remove();
+      host = document.createElement("div"); document.body.appendChild(host);
+    }
   });
 });
 
@@ -171,6 +182,27 @@ describe("navigation", () => {
     mount({});
     click(link("Personnes"));
     expect([host.querySelectorAll("main").length, host.querySelectorAll("h1").length]).toEqual([1, 1]);
+  });
+});
+
+describe("marque (logo et mot-symbole)", () => {
+  const brandOk = (el: Element) => {
+    const svg = el.querySelector("svg")!;
+    expect(svg.getAttribute("aria-hidden")).toBe("true");
+    expect([svg.querySelectorAll("rect").length, svg.querySelectorAll("circle").length]).toEqual([3, 1]);
+    expect(el.querySelector(".wn-brand-text")!.textContent).toBe("WNEXT");
+    expect(el.textContent).toBe("WNEXT"); // le symbole n'ajoute rien au nom accessible
+  };
+  it("en-tête : symbole masqué aux lecteurs d'écran, puis « WNEXT »", () => {
+    mount({});
+    brandOk(host.querySelector("header .wn-brand")!);
+  });
+  it("écran de connexion : même marque", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+    act(() => root!.render(<LoginScreen i18n={createI18n("fr")} onLogin={() => {}} />));
+    brandOk(host.querySelector(".wn-gate-brand")!);
   });
 });
 

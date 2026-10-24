@@ -7,15 +7,15 @@
 import type { Me, ProjectDetail } from "@wnext/contracts";
 import type { ScheduleResponse } from "@wnext/contracts";
 import { AllocationGroupMax } from "@wnext/contracts";
-import { addDays, addMonths, dayNumber, expandOccurrences } from "@wnext/engine";
+import { addDays, addMonths, dayNumber, DEFAULT_HOURS_PER_DAY, expandOccurrences } from "@wnext/engine";
 import type { AllocationCreate, AllocationGroupCreate } from "../api/client.gen";
 import { localSplit, type Allocation, type AllocationEdit, type EditError } from "../data/allocation-edits";
 import { allocationFromCreate } from "../data/record-edits";
 import type { MessageKey } from "../i18n";
 import { editWarnings } from "./edit-warnings";
 
-/** Charge d'une création sans quantité précisée (décision 2026-10-19). */
-export const DEFAULT_HOURS = 8;
+/** Charge d'une création sans quantité précisée (décision 2026-10-19) : une seule source, le moteur (RT-061, D10). */
+export const DEFAULT_HOURS = DEFAULT_HOURS_PER_DAY;
 
 export interface SlotDraft {
   /** null : création. */
@@ -63,14 +63,16 @@ export function editDraft(a: Allocation, occ: SlotOccurrence | null = null): Slo
 
 const num = (v: string) => (v.trim() === "" ? NaN : Number(v.replace(",", ".")));
 
-/** Ce qui empêche d'enregistrer (vide : prêt). Une édition porte exactement une personne ; une création, 1 à 50. */
-export function slotIssues(d: SlotDraft, current?: Allocation): SlotIssue[] {
+/**
+ * Ce qui empêche d'enregistrer (vide : prêt). Une édition porte exactement une personne ; une création, 1 à 50. La fin d'une
+ * série peut être dépassée (PO-12) : « toute la série » emporte sa fin de série (scopePlan), « cette occurrence » en sort.
+ */
+export function slotIssues(d: SlotDraft): SlotIssue[] {
   const out: SlotIssue[] = [];
   if (d.personIds.length === 0) out.push("person");
   else if (d.allocationId !== null ? d.personIds.length > 1 : d.personIds.length > AllocationGroupMax) out.push("people");
   if (!d.projectId) out.push("project");
-  const seriesEnd = current && current.repeatState !== "none" ? current.repeatEndDate : null;
-  if (!d.startDate || !d.endDate || d.endDate < d.startDate || (seriesEnd !== null && d.endDate > seriesEnd)) out.push("dates");
+  if (!d.startDate || !d.endDate || d.endDate < d.startDate) out.push("dates");
   const h = num(d.hours);
   const p = num(d.percent);
   if (d.mode === "hours" && !(h > 0 && h <= 24)) out.push("hours");
@@ -140,6 +142,9 @@ export function scopePlan(a: Allocation, occ: SlotOccurrence | null, d: SlotDraf
   // Comme les gestes (applyGesture) : déplacée, la série emporte sa fin ; étirée, la fin ne suit que si le bloc la dépasse.
   if (occ && a.repeatEndDate !== null && ds !== 0 && ds === de) patch.repeatEndDate = addDays(a.repeatEndDate, ds);
   else if (occ && a.repeatEndDate !== null && patch.endDate !== undefined && patch.endDate > a.repeatEndDate) patch.repeatEndDate = patch.endDate;
+  // PO-12 : l'occurrence finit après la fin de série (dernière occurrence tronquée, étirée) : la fin de série la suit jusque-là.
+  const seriesEnd = patch.repeatEndDate ?? a.repeatEndDate;
+  if (occ && seriesEnd !== null && diff.endDate !== undefined && diff.endDate > seriesEnd) patch.repeatEndDate = diff.endDate;
   // Série mensuelle : un décalage en jours depuis une autre occurrence que la première n'est pas réversible (fins de mois
   // ramenées) ; toute la série ne se déplace que depuis sa première occurrence (dates d'origine, aucun calcul).
   const monthly = occ !== null && a.repeatState === "monthly" && occ.index > 0 && (ds !== 0 || de !== 0);
@@ -208,7 +213,7 @@ export function searchOptions<T extends { name: string }>(items: readonly T[], q
 
 /** Personnes du brouillon en surcharge sur la plage (BR-01 : signalé, jamais bloqué), dans l'état chargé. */
 export function slotOverloads(s: ScheduleResponse, d: SlotDraft, current?: Allocation): string[] {
-  if (slotIssues(d, current).length > 0) return [];
+  if (slotIssues(d).length > 0) return [];
   const { body } = createBody({ ...d, personIds: [d.personIds[0]!] });
   return d.personIds.filter((personId) => {
     const base = allocationFromCreate({ ...(body as AllocationCreate), personId }, current?.id ?? "slot-draft");

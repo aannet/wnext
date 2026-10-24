@@ -81,27 +81,31 @@ test("formulaire de congé : pop-in superposée, la grille ne bouge pas, axe pro
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   expect(await grid.boundingBox()).toEqual(before);
-  await expect(grid).toBeFocused(); // contrat existant du congé : le focus revient à la grille
+  await expect(block).toBeFocused(); // RT-060 : fermé sans écriture, le drawer rend le focus au bloc d'où C est partie
   expect(await page.evaluate(() => document.body.style.overflow)).toBe("");
 });
 
-test("ouvert par un bouton de l'en-tête, le drawer rend le focus à ce bouton à la fermeture (RT-049)", async ({ page }) => {
+// RT-049 est sans objet depuis RT-060 (plus de bouton de création dans l'en-tête) : le drawer ouvert au clavier rend le focus à la
+// grille, ou au bloc d'où la touche est partie.
+test("ouvert par N ou C depuis la grille, le drawer rend le focus à la grille ; depuis un bloc, au bloc", async ({ page }) => {
   await openDemo(page);
-  for (const [button, title] of [["Nouveau congé", "Nouveau congé"], ["+ Allocation", "Nouvelle allocation"]] as const) {
-    const trigger = page.getByRole("button", { name: button, exact: true });
-    await trigger.click();
+  const grid = page.locator('[role="grid"]');
+  const block = page.locator(`.wn-block[data-key="${await firstRowBlock(page)}"]`);
+  for (const [from, key, title] of [[grid, "c", "Nouveau congé"], [grid, "n", "Nouvelle allocation"], [block, "n", "Nouvelle allocation"]] as const) {
+    await from.focus();
+    await page.keyboard.press(key);
     const dialog = page.getByRole("dialog", { name: title });
     await expect(dialog).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
-    await expect(trigger, button).toBeFocused();
+    await expect(from, `${key} : ${title}`).toBeFocused();
   }
 });
 
 test("formulaire de congé : le bouton Fermer (×) ferme sans enregistrer", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("grid").focus();
-  await page.getByRole("button", { name: "Nouveau congé" }).click();
+  await page.keyboard.press("c");
   const dialog = page.getByRole("dialog", { name: "Nouveau congé" });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Fermer la fenêtre" }).click();

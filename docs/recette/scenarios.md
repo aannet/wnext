@@ -54,9 +54,9 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 
 ### R-05 — Les formulaires s'ouvrent en fenêtre superposée
 - **Couvre** : ux-ui §3.4 ; RT-009, RT-023 ; `docs/design/design.md`.
-- **Faisable** : oui (RT-049 corrigé : le focus revient au bouton qui a ouvert le drawer).
+- **Faisable** : oui (RT-049 sans objet depuis RT-060 : plus de bouton de création ; ouvert au clavier, le drawer rend le focus à la grille ou au bloc d'origine).
 - **Préconditions** : connecté en Alec sur le Planning.
-- **Quand** j'ouvre successivement « Nouveau congé » (drawer), « Importer » (« Importer un fichier CSV »), la cloche « Notifications » et, par clic droit sur un bloc de Camille Roy, « Retirer Camille Roy du projet Refonte… ». **Alors** chacun s'ouvre dans une fenêtre superposée (drawer, modale ou popover), jamais dans un panneau inséré dans la page.
+- **Quand** j'ouvre successivement le congé (touche C sur la grille, drawer), « Importer un fichier CSV… » (Réglages > Import, RT-054), la cloche « Notifications », l'aide des raccourcis (bouton « ? », RT-064) et, par clic droit sur un bloc de Camille Roy, « Retirer Camille Roy du projet Refonte… ». **Alors** chacun s'ouvre dans une fenêtre superposée (drawer, modale ou popover), jamais dans un panneau inséré dans la page.
 - **Attendu** : Échap (ou Annuler / Fermer) ferme la fenêtre ; **le focus revient au déclencheur** ; la grille derrière ne se décale pas ; rien n'est retiré après Échap sur le dialogue de retrait.
 
 ### R-06 — Première allocation depuis un compte vide
@@ -64,7 +64,7 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 - **Faisable** : oui.
 - **Préconditions** : `npm run dev:recette:vide` (compte « WNEXT Vide », Alec owner seul, aucune personne ni projet) ; se connecter en Alec.
 - **Étant donné** le Planning vide. **Quand** j'ajoute depuis l'écran Personnes Camille Roy (employée), puis Léo Martin (profil à pourvoir, sans e-mail), puis, depuis l'écran Projets, un client Acme créé à la volée et le projet « Refonte » (code REF-01, couleur du sélecteur), puis que je glisse sur la ligne de Camille du lundi au mercredi dans le Planning et choisis REF-01. **Alors** le bloc apparaît avec la capacité visible tout de suite.
-- **Attendu** : moins de 5 minutes de bout en bout, sans SQL ni import, personne créée avec moins de 3 champs obligatoires.
+- **Attendu** : moins de 5 minutes de bout en bout, sans SQL ni import, personne créée avec moins de 3 champs obligatoires. La grille encore sans bloc affiche une seule indication « Cliquez ou glissez dans la grille pour planifier » (RT-060) ; les listes vides de Personnes et de Projets proposent « Importer depuis un fichier CSV (Réglages > Import) » (RT-054).
 
 ### R-07 — Création d'une personne
 - **Couvre** : US-1.1 ; RT-012.
@@ -98,14 +98,15 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 - **Préconditions** : **Lucas Morel** libre toute la semaine S+2 et S+3 ; Léo Martin comme seconde personne.
 - **Quand** je glisse sur la ligne de Lucas du lundi S+2 au mercredi S+2. **Alors** un bloc provisoire suit le geste, puis le drawer « Nouvelle allocation » s'ouvre avec Du / Au prérenseignés et Lucas coché.
 - **Quand** je coche aussi Léo Martin (recherche de personne), choisis le projet Refonte (liste à saisie) et clique « Créer ». **Alors** « 2 allocations créées (groupe). Ctrl+Z annule. » ; un bloc « Refonte, … 8 h par jour » apparaît sur les deux lignes.
-- **Attendu** : le bouton « + Allocation » ouvre le même drawer, au clavier aussi (Entrée). Annuler avec Ctrl+Z (« Ajout annulé. ») en fin de scénario.
+- **Attendu** : la touche N (grille focalisée) ouvre le même drawer (RT-060 : plus de bouton « + Allocation »). Annuler avec Ctrl+Z (« Ajout annulé. ») en fin de scénario.
 
-### R-11 — Saisie rapide
-- **Couvre** : US-3.1 ; fonction existante.
+### R-11 — Création au clavier (touche N)
+- **Couvre** : US-3.1 ; RT-057, RT-060 (D1, ADR-002 §5 amendé : la barre de saisie rapide est retirée de l'écran).
 - **Faisable** : oui.
-- **Préconditions** : seed de recette, Camille Roy sélectionnée comme personne cible.
-- **Quand** j'appuie sur `/` (grille focalisée), tape « Refonte 6h lun-mer » et valide. **Alors** l'aperçu en direct annonce « Refonte, Camille Roy, du lun. … au mer. …, 6 h par jour » ; « Allocation créée. » ; trois jours de 6 h sont créés, annulables par Ctrl+Z.
-- **Attendu** : sans heures précisées (« Refonte lun-mer »), l'aperçu indique « 8 h par jour par défaut. ».
+- **Préconditions** : seed de recette.
+- **Quand** je focalise un bloc de Camille Roy et appuie sur N. **Alors** le drawer « Nouvelle allocation » s'ouvre avec Camille cochée et Du = Au = le premier jour du bloc ; sur la grille (aucun bloc focalisé), N coche la première personne visible et met la date du jour.
+- **Quand** je choisis Refonte, 6 h par jour, du lundi au mercredi, et clique « Créer ». **Alors** la création est annoncée, annulable par Ctrl+Z ; Échap sans créer rend le focus au bloc d'origine (ou à la grille).
+- **Attendu** : N et C sont annoncés par la grille (aria-keyshortcuts) et listés dans l'aide des raccourcis (« ? »).
 
 ### R-12 — Éditer un bloc posé et changer son projet
 - **Couvre** : dossier §4.1 principe 2, ux-ui §3.4 ; RT-011, RT-013, RT-014, RT-024 ; Q5.
@@ -143,7 +144,7 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 - **Faisable** : oui.
 - **Préconditions** : **Karim Haddad** : 8 h ouvrées le jeudi S0, congé du matin (4 h déduites), 4 h allouées.
 - **Étant donné** ce jeudi. **Alors** la case annonce « 4 h planifiées sur 4 h de capacité » (100 %).
-- **Quand** j'ajoute 1 h sur `REF-01` ce jeudi (« + Allocation », Karim coché, Du = Au = ce jeudi, 1 h par jour). **Alors** « 5 h planifiées sur 4 h de capacité, surcharge de 1 h », charge 125 %, hachuré.
+- **Quand** j'ajoute 1 h sur `REF-01` ce jeudi (touche N sur un bloc de Karim, Karim coché, Du = Au = ce jeudi, 1 h par jour). **Alors** « 5 h planifiées sur 4 h de capacité, surcharge de 1 h », charge 125 %, hachuré.
 - **Attendu** : le pourcentage vient du moteur, jamais de l'API ; annuler par Ctrl+Z.
 
 ### R-17 — Déplacer, étirer, dupliquer, supprimer, annuler
@@ -158,7 +159,7 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 - **Couvre** : parcours 3 ; US-5.1, US-5.2, BR-04 ; RT-022.
 - **Faisable** : oui. Il n'y a pas d'approbation : tout congé posé est approuvé d'emblée (RT-022, PO-01 retiré).
 - **Préconditions** : **Antoine Mercier** : 3 allocations de 4 h, lundi (Refonte), mardi (Site vitrine), mercredi (Application mobile) S+3 ; le mercredi est le férié France du seed.
-- **Quand** je clique « Nouveau congé », choisis Antoine, « Congés payés », du lundi au mercredi S+3 et enregistre. **Alors** le drawer « Ce congé recouvre des allocations de Antoine Mercier » liste les jours impactés (2 sur 3 : le mercredi férié est déjà à 0 h) avec « 4 h planifiées pour 0 h disponibles » ; aucune allocation n'est supprimée.
+- **Quand** j'appuie sur C (grille focalisée), choisis Antoine, « Congés payés », du lundi au mercredi S+3 et enregistre. **Alors** le drawer « Ce congé recouvre des allocations de Antoine Mercier » liste les jours impactés (2 sur 3 : le mercredi férié est déjà à 0 h) avec « 4 h planifiées pour 0 h disponibles » ; aucune allocation n'est supprimée.
 - **Quand** je clique « Garder tel quel ». **Alors** le congé est posé, « Antoine Mercier est en surcharge ces jours-là » et les cases sont en surcharge ; Ctrl+Z retire le congé.
 - **Quand** je recommence et clique « Reprogrammer… » puis « Appliquer » (choix « Reporter »). **Alors** « Congé enregistré et allocations reprogrammées. Ctrl+Z annule le tout. » ; les allocations se décalent après le congé ; Ctrl+Z défait le tout.
 - **Quand** je pose pour **Lucas Morel** un congé du mardi S+2 avec fin « Matin seulement ». **Alors** la capacité du jour passe de 8 h à 4 h (50 %).
@@ -181,18 +182,19 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 
 ### R-21 — Import CSV de personnes, projets, clients
 - **Couvre** : parcours 6 ; US-1.2.
-- **Faisable** : oui (rôle owner ou admin ; bouton « Importer »). Non automatisé : c'est le seul scénario à fichier volumineux.
+- **Faisable** : oui (rôle owner ou admin ; Réglages > Import, seule entrée depuis RT-054). Non automatisé : c'est le seul scénario à fichier volumineux.
 - **Préconditions** : un CSV de 300 personnes (colonnes nom, e-mail, type, département) avec 3 lignes invalides ; **à jouer en dernier**, il ajoute 300 personnes au seed.
-- **Quand** je l'importe en simulation puis pour de bon (« Importer » → « Importer un fichier CSV »). **Alors** la prévisualisation sépare lignes valides et erreurs ligne par ligne, 300 lignes sont traitées en moins de 30 s.
+- **Quand** je l'importe en simulation puis pour de bon (Réglages > Import → « Importer un fichier CSV… »). **Alors** la prévisualisation sépare lignes valides et erreurs ligne par ligne, 300 lignes sont traitées en moins de 30 s.
 - **Quand** je réimporte le même fichier. **Alors** aucun doublon (clé e-mail ou code projet).
 
 ### R-22 — Recherche, filtres, vues sauvegardées
-- **Couvre** : US-7.1, US-7.2 ; RT-025, RT-038 ; densité dans les vues (Q2).
+- **Couvre** : US-7.1, US-7.2 ; RT-025, RT-038, RT-058, RT-059, RT-061 ; densité dans les vues (Q2).
 - **Faisable** : oui.
 - **Préconditions** : seed de recette (4 départements ; 17 personnes actives).
-- **Quand** j'ouvre « Filtres », choisis le département Design et le projet Refonte. **Alors** le bouton devient « Filtres (2) », des puces retirables apparaissent et le compteur passe de « 17 personnes » à 2 ou 3 (Camille, Lucas, Léo) en moins de 150 ms ; Thomas Girard n'y est plus.
+- **Quand** j'ouvre « Filtres », choisis le département Design et le projet Refonte. **Alors** le bouton devient « Filtres (2) », des puces retirables apparaissent et le compteur du coin de la grille (au-dessus des noms) passe de « 17 personnes » à 2 ou 3 (Camille, Lucas, Léo) en moins de 150 ms ; Thomas Girard n'y est plus.
 - **Quand** je tape Ctrl+K puis « Cam » et Entrée. **Alors** la ligne de Camille Roy est mise en évidence dans la vue filtrée.
-- **Quand** je passe en « Semaine » et clique « Enregistrer la vue… » sous le nom « Design REF », puis rouvre l'adresse `?view=…`. **Alors** filtres et zoom sont restitués.
+- **Quand** je passe en « Semaine » et clique « Enregistrer la vue… » (pied du panneau Filtres) sous le nom « Design REF », puis rouvre l'adresse `?view=…`. **Alors** filtres et zoom sont restitués et le bouton affiche « Filtres (2) · Design REF » ; un filtre changé ajoute « ● ».
+- **Quand** je tape Ctrl+K depuis l'écran Projets et choisis Camille Roy. **Alors** le Planning s'ouvre sur sa ligne, mise en évidence (recherche globale, bouton dans l'en-tête commun).
 - **Attendu** : supprimer la vue en fin de scénario.
 
 ### R-23 — Notifications in-app
@@ -207,7 +209,7 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 - **Couvre** : US-6.1, BR-33.
 - **Faisable** : oui (RT-048 corrigé : le Member ne voit que sa personne liée).
 - **Préconditions** : comptes de l'IdP local : Camille Roy (member), Invité Recette (guest), Nadia Benali (project_manager : gère `REF-01`, co-gère `SITE-01`), Admin Autre Société (second compte).
-- **Alors** le Member n'a aucun bouton d'écriture (« + Allocation », « Nouveau congé », « Importer »), l'API refuse ses écritures (403) et il ne voit que ses assignations, API et temps réel (une autre personne : 404). Le Guest n'a aucune écriture. Nadia écrit sur `REF-01` et `SITE-01`, refusée (403, `FORBIDDEN`) sur `MOB-01`. Le second compte ne voit que « Agathe Collin », « Bruno Nguyen » et le projet `SEC-01`, jamais une donnée du premier (404 sur ses ids).
+- **Alors** le Member n'a aucune écriture (N et C n'ouvrent rien ; ni Réglages ni Import), l'API refuse ses écritures (403) et il ne voit que ses assignations, API et temps réel (une autre personne : 404). Le Guest n'a aucune écriture. Nadia écrit sur `REF-01` et `SITE-01`, refusée (403, `FORBIDDEN`) sur `MOB-01`. Le second compte ne voit que « Agathe Collin », « Bruno Nguyen » et le projet `SEC-01`, jamais une donnée du premier (404 sur ses ids).
 
 ### R-25 — Conflit d'édition concurrent
 - **Couvre** : US-3.5.
@@ -240,7 +242,7 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 - **Couvre** : RT-039, PO-06 ; BR-33.
 - **Faisable** : oui.
 - **Préconditions** : Nadia Benali (project_manager) gère `REF-01` et co-gère `SITE-01`.
-- **Quand** je me connecte en Nadia et ouvre « + Allocation », liste « Projet ». **Alors** seuls « Refonte » et « Site vitrine » sont proposés (pas « Application mobile »). En Alec, tous les projets (7) sont proposés.
+- **Quand** je me connecte en Nadia et ouvre le drawer de création (touche N), liste « Projet ». **Alors** seuls « Refonte » et « Site vitrine » sont proposés (pas « Application mobile »). En Alec, tous les projets (7) sont proposés.
 - **Attendu** : l'API est juge : écriture acceptée par Nadia sur `SITE-01`, refusée (403) sur `MOB-01`.
 
 ### R-30 — Appui long tactile sur une case vide
@@ -265,6 +267,18 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 - **Quand** j'ouvre la ligne de Thomas Girard, passe le statut à « tentative » et enregistre. **Alors** une étape de choix s'affiche. **Quand** je choisis « Cette ligne » puis « Confirmer ». **Alors** seule la ligne de Thomas devient « tentatif » ; celle de Yasmine reste confirmée.
 - **Quand** j'ouvre la ligne de Yasmine, passe le statut à « tentative », choisis « Tout le groupe » puis « Confirmer ». **Alors** les trois lignes sont tentatives ; un Ctrl+Z annule d'un coup.
 - **Attendu** : annuler aussi le changement de Thomas (Ctrl+Z) en fin de scénario.
+
+### R-33 — Manipuler un congé comme un bloc
+- **Couvre** : RT-051 (décision D4 : le congé reste un objet distinct et reçoit les gestes des blocs), BR-04, BR-40.
+- **Faisable** : oui.
+- **Préconditions** : seed de recette, Planning en vue jour ; **Lucas Morel** est libre les semaines S+2 et S+3. Poser pour lui un congé « Congés payés » le mardi S+2 (touche C).
+- **Quand** je clique sur le congé. **Alors** il est sélectionné (contour, poignées de début et de fin, pas de poignée de hauteur) ; un double clic ou Entrée ouvre le drawer « Modifier le congé ».
+- **Quand** je le glisse d'une demi-journée vers la droite. **Alors** « Congé déplacé. » ; il couvre du mardi après-midi au mercredi matin (libellé et demi-cellules) ; Ctrl+Z le remet en place.
+- **Quand** je le focalise et appuie sur Maj + → deux fois puis Entrée. **Alors** il s'allonge d'une journée (« Congé modifié. ») ; Alt + ← allonge par le début ; en vue semaine, le pas est la journée.
+- **Quand** je le glisse sur un jour où Lucas a une allocation (en poser une d'abord). **Alors** le drawer « Ce congé recouvre des allocations de Lucas Morel » s'ouvre ; rien n'est écrit avant le choix ; « Garder tel quel » ou « Reprogrammer… » comme en R-18 ; fermer le drawer laisse le congé à sa place.
+- **Quand** je le glisse sur un autre congé de Lucas. **Alors** « Ce congé chevauche un autre congé de cette personne : changez les dates. », rien n'est écrit.
+- **Quand** j'appuie sur Suppr (ou clic droit puis « Supprimer », ou Maj+F10). **Alors** « Congé supprimé. » ; Ctrl+Z le rend.
+- **Attendu** : au toucher, un tap sélectionne le congé et un appui long arme son déplacement (comme R-30 pour un bloc). L'aide des raccourcis (« ? ») a un groupe « Congé sélectionné ». Retirer le congé de Lucas en fin de scénario.
 
 ## Suivi
 
@@ -304,5 +318,6 @@ La colonne « Pré-recette auto » vient de `npm run test:recette` (`tests/brows
 | R-30 | Appui long tactile | oui | OK | — |
 | R-31 | Portée d'une série | oui | OK | — |
 | R-32 | Portée d'un groupe | oui | OK | — |
+| R-33 | Manipuler un congé comme un bloc | oui | non automatisé (spec navigateur `timeoffs.spec.ts` sur la démo) | — |
 
 Ces statuts de pré-recette seront mis à jour après le dernier passage.

@@ -1,5 +1,5 @@
 // Densité d'affichage et jauge par personne dans un vrai navigateur (démo ?demo=1, écran de référence 1920 × 1080 ;
-// RT-005 à RT-008) : les trois densités montrent ~12 / ~8 / ~6 lignes entières, la jauge et son pourcentage sont dans la
+// RT-005 à RT-008) : les trois densités montrent ~13 / ~9 / ~7 lignes entières (une de plus depuis l'en-tête sur une ligne), la jauge et son pourcentage sont dans la
 // colonne de gauche (▲ pour une personne en dépassement), la densité (menu Affichage) est gardée au rechargement et appliquée par une vue
 // sauvegardée, et l'écran reste sans violation axe serious / critical.
 import AxeBuilder from "@axe-core/playwright";
@@ -13,6 +13,12 @@ async function radio(page: Page, name: string) {
   const menu = page.getByRole("dialog", { name: "Affichage" });
   if (!(await menu.isVisible())) await page.getByRole("button", { name: "Affichage", exact: true }).click();
   return menu.getByRole("radiogroup", { name: "Densité" }).getByRole("radio", { name, exact: true });
+}
+
+/** Panneau Filtres ouvert (les vues y vivent, RT-058). */
+async function openFilters(page: Page) {
+  if (await page.locator(".wn-filters-panel").count() === 0) await page.locator(".wn-toolbar").getByRole("button", { name: /^Filtres/ }).click();
+  await expect(page.locator(".wn-filters-panel")).toBeVisible();
 }
 
 /** Lignes de personnes entièrement visibles sous l'en-tête de dates (32 px), et hauteur de cette zone. */
@@ -31,13 +37,15 @@ async function axe(page: Page, label: string) {
   expect(blocking.map((v) => `${v.id}: ${v.help}`), `violations serious/critical [${label}]`).toEqual([]);
 }
 
-test("trois densités : ~12 / ~8 / ~6 lignes visibles à 1920 × 1080, tailles qui grossissent, axe", async ({ page }) => {
+test("trois densités : ~13 / ~9 / ~7 lignes visibles à 1920 × 1080, tailles qui grossissent, axe", async ({ page }) => {
   await openDemo(page);
   await expect(await radio(page, "Standard")).toHaveAttribute("aria-checked", "true");
   const measured: Record<string, number> = {};
   let lastName = 0;
   let lastBlock = 0;
-  for (const [name, expected] of [["Compacte", 12], ["Standard", 8], ["Aérée", 6]] as const) {
+  // Une ligne de plus à chaque densité depuis la recette n°4 (une seule ligne au-dessus de la grille au lieu de trois, ~90 px
+  // rendus à la grille) ; la tolérance d'une ligne en moins garde les anciens planchers (12, 8, 6).
+  for (const [name, expected] of [["Compacte", 13], ["Standard", 9], ["Aérée", 7]] as const) {
     await (await radio(page, name)).click();
     await expect(await radio(page, name)).toHaveAttribute("aria-checked", "true");
     const { count, zone } = await fullRows(page);
@@ -77,10 +85,13 @@ test("jauge par personne : barre et pourcentage, ▲ et +N h en dépassement, in
 test("densité gardée au rechargement et appliquée par une vue sauvegardée", async ({ page }) => {
   await openDemo(page);
   await (await radio(page, "Aérée")).click();
+  // Les vues sont dans le panneau Filtres (RT-058) : « Enregistrer la vue… » en pied, « Vue » en tête.
+  await page.keyboard.press("Escape"); // ferme le menu Affichage
+  await openFilters(page);
   await page.getByRole("button", { name: "Enregistrer la vue…" }).click();
   await page.getByLabel("Nom de la vue").fill("Revue aérée");
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Vue « Revue aérée » enregistrée." })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Vue « Revue aérée » enregistrée." })).toBeAttached();
 
   await (await radio(page, "Compacte")).click();
   await page.reload();
@@ -88,11 +99,15 @@ test("densité gardée au rechargement et appliquée par une vue sauvegardée", 
   // L'URL porte la vue (?view=) : appliquée au chargement, elle remet la densité aérée par-dessus la mémoire locale.
   await expect(await radio(page, "Aérée")).toHaveAttribute("aria-checked", "true");
 
+  await page.keyboard.press("Escape");
+  await openFilters(page);
   await page.getByRole("combobox", { name: "Vue" }).selectOption({ label: "Tout le monde" });
   await (await radio(page, "Compacte")).click();
   await page.goto("/?demo=1&lang=fr");
   await page.getByRole("rowheader").first().waitFor();
   await expect(await radio(page, "Compacte")).toHaveAttribute("aria-checked", "true"); // mémoire locale seule
+  await page.keyboard.press("Escape");
+  await openFilters(page);
   await page.getByRole("combobox", { name: "Vue" }).selectOption({ label: "Revue aérée" });
   await expect(await radio(page, "Aérée")).toHaveAttribute("aria-checked", "true");
 });

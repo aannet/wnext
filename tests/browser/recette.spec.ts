@@ -36,7 +36,11 @@ test("R-02 — En-tête applicatif et utilisateur connecté", async ({ page }) =
   await expect(header.getByText("Bonjour Alec")).toBeVisible();
   const [h, t, b] = await Promise.all([header.boundingBox(), page.getByRole("heading", { level: 1, name: "Planning" }).boundingBox(), page.getByRole("toolbar").boundingBox()]);
   expect(t!.y).toBeGreaterThanOrEqual(h!.y + h!.height);
-  expect(b!.y).toBeGreaterThanOrEqual(t!.y + t!.height - 1);
+  // Recette n°4 (« Planning cible ») : le titre et la barre d'outils sur une seule ligne ; recherche et aide dans l'en-tête commun.
+  expect(b!.x).toBeGreaterThan(t!.x + t!.width);
+  expect(b!.y).toBeLessThan(t!.y + t!.height);
+  await expect(header.getByRole("button", { name: /^Rechercher/ })).toBeVisible();
+  await expect(header.getByRole("button", { name: "Raccourcis clavier" })).toBeVisible();
 
   // Le nom vient de l'utilisateur connecté (GET /me), pas d'une valeur codée.
   const other = await page.context().newPage();
@@ -98,7 +102,8 @@ test.describe("R-04 — Jauge d'allocation par personne", () => {
     await expect(gauge).toHaveAttribute("title", `Du ${fr(day(7)).replace(/^\S+ /, "")} au ${fr(day(13)).replace(/^\S+ /, "")} : 30 h planifiées sur 40 h de capacité`);
     await showDay(page, day(14));
     await expect(gauge).toHaveText("▲ 125 % +10 h"); // icône et texte de dépassement, pas la couleur seule
-    await expect(gauge).toHaveAttribute("title", `Du ${fr(day(14)).replace(/^\S+ /, "")} au ${fr(day(20)).replace(/^\S+ /, "")} : 50 h planifiées sur 40 h de capacité`);
+    // RT-063 (L-X1) : l'infobulle compte aussi les jours en surcharge.
+    await expect(gauge).toHaveAttribute("title", `Du ${fr(day(14)).replace(/^\S+ /, "")} au ${fr(day(20)).replace(/^\S+ /, "")} : 50 h planifiées sur 40 h de capacité · 5 jours en surcharge`);
   });
 });
 
@@ -112,19 +117,21 @@ test("R-05 — Les formulaires s'ouvrent en fenêtre superposée", async ({ page
     expect(await grid.boundingBox()).toEqual(rest); // la page derrière ne se décale pas
   };
 
-  const congé = () => page.getByRole("button", { name: "Nouveau congé" });
-  await congé().click();
+  // Congé au clavier (RT-060 : plus de bouton « Nouveau congé ») : le drawer rend le focus à la grille.
+  await grid.focus();
+  await page.keyboard.press("c");
   await expect(dialog(page).getByRole("heading")).toHaveText("Nouveau congé");
   expect(await grid.boundingBox()).toEqual(rest);
   await page.keyboard.press("Escape");
-  await closed(congé);
+  await closed(() => grid);
 
-  const importer = () => page.getByRole("button", { name: "Importer" });
-  await importer().click();
-  await expect(dialog(page).getByRole("heading", { level: 2 })).toHaveText("Importer un fichier CSV");
+  // Aide des raccourcis (RT-064).
+  const help = () => page.getByRole("banner").getByRole("button", { name: "Raccourcis clavier" });
+  await help().click();
+  await expect(dialog(page).getByRole("heading", { level: 2 })).toHaveText("Raccourcis clavier");
   expect(await grid.boundingBox()).toEqual(rest);
-  await dialog(page).getByRole("button", { name: "Annuler", exact: true }).click();
-  await closed(importer);
+  await page.keyboard.press("Escape");
+  await closed(help);
 
   const bell = () => page.getByRole("button", { name: /^Notifications/ });
   await bell().click();
@@ -347,13 +354,13 @@ test("R-10 — Poser une allocation par glisser sur une zone libre", async ({ pa
   await showDay(page, day(14));
   await expect(created("2")).toBeVisible();
 
-  // Le bouton « + Allocation » ouvre le même éditeur, au clavier aussi.
-  const add = page.getByRole("button", { name: "+ Allocation" });
-  await add.focus();
-  await page.keyboard.press("Enter");
+  // La touche N ouvre le même éditeur (RT-060 : plus de bouton « + Allocation ») ; Échap rend le focus à la grille.
+  await page.getByRole("grid").focus();
+  await page.keyboard.press("n");
   await expect(dialog(page).getByRole("heading")).toHaveText("Nouvelle allocation");
   await page.keyboard.press("Escape");
   await expect(dialog(page)).toHaveCount(0);
+  await expect(page.getByRole("grid")).toBeFocused();
 
   // Remise en état : Ctrl+Z annule la création de groupe.
   await page.getByRole("grid").focus();
@@ -365,32 +372,45 @@ test("R-10 — Poser une allocation par glisser sur une zone libre", async ({ pa
   await expect(created("16")).toHaveCount(0);
 });
 
-test("R-11 — Saisie rapide", async ({ page }) => {
+// La saisie rapide est retirée de l'écran (RT-057, D1, ADR-002 §5 amendé) : R-11 joue sa remplaçante, la touche N.
+test("R-11 — Création au clavier (touche N)", async ({ page }) => {
   await loginPlanning(page, "alec");
+  await expect(page.locator(".wn-quick")).toHaveCount(0);
+  await expect(page.getByText("8 h par jour par défaut.")).toHaveCount(0);
   await showPerson(page, "Camille Roy");
-  await page.getByRole("grid").focus();
-  await page.keyboard.press("/");
-  const input = page.getByRole("combobox", { name: "Allocation en langage simple" });
-  await expect(input).toBeFocused();
-  await page.getByLabel("Personne cible").selectOption({ label: "Camille Roy" });
-  const preview = page.locator("#wn-quick-preview");
-  const mine = page.locator('.wn-row[data-person="1"] .wn-block[aria-label^="Refonte,"][aria-label$=", 6 h par jour"]:visible');
+  // N crée au premier jour du bloc focalisé : on prend un bloc dont le début est à l'écran (à droite de la colonne Personnes,
+  // 240 px). Le premier bloc visible peut déborder à gauche selon le jour de la semaine où la recette tourne.
+  const g = (await page.locator('[role="grid"]').boundingBox())!;
+  const blocks = page.locator('.wn-row[data-person="1"] .wn-block[data-key]:visible');
+  let first = -1;
+  for (let i = 0; i < (await blocks.count()) && first < 0; i++) if ((await blocks.nth(i).boundingBox())!.x >= g.x + 240) first = i;
+  expect(first, "un bloc de Camille Roy commence à l'écran").toBeGreaterThanOrEqual(0);
+  const block = page.locator(`.wn-block[data-key="${await blocks.nth(first).getAttribute("data-key")}"]`);
+  await block.focus();
+  // Un jour seul : « Refonte, le …, 6 h » (plusieurs jours : « …, 6 h par jour »).
+  const mine = page.locator('.wn-row[data-person="1"] .wn-block[aria-label^="Refonte,"][aria-label*=", 6 h"]:visible');
+  const before = await mine.count();
 
-  await input.fill("Refonte 6h lun-mer");
-  await expect(preview).toHaveText(/^Refonte, Camille Roy, du lun\. \d+ \S+ au mer\. \d+ \S+, 6 h par jour$/);
+  await page.keyboard.press("n");
+  const drawer = dialog(page);
+  await expect(drawer.getByRole("heading")).toHaveText("Nouvelle allocation");
+  await expect(drawer.getByRole("checkbox", { name: "Camille Roy", exact: true })).toBeChecked();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+  await expect(block).toBeFocused(); // fermé sans écriture : focus rendu au bloc d'origine
+
+  await page.keyboard.press("n");
+  await drawer.getByRole("combobox", { name: "Projet" }).fill("Refonte");
   await page.keyboard.press("Enter");
-  await expect(notice(page)).toHaveText("Allocation créée.");
-  await expect(mine).toHaveCount(1);
+  await drawer.getByRole("spinbutton", { name: "Heures par jour" }).fill("6");
+  await drawer.getByRole("button", { name: "Créer" }).click();
+  await expect(drawer).toHaveCount(0);
+  await expect(notice(page)).toHaveText(/Ctrl\+Z annule/);
+  await expect(mine).toHaveCount(before + 1);
+  await page.getByRole("grid").focus();
   await page.keyboard.press("Control+z");
   await expect(notice(page)).toHaveText("Ajout annulé.");
-  await expect(mine).toHaveCount(0);
-
-  // Sans heures précisées : 8 h par jour.
-  await page.keyboard.press("/");
-  await input.fill("Refonte lun-mer");
-  await expect(page.getByText("8 h par jour par défaut.")).toBeVisible();
-  await expect(preview).toContainText(/du lun\. \d+ \S+ au mer\. \d+ \S+, 8 h par jour/);
-  await page.keyboard.press("Escape");
+  await expect(mine).toHaveCount(before);
 });
 
 test("R-12 — Éditer un bloc posé et changer son projet", async ({ page }) => {
@@ -406,7 +426,12 @@ test("R-12 — Éditer un bloc posé et changer son projet", async ({ page }) =>
   const after = `Site vitrine, du ${fr(day(14))} au ${fr(day(16))}, 8 h par jour`;
   const block = (p: Page, label: string) => p.locator(`.wn-row[data-person="1"] .wn-block[aria-label="${label}"]:visible`);
   const original = block(page, before);
-  const box = (await original.boundingBox())!;
+  // Position dans le contenu de la grille (x + scrollLeft) : Playwright peut faire défiler la grille en réessayant un clic
+  // (bloc en transition au survol, RT-062) ; « même place » ne doit pas dépendre de ce défilement.
+  const gridScroll = (p: Page) => p.locator(".wn-grid").evaluate((g) => ({ x: g.scrollLeft, y: g.scrollTop }));
+  const s0 = await gridScroll(page);
+  const b0 = (await original.boundingBox())!;
+  const box = { x: b0.x + s0.x, y: b0.y + s0.y };
   const color = await original.evaluate((e) => (e as HTMLElement).style.backgroundColor);
 
   // Un clic simple sélectionne (poignées), il n'ouvre rien ; un double-clic ouvre le drawer prérempli.
@@ -431,7 +456,9 @@ test("R-12 — Éditer un bloc posé et changer son projet", async ({ page }) =>
   await expect(notice(page)).toContainText("Allocation modifiée. Ctrl+Z annule.");
   const changed = block(page, after);
   await expect(changed).toBeVisible();
-  const movedBox = (await changed.boundingBox())!;
+  const s1 = await gridScroll(page);
+  const b1 = (await changed.boundingBox())!;
+  const movedBox = { x: b1.x + s1.x, y: b1.y + s1.y };
   expect(Math.abs(movedBox.x - box.x)).toBeLessThan(2); // même place
   expect(Math.abs(movedBox.y - box.y)).toBeLessThan(2);
   expect(await changed.evaluate((e) => (e as HTMLElement).style.backgroundColor)).not.toBe(color);
@@ -552,8 +579,11 @@ test("R-16 — Jeu chiffré de capacité", async ({ page }) => {
   await expect(cap).toHaveAttribute("data-load", "100 %");
 
   // Une heure de plus : 5 h sur 4 h de capacité = 125 %, surtemps de 1 h.
-  await page.getByRole("button", { name: "+ Allocation" }).click();
+  // Touche N sur un bloc de Karim (RT-060) : drawer prérempli avec Karim seul.
+  await page.locator('.wn-row[data-person="6"] .wn-block[data-key]:visible').first().focus();
+  await page.keyboard.press("n");
   const drawer = dialog(page);
+  await expect(drawer.locator(".wn-slot-people input:checked")).toHaveCount(1);
   await drawer.getByRole("searchbox", { name: "Rechercher une personne" }).fill("Karim");
   await drawer.getByRole("checkbox", { name: "Karim Haddad", exact: true }).check();
   await drawer.getByRole("combobox", { name: "Projet" }).fill("Refonte");
@@ -635,7 +665,8 @@ test("R-18 — Congé posé sur des allocations existantes (BR-04)", async ({ pa
   for (const l of labels) await expect(alloc(l)).toBeVisible();
 
   const poseLeave = async (person: string, start: string, end: string, endHalf?: string) => {
-    await page.getByRole("button", { name: "Nouveau congé" }).click();
+    await page.getByRole("grid").focus();
+    await page.keyboard.press("c"); // RT-060 : plus de bouton « Nouveau congé »
     const drawer = dialog(page);
     await expect(drawer.getByRole("heading")).toHaveText("Nouveau congé");
     await drawer.getByLabel("Personne").selectOption({ label: person });
@@ -748,7 +779,7 @@ test("R-20 — Retirer une personne d'un projet (BR-10)", async ({ page }) => {
 
 test("R-22 — Recherche, filtres, vues sauvegardées", async ({ page }) => {
   await loginPlanning(page, "alec");
-  const people = page.getByRole("toolbar").getByText(/\d+ personnes?/);
+  const people = page.locator(".wn-corner"); // RT-061 : compteur dans le coin de la grille
   await expect(people).toHaveText("17 personnes");
   const t0 = Date.now();
   await page.getByRole("button", { name: "Filtres", exact: true }).click();
@@ -771,26 +802,27 @@ test("R-22 — Recherche, filtres, vues sauvegardées", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(rowOf(page, "Camille Roy")).toHaveAttribute("data-highlight", "");
 
-  // Vue sauvegardée : filtres et zoom, rouverte par son lien ?view=.
+  // Vue sauvegardée (RT-058 : pied du panneau Filtres, resté ouvert) : filtres et zoom, rouverte par son lien ?view=.
   await page.getByRole("button", { name: "Semaine", exact: true }).click();
   await page.getByRole("button", { name: "Enregistrer la vue…" }).click();
   await dialog(page).getByLabel("Nom de la vue").fill("Design REF");
   await dialog(page).getByRole("button", { name: "Enregistrer", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Vue « Design REF » enregistrée." })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Vue « Design REF » enregistrée." })).toBeAttached();
   await expect(page).toHaveURL(/[?&]view=\d+/);
   const link = page.url();
 
   await page.goto(link);
   await page.getByRole("rowheader").first().waitFor();
-  await expect(page.getByRole("combobox", { name: "Vue" }).locator("option:checked")).toHaveText("Design REF");
+  await expect(page.getByRole("button", { name: /^Filtres \(2\) · Design REF$/ })).toBeVisible(); // nom de la vue sur le bouton
   await expect(people).toHaveText(/^[23] personnes$/);
-  await expect(page.getByRole("button", { name: /^Filtres \(2\)/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Semaine", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: /^Filtres \(2\)/ }).click();
+  await expect(page.getByRole("combobox", { name: "Vue" }).locator("option:checked")).toHaveText("Design REF");
 
   // Remise en état : la vue est supprimée.
   await page.getByRole("button", { name: "Supprimer…" }).click();
   await dialog(page).getByRole("button", { name: "Supprimer", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Vue « Design REF » supprimée." })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Vue « Design REF » supprimée." })).toBeAttached();
 });
 
 test("R-23 — Notifications in-app", async ({ browser }) => {
@@ -853,10 +885,17 @@ test("R-23 — Notifications in-app", async ({ browser }) => {
   await ctxCamille.close();
 });
 
+/** Aucune écriture offerte : plus de boutons de création pour personne (RT-060), donc N et C ne doivent rien ouvrir ; pas d'import. */
 const noWriteControls = async (page: Page) => {
-  await expect(page.getByRole("button", { name: "+ Allocation" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Nouveau congé" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Importer" })).toHaveCount(0);
+  const grid = page.getByRole("grid");
+  if (await grid.count()) {
+    await grid.focus();
+    for (const key of ["n", "c"]) {
+      await page.keyboard.press(key);
+      await expect(dialog(page), `touche ${key}`).toHaveCount(0);
+    }
+  }
+  await expect(page.getByRole("button", { name: /^Importer/ })).toHaveCount(0);
 };
 const scheduleOf = async (who: "camille" | "invite" | "nadia" | "autre") => {
   const r = await api(who, "GET", `/schedule?from=${day(0)}&to=${day(60)}`);
@@ -981,6 +1020,16 @@ test("R-26 — Palette de recherche Ctrl+K", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: "Projets" })).toBeVisible();
   await expect(dialog(page).getByRole("heading", { level: 2, name: "Refonte" })).toBeVisible();
   await expect(page).toHaveURL(/\/projets\?lang=fr$/); // le paramètre ?projet= est consommé
+
+  // RT-059 (D5) : palette globale. Depuis l'écran Projets, une personne ouvre le Planning sur sa ligne.
+  await page.keyboard.press("Escape");
+  await expect(dialog(page)).toHaveCount(0);
+  await page.keyboard.press("Control+k");
+  await field.fill("camille");
+  await palette.getByRole("option", { name: /^Camille Roy/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Planning" })).toBeVisible();
+  await expect(rowOf(page, "Camille Roy")).toHaveAttribute("data-highlight", "");
+  await expect(page).toHaveURL(/\/\?lang=fr$/); // le paramètre ?personne= est consommé
 });
 
 test("R-27 — Réglages > Compte : début de semaine", async ({ page }) => {
@@ -1035,7 +1084,8 @@ test("R-28 — Colonne Accès de l'écran Personnes", async ({ browser }) => {
 test("R-29 — Co-gestion de projet (Nadia et SITE-01)", async ({ browser }) => {
   const options = async (who: Who) => {
     const s = await session(browser, who);
-    await s.page.getByRole("button", { name: "+ Allocation" }).click();
+    await s.page.getByRole("grid").focus();
+    await s.page.keyboard.press("n"); // drawer de création (RT-060)
     const projet = dialog(s.page).getByRole("combobox", { name: "Projet" });
     await projet.click();
     const names = await s.page.getByRole("option").allTextContents();
@@ -1153,7 +1203,8 @@ test("R-32 — Portée d'un groupe dans le drawer", async ({ page }) => {
   // Cette ligne : seule la ligne de Thomas change.
   await drawer.getByRole("radio", { name: "Cette ligne" }).check();
   await drawer.getByRole("button", { name: "Confirmer" }).click();
-  await expect(atelier("4", true)).toBeVisible();
+  await expect(atelier("4", true)).toBeVisible(); // écriture optimiste : le drawer se ferme au retour de l'API
+  await expect(drawer).toHaveCount(0); // sinon Ctrl+K et Ctrl+Z suivants iraient au drawer encore ouvert
   await showPerson(page, "Yasmine Cherif");
   await showDay(page, day(14));
   await expect(atelier("15", false)).toBeVisible();
@@ -1165,6 +1216,7 @@ test("R-32 — Portée d'un groupe dans le drawer", async ({ page }) => {
   await drawer.getByRole("radio", { name: "Tout le groupe" }).check();
   await drawer.getByRole("button", { name: "Confirmer" }).click();
   await expect(atelier("15", true)).toBeVisible();
+  await expect(drawer).toHaveCount(0);
   await page.getByRole("grid").focus();
   await page.keyboard.press("Control+z");
   await expect(atelier("15", false)).toBeVisible();

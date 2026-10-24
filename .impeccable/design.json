@@ -1,0 +1,298 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-23T12:00:00.000Z",
+  "title": "Design System: WNEXT",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Pétrole profond",
+        "canonical": "#0e7490",
+        "tonalRamp": [
+          "#000f27",
+          "#002842",
+          "#004963",
+          "#006e8a",
+          "#3d95b2",
+          "#65bbd9",
+          "#89dffe",
+          "#a7fdff"
+        ]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Pétrole profond survolé",
+        "canonical": "#0b5c72",
+        "tonalRamp": [
+          "#000f22",
+          "#00283c",
+          "#00485d",
+          "#246d83",
+          "#4e94ab",
+          "#74b9d2",
+          "#97ddf6",
+          "#b4fbff"
+        ]
+      },
+      "surface-sunken": {
+        "role": "neutral",
+        "displayName": "Papier froid",
+        "canonical": "#f9fafb",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#212222",
+          "#3f4041",
+          "#626364",
+          "#88898a",
+          "#adaeaf",
+          "#d0d1d2",
+          "#edeeef"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Bordure forte",
+        "canonical": "#d1d5db",
+        "tonalRamp": [
+          "#090b0f",
+          "#1f2226",
+          "#3d4045",
+          "#606369",
+          "#86898f",
+          "#aaaeb4",
+          "#cdd1d7",
+          "#ebeff5"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Anthracite",
+        "canonical": "#1f2328",
+        "tonalRamp": [
+          "#080b10",
+          "#1e2227",
+          "#3c4046",
+          "#5f646a",
+          "#858a90",
+          "#a9aeb5",
+          "#ccd1d8",
+          "#e9eff6"
+        ]
+      },
+      "cap-ok": {
+        "role": "secondary",
+        "displayName": "Vert contrôle",
+        "canonical": "#1e8e3e",
+        "tonalRamp": [
+          "#001500",
+          "#002f00",
+          "#004f14",
+          "#277539",
+          "#519d5e",
+          "#76c382",
+          "#99e7a4",
+          "#b6ffc1"
+        ]
+      },
+      "cap-over": {
+        "role": "secondary",
+        "displayName": "Rouge alerte",
+        "canonical": "#b91c1c",
+        "tonalRamp": [
+          "#2d0000",
+          "#4c0000",
+          "#721d18",
+          "#9c443b",
+          "#c76a60",
+          "#f08f84",
+          "#ffb2a6",
+          "#ffcfc2"
+        ]
+      },
+      "cap-warn": {
+        "role": "secondary",
+        "displayName": "Ambre avertissement",
+        "canonical": "#b45309",
+        "tonalRamp": [
+          "#2c0000",
+          "#4a0000",
+          "#6f2500",
+          "#984a18",
+          "#c37143",
+          "#eb9667",
+          "#ffb989",
+          "#ffd6a6"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texte courant et corps dense du Planning, défaut."
+      },
+      "form": {
+        "displayName": "Form",
+        "purpose": "Champs de saisie et libellés de formulaire."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Libellés de colonne, puces, méta-données."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Texte de la bande de capacité et annotations."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Titre de section, en-tête de fenêtre."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Titre d'écran et de panneau."
+      },
+      "kpi": {
+        "displayName": "KPI",
+        "purpose": "Chiffres de synthèse, rares."
+      }
+    },
+    "shadows": [
+      {
+        "name": "popover",
+        "value": "0 4px 16px rgba(0,0,0,0.12)",
+        "purpose": "Menus, popovers d'édition, listes ouvertes (Combobox)."
+      },
+      {
+        "name": "drawer",
+        "value": "-8px 0 24px rgba(0,0,0,0.16)",
+        "purpose": "Panneau latéral projet ou personne."
+      },
+      {
+        "name": "armed",
+        "value": "0 4px 10px rgba(0,0,0,0.35)",
+        "purpose": "Bloc armé au toucher. Hors spec, conservé pour le tactile."
+      }
+    ],
+    "motion": [
+      {
+        "name": "duration-fast",
+        "value": "80ms",
+        "purpose": "Transitions de couleur des boutons et chips."
+      },
+      {
+        "name": "duration-base",
+        "value": "120ms",
+        "purpose": "Transitions d'état courantes."
+      },
+      {
+        "name": "duration-slow",
+        "value": "200ms",
+        "purpose": "Défilement et apparition de panneaux."
+      },
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Easing par défaut des transitions d'état. Ramené à 1 ms sous prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Action principale, une seule par écran. Survol : pétrole foncé. Appui : enfoncement d'un pixel (Planning).",
+      "html": "<button class=\"ds-btn-primary\">Enregistrer</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid #0e7490; border-radius: 6px; background: #0e7490; color: #ffffff; font: 400 13px/20px system-ui, sans-serif; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background-color 80ms cubic-bezier(0.2, 0.8, 0.2, 1); } .ds-btn-primary:hover { background: #0b5c72; border-color: #0b5c72; } .ds-btn-primary:focus-visible { outline: 2px solid #1f2937; outline-offset: 2px; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Action secondaire et bouton de bascule (aria-pressed).",
+      "html": "<button class=\"ds-btn-outline\">Aujourd’hui</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #ffffff; color: #1f2328; font: 400 13px/20px system-ui, sans-serif; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background-color 80ms cubic-bezier(0.2, 0.8, 0.2, 1); } .ds-btn-outline:hover { background: #f9fafb; } .ds-btn-outline[aria-pressed=\"true\"] { background: #f9fafb; font-weight: 600; } .ds-btn-outline:focus-visible { outline: 2px solid #1f2937; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Champ de saisie standard. Erreur via aria-invalid.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Nom du projet\" />",
+      "css": ".ds-input { box-sizing: border-box; min-height: 32px; padding: 0 8px; border: 1px solid #d1d5db; border-radius: 6px; background: #ffffff; color: #1f2328; font: 400 14px/20px system-ui, sans-serif; } .ds-input:focus-visible { outline: 2px solid #1f2937; outline-offset: 1px; } .ds-input[aria-invalid=\"true\"] { border-color: #b91c1c; }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip-filter",
+      "description": "Filtre actif, retirable. Rayon plein, fond papier froid.",
+      "html": "<span class=\"ds-chip\">Équipe Créa <button class=\"ds-chip-remove\" aria-label=\"Retirer\">×</button></span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 8px; border: 1px solid #e3e5e0; border-radius: 999px; background: #f9fafb; color: #1f2328; font: 500 12px/16px system-ui, sans-serif; } .ds-chip-remove { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: #5b6168; cursor: pointer; } .ds-chip-remove:hover { background: #e3e5e0; color: #1f2328; } .ds-chip-remove:focus-visible { outline: 2px solid #1f2937; outline-offset: 1px; }"
+    },
+    {
+      "name": "Over-capacity Band",
+      "kind": "custom",
+      "refersTo": "cap-over",
+      "description": "Dépassement de capacité en pied de ligne : hachures rouges, cadre et libellé, jamais la couleur seule.",
+      "html": "<div class=\"ds-cap-over\"><span class=\"ds-cap-label\">+2 h</span></div>",
+      "css": ".ds-cap-over { position: relative; height: 20px; box-sizing: border-box; border: 0; box-shadow: inset 0 0 0 1px #b91c1c; background-image: repeating-linear-gradient(-45deg, #b91c1c 0 2px, #fecaca 2px 5px); } .ds-cap-label { position: absolute; right: 2px; bottom: 0; padding: 0 3px; border-radius: 2px; background: #ffffff; color: #1f2328; font: 400 10px/12px system-ui, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Le registre calme",
+    "overview": "WNEXT est un outil de travail de professionnel : un registre tenu à jour, où les chiffres sont justes et où rien ne crie. Le planning se lit comme un tableau de bord sobre. La couleur sert à distinguer les projets et à signaler un dépassement, jamais à décorer. La densité est maîtrisée : trois niveaux de lignes (compact, standard, aéré) pour afficher douze personnes à l'écran sur un écran 1920 × 1080.\n\nLe système est plat. Le fond est blanc, le texte anthracite, et une seule couleur d'accent, le pétrole, sert aux actions principales et à la période courante. Les ombres n'apparaissent que pour les popovers et le panneau latéral. Tout le reste se sépare par une bordure de 1 px.\n\nLe caractère voulu pour les composants est « franc et tactile » (décision du 2026-10-23). Il est en place dans la barre du Planning : un bouton s'enfonce d'un pixel à l'appui. Le survol reste une variation de couleur (voir Components).",
+    "keyCharacteristics": [
+      "Fond blanc, texte anthracite, une seule couleur d'accent.",
+      "Plat au repos : bordure de 1 px, ombre seulement pour popover et tiroir.",
+      "Information non chromatique : tentatif (hachures et pointillé), dépassement (hachures rouges, cadre, ligne).",
+      "Densité à trois niveaux à hauteurs fixes, pas d'ajustement à la fenêtre.",
+      "Thème clair uniquement : le mode sombre est hors périmètre."
+    ],
+    "rules": [
+      {
+        "name": "The One Voice Rule",
+        "body": "Le pétrole est l'unique couleur d'action et d'accent. Une seconde couleur vive dans un même écran ne se justifie que pour un état (dépassement, avertissement).",
+        "section": "colors"
+      },
+      {
+        "name": "The Project Colour Rule",
+        "body": "Les couleurs de projet vivent dans les blocs seulement, générées en OKLCH à clarté et chroma constants (L 0,62, C 0,12). Les teintes proches du rouge d'alerte (environ 27°) et du pétrole (environ 223°) sont exclues, et le texte du bloc est noir ou blanc selon le contraste (4,58:1 minimum).",
+        "section": "colors"
+      },
+      {
+        "name": "The No Raw Colour Rule",
+        "body": "Aucune couleur littérale hors de `apps/web/src/design/tokens.css` (garde-fou `lint:raw-colors`, dans `make check`).",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Hours Rule",
+        "body": "Toute durée et tout pourcentage s'affiche en chiffres tabulaires, pour que les colonnes restent alignées.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "Une surface est plate au repos. Une ombre n'apparaît qu'en réponse à un état superposé (popover, tiroir, bloc armé).",
+        "section": "elevation"
+      },
+      {
+        "name": "The Overlay Scrim Rule",
+        "body": "Une fenêtre modale pose un voile `rgb(17 24 39 / 0.45)` sous elle et passe au-dessus de la grille (z-index 60).",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do réserver le pétrole à l'accent et aux actions principales (règle One Voice).",
+      "Do doubler chaque couleur d'état par une forme ou un libellé (tentatif, dépassement).",
+      "Do garder les cibles tactiles à 44 px minimum ; 32 px sur bureau.",
+      "Do utiliser les tokens (`--color-*`, `--space-*`, `--radius-*`) et jamais de valeur en dur.",
+      "Do écrire les textes via Lingui (FR par défaut, EN à la sortie) et tenir compte de l'allongement des libellés."
+    ],
+    "donts": [
+      "Don't introduire de vert fluo ni de dégradé décoratif : Float en est la référence à éviter.",
+      "Don't utiliser le rouge alerte pour un bloc de projet (la palette l'exclut).",
+      "Don't ajouter d'ombre au repos sur une carte, un bouton ou un champ.",
+      "Don't masquer un état derrière la couleur seule (WCAG 1.4.1).",
+      "Don't utiliser un bleu pour le focus : l'anneau est encre, pour ne pas concurrencer l'accent."
+    ]
+  }
+}

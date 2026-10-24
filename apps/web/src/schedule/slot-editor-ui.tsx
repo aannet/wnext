@@ -7,12 +7,14 @@
 //    tentatif / confirmé, note. Surcharge signalée (BR-01), jamais bloquante. Enregistrement par l'éditeur de l'écran
 //    (If-Match, annulable par Ctrl+Z) ; création enregistrée dans l'historique ; refus : code stable traduit, pop-in ouverte.
 //  * « Congé » : le parcours congé existant (timeoff-ui : types, demi-journées, avertissement et assistant BR-04), prérempli
-//    avec la personne et la plage du créneau. Ouvert directement (touche C, bouton, congé cliqué), la pop-in s'y place.
+//    avec la personne et la plage du créneau. Ouvert directement (touche C, bouton, congé cliqué), la pop-in s'y place. Un geste
+//    sur un congé (RT-051, timeoffGesture) n'ouvre la pop-in que si l'avertissement BR-04 est à montrer.
 //  * Onglets APG : role tablist, flèches gauche / droite (activation automatique), Début / Fin. Pas d'onglets pour un congé
 //    existant ni pendant l'avertissement BR-04.
 //  * Portée (RT-042, PO-08) : une série s'ouvre sur l'occurrence cliquée (ses dates). À l'enregistrement, une étape du
 //    drawer demande « Cette occurrence » (découpe BR-25, non annulable : annoncé) ou « Toute la série » (dates décalées
-//    d'autant, fin de série comprise ; série mensuelle : seulement depuis sa première occurrence) ; une ligne de groupe (BR-26), « Cette ligne » ou « Tout le groupe » (PATCH de groupe, annulable ligne par
+//    d'autant, fin de série comprise, et repoussée si l'occurrence finit après elle, PO-12 ; série mensuelle : seulement depuis sa
+//    première occurrence) ; une ligne de groupe (BR-26), « Cette ligne » ou « Tout le groupe » (PATCH de groupe, annulable ligne par
 //    ligne ; indisponible, avec la raison, si la personne ou la charge change aussi). Rien qui dépende de la portée : pas
 //    d'étape. Radio choisi focalisé à l'entrée ; Échap ou Retour revient au formulaire.
 //  * Commandes du bloc (RT-047), si l'allocation est modifiable (`canCommand`, BR-33) : groupe « Actions sur l'allocation »
@@ -104,6 +106,10 @@ export interface SlotEditor {
   openCreate(r: { personId: string | null; startDate: string; endDate: string; draft: number | null }): void;
   openTimeoffAt(personId: string, date: string): void;
   openTimeoffEdit(id: string): void;
+  /** Geste sur un congé (RT-051) : écrit tout de suite, refusé, ou pop-in ouverte sur l'avertissement BR-04 ; réglé ensuite. */
+  timeoffGesture(id: string, span: Pick<ScheduleResponse["timeoffs"][number], "startDate" | "endDate" | "startHalf" | "endHalf">): Promise<void>;
+  /** Supprimer un congé depuis la grille (Suppr, menu), sans formulaire. */
+  timeoffDelete(id: string): void;
   /** Supprimer depuis la grille (Suppr, menu) : tout de suite, ou étape de portée (série, groupe) dans le drawer. */
   requestDelete(r: { key: string; allocationId: string; occurrence?: number | null }): void;
   /** Scinder depuis la grille (S, menu) : étape de la date, ou annonce de l'impossibilité (série, bloc d'un jour). */
@@ -193,7 +199,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   async function submit() {
     const s = stateRef.current;
     if (!s || !records || busy.current) return;
-    const issues = slotIssues(s.draft, current);
+    const issues = slotIssues(s.draft);
     if (issues.length) { show({ ...s, tried: true }); return; }
     if (current) {
       const plan = scopePlan(current, s.occ, s.draft, writer().updateAllocationGroup !== undefined);
@@ -422,7 +428,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
         <SlotForm i18n={i18n} formId={`${ids}-form`} draft={d} onChange={set} onSubmit={() => void submit()} current={current}
           people={data.people.map((p) => ({ id: p.id, name: p.name }))} projects={options}
           tasks={(d.projectId ? tasks[d.projectId] ?? [] : []).map((x) => ({ id: x.id, name: x.name }))}
-          overloads={slotOverloads(data, d, current).map(nameOf)} issues={s.tried ? slotIssues(d, current) : []} error={s.error} color={color} />
+          overloads={slotOverloads(data, d, current).map(nameOf)} issues={s.tried ? slotIssues(d) : []} error={s.error} color={color} />
         {commandable(a) && (
           <div role="group" aria-label={t("schedule.slot.actions")} className="wn-slot-actions">
             <Button onClick={() => show(base({ ...d, allocationId: null }, "allocation", s.key, null))}>{t("schedule.slot.duplicate")}</Button>
@@ -493,6 +499,15 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
       if (!x) return;
       show(base(createDraft(x.personId, x.startDate, x.endDate), "timeoff", null, stateRef.current?.draftId ?? null));
       timeoffs.openEdit(id);
+    },
+    async timeoffGesture(id, span) {
+      const x = records && (records.getState().data ?? data).timeoffs.find((y) => y.id === id);
+      if (!x || stateRef.current) return;
+      const out = await timeoffs.gesture(id, span);
+      if (out === "warn") show(base(createDraft(x.personId, span.startDate, span.endDate), "timeoff", null, null));
+    },
+    timeoffDelete(id) {
+      if (records && !stateRef.current) void timeoffs.removeNow(id);
     },
     requestDelete(r) {
       const a = records && data.allocations.find((x) => x.id === r.allocationId);

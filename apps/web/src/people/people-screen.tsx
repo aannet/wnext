@@ -1,20 +1,21 @@
 // Écran Personnes (lot L-F2 : RT-012 partie Personnes, US-1.1, US-5.1, BR-19, BR-31). Une liste filtrable (recherche, équipe =
 // département, rôle, type, actives ou désactivées), une fiche dans le Drawer commun, la création réduite (nom, type, horaire par
-// défaut), et l'accès à l'import CSV pour owner et admin. Lecture seule pour member et guest (GET /me). Un member ne reçoit que sa
+// défaut). L'import CSV vit dans Réglages > Import (RT-054) : l'état vide y mène (owner, admin). Lecture seule pour member et
+// guest (GET /me). Un member ne reçoit que sa
 // personne liée (RT-048) ; sans personne liée, un état vide le dit.
 // Tri et regroupement (RT-031), côté client et en mémoire : en-têtes Nom, Rôle et Équipe triables (aria-sort, second clic =
-// sens inverse), interrupteur « Regrouper par équipe » (un tbody par équipe, « Sans équipe » en dernier).
+// sens inverse), interrupteur « Regrouper par équipe » (un tbody par équipe, « Sans équipe » en dernier). RT-053 : la liste est
+// le DataTable commun (barre d'outils, menu d'actions « … » par ligne) ; le tri reste celui de people-model (contrôlé).
 // Colonne « Accès » (RT-040, ADR-002 §1 : users distincts de people) : `access` de PersonDetail, servi par l'API aux seuls
 // owner, admin et project_manager ; la colonne n'apparaît que si le champ est présent. « Invitation envoyée » viendra en T2.
 import type { I18n } from "@lingui/core";
 import type { Me } from "@wnext/contracts";
 import { todayIn } from "@wnext/engine";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ImportSource } from "../data/import-source";
 import type { PeopleSource, Person, ReferenceSource } from "../data/people-source";
-import { Button, Drawer, Switch } from "../design";
+import { Button, DataTable, Drawer, Switch, type DataTableColumn } from "../design";
 import type { MessageKey } from "../i18n";
-import { ImportDialog } from "../imports/import-dialog";
+import { ImportSettingsLink, type ImportLink } from "../imports/import-link";
 import { useLoad } from "../projects/use-load";
 import { accessKey, DEFAULT_PEOPLE_SORT, filterPeople, groupPeople, initialsOf, sortPeople, type PeopleSort, type PeopleSortKey, NONE, NO_PEOPLE_FILTERS, PEOPLE_TYPES, refName, TYPE_KEY, errorOf, newPersonValues, parseWeek, weeklySummary, type PeopleFilters, type StateFilter } from "./people-model";
 import { PersonForm } from "./person-form";
@@ -26,8 +27,8 @@ export interface PeopleScreenProps {
   reference: ReferenceSource;
   account: Me["account"];
   canEdit: boolean;
-  /** Import CSV (owner, admin) ; absent : pas de bouton. */
-  imports?: ImportSource;
+  /** Lien vers Réglages > Import dans l'état vide (owner, admin) ; absent : pas de lien. */
+  importLink?: ImportLink;
   /** member (RT-048) : l'API ne sert que sa personne liée ; sans personne, un état vide explique ce périmètre. */
   ownOnly?: boolean;
   now?: () => Date;
@@ -35,7 +36,7 @@ export interface PeopleScreenProps {
 
 type Side = { kind: "none" } | { kind: "create" } | { kind: "person"; id: string };
 
-export function PeopleScreen({ i18n, source, reference, account, canEdit, imports, ownOnly = false, now = () => new Date() }: PeopleScreenProps) {
+export function PeopleScreen({ i18n, source, reference, account, canEdit, importLink, ownOnly = false, now = () => new Date() }: PeopleScreenProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
   const people = useLoad(() => source.listPeople(), "people");
   const departments = useLoad(() => reference.departments.list(), "departments");
@@ -44,7 +45,6 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
   const [sort, setSort] = useState<PeopleSort>(DEFAULT_PEOPLE_SORT);
   const [grouped, setGrouped] = useState(false);
   const [side, setSide] = useState<Side>({ kind: "none" });
-  const [importing, setImporting] = useState(false);
   const trigger = useRef<HTMLElement | null>(null);
   const today = useMemo(() => todayIn(account.timezone, now()), [account.timezone, now]);
 
@@ -55,12 +55,6 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
   const shown = useMemo(() => sortPeople(filterPeople(all, filters), sort, deptList, roleList), [all, filters, sort, deptList, roleList]);
   const showAccess = all.some((x) => x.access !== undefined);
   const groups = useMemo(() => (grouped ? groupPeople(shown, deptList) : [{ id: null, name: null, people: shown }]), [grouped, shown, deptList]);
-  const sortBy = (key: PeopleSortKey) => setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
-  const sortable = (key: PeopleSortKey, label: MessageKey) => (
-    <th scope="col" aria-sort={sort.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
-      <button type="button" className="wn-sort" onClick={() => sortBy(key)}>{t(label)}</button>
-    </th>
-  );
   const selected = side.kind === "person" ? all.find((x) => x.id === side.id) : undefined;
   useEffect(() => { if (side.kind === "person" && ready && !selected) setSide({ kind: "none" }); }, [side, ready, selected]);
 
@@ -72,14 +66,31 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
   const upsert = (x: Person) => people.update((d) => (d.some((y) => y.id === x.id) ? d.map((y) => (y.id === x.id ? x : y)) : [...d, x]));
 
   const fmt = (k: MessageKey) => t(k);
+  const columns: DataTableColumn<Person>[] = [
+    {
+      id: "name", header: t("people.col.name"), rowHeader: true, sortable: true,
+      cell: (x) => (
+        <Button variant="link" aria-expanded={side.kind === "person" && side.id === x.id} onClick={(e) => open({ kind: "person", id: x.id }, e.currentTarget)}>
+          <span className="wn-avatar" aria-hidden="true">{initialsOf(x.name)}</span>
+          {x.name}
+          {!x.active && <span className="wn-tag">{t("people.inactive")}</span>}
+        </Button>
+      ),
+    },
+    { id: "role", header: t("people.col.role"), sortable: true, cell: (x) => refName(roleList, x.roleId) },
+    { id: "department", header: t("people.col.team"), sortable: true, cell: (x) => refName(deptList, x.departmentId) },
+    { id: "type", header: t("people.col.type"), cell: (x) => t(TYPE_KEY[x.peopleType]) },
+    { id: "hours", header: t("people.col.hours"), cell: (x) => { const { total, days } = weeklySummary(x.workDaysHours); return t("people.hours.summary", { hours: total, days }); } },
+    ...(showAccess ? [{
+      id: "access", header: t("people.col.access"), sortable: true,
+      cell: (x: Person) => x.access && <span className={x.access === "member" ? "wn-tag" : "wn-muted"}>{t(accessKey(x.access))}</span>,
+    }] : []),
+  ];
   return (
     <main className="wn-page wn-people">
       <div className="wn-subheader">
         <h1 tabIndex={-1} className="wn-subheader-title">{t("shell.nav.people")}</h1>
-        {imports && <Button type="button" aria-haspopup="dialog" onClick={(e) => { trigger.current = e.currentTarget; setImporting(true); }}>{t("import.open")}</Button>}
-        {canEdit && <Button type="button" variant="primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("people.new")}</Button>}
       </div>
-      {imports && importing && <ImportDialog i18n={i18n} source={imports} onClose={() => { setImporting(false); people.reload(); }} />}
 
       {(people.state.status === "loading" || departments.state.status === "loading" || roles.state.status === "loading") && <p className="wn-muted" role="status">{t("people.loading")}</p>}
       {(people.state.status === "error" || departments.state.status === "error" || roles.state.status === "error") && (
@@ -93,12 +104,12 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
         </section>
       )}
       {ready && !(ownOnly && all.length === 0) && (
-        <>
-          <form className="wn-filters" role="search" aria-label={t("people.filters.label")} onSubmit={(e) => e.preventDefault()}>
-            <div className="wn-field">
-              <label htmlFor="wn-pf-search">{t("people.filters.search")}</label>
-              <input id="wn-pf-search" type="search" value={filters.search} autoComplete="off" onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
-            </div>
+        <DataTable<Person>
+          rows={shown} groups={grouped ? groups.map((g) => ({ key: g.id ?? "none", label: t("people.group.heading", { name: g.name ?? t("people.group.none"), count: g.people.length }), rows: g.people })) : undefined}
+          totalCount={all.length} rowKey={(x) => x.id} columns={columns} caption={t("people.table.caption", { count: shown.length })}
+          toolbarLabel={t("people.filters.label")}
+          search={{ value: filters.search, onChange: (v) => setFilters({ ...filters, search: v }), label: t("people.filters.search") }}
+          filters={<>
             <div className="wn-field">
               <label htmlFor="wn-pf-team">{t("people.filters.team")}</label>
               <select id="wn-pf-team" value={filters.departmentId} onChange={(e) => setFilters({ ...filters, departmentId: e.target.value })}>
@@ -131,61 +142,18 @@ export function PeopleScreen({ i18n, source, reference, account, canEdit, import
               </select>
             </div>
             <Switch checked={grouped} onCheckedChange={setGrouped} className="wn-filters-switch">{t("people.group.department")}</Switch>
-          </form>
-
-          {shown.length === 0 ? (
-            <section className="wn-soon wn-empty" aria-labelledby="wn-pempty-title">
-              <h2 id="wn-pempty-title">{t(all.length > 0 ? "people.empty.filtered.title" : "people.empty.title")}</h2>
-              <p>{t(all.length > 0 ? "people.empty.filtered.body" : "people.empty.body")}</p>
-              {all.length > 0
-                ? <Button type="button" onClick={() => setFilters(NO_PEOPLE_FILTERS)}>{t("people.filters.reset")}</Button>
-                : canEdit && <Button type="button" variant="primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("people.new")}</Button>}
-            </section>
-          ) : (
-            <table className="wn-table">
-              <caption className="wn-visually-hidden">{t("people.table.caption", { count: shown.length })}</caption>
-              <thead>
-                <tr>
-                  {sortable("name", "people.col.name")}
-                  {sortable("role", "people.col.role")}
-                  {sortable("department", "people.col.team")}
-                  <th scope="col">{t("people.col.type")}</th>
-                  <th scope="col">{t("people.col.hours")}</th>
-                  {showAccess && sortable("access", "people.col.access")}
-                </tr>
-              </thead>
-              {groups.map((g) => (
-              <tbody key={g.id ?? "none"}>
-                {grouped && (
-                  <tr className="wn-group-row">
-                    <th scope="rowgroup" colSpan={showAccess ? 6 : 5}>{t("people.group.heading", { name: g.name ?? t("people.group.none"), count: g.people.length })}</th>
-                  </tr>
-                )}
-                {g.people.map((x) => {
-                  const current = side.kind === "person" && side.id === x.id;
-                  const { total, days } = weeklySummary(x.workDaysHours);
-                  return (
-                    <tr key={x.id} data-current={current || undefined}>
-                      <th scope="row">
-                        <Button variant="link" aria-expanded={current} onClick={(e) => open({ kind: "person", id: x.id }, e.currentTarget)}>
-                          <span className="wn-avatar" aria-hidden="true">{initialsOf(x.name)}</span>
-                          {x.name}
-                          {!x.active && <span className="wn-tag">{t("people.inactive")}</span>}
-                        </Button>
-                      </th>
-                      <td>{refName(roleList, x.roleId)}</td>
-                      <td>{refName(deptList, x.departmentId)}</td>
-                      <td>{t(TYPE_KEY[x.peopleType])}</td>
-                      <td>{t("people.hours.summary", { hours: total, days })}</td>
-                      {showAccess && <td>{x.access && <span className={x.access === "member" ? "wn-tag" : "wn-muted"}>{t(accessKey(x.access))}</span>}</td>}
-                    </tr>
-                  );
-                })}
-              </tbody>
-              ))}
-            </table>
-          )}
-        </>
+          </>}
+          primaryAction={canEdit ? <Button type="button" variant="primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("people.new")}</Button> : undefined}
+          sort={sort} onSortChange={(next) => setSort(next as PeopleSort)}
+          isCurrent={(x) => side.kind === "person" && side.id === x.id}
+          actions={(x) => (canEdit ? [{ id: "edit", label: t("table.edit"), onSelect: (_row, el) => open({ kind: "person", id: x.id }, el) }] : [])}
+          actionsHeader={t("table.actions.header")} actionsLabel={(x) => t("table.actions.for", { name: x.name })}
+          empty={{ title: t("people.empty.title"), body: t("people.empty.body"), ...(canEdit || importLink ? { action: <>
+            {canEdit && <Button type="button" variant="primary" onClick={(e) => open({ kind: "create" }, e.currentTarget)}>{t("people.new")}</Button>}
+            {importLink && <ImportSettingsLink i18n={i18n} link={importLink} />}
+          </> } : {}) }}
+          emptyFiltered={{ title: t("people.empty.filtered.title"), body: t("people.empty.filtered.body"), resetLabel: t("people.filters.reset"), onReset: () => setFilters(NO_PEOPLE_FILTERS) }}
+        />
       )}
 
       {ready && side.kind === "create" && (

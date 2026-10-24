@@ -35,7 +35,7 @@ VITE_AUTH_MODE=oidc npm run dev -w @wnext/web
 2. « Se connecter » mène à la page de choix du fournisseur local (aucun mot de passe, développement seulement) : choisir **Alec** (owner du compte « WNEXT Dev », sujet `dev-alec`, e-mail `alec@wnext.test`, sans personne liée).
 3. Retour sur le planning : « Bonjour Alec » à droite de l'en-tête. Le menu de l'avatar propose Déconnexion, qui ramène au portail.
 
-Les autres comptes du jeu d'essai (`DEV_USERS` de `scripts/dev-seed.mjs`) servent à voir les droits par rôle : **Admin Dev** (admin : Réglages et Importer visibles), **Membre Dev** (member : ni Réglages ni Importer, planning en lecture seule). Le compte Alec est ajouté à chaque démarrage de `dev:stack`, y compris sur une base `.dev-pg/` semée avant ce lot. Le mode par défaut des tests reste `dev` (en-têtes `x-dev-*`, identité `VITE_DEV_*` = Admin Dev) ; `?demo=1` ouvre le planning sans API ni connexion, en tant que « Alec » fictif.
+Les autres comptes du jeu d'essai (`DEV_USERS` de `scripts/dev-seed.mjs`) servent à voir les droits par rôle : **Admin Dev** (admin : Réglages visible, import dans Réglages > Import), **Membre Dev** (member : ni Réglages ni Importer, planning en lecture seule). Le compte Alec est ajouté à chaque démarrage de `dev:stack`, y compris sur une base `.dev-pg/` semée avant ce lot. Le mode par défaut des tests reste `dev` (en-têtes `x-dev-*`, identité `VITE_DEV_*` = Admin Dev) ; `?demo=1` ouvre le planning sans API ni connexion, en tant que « Alec » fictif.
 
 ## Recette avec le jeu de données de recette (RT-044)
 

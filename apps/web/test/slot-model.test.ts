@@ -30,13 +30,13 @@ describe("brouillons et contrôles", () => {
     expect(slotIssues(d)).toEqual(["project"]);
   });
 
-  it("contrôles : personne, dates, heures et pourcentage hors bornes ; édition à une seule personne ; fin de série", () => {
+  it("contrôles : personne, dates, heures et pourcentage hors bornes ; édition à une seule personne ; fin de série dépassable (PO-12)", () => {
     expect(slotIssues({ ...createDraft(null, "2026-10-23", "2026-10-22", "1"), hours: "25" })).toEqual(["person", "dates", "hours"]);
     expect(slotIssues({ ...createDraft("1", "2026-10-22", "2026-10-22", "1"), mode: "percentage", percent: "0" })).toEqual(["percent"]);
     expect(slotIssues({ ...editDraft(alloc()), personIds: ["1", "2"] })).toEqual(["people"]);
     expect(slotIssues({ ...createDraft("1", "2026-10-22", "2026-10-22", "1"), personIds: ["1", "2"], hours: "7,5" })).toEqual([]);
     const series = alloc({ repeatState: "weekly", repeatEndDate: "2026-10-31" });
-    expect(slotIssues({ ...editDraft(series), endDate: "2026-11-02" }, series)).toEqual(["dates"]);
+    expect(slotIssues({ ...editDraft(series), endDate: "2026-11-02" })).toEqual([]);
   });
 });
 
@@ -89,6 +89,16 @@ describe("portée d'une série et d'un groupe (RT-042, PO-08)", () => {
     const occ1 = occurrenceOf(series, 1);
     expect(scopePlan(series, occ1, { ...editDraft(series, occ1), startDate: "2026-10-28", endDate: "2026-10-30" }, true).patch)
       .toEqual({ startDate: "2026-10-21", endDate: "2026-10-23" });
+  });
+
+  it("PO-12 : fin d'occurrence au-delà de la fin de série : permise, « toute la série » emporte la fin de série jusqu'à elle", () => {
+    const last = occurrenceOf(series, 3); // 10 nov., tronquée à la fin de série
+    const plan = scopePlan(series, last, { ...editDraft(series, last), endDate: "2026-11-12" }, true);
+    expect(plan).toEqual({
+      patch: { endDate: "2026-10-23", repeatEndDate: "2026-11-12" }, occurrencePatch: { endDate: "2026-11-12" },
+      options: [{ scope: "occurrence", blocked: null }, { scope: "series", blocked: null }],
+    });
+    expect(slotIssues({ ...editDraft(series, last), endDate: "2026-11-12" })).toEqual([]);
   });
 
   it("série mensuelle : « toute la série » indisponible si les dates d'une occurrence autre que la première changent ; autres champs ou première occurrence : disponible", () => {

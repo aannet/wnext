@@ -1,0 +1,13 @@
+/* DataTable (RT-053, design/ui/data-table.tsx) : barre d'outils, lignes de 40 px, en-têtes 12 px graisse 500, colonne d'actions.
+   Tokens uniquement (aucune couleur en dur). */
+.wn-dt-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2) var(--space-3); margin-bottom: var(--space-3); }
+.wn-dt-search { flex: 1 1 220px; max-width: 320px; min-height: var(--control-default); box-sizing: border-box; padding: 0 var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font: inherit; background: var(--surface); color: var(--text); }
+.wn-dt-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2) var(--space-3); }
+.wn-dt-filters .wn-field { margin-bottom: 0; }
+.wn-dt-primary { margin-left: auto; }
+.wn-dt tbody tr { height: 40px; }
+.wn-dt thead th { height: 32px; font-size: var(--text-label); font-weight: var(--font-weight-medium); }
+.wn-dt th, .wn-dt td { padding-top: 0; padding-bottom: 0; }
+.wn-dt .wn-dt-actions { width: 48px; padding-right: var(--space-2); text-align: right; }
+.wn-dt tbody tr:hover { background: var(--surface-sunken); }
+.wn-dt .wn-row-name { font-weight: var(--font-weight-medium); }

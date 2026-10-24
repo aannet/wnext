@@ -24,11 +24,13 @@ test.describe("axe-core", () => {
   });
   test("boutons survolés (primaire, secondaire) : contraste AA, le survol fonce le fond au lieu de l'éclaircir", async ({ page }) => {
     await openDemo(page);
-    for (const name of ["+ Allocation", "Aujourd’hui"]) {
+    // « + Allocation » a disparu (RT-060) : le bouton primaire est celui de la section Réglages > Import (RT-054).
+    for (const [path, name] of [["/reglages?demo=1&onglet=import", "Importer un fichier CSV…"], ["/?demo=1", "Aujourd’hui"]] as const) {
+      await page.goto(path);
       const button = page.getByRole("button", { name, exact: true });
       await button.hover();
       await page.waitForTimeout(200); // fin de la transition de couleur
-      const r = await new AxeBuilder({ page }).include("[role=toolbar], .wn-subheader").withRules(["color-contrast"]).analyze();
+      const r = await new AxeBuilder({ page }).include("main").withRules(["color-contrast"]).analyze();
       expect(r.violations.flatMap((v) => v.nodes.map((n) => n.any[0]?.message ?? "")), `survol de « ${name} »`).toEqual([]);
     }
   });
@@ -46,13 +48,12 @@ test.describe("axe-core", () => {
     await settle(page);
     await scan(page, "fr-defile");
   });
-  test("FR, saisie rapide avec liste de candidats ouverte", async ({ page }) => {
+  // La saisie rapide est retirée (RT-057) : son scan est remplacé par celui du panneau Filtres, qui porte désormais les vues (RT-058).
+  test("FR, panneau Filtres ouvert (vues en tête, enregistrement en pied)", async ({ page }) => {
     await openDemo(page);
-    await page.getByRole("grid").focus();
-    await page.keyboard.press("/");
-    await page.getByRole("combobox", { name: "Allocation en langage simple" }).fill("Projet 4h lun");
-    await expect(page.getByRole("listbox")).toBeVisible();
-    await scan(page, "fr-saisie-rapide");
+    await page.locator(".wn-toolbar").getByRole("button", { name: /^Filtres/ }).click();
+    await expect(page.locator(".wn-filters-panel .wn-views-pick select")).toBeVisible();
+    await scan(page, "fr-filtres");
   });
   test("FR, menu contextuel d'un bloc ouvert (commandes RT-047 et retrait BR-10)", async ({ page }) => {
     await openDemo(page);
