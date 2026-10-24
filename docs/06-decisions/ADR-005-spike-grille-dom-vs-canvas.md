@@ -2,7 +2,7 @@
 
 Statut : **accepté** (décision d'Alec, 2026-10-19) : **DOM virtualisé optimisé (A2)** pour le Schedule, canvas en repli seulement si le banc P3 sur un poste réel rate le budget ; **Lingui** pour l'i18n (§ i18n, réserves (a) à (d) à vérifier à la mise en place). Les résultats de spike ci-dessous restent indicatifs.
 Complète : ADR-002 (§6 blocs, « Spike à lancer avant P1 »), `docs/00-factory/strategy.md` (critères P3 : 300 x 12 mois, scroll p95 >= 50 fps, interaction < 100 ms).
-Code et données brutes : `spikes/grille/` (jetable, hors production). Rien n'a été publié en ligne.
+Code et bancs : `spikes/grille/` (jetable, hors production), supprimé le 2026-10-24, à retrouver dans l'historique git (commit `2f38ccb`). Mesures brutes : `annexes/ADR-005-mesures/`. Les chemins `src/`, `bench/` et `results/` ci-dessous sont relatifs à ce spike. Rien n'a été publié en ligne.
 
 ## 1. Hypothèse
 
@@ -108,7 +108,7 @@ A fait un zoom en détruisant puis recréant toutes les lignes visibles (non opt
 
 ## 7. Second tour (A optimisé, B complet, B + overlay a11y)
 
-Conditions : DPR 2, ralentissement CPU x1 / x4 / x6 (proxy du poste lent, **le poste de référence P3 n'est pas défini**), Chromium headless, i7-10750H, WSL2, SwiftShader sans GPU, 5 runs. Données brutes : `spikes/grille/results/r2-*.json` ; synthèse : `node spikes/grille/bench/summarize2.mjs`.
+Conditions : DPR 2, ralentissement CPU x1 / x4 / x6 (proxy du poste lent, **le poste de référence P3 n'est pas défini**), Chromium headless, i7-10750H, WSL2, SwiftShader sans GPU, 5 runs. Données brutes : `annexes/ADR-005-mesures/r2-*.json` ; synthèse : `bench/summarize2.mjs` (historique git, `2f38ccb`).
 
 - **A2** : DOM virtualisé optimisé. **B2** : canvas complet (DPR 2). **B3** : canvas + overlay DOM `role=grid` (fenêtre visible).
 

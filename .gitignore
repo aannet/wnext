@@ -6,8 +6,6 @@ node_modules/
 tsconfig.tsbuildinfo
 *:Zone.Identifier
 .env*
-spikes/orchestrateur/tmp-repo/
-spikes/orchestrateur/tmp-wt/
 dist/
 coverage/
 

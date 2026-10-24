@@ -1,1 +1,0 @@
-{"hooks":{"PreToolUse":[{"matcher":".*","hooks":[{"type":"command","command":"/home/alec/projects/002-wnext/spikes/orchestrateur/hook.sh"}]}]}}

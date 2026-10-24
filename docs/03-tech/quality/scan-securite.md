@@ -20,7 +20,7 @@ Sortie 1 si critique (ou erreur d'outil) ; avec `--strict`, aussi si haut.
 
 ## Exclusions justifiées
 
-Dans `tests/security/` : `gitleaks.toml` (allowlists), `osv-scanner.toml` (aucune), `semgrep-exclusions.json` (chemins : `node_modules`, `factory` gelée, `spikes`, `.venv-scan`, `dist`).
+Dans `tests/security/` : `gitleaks.toml` (allowlists), `osv-scanner.toml` (aucune), `semgrep-exclusions.json` (chemins : `node_modules`, `factory` gelée, `.venv-scan`, `dist`).
 
 Faux positifs gitleaks traités (3, règle `generic-api-key`, historique complet) :
 

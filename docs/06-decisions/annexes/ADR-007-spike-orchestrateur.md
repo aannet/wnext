@@ -1,6 +1,6 @@
 # Spike orchestrateur : résultats (claude 2.1.302, modèle haiku -> claude-haiku-5-5)
 
-Fichiers : `run.sh` (lanceur), `hook.sh` (PreToolUse), `settings.json`, `out1.json`/`out2.json` (sorties brutes), `tmp-repo/` + `tmp-wt/` (repo jetable et worktree `line/p0-1`). Coût total du spike < 0,03 USD.
+Fichiers (supprimés le 2026-10-24, historique git : commits `3ed083c` et `d0d8fc5`) : `run.sh` (lanceur), `hook.sh` (PreToolUse), `settings.json`, `out1.json`/`out2.json` (sorties brutes), `tmp-repo/` + `tmp-wt/` (repo jetable et worktree `line/p0-1`). Coût total du spike < 0,03 USD.
 
 ## 1. Session headless, rôle propre, outils restreints, worktree : GO
 Commande (exécutée depuis le worktree, cwd = worktree) :

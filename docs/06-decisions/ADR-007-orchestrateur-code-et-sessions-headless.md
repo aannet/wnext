@@ -9,7 +9,7 @@ La stratégie demande un Orchestrateur « code déterministe + un LLM léger pou
 - **A. Claude Code interactif + sous-agents** : une session parent pilote tout.
 - **B. Orchestrateur en code** qui lance des sessions Claude Code non interactives (une par rôle et par ligne).
 
-Un spike de faisabilité a été mené le 2026-10-18 (`spikes/orchestrateur/RESULTATS.md`, claude 2.1.302, modèle haiku, coût total < 0,03 USD).
+Un spike de faisabilité a été mené le 2026-10-18 (`annexes/ADR-007-spike-orchestrateur.md`, code du spike dans l'historique git, commit `3ed083c`, claude 2.1.302, modèle haiku, coût total < 0,03 USD).
 
 ## Décision
 

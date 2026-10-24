@@ -69,7 +69,7 @@ Section « Agents et sous-agents lancés » de l'onglet Production : arbre orche
 ```
 (même entrée pour `SubagentStart`, `PostToolUse`, `SubagentStop`, `SessionEnd`). Contexte posé par l'orchestrateur dans l'environnement du `claude -p` : `OBS_URL`, `OBS_RUN_ID` (ULID), `OBS_LINE`, `OBS_PHASE`, `OBS_AGENT` (rôle), `OBS_PARENT_INSTANCE` (son propre `instance_id`, qu'il émet lui-même via `agent.start` / `agent.stop`), `OBS_MODEL` (repli). Sans contexte, une session ordinaire apparaît sous `_global`.
 
-Limites : les tokens ne viennent que du transcript, donc rien avec `--no-session-persistence` (l'orchestrateur peut alors poster le `usage` du résultat JSON lui-même) ; un sous-agent est toujours rattaché à la session, pas à un éventuel sous-agent parent (le payload ne le dit pas) ; `tool.exec` simultanés du même outil à la milliseconde près sont dédoublonnés. Démo : `spikes/orchestrateur/run-obs.sh [LIGNE]` (serveur lancé).
+Limites : les tokens ne viennent que du transcript, donc rien avec `--no-session-persistence` (l'orchestrateur peut alors poster le `usage` du résultat JSON lui-même) ; un sous-agent est toujours rattaché à la session, pas à un éventuel sous-agent parent (le payload ne le dit pas) ; `tool.exec` simultanés du même outil à la milliseconde près sont dédoublonnés. Démo : `spikes/orchestrateur/run-obs.sh [LIGNE]` (serveur lancé ; spike supprimé, historique git `d0d8fc5`).
 
 ## Notes
 

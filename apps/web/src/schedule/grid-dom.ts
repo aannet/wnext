@@ -1,4 +1,4 @@
-// Rendu DOM de la grille du Schedule (ADR-005 : DOM virtualisé optimisé, A2, porté du spike spikes/grille/src/main-dom-opt.ts).
+// Rendu DOM de la grille du Schedule (ADR-005 : DOM virtualisé optimisé, A2, porté du spike spikes/grille/src/main-dom-opt.ts, supprimé, commit 2f38ccb).
 //  * Seules les lignes visibles (plus une marge) existent ; les nœuds de ligne et de bloc sont recyclés (aucune création
 //    une fois le pool chaud) ; position par transform ; une propriété de style n'est écrite que si sa valeur change.
 //  * Accessibilité native : role=row / rowheader / gridcell (le conteneur porte role=grid et son libellé).
