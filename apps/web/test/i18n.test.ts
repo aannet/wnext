@@ -1,6 +1,6 @@
 // i18n (ADR-002 §4, ADR-005 : Lingui) : catalogues FR/EN complets, pluriels ICU, pseudo-localisation.
 import { describe, expect, it } from "vitest";
-import { createI18n, pseudoLocalize } from "../src/i18n";
+import { createI18n, pseudoLocalize, resolveLocale } from "../src/i18n";
 import { en } from "../src/i18n/messages.en";
 import { fr } from "../src/i18n/messages.fr";
 
@@ -37,5 +37,17 @@ describe("pseudo-localisation", () => {
       expect(out, k).toMatch(/^\[.*\]$/);
       if (!v.includes("{")) expect(out, k).not.toContain(v);
     }
+  });
+});
+
+describe("langue de l'écran (PO-16)", () => {
+  it("?lang= explicite d'abord, puis la langue du compte, puis celle du navigateur ; langue non prise en charge : la suivante", () => {
+    expect(resolveLocale({ query: "en", account: "fr", browser: ["fr-FR"] })).toBe("en");
+    expect(resolveLocale({ query: "pseudo", account: "fr", browser: [] })).toBe("pseudo");
+    expect(resolveLocale({ query: null, account: "en", browser: ["fr-FR"] })).toBe("en");
+    expect(resolveLocale({ query: null, account: "fr", browser: ["en-US"] })).toBe("fr");
+    expect(resolveLocale({ query: "de", account: null, browser: ["de-DE", "en-GB"] })).toBe("en");
+    expect(resolveLocale({ query: null, account: "es", browser: ["es-ES"] })).toBe("fr");
+    expect(resolveLocale({ query: null, account: null, browser: [] })).toBe("fr");
   });
 });

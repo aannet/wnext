@@ -1,4 +1,5 @@
-// Point d'entrée de l'écran. Langue : ?lang=en|pseudo, français par défaut.
+// Point d'entrée de l'écran. Langue (PO-16, resolveLocale) : ?lang=en|fr|pseudo, sinon celle du compte dès que /me est lu (et
+// aussitôt qu'elle change dans Réglages), sinon celle du navigateur.
 //  * Par défaut : branché sur l'API (proxy Vite /api) avec temps réel. Identité selon VITE_AUTH_MODE (src/data/auth-fetch.ts) :
 //    `dev` (défaut) en-têtes x-dev-* ; `oidc` écran de connexion WNEXT (bouton « Se connecter » = flux OIDC PKCE, src/data/oidc.ts)
 //    tant qu'il n'y a pas de session. Le profil (GET /me : nom, rôle) est chargé avant la coque (shell/), qui en tire l'en-tête
@@ -19,7 +20,7 @@ import { createApiNotificationsSource, createDemoNotificationsSource, demoNotifi
 import { createApiViewsSource, createDemoViewsSource, demoSeedViews } from "./data/views-source";
 import { browserOidcDeps, createOidcSession, oidcConfigFromEnv, type OidcSession } from "./data/oidc";
 import { createScheduleSource } from "./data/schedule-source";
-import { createI18n, type UiLocale } from "./i18n";
+import { createI18n, htmlLang, resolveLocale, type UiLocale } from "./i18n";
 import { createApiProjectsSource, createDemoProjectsSource } from "./data/projects-source";
 import { createApiAccountSource, createDemoAccountSource, meAccountOf, scheduleAccountOf } from "./data/account-source";
 import { ScheduleContainer } from "./ScheduleContainer";
@@ -40,9 +41,20 @@ import { LoginFailure, LoginScreen } from "./shell/screens";
 
 const params = new URLSearchParams(location.search);
 const lang = params.get("lang");
-const locale: UiLocale = lang === "en" || lang === "pseudo" ? lang : "fr";
-const i18n = createI18n(locale);
-document.documentElement.lang = locale === "en" ? "en" : "fr";
+const localeFor = (account: string | null): UiLocale => resolveLocale({ query: lang, account, browser: navigator.languages ?? [] });
+let locale = localeFor(null);
+let i18n = createI18n(locale);
+document.documentElement.lang = htmlLang(locale);
+/** Langue du compte connue (ou changée) : l'écran passe dans la langue résolue ; rien si elle ne change pas. */
+function followAccountLocale(me: MeState | Me) {
+  const account = "status" in me ? (me.status === "ready" ? me.me.account : null) : me.account;
+  if (!account) return;
+  const next = localeFor(account.defaultLocale);
+  if (next === locale) return;
+  locale = next;
+  i18n = createI18n(next);
+  document.documentElement.lang = htmlLang(next);
+}
 // Tailles initiales seulement : la grille remplit l'espace restant (CSS) et son ResizeObserver prend le relais.
 const widthPx = window.innerWidth;
 const heightPx = window.innerHeight;
@@ -92,7 +104,8 @@ function renderApi(makeAuth: (onSessionLost: () => void) => AuthProvider, sessio
   const load = () => { show({ status: "loading" }); void loadMe(api).then(show); };
   // Compte écrit (RT-041, pas de temps réel) : Planning mis à jour, /me relu sans repasser par l'écran de chargement.
   const accountSaved = (s: AccountSettings) => { source.accountChanged?.(scheduleAccountOf(s)); void loadMe(api).then((m) => { if (m.status === "ready") show(m); }); };
-  show = (me) => root.render(
+  show = (me) => { followAccountLocale(me); render(me); };
+  const render = (me: MeState) => root.render(
     <App i18n={i18n} router={router} me={me} notifications={notifications} onRetry={load} search={search}
       {...(session ? { onLogout: () => void session.logout() } : {})} {...(reconnect ? { onReconnect: reconnect } : {})}
       renderPlanning={(user) => (
@@ -127,7 +140,8 @@ if (params.get("demo") === "1") {
   const accountSaved = (s: AccountSettings) => { me = { ...me, account: meAccountOf(s) }; source.accountChanged?.(scheduleAccountOf(s)); renderDemo(); };
   const memory: ScheduleMemory = {};
   const search = searchFor(directory.people, projects);
-  const renderDemo = () => root.render(
+  const renderDemo = () => { followAccountLocale(me); renderDemoApp(); };
+  const renderDemoApp = () => root.render(
     <App i18n={i18n} router={router} me={{ status: "ready", me }} notifications={createDemoNotificationsSource(demoNotifications(today))} search={search}
       renderPlanning={(user) => <ScheduleContainer i18n={i18n} source={source} views={views} widthPx={widthPx} heightPx={heightPx} memory={memory} catalog={projects} me={user} onOpenProject={openProject} {...revealProps()} />}
       renderProjects={(user) => <ProjectsScreen i18n={i18n} source={projects} canEdit={canEditProjects(user)} editor={source} {...projectsProps()} {...importLinkFor(user)} />}

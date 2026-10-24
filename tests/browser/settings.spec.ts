@@ -80,3 +80,18 @@ test("Import : dernier onglet des Réglages, bouton qui ouvre la boîte d'import
   await panel.getByRole("button", { name: "Importer un fichier CSV…" }).click();
   await expect(page.getByRole("dialog").getByRole("heading", { level: 2 })).toHaveText("Importer un fichier CSV");
 });
+
+// PO-16 : sans ?lang=, la langue de l'écran est celle du compte (le navigateur de test est en anglais) ; la changer dans
+// Réglages > Compte change aussitôt la langue de l'écran.
+test("Compte : la langue par défaut du compte fixe celle de l'écran", async ({ page }) => {
+  await page.goto("/reglages?demo=1");
+  await expect(nav(page).getByRole("link", { name: "Planning" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "fr");
+  await page.getByRole("tab", { name: "Compte" }).click();
+  const panel = page.getByRole("tabpanel");
+  await panel.getByLabel("Langue par défaut").selectOption("en");
+  await panel.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(page.getByRole("banner").getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Schedule" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.getByRole("tab", { name: "Account" })).toBeVisible();
+});
