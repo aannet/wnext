@@ -74,11 +74,13 @@ export function NotificationsMenu({ i18n, source }: { i18n: I18n; source: Notifi
 }
 
 function UserMenu({ i18n, me, onLogout }: { i18n: I18n; me: Me; onLogout?: () => void }) {
-  const avatar = <span className="wn-avatar" aria-hidden="true">{initials(me.user.name)}</span>;
+  const short = initials(me.user.name);
+  const avatar = <span className="wn-avatar" aria-hidden="true">{short}</span>;
   if (!onLogout) return avatar;
+  // Le nom accessible commence par les initiales visibles (WCAG 2.5.3, PO-14) : la commande vocale « AA » trouve le bouton.
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="wn-avatar-button" aria-label={i18n._("shell.user.menu", { name: me.user.name })}>{avatar}</DropdownMenuTrigger>
+      <DropdownMenuTrigger className="wn-avatar-button" aria-label={i18n._("shell.user.menu", { initials: short, name: me.user.name })}>{avatar}</DropdownMenuTrigger>
       <DropdownMenuContent className="min-w-[220px]">
         <DropdownMenuGroup>
           <DropdownMenuLabel><strong className="text-form text-text">{me.user.name}</strong><br />{me.user.email}</DropdownMenuLabel>

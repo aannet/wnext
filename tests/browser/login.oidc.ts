@@ -99,6 +99,6 @@ test("connexion OIDC PKCE de bout en bout", async ({ page }) => {
   await page.getByRole("banner").getByRole("link", { name: "Personnes" }).click();
   await expect(ownOnly).toBeVisible();
   await expect(page.getByRole("button", { name: "Nouvelle personne" })).toHaveCount(0);
-  const memberAxe = await new AxeBuilder({ page }).include("main").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"]).analyze();
+  const memberAxe = await new AxeBuilder({ page }).include("main").include(".wn-appheader").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"]).analyze();
   expect(memberAxe.violations.map((v) => `${v.id}: ${v.help} -> ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
 });

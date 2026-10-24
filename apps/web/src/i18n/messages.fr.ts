@@ -375,7 +375,7 @@ export const fr = {
   "shell.nav.people": "Personnes",
   "shell.nav.settings": "Réglages",
   "shell.greeting": "Bonjour {name}",
-  "shell.user.menu": "Menu utilisateur de {name}",
+  "shell.user.menu": "{initials}, menu utilisateur de {name}",
   "shell.user.logout": "Déconnexion",
   "shell.soon.heading": "Bientôt disponible",
   "shell.soon.body": "Cette page est en préparation : {page} arrivera dans une prochaine version.",

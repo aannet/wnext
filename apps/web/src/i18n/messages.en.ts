@@ -376,7 +376,7 @@ export const en: Record<MessageKey, string> = {
   "shell.nav.people": "People",
   "shell.nav.settings": "Settings",
   "shell.greeting": "Hello {name}",
-  "shell.user.menu": "User menu for {name}",
+  "shell.user.menu": "{initials}, user menu for {name}",
   "shell.user.logout": "Sign out",
   "shell.soon.heading": "Coming soon",
   "shell.soon.body": "This page is being built: {page} will arrive in an upcoming release.",
