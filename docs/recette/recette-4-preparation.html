@@ -67,7 +67,7 @@
 
 <section id="demarrer">
   <h2>Démarrer la recette</h2>
-  <div class="hl" style="margin-bottom:14px"><b>Branche <code>polish</code>, pas <code>main</code>.</b> Le travail du cadrage n°4 n'est pas sur <code>main</code>. Vérifie avec <code>git branch --show-current</code> avant de lancer la pile.</div>
+  <div class="hl" style="margin-bottom:14px"><b>Sur <code>main</code>.</b> <code>polish</code> a été fusionnée dans <code>main</code> le 2026-10-24 (<code>e2fd665</code>), avec PO-11, PO-12, PO-14, PO-16 et l'identité de marque. Vérifie avec <code>git branch --show-current</code> avant de lancer la pile.</div>
   <div class="card"><ol style="margin:0;padding-left:20px">
     <li>Arrête une pile qui tournerait encore (Ctrl-C dans son terminal) : elle aurait l'ancien code.</li>
     <li><code>npm run dev:recette:seed</code> lance le compte « WNEXT Recette » sur une base dédiée (<code>.dev-pg-recette/</code>). Ta base <code>.dev-pg</code> n'est pas touchée. Ajoute <code>-- --reset</code> pour repartir du jeu initial. Pour un compte vide : <code>npm run dev:recette:vide</code>.</li>
@@ -220,10 +220,8 @@
 <section id="suite">
   <h2>Suite</h2>
   <div class="card"><ol style="margin:0;padding-left:20px">
-    <li>Ta recette n°4 sur <code>polish</code>, et tes notes dans <code>docs/recette/notes/</code>.</li>
-    <li>Tes réponses aux choix C1 à C9 et aux points PO-11 à PO-16, ici ou dans ta note.</li>
+    <li>Ta recette n°4 sur <code>main</code>, et tes notes dans <code>docs/recette/notes/</code>.</li>
     <li>Le cadrage de ta note (RT-065 et suivants).</li>
-    <li>La fusion de <code>polish</code> dans <code>main</code> une fois la recette passée.</li>
     <li>Le gate P6 : registre sans retour bloquant ni majeur ouvert, et scénarios passés à la main.</li>
   </ol></div>
 </section>
