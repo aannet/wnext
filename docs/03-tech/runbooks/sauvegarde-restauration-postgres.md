@@ -33,7 +33,7 @@ psql -d wnext_restore -c "SELECT count(*) FROM accounts" -c "SELECT account_id, 
 
 Rôles : recréer `app_user` (non propriétaire, ni BYPASSRLS) et ses droits avant de pointer l'API dessus ; `--no-owner` évite d'importer les propriétaires de la source.
 
-Effet sur le temps réel : les `seq` de `change_log` reviennent à ceux de la sauvegarde. Un client dont le curseur est postérieur reçoit une erreur de curseur invalide ou un `resync` et recharge la fenêtre (comportement prévu, `docs/runbooks/incident-temps-reel.md`) ; aucune action manuelle.
+Effet sur le temps réel : les `seq` de `change_log` reviennent à ceux de la sauvegarde. Un client dont le curseur est postérieur reçoit une erreur de curseur invalide ou un `resync` et recharge la fenêtre (comportement prévu, `docs/03-tech/runbooks/incident-temps-reel.md`) ; aucune action manuelle.
 
 ## 3. PITR (cible, non mis en place)
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Lint « aucune couleur en dur » dans apps/web/src (docs/review/ux-ui.md §3.1 : jamais de couleur en dur dans les
+// Lint « aucune couleur en dur » dans apps/web/src (docs/06-decisions/reviews-v1.1/ux-ui.md §3.1 : jamais de couleur en dur dans les
 // composants). Une couleur littérale (#hex, rgb(), rgba(), hsl(), hsla(), oklch()... y compris dans une classe Tailwind
 // arbitraire comme bg-[#3b82f6]) est refusée partout sauf dans apps/web/src/design/tokens.css, qui porte les tokens.
 // Les fichiers de test sont ignorés. Ce qui ne peut pas encore migrer figure dans ALLOWLIST, avec sa raison.

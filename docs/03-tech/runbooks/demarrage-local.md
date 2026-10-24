@@ -96,4 +96,4 @@ Une valeur invalide arrête le processus au démarrage avec un message explicite
 
 ## Contrôles hors `make check`
 
-`npm run test:schemathesis`, `npm run test:browser`, `npm run perf:realtime`, `npm run load:realtime`, `npm run scan` (voir `docs/review/`). Mémoire : un seul de ces lancements à la fois sur la VM de 15 Go.
+`npm run test:schemathesis`, `npm run test:browser`, `npm run perf:realtime`, `npm run load:realtime`, `npm run scan` (voir `docs/03-tech/quality/`). Mémoire : un seul de ces lancements à la fois sur la VM de 15 Go.

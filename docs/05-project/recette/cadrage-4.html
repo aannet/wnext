@@ -68,7 +68,7 @@
 <main>
 <section id="resume">
   <h2>Résumé</h2>
-  <p class="sub">Note brute : <code>docs/recette/notes/2026-10-23-recette-4.txt</code> (intitulée « Recette 3 » à l'intérieur, verbatim non modifié). Analyses indépendantes d'un architecte et d'un designer (Opus), contre-vérifiées par le PM dans le code de <code>polish</code> à <code>14f62b7</code>.</p>
+  <p class="sub">Note brute : <code>docs/05-project/recette/notes/2026-10-23-recette-4.txt</code> (intitulée « Recette 3 » à l'intérieur, verbatim non modifié). Analyses indépendantes d'un architecte et d'un designer (Opus), contre-vérifiées par le PM dans le code de <code>polish</code> à <code>14f62b7</code>.</p>
   <div class="card intent"><b>Statut : validé par Alec le 2026-10-23</b> (D2 précisé le même jour). Exécution des lots enchaînée. Les retours sont au registre : RT-051 à RT-063, plus RT-064 (aide des raccourcis, issue de D1). ADR-002 §5 est amendé.</div>
   <div class="stats">
     <div class="card"><div class="big">13</div>retours, 4 lots<br><span class="sub">aucun lot de contrat, aucune migration</span></div>
@@ -84,7 +84,7 @@
     <li><b>Trois retours rouvrent des décisions écrites</b>, ce sont des amendements à arbitrer, pas des corrections :
       <ul class="plain">
         <li>R7 et R10 contredisent ADR-002 §5 : « saisie rapide au clavier » (l. 54) et « chaque geste a un équivalent clavier » (l. 59).</li>
-        <li>R13 contredit la décision du 2026-10-18 : « Orange 90–100 % non retenu » (<code>docs/review/ux-ui.md:81</code>, <code>questions-ouvertes-avant-p1.md</code> ligne 5).</li>
+        <li>R13 contredit la décision du 2026-10-18 : « Orange 90–100 % non retenu » (<code>docs/06-decisions/reviews-v1.1/ux-ui.md:81</code>, <code>questions-ouvertes-avant-p1.md</code> ligne 5).</li>
         <li>R2 amende Q11 (RT-030).</li>
       </ul></li>
     <li><b>Aucun contrat, aucune migration</b> avec les lectures recommandées : <code>PATCH</code> et <code>DELETE /timeoffs</code> existent avec <code>If-Match</code>, les congés passent dans <code>change_log</code>, l'annulation rejoue déjà les opérations sur <code>timeoffs</code> (<code>timeoff-flow.ts:100-115</code>).</li>
@@ -263,7 +263,7 @@
   <div class="card"><ol style="margin:0;padding-left:20px">
     <li>Alec remplit les réponses D1 à D12 (D1 à D3 d'abord : elles conditionnent les lots).</li>
     <li>Le PM reporte les retours au registre (RT-051 et suivants), corrige l'entrée L-L (« Table shadcn ») et amende ADR-002 §5, Q11 et la décision des seuils selon les réponses.</li>
-    <li>Exécution des lots L-X1 ∥ L-X4, puis L-X2, puis L-X3, avec test rouge d'abord et <code>make check</code> vert avant chaque fusion ; suivi dans <code>docs/avancement.html</code>.</li>
+    <li>Exécution des lots L-X1 ∥ L-X4, puis L-X2, puis L-X3, avec test rouge d'abord et <code>make check</code> vert avant chaque fusion ; suivi dans <code>docs/05-project/avancement.html</code>.</li>
     <li>Recette n°5 par Alec avec <code>npm run dev:recette</code>.</li>
   </ol></div>
 </section>

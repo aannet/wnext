@@ -14,7 +14,7 @@
 #   /contracts/          : absent ; le paquet réel est /packages/contracts/ (ADR-003 §2).
 #   /packages/rules/     : absent ; pas de paquet "rules" dans ADR-003 §2. Non déclaré, à décider.
 #   /packages/auth/      : absent du repo et de ADR-003 §2 (aucun paquet auth prévu). Non déclaré, à décider.
-#   /docs/adr/           : remplacé par /docs/decisions/ (chemin réel des ADR).
+#   /docs/adr/           : remplacé par /docs/06-decisions/ (chemin réel des ADR).
 #   /CODEOWNERS          : remplacé par /.github/CODEOWNERS (emplacement réel du fichier).
 #   /.github/  /factory/ : scindé en deux lignes (un motif par ligne dans CODEOWNERS).
 #
@@ -32,7 +32,7 @@
 /packages/engine/      @cpto
 
 # Décisions d'architecture
-/docs/decisions/       @cpto
+/docs/06-decisions/    @cpto
 
 # Tests critiques
 /tests/critical/       @cpto @po-metier

@@ -291,7 +291,7 @@ Chaque composant part du caractère sobre actuel. Le caractère « franc et tact
 - **En-tête commun, à droite :** « Rechercher » avec sa pastille `Ctrl K` (`⌘K` sur Mac ; RT-059, recherche globale sur tous les écrans), la cloche des notifications, l'aide des raccourcis (bouton carré « ? » de 32 px, nom accessible « Raccourcis clavier », RT-064), Réglages, « Bonjour {prénom} », l'avatar.
 - **Aide des raccourcis :** fenêtre modale, trois groupes (Partout, Grille du planning, Bloc sélectionné) ; chaque ligne : touches en pastilles `kbd` (bordure forte 1 px, rayon 4 px, fond papier froid, 11 px) à gauche, action à droite, filet 1 px entre les lignes. La liste vient de `apps/web/src/shell/shortcuts.ts`, la source des gestionnaires de touches. Touche « ? » hors d'un champ.
 - **Import :** une seule entrée, Réglages > Import (owner, admin ; RT-054) ; les états vides de Personnes et de Projets y mènent par un lien.
-- **Mobile (not implemented):** aucune navigation mobile dans le code. La spec (`docs/review/ux-ui.md` §4.1) prévoit une barre inférieure à quatre onglets, pas encore construite.
+- **Mobile (not implemented):** aucune navigation mobile dans le code. La spec (`docs/06-decisions/reviews-v1.1/ux-ui.md` §4.1) prévoit une barre inférieure à quatre onglets, pas encore construite.
 
 ## Do's and Don'ts
 

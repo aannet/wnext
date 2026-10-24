@@ -1,4 +1,4 @@
-// Pré-recette automatisée (RT-044, L-R2) : rejoue docs/recette/scenarios.md contre la vraie pile avec le seed de recette en OIDC
+// Pré-recette automatisée (RT-044, L-R2) : rejoue docs/05-project/recette/scenarios.md contre la vraie pile avec le seed de recette en OIDC
 // (config playwright.recette.config.ts, `npm run test:recette`). Un test par scénario, « R-NN — titre » ; les scénarios qui ne
 // s'automatisent pas sont des `test.skip` motivés. Les tests partagent une base : chacun remet en état (Ctrl+Z ou interface) ce qu'il
 // modifie, et l'ordre d'exécution compte (R-21, qui ajoute 300 personnes, passe en dernier).

@@ -1,6 +1,6 @@
 .PHONY: check typecheck lint test
 
-# Étage rapide local = étage rapide CI (docs/factory/strategy.md §4.5).
+# Étage rapide local = étage rapide CI (docs/00-factory/strategy.md §4.5).
 # S'arrête au premier échec. Étapes courtes d'abord, pour échouer vite.
 #   test  : un seul run vitest (vitest.check.config.ts) pour web, api, contracts-tools et les suites tests/ boundaries,
 #           parity, guardrails, e2e, migrations ; pool de 4 threads au plus (chaque PGlite pèse ~0,6 Go), initdb de PGlite

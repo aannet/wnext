@@ -6,7 +6,7 @@ Point de départ : `main` à `97c09fb` (note n°2 cadrée et validée). Arrivée
 
 ## Ce qui a été fait
 
-Source de vérité : `docs/recette/registre.md` (RT, lots, PO, Q6–Q13). Suivi : `docs/avancement.html`. Règles UX : `docs/design/design.md`.
+Source de vérité : `docs/05-project/recette/registre.md` (RT, lots, PO, Q6–Q13). Suivi : `docs/05-project/avancement.html`. Règles UX : `docs/02-design/design.md`.
 
 | Lot | Commits | Retours | Résultat |
 |---|---|---|---|
@@ -23,19 +23,19 @@ Reportés en T2 : RT-033 (fériés nationaux par défaut), RT-034 (scinder les c
 ## Prochaine étape
 
 1. **Recette n°3 par Alec** : `npm run dev:recette`, puis `http://localhost:5173/` (compte Alec). Démo sans API : `?demo=1`.
-2. Ses notes vont, verbatim, dans `docs/recette/notes/` ; cadrage en RT-036+ dans le registre, synthèse `cadrage-3.html` à valider avant d'exécuter.
+2. Ses notes vont, verbatim, dans `docs/05-project/recette/notes/` ; cadrage en RT-036+ dans le registre, synthèse `cadrage-3.html` à valider avant d'exécuter.
 
 ## En attente d'Alec
 
 - **PO-09** : « recherche (Ctrl+K) » du niveau 1 de l'en-tête (cadrage n°2, RT-025) sans objet défini (personne ? projet ?). Le contrat des vues n'a pas de filtre texte. Non faite.
 - **PO-10** : libellés de la grille horaire de la fiche personne qui débordent du drawer de 420 px (antérieur à L-G). Petit correctif d'affichage, hors lot.
 - PO-04 à PO-08 (cadrage n°1) toujours ouverts ; PO-08 (portée série / groupe dans l'éditeur) n'a pas été repris en L-K.
-- Relecture CODEOWNERS du commit de contrat `ce25e1f` ; relecture des tests SQL (`docs/review/relecture-tests-sql.md`).
+- Relecture CODEOWNERS du commit de contrat `ce25e1f` ; relecture des tests SQL (`docs/03-tech/quality/relecture-tests-sql.md`).
 - CODEOWNERS vise `/db/migrations/` et `/db/rls/`, qui n'existent pas.
 
 ## À savoir pour reprendre
 
-- **Modifications étrangères** : quelqu'un d'autre écrit parfois dans `docs/avancement.html` (dernier cas : la phrase NEXT, non commitée à l'heure de ce handoff). Ne pas l'écraser ; indexer seulement ses propres hunks (`git hash-object -w --stdin` + `git update-index --cacheinfo`). `factory/orchestrator/*` non suivi : à ignorer (factory gelée).
+- **Modifications étrangères** : quelqu'un d'autre écrit parfois dans `docs/05-project/avancement.html` (dernier cas : la phrase NEXT, non commitée à l'heure de ce handoff). Ne pas l'écraser ; indexer seulement ses propres hunks (`git hash-object -w --stdin` + `git update-index --cacheinfo`). `factory/orchestrator/*` non suivi : à ignorer (factory gelée).
 - **Base UI** :
   - Un portail monte au rendu suivant : `Dialog` et `Popover` prennent le panneau par ref-callback ; `useInitialFocus(el)` reçoit l'élément, pas une ref.
   - Derrière une modale, le reste de la page est `inert` : en Playwright, `includeHidden: true` ou un sélecteur CSS.
@@ -53,4 +53,4 @@ Reportés en T2 : RT-033 (fériés nationaux par défaut), RT-034 (scinder les c
 - `apps/web/src/design/` : `Dialog.tsx`, `Popover.tsx`, `Combobox.tsx`, `overlay.ts`, `ui/button.tsx`, `tokens.css` (`--z-menu`, `--wn-grid-line`, `--wn-nonwork-hatch`, `--wn-col-current`, `--color-*-hover`, `--color-status-offline`).
 - `apps/web/src/schedule/` : `grid-model.ts` (`nonWorking`), `grid-dom.ts` (hachures, `data-load`), `grid-header.ts` (`columnsBackground`), `scroller.ts`, `slot-editor-ui.tsx` (drawer), `timeoff-ui.tsx` (`dirty`, `nested`), `filters-ui.tsx` (nouveau), `views-ui.tsx`, `capacity-label.ts` (`capacityTexter`).
 - `apps/web/src/ScheduleScreen.tsx` (en-tête deux niveaux, menu Affichage), `ScheduleContainer.tsx` (`RealtimeStatus`), `people/people-model.ts` et `people-screen.tsx` (tri, regroupement).
-- `scripts/dev-recette.mjs`, `scripts/captures-ecrans.mjs`, `docs/runbooks/demarrage-local.md`.
+- `scripts/dev-recette.mjs`, `scripts/captures-ecrans.mjs`, `docs/03-tech/runbooks/demarrage-local.md`.

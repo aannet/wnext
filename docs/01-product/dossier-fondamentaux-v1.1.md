@@ -7,13 +7,13 @@ Date : octobre 2026 · **Version 1.1** (remplace la v1.0, conservée à l'identi
 
 | Document | Rôle |
 |---|---|
-| `docs/decisions/ADR-001-arbitrage-revue-v1.1.md` | Décisions faisant foi pour la v1.1 (en cas de conflit, l'ADR l'emporte) |
+| `docs/06-decisions/ADR-001-arbitrage-revue-v1.1.md` | Décisions faisant foi pour la v1.1 (en cas de conflit, l'ADR l'emporte) |
 | `schema.sql` (v1.1, baseline `0001_init`) | Modèle de données exécutable ; remplace `schema.sql.txt` (v1.0, archivé). Le dossier ne le recopie pas |
-| `docs/review/archi-fonctionnel.md` | Cas limites, BR-18..BR-40, glossaire, matrice BR → tests (TC-xx) |
-| `docs/review/archi-solution.md` | Stack, temps réel, multi-tenant, correctifs SQL, ADR techniques, CI |
-| `docs/review/product.md` | Epics, critères d'acceptation, périmètre MVP, KPI, risques, GTM |
-| `docs/review/ux-ui.md` | Spec écran Schedule, design tokens, accessibilité, wireframes |
-| `docs/factory/strategy.md` | Stratégie « dark factory » : phases de production, agents, garde-fous |
+| `docs/06-decisions/reviews-v1.1/archi-fonctionnel.md` | Cas limites, BR-18..BR-40, glossaire, matrice BR → tests (TC-xx) |
+| `docs/06-decisions/reviews-v1.1/archi-solution.md` | Stack, temps réel, multi-tenant, correctifs SQL, ADR techniques, CI |
+| `docs/06-decisions/reviews-v1.1/product.md` | Epics, critères d'acceptation, périmètre MVP, KPI, risques, GTM |
+| `docs/06-decisions/reviews-v1.1/ux-ui.md` | Spec écran Schedule, design tokens, accessibilité, wireframes |
+| `docs/00-factory/strategy.md` | Stratégie « dark factory » : phases de production, agents, garde-fous |
 
 > Lecture : les sections 0 à 6 gardent la structure de la v1.0. Les sections 7 et 8 (questions ouvertes, changelog) sont nouvelles. Les identifiants techniques (tables, colonnes, `BR-xx`) restent en anglais.
 
@@ -247,7 +247,7 @@ erDiagram
 | Multi-tenant | `account_id` partout, **RLS** `FORCE`, FK composites `(id, account_id)` | `SET LOCAL app.account_id` à chaque transaction ; BR-32 |
 | Jobs / cache | pg-boss, Redis (fan-out WS, cache préfixé par tenant) | Recommandation archi-solution, non reprise dans l'ADR |
 
-Détails, budgets de latence, risques et ADR techniques : `docs/review/archi-solution.md` (§1 et §3.2). Règles structurantes retenues :
+Détails, budgets de latence, risques et ADR techniques : `docs/06-decisions/reviews-v1.1/archi-solution.md` (§1 et §3.2). Règles structurantes retenues :
 
 - **Capacité calculée, jamais stockée.** `capacité brute = work_days_hours[jour]` ; `disponibilité (capacité nette) = capacité brute − congés déduits − jours fériés` ; le Schedule affiche `Σ allocations vs disponibilité` par jour. Implémentation de référence en TypeScript pur (`@app/rules`) pour l'optimisme UI < 100 ms, fonctions SQL pour les rapports, **parité testée**. Les fonctions `daily_planned_load`, `daily_capacity` et `utilization` ont été **réécrites** (les versions v1.0 étaient fausses : intervalles en secondes, répétitions, jours non ouvrés), avec un jeu de tests SQL de non-régression (`tests/sql/`) à écrire d'abord (ADR décision 5). La vue `v_utilization` est supprimée au profit de fonctions paramétrées `(account_id, from, to)`.
 - **Temps réel.** Toute mutation d'allocation, de congé ou de projet se propage en < 1 s (p95) à tous les clients ; ack de mutation p95 < 150 ms. Contrôle optimiste par `row_version` (409), id de mutation client pour dédoublonner l'écho. **Le filtrage d'autorisation s'applique aussi à la diffusion WebSocket** (un Member ne reçoit que ses assignations).
@@ -259,7 +259,7 @@ Détails, budgets de latence, risques et ADR techniques : `docs/review/archi-sol
 
 ## 4. UX/UI Senior — Ergonomie ultra-fluide & DA
 
-Spec détaillée (structure de l'écran, états de capacité, tokens, composants, mobile, accessibilité, wireframes) : `docs/review/ux-ui.md`. Cette section ne conserve que les principes et leurs amendements.
+Spec détaillée (structure de l'écran, états de capacité, tokens, composants, mobile, accessibilité, wireframes) : `docs/06-decisions/reviews-v1.1/ux-ui.md`. Cette section ne conserve que les principes et leurs amendements.
 
 ### 4.1 Les 8 principes d'ergonomie (amendés v1.1)
 
@@ -290,7 +290,7 @@ Parcours à ajouter à la conception (absents de la v1.0) : première allocation
 ### 4.3 Direction artistique — simple mais efficace
 
 - **Tonalité** : outil professionnel épuré, sans décoration gratuite ; l'effet « wow » vient de la vitesse et de la clarté.
-- **Couleurs** : fond neutre clair, texte anthracite, **une couleur d'accent de marque**. *Amendement :* l'accent doit être **distinct de `--cap-ok`** et **conforme AA** (≥ 4,5:1 en texte/bouton, texte sur accent sombre ; le blanc sur vert vif échoue). Le vert fluo de Float est donc exclu ; décidé le 2026-10-21 (Q-09) : accent **pétrole `#0E7490`**, focus en encre (`docs/decisions/questions-ouvertes-avant-p1.md` n°13). Le code couleur est **réservé aux projets** (palette générée en OKLCH, texte de bloc calculé pour ≥ 4,5:1, teintes rouges exclues). Sémantique de capacité par tokens (`--cap-under`, `--cap-ok`, `--cap-warn`, `--cap-over`), jamais détournée. Aucune couleur en dur dans les composants.
+- **Couleurs** : fond neutre clair, texte anthracite, **une couleur d'accent de marque**. *Amendement :* l'accent doit être **distinct de `--cap-ok`** et **conforme AA** (≥ 4,5:1 en texte/bouton, texte sur accent sombre ; le blanc sur vert vif échoue). Le vert fluo de Float est donc exclu ; décidé le 2026-10-21 (Q-09) : accent **pétrole `#0E7490`**, focus en encre (`docs/06-decisions/questions-ouvertes-avant-p1.md` n°13). Le code couleur est **réservé aux projets** (palette générée en OKLCH, texte de bloc calculé pour ≥ 4,5:1, teintes rouges exclues). Sémantique de capacité par tokens (`--cap-under`, `--cap-ok`, `--cap-warn`, `--cap-over`), jamais détournée. Aucune couleur en dur dans les composants.
 - **Typographie** : une famille sans-serif d'interface (type Inter), 3 graisses (400/500/600), chiffres tabulaires pour toute heure.
 - **Densité maîtrisée** : lignes ~40 px (32 compact, 48 confortable), ombres quasi absentes, rayons subtils, icônes linéaires. Mode sombre en option, **après stabilisation** (pas dans le premier incrément) ; pas d'inversion mécanique des couleurs.
 - **Composants clés** : bloc d'allocation, popover d'édition rapide, jauge de capacité, panneau latéral projet, toasts avec « Annuler », timeline virtualisée avec snap sur les semaines.
@@ -312,7 +312,7 @@ Parcours à ajouter à la conception (absents de la v1.0) : première allocation
 
 ### 5.2 Requirements fonctionnels — backlog réaligné sur la roadmap (ADR décision 1)
 
-Le « P0 = MVP » de la v1.0 est remplacé par un MVP réduit. Les priorités FR (P0/P1/P2) deviennent des **tranches de roadmap T1..T4** (§5.5). Ne pas les confondre avec les phases de production P0..P5 de `docs/factory/strategy.md`.
+Le « P0 = MVP » de la v1.0 est remplacé par un MVP réduit. Les priorités FR (P0/P1/P2) deviennent des **tranches de roadmap T1..T4** (§5.5). Ne pas les confondre avec les phases de production P0..P5 de `docs/00-factory/strategy.md`.
 
 | FR | Intitulé | Tranche v1.1 | Précision |
 |---|---|---|---|
@@ -342,7 +342,7 @@ Le « P0 = MVP » de la v1.0 est remplacé par un MVP réduit. Les priorités FR
 
 ### 5.3 Epics et critères d'acceptation du MVP
 
-Format Given/When/Then abrégé ; **chaque critère devient un test automatisé** (source : `docs/review/product.md` §1).
+Format Given/When/Then abrégé ; **chaque critère devient un test automatisé** (source : `docs/06-decisions/reviews-v1.1/product.md` §1).
 
 **E1 — Organisation & personnes (FR-01)**
 - US-1.1 Création d'une personne (employee/contractor/placeholder). CA : moins de 3 champs obligatoires (nom, type, horaires par défaut du compte) ; `work_days_hours` accepte 7 valeurs de 0 à 24 ; un placeholder n'exige pas d'e-mail ; l'archivage (`active=false`) conserve l'historique et retire la personne du Schedule par défaut.
@@ -376,11 +376,11 @@ Format Given/When/Then abrégé ; **chaque critère devient un test automatisé*
 - US-7.2 Vues sauvegardées personnelles (partagées ensuite).
 - US-7.3 Notifications in-app au MVP (e-mail et digest quotidien en T2, désabonnement par type).
 
-**Epics hors MVP** (critères dans `docs/review/product.md`) : E8 timesheet (T2), E9 rapports (T2), E10 budgets (T3), E11..E19 (T3-T4).
+**Epics hors MVP** (critères dans `docs/06-decisions/reviews-v1.1/product.md`) : E8 timesheet (T2), E9 rapports (T2), E10 budgets (T3), E11..E19 (T3-T4).
 
 ### 5.4 Règles de gestion (business rules)
 
-Les BR-01..BR-17 sont conservées ; les formulations amendées par l'ADR sont signalées. Les cas limites détaillés (E-xx, T-xx, B-xx, L-xx, P-xx, Z-xx, R-xx, H-xx) et la matrice BR → cas de test (TC-xx) sont dans `docs/review/archi-fonctionnel.md` §2 et §5.
+Les BR-01..BR-17 sont conservées ; les formulations amendées par l'ADR sont signalées. Les cas limites détaillés (E-xx, T-xx, B-xx, L-xx, P-xx, Z-xx, R-xx, H-xx) et la matrice BR → cas de test (TC-xx) sont dans `docs/06-decisions/reviews-v1.1/archi-fonctionnel.md` §2 et §5.
 
 **Capacité & planning**
 - BR-01 : Capacité journalière d'une personne = `work_days_hours[jour]` ; une allocation ne peut être *posée* que sur un jour ouvré, mais peut **dépasser** la capacité (sur-allocation signalée, jamais bloquée). *Pourcentage non plafonné à 100 % (BR-24). Autoriser ou non la pose sur jour non ouvré reste à confirmer (Q-11).*
@@ -407,7 +407,7 @@ Les BR-01..BR-17 sont conservées ; les formulations amendées par l'ADR sont si
 - BR-16 **EXCLUE (ADR-004).** Texte historique : Projets et clients illimités sur tous les plans ; trial 30 jours à fonctionnalités Pro, données conservées 6 mois après expiration ; rétrogradation = perte des fonctionnalités Pro, données intactes (BR-35).
 - BR-17 **EXCLUE (ADR-004).** Texte historique : Les plans se différencient par fonctionnalités (Starter : scheduling, capacité, congés, planning projet, budgets basiques ; Pro : + time tracking, SSO, estimation, rapports avancés ; Enterprise : + contrats custom, placeholders custom, SLA, onboarding dédié), pas par volume de données. *« Placeholders custom » à clarifier (Q-12, section 7).*
 
-**Règles ajoutées en v1.1 (BR-18..BR-40)** — numérotation et libellés de `docs/review/archi-fonctionnel.md` §3. Le tag indique la priorité de la revue ; l'ADR décision 8 met en tête **BR-18, BR-22, BR-23, BR-28, BR-31**. BR-22 et BR-23 sont modélisées dès maintenant mais livrées en T3 (budgets multi-types, baseline versionnée).
+**Règles ajoutées en v1.1 (BR-18..BR-40)** — numérotation et libellés de `docs/06-decisions/reviews-v1.1/archi-fonctionnel.md` §3. Le tag indique la priorité de la revue ; l'ADR décision 8 met en tête **BR-18, BR-22, BR-23, BR-28, BR-31**. BR-22 et BR-23 sont modélisées dès maintenant mais livrées en T3 (budgets multi-types, baseline versionnée).
 
 | BR | Prio | Règle |
 |---|---|---|
@@ -464,7 +464,7 @@ timeline
     T4 : Smart Assign IA, Talent Intelligence, MCP
 ```
 
-Production du MVP : la stratégie « dark factory » (`docs/factory/strategy.md`) découpe le MVP en phases P0 Fondations → P5 Durcissement, avec un gate humain par phase, des tests comme juge et un budget indicatif de ~ 420 M tokens. Ce dossier n'en reprend pas le détail.
+Production du MVP : la stratégie « dark factory » (`docs/00-factory/strategy.md`) découpe le MVP en phases P0 Fondations → P5 Durcissement, avec un gate humain par phase, des tests comme juge et un budget indicatif de ~ 420 M tokens. Ce dossier n'en reprend pas le détail.
 
 ---
 
@@ -473,7 +473,7 @@ Production du MVP : la stratégie « dark factory » (`docs/factory/strategy.md`
 1. **Priorité absolue inchangée** : le Schedule temps réel avec indicateurs de capacité — c'est 80 % de la valeur perçue. Le MVP se limite à cela, plus ce qui le rend crédible (congés, fériés, permissions simples, vues).
 2. **Parité fonctionnelle ciblée d'abord, différenciation ensuite** : Schedule et capacité irréprochables avant tout autre terrain (T1), pilotage par la marge (T2-T3), IA de staffing en T4 conditionnée par des données de compétences structurées.
 3. **Décisions de l'ADR-001 (résumé)** : (1) MVP réduit ; (2) BR-15 = toute personne sur le Schedule ; (3) stockage ISO de `work_days_hours` ; (4) défaut `{8,8,8,8,8,0,0}` — le SQL était cohérent, c'est le défaut v1.0 qui était faux ; (5) réécriture des fonctions SQL avec tests d'abord ; (6) intégrité et sécurité bloquantes (`account_id` partout, FK composites, RLS, `users`/`account_members`, `ON DELETE RESTRICT` sur `logged_time`, pas d'exclusion de chevauchement) ; (7) BR-10/12/14 portées par la base ; (8) BR-18..BR-40 adoptées ; (9) UX et stack. Le texte de l'ADR fait foi.
-4. **Chantiers**. Les cinq chantiers ouverts de la v1.0 évoluent : (a) schéma SQL — **fait** en v1.1 (`schema.sql`) ; (b) design system — tokens validés (accent AA distinct de `--cap-ok`) avant la phase UI ; (c) prototype du Schedule (virtualisation + optimistic UI + alternative clavier) — en tête de la phase UI ; (d) matrice de test des règles de gestion — amorcée (TC-xx de la revue, jeu de tests SQL dans `tests/sql/`) ; (e) audit des captures §1.2 — inchangé. Nouveau : (f) stratégie dark factory (`docs/factory/strategy.md`), proposition à valider par le CPTO.
+4. **Chantiers**. Les cinq chantiers ouverts de la v1.0 évoluent : (a) schéma SQL — **fait** en v1.1 (`schema.sql`) ; (b) design system — tokens validés (accent AA distinct de `--cap-ok`) avant la phase UI ; (c) prototype du Schedule (virtualisation + optimistic UI + alternative clavier) — en tête de la phase UI ; (d) matrice de test des règles de gestion — amorcée (TC-xx de la revue, jeu de tests SQL dans `tests/sql/`) ; (e) audit des captures §1.2 — inchangé. Nouveau : (f) stratégie dark factory (`docs/00-factory/strategy.md`), proposition à valider par le CPTO.
 5. **Pré-requis avant code applicatif** : réponses aux questions ouvertes « avant P1 » (section 7), jeu de tests SQL de non-régression relu par un humain, vérification de la convention de jours de l'API v3 (faite le 2026-10-19 : Float v3 est dimanche-first, voir §3.2 PERSON).
 6. **Risques** (revue produit et solution) : scope creep de la parité ; performance de la matrice à 300+ personnes (prototype d'abord) ; fiabilité du calcul de capacité (tests dorés) ; fuite multi-tenant, y compris par WebSocket ; concurrence d'un leader installé ; risque IP (nom, DA, wording originaux) ; conformité attendue en B2B (DPA, hébergement UE, journal d'audit dès le MVP) ; mauvaise utilisation de l'IA en T4 (explicabilité, validation humaine).
 

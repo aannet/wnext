@@ -1,7 +1,7 @@
 # ADR-001 — Arbitrage CPTO de la revue v1.0 → v1.1
 
 Statut : accepté (décisions 1-3 validées par l'utilisateur, 4-9 arbitrées par le CPTO)
-Sources : `docs/review/{archi-fonctionnel,archi-solution,product,ux-ui}.md`
+Sources : `docs/06-decisions/reviews-v1.1/{archi-fonctionnel,archi-solution,product,ux-ui}.md`
 
 ## Décisions validées par l'utilisateur
 
@@ -29,4 +29,4 @@ Sources : `docs/review/{archi-fonctionnel,archi-solution,product,ux-ui}.md`
 - KPI WAU/sièges à redéfinir (activation, North Star, p95 sync).
 
 ## Suite
-Livrables : `schema.sql` v1.1 + tests SQL, `docs/dossier-fondamentaux-v1.1.md`, puis stratégie dark factory.
+Livrables : `schema.sql` v1.1 + tests SQL, `docs/01-product/dossier-fondamentaux-v1.1.md`, puis stratégie dark factory.

@@ -103,14 +103,14 @@
 
     <section id="roadmap">
       <h2>Feuille de route</h2>
-      <p class="sub">Trajectoire du dossier §5.6 (T1 à T4). T1 est le MVP « Schedule + capacité » ; il est réalisé par les phases P0 à P6 de <code>docs/factory/strategy.md</code>.</p>
+      <p class="sub">Trajectoire du dossier §5.6 (T1 à T4). T1 est le MVP « Schedule + capacité » ; il est réalisé par les phases P0 à P6 de <code>docs/00-factory/strategy.md</code>.</p>
       <div class="rm" id="rm"></div>
       <p class="goal" style="margin-top:12px"><b>Explicitement hors MVP (T1)</b> : timesheets et rapports (T2), facturation du produit lui-même (exclue, ADR-004), budgets, rate cards et marge (T3), API publique v3, mobile sous 1024 px, mode sombre, SSO (T3), Smart Assign, Talent Intelligence et MCP (T4).</p>
     </section>
 
     <section id="recette">
       <h2>Recette</h2>
-      <p class="sub">Retours d'Alec tracés dans <a href="recette/registre.md"><code>docs/recette/registre.md</code></a>, cadrés par note (<a href="recette/cadrage-1.html"><code>cadrage-1.html</code></a>, <a href="recette/cadrage-2.html"><code>cadrage-2.html</code></a>, <a href="recette/cadrage-3.html"><code>cadrage-3.html</code></a> autonome, <a href="recette/cadrage-4.html"><code>cadrage-4.html</code></a>). Préparation des recettes : <a href="recette/recette-3-preparation.html"><code>n°3</code></a>, <a href="recette/recette-4-preparation.html"><code>n°4</code></a>. Scénarios : <a href="recette/scenarios.md"><code>docs/recette/scenarios.md</code></a>.</p>
+      <p class="sub">Retours d'Alec tracés dans <a href="recette/registre.md"><code>docs/05-project/recette/registre.md</code></a>, cadrés par note (<a href="recette/cadrage-1.html"><code>cadrage-1.html</code></a>, <a href="recette/cadrage-2.html"><code>cadrage-2.html</code></a>, <a href="recette/cadrage-3.html"><code>cadrage-3.html</code></a> autonome, <a href="recette/cadrage-4.html"><code>cadrage-4.html</code></a>). Préparation des recettes : <a href="recette/recette-3-preparation.html"><code>n°3</code></a>, <a href="recette/recette-4-preparation.html"><code>n°4</code></a>. Scénarios : <a href="recette/scenarios.md"><code>docs/05-project/recette/scenarios.md</code></a>.</p>
       <div class="card" id="rc-notes"></div>
       <div class="card"><ul class="kpis" id="rc-kpis"></ul><div class="tw"><table class="t" id="rc-lots"></table></div></div>
     </section>
@@ -126,8 +126,8 @@
     <section id="methode">
       <h2>Méthode</h2>
       <div class="card">
-        <p style="margin-top:0">Chaque phase est celle de <code>docs/factory/strategy.md</code> §1. Son pourcentage = (faits + 0,5 × partiels) / éléments comptés. Les éléments « reportés » sont exclus. Le total pondère chaque phase par son budget indicatif (25 / 70 / 90 / 120 / 70 / 45 / 60 M tokens), donc l'UI (P3) pèse plus que les fondations. P6 (expérience et recette, ADR-008) est pilotée par les retours d'Alec : ils sont consignés dans le registre de recette, cadrés par note, et son gate exige un registre sans retour bloquant ni majeur et les scénarios passés à la main.</p>
-        <p style="margin-bottom:0">Pour mettre à jour : éditer le tableau <code>PHASES</code> en haut du script de ce fichier (<code>s</code> = <code>done</code>, <code>part</code>, <code>todo</code> ou <code>defer</code>) et le tableau <code>RECETTE</code> pour la recette (statuts des retours et des lots, à recopier depuis <code>docs/recette/registre.md</code>).</p>
+        <p style="margin-top:0">Chaque phase est celle de <code>docs/00-factory/strategy.md</code> §1. Son pourcentage = (faits + 0,5 × partiels) / éléments comptés. Les éléments « reportés » sont exclus. Le total pondère chaque phase par son budget indicatif (25 / 70 / 90 / 120 / 70 / 45 / 60 M tokens), donc l'UI (P3) pèse plus que les fondations. P6 (expérience et recette, ADR-008) est pilotée par les retours d'Alec : ils sont consignés dans le registre de recette, cadrés par note, et son gate exige un registre sans retour bloquant ni majeur et les scénarios passés à la main.</p>
+        <p style="margin-bottom:0">Pour mettre à jour : éditer le tableau <code>PHASES</code> en haut du script de ce fichier (<code>s</code> = <code>done</code>, <code>part</code>, <code>todo</code> ou <code>defer</code>) et le tableau <code>RECETTE</code> pour la recette (statuts des retours et des lots, à recopier depuis <code>docs/05-project/recette/registre.md</code>).</p>
       </div>
     </section>
   </main>
@@ -136,17 +136,17 @@
 <script>
 const AS_OF = "2026-10-23";
 
-// RECETTE — mise à jour : recopier les statuts depuis docs/recette/registre.md.
+// RECETTE — mise à jour : recopier les statuts depuis docs/05-project/recette/registre.md.
 // retours[].statut : qualifié | validé | planifié | corrigé | vérifié | rejeté | reporté (T2+)
 // retours[].lot : un ou plusieurs lots séparés par une virgule, "—" si aucun ; gravite : bloquante | majeure | mineure | cosmétique | —
 // lots[].statut : proposé | planifié | en cours | livré | vérifié ; l'avancement d'un lot = retours vérifiés / retours rattachés.
 // notes[] : une entrée par note d'Alec (fichier brut, cadrage associé, statut du cadrage).
 const RECETTE = {
   notes: [
-    { id: 1, date: "2026-10-21", file: "docs/recette/notes/2026-10-21-note-1.txt", cadrage: "docs/recette/cadrage-1.html", status: "cadrage validé (2026-10-21)" },
-    { id: 2, date: "2026-10-21", file: "docs/recette/notes/2026-10-21-recette-2.txt", cadrage: "docs/recette/cadrage-2.html", status: "cadrage validé (2026-10-21, Q12 amendée)" },
-    { id: 3, date: "2026-10-22", file: "(sans note : points ouverts PO-04 à PO-10, pré-recette automatisée)", cadrage: "docs/recette/cadrage-3.html", status: "cadrage autonome, exécuté sans validation intermédiaire : à confirmer en recette n°3" },
-    { id: 4, date: "2026-10-23", file: "docs/recette/notes/2026-10-23-recette-4.txt", cadrage: "docs/recette/cadrage-4.html", status: "cadrage validé (2026-10-23), lots L-X1 à L-X4 exécutés sur polish" },
+    { id: 1, date: "2026-10-21", file: "docs/05-project/recette/notes/2026-10-21-note-1.txt", cadrage: "docs/05-project/recette/cadrage-1.html", status: "cadrage validé (2026-10-21)" },
+    { id: 2, date: "2026-10-21", file: "docs/05-project/recette/notes/2026-10-21-recette-2.txt", cadrage: "docs/05-project/recette/cadrage-2.html", status: "cadrage validé (2026-10-21, Q12 amendée)" },
+    { id: 3, date: "2026-10-22", file: "(sans note : points ouverts PO-04 à PO-10, pré-recette automatisée)", cadrage: "docs/05-project/recette/cadrage-3.html", status: "cadrage autonome, exécuté sans validation intermédiaire : à confirmer en recette n°3" },
+    { id: 4, date: "2026-10-23", file: "docs/05-project/recette/notes/2026-10-23-recette-4.txt", cadrage: "docs/05-project/recette/cadrage-4.html", status: "cadrage validé (2026-10-23), lots L-X1 à L-X4 exécutés sur polish" },
   ],
   retours: [
     { id: "RT-001", t: "Pas d'en-tête applicatif portant le nom de l'app ; la barre d'outils doit s'intégrer à un header ou un sous-header", nature: "manque", gravite: "majeure", lot: "L-B", statut: "corrigé" },
@@ -171,7 +171,7 @@ const RECETTE = {
     { id: "RT-020", t: "Design system : choisir entre DaisyUI et TailGrids (décidé : shadcn/ui, ADR-010)", nature: "décision", gravite: "—", lot: "L-G", statut: "validé" },
     { id: "RT-021", t: "Reprendre l'intégralité des composants existants avec ce kit", nature: "évolution", gravite: "majeure", lot: "L-G", statut: "corrigé" },
     { id: "RT-022", t: "Retirer la demande de congé par un collaborateur (PO-01)", nature: "décision", gravite: "majeure", lot: "L-H", statut: "corrigé" },
-    { id: "RT-023", t: "Un clic hors du drawer le ferme (consigné dans docs/design/design.md)", nature: "ergonomie", gravite: "majeure", lot: "L-G", statut: "corrigé" },
+    { id: "RT-023", t: "Un clic hors du drawer le ferme (consigné dans docs/02-design/design.md)", nature: "ergonomie", gravite: "majeure", lot: "L-G", statut: "corrigé" },
     { id: "RT-024", t: "Éditer une allocation dans un drawer latéral, plus dans une pop-in", nature: "ergonomie", gravite: "majeure", lot: "L-K", statut: "corrigé" },
     { id: "RT-025", t: "Header plus moderne, optimisé pour la gestion des filtres", nature: "ergonomie", gravite: "majeure", lot: "L-J", statut: "corrigé" },
     { id: "RT-026", t: "Séparateurs gris clair visibles entre les colonnes (jour, semaine, mois)", nature: "graphique", gravite: "mineure", lot: "L-I", statut: "corrigé" },
@@ -277,7 +277,7 @@ const PHASES = [
       { t: "Triggers BR-10 / BR-12 / BR-14", s: "done", n: "BR-12 T13, BR-14 T12 + T19 (purge_delete_log) ; BR-10 porté par l'API" },
       { t: "Répétitions d'allocations", s: "done", n: "occurrences, splitSeries (moteur) et POST /allocations/{id}/split (API)" },
       { t: "Outil de migrations (« migrations depuis zéro »)", s: "done", n: "scripts/migrate.mjs, testé sur embedded-postgres" },
-      { t: "Revue humaine des tests SQL", s: "todo", n: "fiche prête : docs/review/relecture-tests-sql.md (T18d, T18h, T18f ajustés par 0003 et 0004)" },
+      { t: "Revue humaine des tests SQL", s: "todo", n: "fiche prête : docs/03-tech/quality/relecture-tests-sql.md (T18d, T18h, T18f ajustés par 0003 et 0004)" },
       { t: "Couverture branches ≥ 95 % et mutation ≥ 70 %", s: "done", n: "branches ≥ 95 % imposées par make check ; mutation 90,35 % (npm run mutation -w @wnext/engine)" },
       { t: "Matrice BR : 100 % des BR du MVP avec un test", s: "done", n: "30 BR sous garde, BR-19 comprise" },
       { t: "BR-19 : historisation datée (horaire, département, rôle, taux)", s: "done", n: "migration 0002, verrou WN019 / PERSON_HISTORY_LOCKED, parité moteur" },
@@ -363,7 +363,7 @@ const PHASES = [
       { t: "Perf 500 clients WebSocket", s: "part", n: "npm run load:realtime (sans k6) : p95 444 ms, 0 perte ; pas de job nocturne" },
       { t: "Scans sécurité (Semgrep, gitleaks, OSV, Trivy)", s: "part", n: "npm run scan : gitleaks, OSV, Semgrep, 0 constat ; Trivy absent (Docker indisponible)" },
       { t: "Restauration PITR testée", s: "todo", n: "runbook écrit, PITR et pg_dump non rejoués" },
-      { t: "Runbooks", s: "done", n: "docs/runbooks/ : démarrage local, sauvegarde, incident temps réel, secrets" },
+      { t: "Runbooks", s: "done", n: "docs/03-tech/runbooks/ : démarrage local, sauvegarde, incident temps réel, secrets" },
       { t: "Staging → prod canary + smoke post-déploiement", s: "todo" },
       { t: "Gate de release humain", s: "todo" },
     ] },
@@ -373,21 +373,21 @@ const PHASES = [
       { t: "Cadre P6 : ADR-008, ligne P6 dans strategy.md, registre de recette", s: "done" },
       { t: "Cadrage de la note n°1 (19 retours, 6 lots)", s: "done", n: "validé par Alec le 2026-10-21 (toutes les recommandations retenues)" },
       { t: "L-A Tailwind et design tokens, garde-fou anti-couleurs en dur", s: "done", n: "Tailwind 4.3.3 sans preflight, tokens.css, lint:raw-colors (3 exceptions motivées)" },
-      { t: "Direction visuelle et choix de l'accent (Q-09), sur images de référence", s: "done", n: "accent pétrole #0E7490, focus encre (docs/design/direction.md, comparatif-accents.html)" },
+      { t: "Direction visuelle et choix de l'accent (Q-09), sur images de référence", s: "done", n: "accent pétrole #0E7490, focus encre (docs/02-design/direction.md, comparatif-accents.html)" },
       { t: "L-D Fenêtres superposées (Modal, Popover, Drawer)", s: "done", n: "tous les dialogues en Modal ou Popover, tests de superposition et axe" },
       { t: "L-B Coque : en-tête, navigation, connexion, utilisateur connecté", s: "done", n: "GET /me, routeur, portail OIDC, Bonjour, écritures selon le rôle" },
       { t: "L-C Densité à 3 niveaux et jauge par personne", s: "done", n: "Compacte / Standard / Aérée (12 / 8 / 6 lignes à 1920 × 1080), jauge de la période visible, densité dans les vues sauvegardées, PO-02 (zoom et position gardés)" },
       { t: "L-E Éditeur de créneau (création, pop-in Projet / Congé, changement de projet)", s: "done", n: "pop-in modale ancrée au bloc (Q5 : double clic, Entrée ou clic sur le bloc sélectionné), « + Allocation » et bloc provisoire en zone libre, Combobox projet / tâche (BR-33), groupe BR-26, onglet Congé (BR-04), couleur du projet ; sans contrat ; PO-06 à PO-08 levés au cadrage n°3 (L-O1, L-Q, L-P)" },
       { t: "L-F Back-office Projets, Personnes, Réglages", s: "done", n: "écrans Projets, Personnes et Réglages (liste, création, fiche dans le Drawer, horaire daté, désactivation BR-31, équipes, rôles, clients, congés, fériés) ; colonne « Accès » (L-O2) et écriture du compte (L-O3) ajoutées au cadrage n°3" },
       { t: "Cadrage de la note n°2 (15 retours, 6 lots, 8 questions)", s: "done", n: "workflow PM → Architecte, Designer, Product → CPTO ; validé par Alec le 2026-10-21 (Q12 amendée : indicateur temps réel minimaliste)" },
-      { t: "Choix du kit UI : shadcn/ui (ADR-010)", s: "done", n: "décision d'Alec le 2026-10-21 ; socle Base UI (Q13) ; principes d'UX dans docs/design/design.md" },
+      { t: "Choix du kit UI : shadcn/ui (ADR-010)", s: "done", n: "décision d'Alec le 2026-10-21 ; socle Base UI (Q13) ; principes d'UX dans docs/02-design/design.md" },
       { t: "L-H Retrait du statut « en attente » des congés", s: "done", n: "contrat ce25e1f (défaut approved, pending gardé pour l'existant), correctif 4cdbb66 ; un congé posé notifie la personne" },
       { t: "L-G Socle shadcn et migration des primitives (catalogue)", s: "done", n: "Base UI, alias de tokens, Button, Modal, Drawer et confirmation (RT-023), 66 boutons, champs, preflight (captures avant / après) ; Popover et Combobox déplacés en L-J et L-K" },
       { t: "L-I Grille : séparateurs, période courante, jours non ouvrés", s: "done", n: "53cec76 : hachures selon l'horaire daté de chaque personne, sam./dim. grisés en en-tête (vue jour), séparateurs gris clair, période courante (aria-current) ; RT-029 conforme, tests de non-régression" },
       { t: "L-K Éditeur de créneau en drawer", s: "done", n: "K1 65ac0cb : création et édition dans le drawer (RT-024, Q8), « Abandonner les modifications ? » (Q7) ; K2 f57c27b : Combobox sur Base UI, double clic qui ne referme plus le drawer" },
       { t: "L-J Header, filtres et toggle de charge", s: "done", n: "dfdf1de Popover Base UI ; 283e479 en-tête en deux niveaux, puces de filtres, menu Affichage, charge par colonne (Q11), puce temps réel (Q12) ; a16463f contraste du survol (cause de l'échec intermittent de projects.spec) ; recherche Ctrl+K livrée en L-N (RT-038)" },
       { t: "L-L Personnes : tri et regroupement", s: "done", n: "6972de2 : tri par nom, rôle ou équipe (aria-sort), regroupement par équipe, côté client" },
-      { t: "Cadrage n°3 autonome (RT-036 à RT-050, lots L-M à L-W)", s: "done", n: "exécuté sans validation intermédiaire à la demande d'Alec ; revue croisée par un second modèle avant chaque fusion ; décisions « validé (auto) » à confirmer en recette n°3 (docs/recette/recette-3-preparation.html)" },
+      { t: "Cadrage n°3 autonome (RT-036 à RT-050, lots L-M à L-W)", s: "done", n: "exécuté sans validation intermédiaire à la demande d'Alec ; revue croisée par un second modèle avant chaque fusion ; décisions « validé (auto) » à confirmer en recette n°3 (docs/05-project/recette/recette-3-preparation.html)" },
       { t: "Supprimer, dupliquer, scinder une allocation (US-3.2, RT-047)", s: "done", n: "trouvé par la pré-recette ; Suppr, Ctrl+D, S, Alt+glisser, menu du bloc, actions du drawer, annulables" },
       { t: "Visibilité du member (US-6.1, RT-048)", s: "done", n: "REST et temps réel filtrés par personne, migration 0006 (change_log.person_ids)" },
       { t: "Pré-recette automatisée : 4 écarts trouvés et corrigés (RT-047 à RT-050)", s: "done", n: "premier passage 24/30 (2 fragilités de test, 4 écarts du produit), dernier passage 30/30" },
@@ -408,7 +408,7 @@ const NEXT = [
   "<b>Recette n°4 par Alec</b> sur <code>main</code> (polish fusionnée le 2026-10-24) : vérifier RT-051 à RT-064 (<a href=\"recette/cadrage-4.html\"><code>cadrage-4.html</code></a>), PO-11, PO-12, PO-14, PO-16 et la marque ; C1 à C9 et PO-11 à PO-16 tranchés le 2026-10-24 ; dossier <a href=\"recette/recette-4-preparation.html\"><code>recette-4-preparation.html</code></a>.",
   "<b>Recette n°3 par Alec</b> : <code>npm run dev:recette:seed</code> (compte « WNEXT Recette ») puis <code>http://localhost:5173/</code> ; dossier <a href=\"recette/recette-3-preparation.html\"><code>recette-3-preparation.html</code></a> : confirmer ou annuler les décisions autonomes RT-036 à RT-050, trancher PO-11 à PO-16.",
   "<b>Relectures CODEOWNERS des commits de contrat</b> : <code>ce25e1f</code> (L-H), <code>562dc2b</code>, <code>329634a</code> et <code>94d52e6</code>, <code>c77071d</code>, <code>4694afa</code> et <code>18030ac</code>, <code>a69d28e</code> et <code>3b7b5ec</code> ; migration <code>0006_change_log_person</code> (désormais sous CODEOWNERS, RT-045).",
-  "<b>Relecture des tests SQL</b> avec <code>docs/review/relecture-tests-sql.md</code>.",
+  "<b>Relecture des tests SQL</b> avec <code>docs/03-tech/quality/relecture-tests-sql.md</code>.",
   "<b>P5 en tâche de fond</b> : profiler le PATCH (227 ms sous 500 clients), rejouer PITR et <code>pg_dump</code>, job nocturne de charge."
 ];
 
@@ -463,7 +463,7 @@ const RS = RECETTE.retours;
 const cntBy = (k, v) => RS.filter(r => r[k] === v).length;
 const lotsOf = (r) => r.lot.split(",").map(x => x.trim()).filter(x => x && x !== "—");
 document.getElementById("rc-notes").innerHTML = RECETTE.notes.map(n =>
-  `<b>Note n°${n.id}</b> du ${n.date.split("-").reverse().join("/")} — <span class="tag now">${n.status}</span><br><span class="note" style="color:var(--muted);font-size:13px"><code>${n.file}</code> · <a href="${n.cadrage.replace("docs/", "")}">cadrage</a> · <a href="recette/registre.md">registre</a> · <a href="recette/scenarios.md">scénarios</a></span>`).join("<br>");
+  `<b>Note n°${n.id}</b> du ${n.date.split("-").reverse().join("/")} — <span class="tag now">${n.status}</span><br><span class="note" style="color:var(--muted);font-size:13px"><code>${n.file}</code> · <a href="${n.cadrage.replace("docs/05-project/", "")}">cadrage</a> · <a href="recette/registre.md">registre</a> · <a href="recette/scenarios.md">scénarios</a></span>`).join("<br>");
 const statuts = ["qualifié", "validé", "planifié", "corrigé", "vérifié", "rejeté", "reporté (T2+)"];
 const gravs = ["bloquante", "majeure", "mineure", "cosmétique"];
 const open = (g) => RS.filter(r => r.gravite === g && r.statut !== "vérifié" && r.statut !== "rejeté" && !r.statut.startsWith("reporté")).length;

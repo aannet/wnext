@@ -66,7 +66,7 @@
 <main>
 <section id="resume">
   <h2>Résumé</h2>
-  <p class="sub">Cadrage de la note n°2 d'Alec (<code>docs/recette/notes/2026-10-21-recette-2.txt</code>), pour validation. Source : <code>docs/recette/registre.md</code>, vérifié dans le code de <code>main</code> à <code>ecd5183</code>.</p>
+  <p class="sub">Cadrage de la note n°2 d'Alec (<code>docs/05-project/recette/notes/2026-10-21-recette-2.txt</code>), pour validation. Source : <code>docs/05-project/recette/registre.md</code>, vérifié dans le code de <code>main</code> à <code>ecd5183</code>.</p>
   <div class="card intent" style="border-left-color:#1f7a4d"><b>Validé par Alec le 2026-10-21</b> : recommandations retenues pour Q6 à Q11 et Q13 ; <b>Q12 amendée</b> (indicateur temps réel minimaliste). Exécution en séquence, un agent à la fois : L-H, puis L-G, puis les lots d'écran.</div>
   <div class="card intent"><b>Intention.</b> La note est découpée en <b>15 retours</b> (RT-020 à RT-034). <b>Trois décisions sont déjà prises</b> : le kit shadcn/ui (ADR-010), le retrait de la demande de congé par un collaborateur, et le report de deux évolutions en V2 (T2). Les 12 retours restants forment <b>6 lots</b>. Le socle shadcn passe en premier, car le header, le drawer et la liste des personnes en dépendent. Il te reste <b>8 questions</b> (Q6 à Q13), avec ma recommandation à chaque fois.</div>
   <div class="stats">
@@ -88,7 +88,7 @@
   <tbody>
     <tr><td class="nw">1. Tri</td><td>PM</td><td>Retours atomiques avec citation et ligne, classés par nature, ordonnés par dépendance ; il affecte les profils à chaque retour (colonne « Profils » du registre).</td></tr>
     <tr><td class="nw">2. Analyse</td><td>Architecte technique</td><td>Impacts techniques : fichiers, contrat, migration, risques (grille ADR-005, tests à réécrire), effort.</td></tr>
-    <tr><td></td><td>Senior Designer</td><td>Couche UX/UI : composant shadcn, tokens, états, accessibilité, densité ; règles à consigner dans <code>docs/design/design.md</code>.</td></tr>
+    <tr><td></td><td>Senior Designer</td><td>Couche UX/UI : composant shadcn, tokens, états, accessibilité, densité ; règles à consigner dans <code>docs/02-design/design.md</code>.</td></tr>
     <tr><td></td><td>Senior Product</td><td>Impacts fonctionnels : US et BR touchées, cas limites, critère d'acceptation.</td></tr>
     <tr><td class="nw">3. Arbitrage</td><td>CPTO</td><td>Statut de chaque retour, lots, questions avec recommandation : ce document.</td></tr>
     <tr><td class="nw">4. Validation</td><td>Alec</td><td>Réponses aux questions ; les retours passent de « qualifié » à « validé ».</td></tr>
@@ -105,7 +105,7 @@
 <tr id="rt-020"><td class="nw"><b>RT-020</b></td><td>Design system : choisir entre DaisyUI et TailGrids. <b>Décidé : shadcn/ui</b> (ADR-010)<blockquote>« faire un choix entre DAisyUI ou https://github.com/TailGrids/tailgrids » (l. 10)</blockquote></td><td>décision</td><td><span class="gb g0">sans gravité</span></td><td>A, D</td><td class="nw">L-G</td></tr>
 <tr id="rt-021"><td class="nw"><b>RT-021</b></td><td>Reprendre l'intégralité des composants existants avec ce kit<blockquote>« Reprendre l'intégralité des composants existants » (l. 11)</blockquote></td><td>évolution</td><td><span class="gb g2"><i></i>majeure</span></td><td>A, D</td><td class="nw">L-G, puis chaque lot</td></tr>
 <tr id="rt-022"><td class="nw"><b>RT-022</b></td><td>Retirer la demande de congé par un collaborateur (PO-01) et évaluer l'impact. <b>Décidé : retrait</b><blockquote>« je sors cette feature, je ne compte pas l'utiliser. Evaluer les impacts de retirer ce qui a déjà été implémenté » (l. 6)</blockquote></td><td>décision</td><td><span class="gb g2"><i></i>majeure</span></td><td>A, P</td><td class="nw">L-H</td></tr>
-<tr id="rt-023"><td class="nw"><b>RT-023</b></td><td>Un clic hors du drawer le ferme ; à consigner dans un <code>design.md</code> (fait : <code>docs/design/design.md</code>)<blockquote>« un clic hors du sidedrawer doit le fermer » (l. 46)</blockquote></td><td>ergonomie</td><td><span class="gb g2"><i></i>majeure</span></td><td>D, P</td><td class="nw">L-G</td></tr>
+<tr id="rt-023"><td class="nw"><b>RT-023</b></td><td>Un clic hors du drawer le ferme ; à consigner dans un <code>design.md</code> (fait : <code>docs/02-design/design.md</code>)<blockquote>« un clic hors du sidedrawer doit le fermer » (l. 46)</blockquote></td><td>ergonomie</td><td><span class="gb g2"><i></i>majeure</span></td><td>D, P</td><td class="nw">L-G</td></tr>
 <tr id="rt-024"><td class="nw"><b>RT-024</b></td><td>Éditer une allocation dans un drawer latéral, plus dans une pop-in<blockquote>« PLus de popin mais un sidedrawer comme cela a été fait pour les projets » (l. 30)</blockquote></td><td>ergonomie</td><td><span class="gb g2"><i></i>majeure</span></td><td>A, D, P</td><td class="nw">L-K</td></tr>
 <tr id="rt-025"><td class="nw"><b>RT-025</b></td><td>Header plus moderne, optimisé pour les filtres<blockquote>« proposer une interface header beaucoup plus moderne et optimisée pour la gestion des filtres » (l. 14)</blockquote></td><td>ergonomie</td><td><span class="gb g2"><i></i>majeure</span></td><td>D, P</td><td class="nw">L-J</td></tr>
 <tr id="rt-026"><td class="nw"><b>RT-026</b></td><td>Séparateurs gris clair visibles entre les colonnes<blockquote>« il faut des séparateurs visibles gris clair entre les colonnes affichés (mois/Semaine/jour » (l. 18)</blockquote></td><td>graphique</td><td><span class="gb g3"><i></i>mineure</span></td><td>A, D</td><td class="nw">L-I</td></tr>
@@ -215,7 +215,7 @@
     <ol style="margin:0;padding-left:20px">
       <li><b>Validation</b> : faite le 2026-10-21 ; les retours sont « validé ».</li>
       <li><b>Lots</b> : L-H et L-G d'abord, puis les lots d'écran, tests d'abord (un retour est corrigé avec un test qui échouait avant).</li>
-      <li><b>Recette</b> : un retour ne passe « vérifié » que sur ta confirmation. Le suivi est dans <code>docs/avancement.html</code>.</li>
+      <li><b>Recette</b> : un retour ne passe « vérifié » que sur ta confirmation. Le suivi est dans <code>docs/05-project/avancement.html</code>.</li>
     </ol>
   </div>
 </section>

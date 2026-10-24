@@ -53,5 +53,5 @@ Différence de comportement à connaître : une allocation en heures reste ident
 ## Impacts reportés
 
 - `schema.sql` et tests : faits (166 assertions passent sur PGlite, pas sur un vrai PostgreSQL).
-- `CLAUDE.md` et `docs/dossier-fondamentaux-v1.1.md` : marquages « exclu » ajoutés.
-- Reste : `docs/ecrans-et-parcours.html` (saisie d'absence à la demi-journée), `docs/schema-v1.1-diagram.html` (colonnes `start_half`/`end_half`, suppression de `plan`).
+- `CLAUDE.md` et `docs/01-product/dossier-fondamentaux-v1.1.md` : marquages « exclu » ajoutés.
+- Reste : `docs/02-design/ecrans-et-parcours.html` (saisie d'absence à la demi-journée), `docs/03-tech/schema-v1.1-diagram.html` (colonnes `start_half`/`end_half`, suppression de `plan`).

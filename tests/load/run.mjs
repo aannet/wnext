@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Charge temps réel (npm run load:realtime), HORS make check. Pas de k6 : le protocole (ticket, WebSocket, curseur) est court et
-// `ws` est déjà une dépendance ; un script node mesure aussi bien et évite un binaire de plus (voir docs/review/charge-temps-reel.md).
+// `ws` est déjà une dépendance ; un script node mesure aussi bien et évite un binaire de plus (voir docs/03-tech/quality/charge-temps-reel.md).
 //  1. pile dédiée (scripts/dev-stack.mjs --reset, API :3300, Postgres :54359, dossier tests/load/out/pg, RLS active, AUTH_MODE=dev) ;
 //  2. pour chaque palier de clients : N WebSocket abonnés (ticket neuf par client, subscribe depuis le changeCursor du Schedule),
 //     puis M PATCH /allocations/{id} à cadence fixe (un écrivain, If-Match) ;

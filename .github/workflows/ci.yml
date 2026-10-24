@@ -12,7 +12,7 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Étages à venir (docs/factory/strategy.md §4.1) :
+# Étages à venir (docs/00-factory/strategy.md §4.1) :
 #   - db    : migrations et tests SQL sur PostgreSQL (< 5 min)
 #   - contract : contrat / intégration API (< 8 min)
 #   - e2e   : E2E sélectif, déclenché par chemin
@@ -109,7 +109,7 @@ jobs:
           path: tests/schemathesis/out/
           if-no-files-found: ignore
 
-  # Scan de sécurité (npm run scan : gitleaks, OSV-Scanner, Semgrep) : informatif, jamais bloquant. Voir docs/review/scan-securite.md.
+  # Scan de sécurité (npm run scan : gitleaks, OSV-Scanner, Semgrep) : informatif, jamais bloquant. Voir docs/03-tech/quality/scan-securite.md.
   security:
     name: Sécurité (non bloquant)
     runs-on: ubuntu-latest

@@ -1,7 +1,7 @@
 # ADR-002 — Identité vs ressource planifiée, zoom, navigation temporelle, i18n, fluidité, blocs
 
 Statut : exigences posées par l'utilisateur (1-6) ; les choix techniques marqués **[proposé]** restent à valider par un prototype.
-Complète : ADR-001, `docs/dossier-fondamentaux-v1.1.md` (§4 UX, §5 exigences), `docs/review/ux-ui.md` §2.
+Complète : ADR-001, `docs/01-product/dossier-fondamentaux-v1.1.md` (§4 UX, §5 exigences), `docs/06-decisions/reviews-v1.1/ux-ui.md` §2.
 
 ## 1. Utilisateurs qui s'authentifient ≠ personnes planifiées
 
@@ -45,7 +45,7 @@ Le lien est `account_members.person_id`, nullable, avec un index unique : une pe
 - Dates, nombres, durées et premier jour de semaine via `Intl`, jamais formatés à la main. Durées en décimal (BR-11) avec séparateur local.
 - CSS en propriétés logiques (`inline-start`) pour ne pas bloquer une langue RTL plus tard. Textes qui s'allongent (EN → DE) sans casser les blocs.
 - **Schéma, à ajouter :** `accounts.default_locale`, `users.locale`. Absent de `schema.sql` v1.1 (seul `accounts.timezone` existe).
-- Qualité : lint « pas de chaîne en dur » et test de pseudo-localisation en CI ; règle imposée aux agents de la factory (`docs/factory/strategy.md`).
+- Qualité : lint « pas de chaîne en dur » et test de pseudo-localisation en CI ; règle imposée aux agents de la factory (`docs/00-factory/strategy.md`).
 
 ## 5. Fluidité de la saisie des plages
 
@@ -92,7 +92,7 @@ Je n'ai pas vérifié l'état des licences et des versions de ces bibliothèques
 
 ## Impacts à reporter
 
-- `docs/dossier-fondamentaux-v1.1.md` : NFR i18n, exigences 2, 3, 5, 6 dans FR-03.
-- `docs/review/ux-ui.md` §2 : hauteur = % de capacité, empilement, saisie rapide.
+- `docs/01-product/dossier-fondamentaux-v1.1.md` : NFR i18n, exigences 2, 3, 5, 6 dans FR-03.
+- `docs/06-decisions/reviews-v1.1/ux-ui.md` §2 : hauteur = % de capacité, empilement, saisie rapide.
 - `schema.sql` : colonnes de langue (§4) ; plage planifiable si elle devient configurable.
-- `docs/ecrans-et-parcours.html` : barre de saisie rapide, état « sans accès » dans People.
+- `docs/02-design/ecrans-et-parcours.html` : barre de saisie rapide, état « sans accès » dans People.

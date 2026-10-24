@@ -2,9 +2,9 @@
 
 Statut : retenue, 2026-10-21. **Accent choisi par Alec : B, pétrole `#0E7490`** (Q-09 close) ; focus en encre.
 Sources :
-- références d'Alec dans `docs/recette/notes/2026-10-21-note-1/` (`ref-1` et `ref-3` sont la même image) ;
-- retours RT-001 à RT-018 de `docs/recette/registre.md` ;
-- contraintes du dossier §4.3 et de `docs/review/ux-ui.md` §2 et §3.
+- références d'Alec dans `docs/05-project/recette/notes/2026-10-21-note-1/` (`ref-1` et `ref-3` sont la même image) ;
+- retours RT-001 à RT-018 de `docs/05-project/recette/registre.md` ;
+- contraintes du dossier §4.3 et de `docs/06-decisions/reviews-v1.1/ux-ui.md` §2 et §3.
 
 ## Ce que montrent les références
 

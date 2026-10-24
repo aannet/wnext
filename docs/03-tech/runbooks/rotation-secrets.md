@@ -33,4 +33,4 @@ Créer le nouveau mot de passe du rôle (`ALTER ROLE app_user PASSWORD '...'`), 
 
 ## En cas de fuite
 
-Rotation immédiate du secret concerné, puis `npm run scan` (l'historique git complet est analysé), révocation côté fournisseur, et note d'incident dans `docs/review/`.
+Rotation immédiate du secret concerné, puis `npm run scan` (l'historique git complet est analysé), révocation côté fournisseur, et note d'incident dans `docs/03-tech/quality/`.

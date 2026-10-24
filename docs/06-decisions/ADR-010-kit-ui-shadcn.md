@@ -19,7 +19,7 @@ ADR-009 pose Tailwind v4 et les tokens. Les primitives (Modal, Popover, Drawer, 
 ## Conséquences
 
 - Migration des primitives existantes (Button, Modal, Popover, Drawer, Combobox) vers shadcn avant les écrans : c'est le premier lot du cadrage n°2.
-- Le principe de fermeture des drawers (clic hors panneau, Échap) est consigné dans `docs/design/design.md`.
+- Le principe de fermeture des drawers (clic hors panneau, Échap) est consigné dans `docs/02-design/design.md`.
 - Un changement de socle (Radix ↔ Base UI) reste possible par un ADR ultérieur, sans toucher aux écrans.
 
 ## Alternatives écartées

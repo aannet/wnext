@@ -2,13 +2,13 @@
 
 Point de départ : `main` à `4f66900` (handoff de la recette n°2). Arrivée : voir `git log` (environ 95 commits, rien n'est poussé, pas de remote).
 
-Mode : à la demande d'Alec (2026-10-22), les points ouverts de la recette n°2 ont été finalisés **sans validation intermédiaire** ; Alec ne fait qu'une recette, à la fin. Chaque décision est au statut « validé (auto) » dans `docs/recette/registre.md` et se confirme ou s'annule à la recette n°3.
+Mode : à la demande d'Alec (2026-10-22), les points ouverts de la recette n°2 ont été finalisés **sans validation intermédiaire** ; Alec ne fait qu'une recette, à la fin. Chaque décision est au statut « validé (auto) » dans `docs/05-project/recette/registre.md` et se confirme ou s'annule à la recette n°3.
 
 État final vérifié sur `main` : `make check` vert (≈ 2 600 tests vitest + 30 + 377), `npm run test:migrations` 26/26, `npm run test:browser` 89/89 (axe compris), `npm run test:browser:oidc` 1/1, `npm run test:recette` 30/30 (pré-recette contre la vraie pile, seed de recette, OIDC).
 
 ## Ce qui a été fait
 
-Source de vérité : `docs/recette/registre.md` (section « Cadrage n°3 »). Synthèses : `docs/recette/cadrage-3.html` (cadrage) et `docs/recette/recette-3-preparation.html` (dossier de recette). Suivi : `docs/avancement.html`.
+Source de vérité : `docs/05-project/recette/registre.md` (section « Cadrage n°3 »). Synthèses : `docs/05-project/recette/cadrage-3.html` (cadrage) et `docs/05-project/recette/recette-3-preparation.html` (dossier de recette). Suivi : `docs/05-project/avancement.html`.
 
 | Lot | Retours | Résultat |
 |---|---|---|
@@ -37,16 +37,16 @@ RT-046 à RT-050 ont été trouvés pendant l'exécution : RT-046 par la revue c
 
 ## En attente d'Alec
 
-- Recette n°3 : `npm run dev:recette:seed`, puis `http://localhost:5173/` ; comptes dans `docs/recette/scenarios.md` (Mode d'emploi). Dossier : `docs/recette/recette-3-preparation.html`.
+- Recette n°3 : `npm run dev:recette:seed`, puis `http://localhost:5173/` ; comptes dans `docs/05-project/recette/scenarios.md` (Mode d'emploi). Dossier : `docs/05-project/recette/recette-3-preparation.html`.
 - Confirmer ou annuler les décisions RT-036 à RT-050 ; trancher PO-11 à PO-16 (registre).
 - Relectures CODEOWNERS : commits de contrat `ce25e1f`, `562dc2b`, `329634a` (contient encore le contrôle permissif, annulé par `94d52e6`), `94d52e6`, `c77071d`, `4694afa`, `18030ac`, `a69d28e`, `3b7b5ec` ; migration `migrations/0006_change_log_person.sql` ; changement de `.github/CODEOWNERS` (`55a3456`).
-- Relecture des tests SQL (`docs/review/relecture-tests-sql.md`).
+- Relecture des tests SQL (`docs/03-tech/quality/relecture-tests-sql.md`).
 
 ## À savoir pour reprendre
 
 - **Ta base de dev `.dev-pg`** n'a pas reçu la migration 0006 : elle s'appliquera au prochain `npm run dev:stack` / `dev:recette`. La pile lancée le 21 octobre (pid 40952) tourne toujours avec l'ancien code.
 - **`test:browser:oidc`** : toujours avec `WNEXT_DEV_PG_DIR=/tmp/opencode/<neuf>` (sinon il vise `.dev-pg`). **`test:recette`** : `WNEXT_RECETTE_PG_DIR=/tmp/opencode/<neuf>` ; un répertoire non marqué est refusé (garde-fou).
-- **Modification étrangère** de `docs/avancement.html` : la phrase NEXT non commitée (« Recette n°3 par Alec … PO-09 … PO-10 ») a été remplacée par la nouvelle liste NEXT, devenue obsolète (PO-09 et PO-10 traités).
+- **Modification étrangère** de `docs/05-project/avancement.html` : la phrase NEXT non commitée (« Recette n°3 par Alec … PO-09 … PO-10 ») a été remplacée par la nouvelle liste NEXT, devenue obsolète (PO-09 et PO-10 traités).
 - **Tests navigateur dépendants de la date** : le 23 octobre, `slot-editor`, `timeoffs` et `overlays` échouaient (la démo est relative à « aujourd'hui » et aucun bloc convenable ne commençait dans la vue) ; ces trois specs installent désormais l'horloge de la page sur un jeudi connu (`page.clock.install`). Autres specs à surveiller de la même façon.
 - **Processus orphelins** : un sous-agent interrompu (crédit du fournisseur épuisé un moment) a laissé des piles et des Vite ; ils ont été arrêtés. Vérifier `ss -ltnp` si un port de test est occupé.
-- Pièges Base UI : `docs/handoff-2026-10-22-recette-2.md` reste valable ; `docs/design/design.md` a reçu les nouvelles règles (palette, portée, commandes d'un bloc, création au toucher et à la souris, focus des étapes).
+- Pièges Base UI : `docs/05-project/journal/handoff-2026-10-22-recette-2.md` reste valable ; `docs/02-design/design.md` a reçu les nouvelles règles (palette, portée, commandes d'un bloc, création au toucher et à la souris, focus des étapes).

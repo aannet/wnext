@@ -1,5 +1,5 @@
 # Configuration gitleaks (npm run scan) : règles par défaut + exclusions justifiées.
-# Toute exclusion documente sa raison ; voir aussi docs/review/scan-securite.md.
+# Toute exclusion documente sa raison ; voir aussi docs/03-tech/quality/scan-securite.md.
 [extend]
 useDefault = true
 

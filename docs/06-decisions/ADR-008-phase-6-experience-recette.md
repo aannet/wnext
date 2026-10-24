@@ -1,7 +1,7 @@
 # ADR-008 — Phase 6 « Expérience et recette »
 
 Statut : proposé (2026-10-21, décisions d'Alec du même jour).
-Complète : `docs/factory/strategy.md` §1 (ligne P6), `docs/dossier-fondamentaux-v1.1.md` §4 et §5.6, `docs/review/ux-ui.md`.
+Complète : `docs/00-factory/strategy.md` §1 (ligne P6), `docs/01-product/dossier-fondamentaux-v1.1.md` §4 et §5.6, `docs/06-decisions/reviews-v1.1/ux-ui.md`.
 
 ## Contexte
 
@@ -24,21 +24,21 @@ Complète : `docs/factory/strategy.md` §1 (ligne P6), `docs/dossier-fondamentau
    - Aide et palette de commandes.
    - **Hors P6** : le mode sombre (« après stabilisation »), le mobile sous 1024 px (T3), les timesheets et les rapports (T2).
 3. **La recette est un projet dans le projet**, piloté par les retours d'Alec.
-   - Chaque note de retours est conservée verbatim dans `docs/recette/notes/`, puis passe par un **cadrage**.
+   - Chaque note de retours est conservée verbatim dans `docs/05-project/recette/notes/`, puis passe par un **cadrage**.
    - Le cadrage se fait en cinq étapes :
      1. découpage en retours atomiques `RT-NNN`, avec la citation de la note ;
      2. qualification de chaque retour : nature, écart à la spec, écran, gravité, reproduction, effort et cible ;
      3. regroupement en lots thématiques exécutables ;
      4. synthèse `cadrage-N.html`, validée par Alec, avec au plus 5 questions ;
      5. injection des lots dans le plan.
-   - `docs/recette/registre.md` est la source de vérité.
+   - `docs/05-project/recette/registre.md` est la source de vérité.
    - Un retour corrigé l'est avec un test qui échouait avant. Il ne passe « vérifié » que lorsque Alec l'a confirmé.
 4. **Catalogue Vite au lieu de Storybook** : `ux-ui.md` §3.4 demandait un Storybook. On retient une entrée Vite `catalogue.html` qui montre chaque primitive dans tous ses états, avec captures Playwright et axe-core. Les raisons : beaucoup moins de dépendances, de mémoire (VM de 15 Go) et de surface d'audit npm, pour la même preuve.
 
 ## Critères de sortie (gate humain)
 
 - Le registre n'a plus aucun retour bloquant ni majeur ouvert. Les autres sont vérifiés, ou reportés ou rejetés avec l'accord d'Alec.
-- Tous les parcours de `docs/ecrans-et-parcours.html` et toutes les US E1 à E7 se font depuis un compte vide, sans SQL ni import.
+- Tous les parcours de `docs/02-design/ecrans-et-parcours.html` et toutes les US E1 à E7 se font depuis un compte vide, sans SQL ni import.
 - `npm run test:recette` est vert, et Alec a passé les scénarios à la main.
 - Aucune couleur en dur hors tokens (garde-fou). axe-core sans violation AA sur chaque écran. Les captures sont approuvées.
 - North star (poser une allocation) sous 10 s. Pas de régression de `bench:browser`.
@@ -46,4 +46,4 @@ Complète : `docs/factory/strategy.md` §1 (ligne P6), `docs/dossier-fondamentau
 ## Conséquences
 
 - La condition « tokens validés » de P3 est reportée sur P6, et Q-09 se tranche en P6 à partir des images de référence d'Alec.
-- Le suivi (`docs/avancement.html`) gagne une feuille de route T1 à T4, la phase P6 et un tableau de recette.
+- Le suivi (`docs/05-project/avancement.html`) gagne une feuille de route T1 à T4, la phase P6 et un tableau de recette.

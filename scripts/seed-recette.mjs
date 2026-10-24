@@ -1,5 +1,5 @@
 // Jeu de données de RECETTE (npm run dev:recette:seed, ou `dev:stack -- --seed=recette`) : réaliste, reproductible, idempotent.
-// Il rend jouables les scénarios R-01..R-25 de docs/recette/scenarios.md (correspondance dans « Mode d'emploi », point 2).
+// Il rend jouables les scénarios R-01..R-25 de docs/05-project/recette/scenarios.md (correspondance dans « Mode d'emploi », point 2).
 //  * Compte 1 « WNEXT Recette » (semaine du lundi, Europe/Paris, EUR) : 4 équipes, 18 personnes (16 actives nommées + 1 placeholder
 //    + 1 désactivée), dont un horaire du samedi (Karim), un temps partiel (Élodie), un horaire daté BR-19 (Thomas : 5 jours puis,
 //    à partir du lundi S+3, 4 jours, via people_history) ; 3 clients, 7 projets (dont 1 tentatif), des tâches ; ~70 allocations

@@ -137,7 +137,7 @@ Note : le dossier §4.1 parle de vert/orange/rouge ; définir clairement orange 
 - **Saisie rapide** : barre de saisie en langage simple (« Refonte 6h lun-mer ») avec aperçu du bloc en direct ; création par glisser sur cellules vides sans dialogue ; édition sur place des valeurs.
 - **Zoom** jour/semaine/mois : contrôle segmenté permanent, point central conservé. **Navigation** : défilement horizontal continu passé et futur, bouton « Aujourd'hui » (`T`), aller à une date.
 - **i18n** : textes qui s'allongent sans casser les blocs, propriétés CSS logiques, durées décimales au séparateur local.
-- Détail et justification : `docs/decisions/ADR-002-identite-zoom-navigation-i18n-fluidite.md`.
+- Détail et justification : `docs/06-decisions/ADR-002-identite-zoom-navigation-i18n-fluidite.md`.
 
 ## 3. Design tokens & design system
 

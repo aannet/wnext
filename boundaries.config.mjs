@@ -1,4 +1,4 @@
-// Regles de frontieres du monorepo (ADR-003 §2, docs/factory/strategy.md §4.6.10).
+// Regles de frontieres du monorepo (ADR-003 §2, docs/00-factory/strategy.md §4.6.10).
 // Appliquees par scripts/lint-boundaries.mjs (npm run lint:boundaries).
 // `dir` : racine du paquet ; `monorepo` : paquets @wnext/* importables ;
 // `rule` : identifiant rapporte si un import monorepo interdit est detecte ;

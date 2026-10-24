@@ -1,7 +1,7 @@
 # Stratégie de la dark factory — clone Float.com
 
 Statut : proposition v1.0 (AI Engineer senior, pour validation CPTO)
-Sources : ADR-001, `docs/review/*`, dossier de fondamentaux, `CLAUDE.md`, `schema.sql.txt`.
+Sources : ADR-001, `docs/06-decisions/reviews-v1.1/*`, dossier de fondamentaux, `CLAUDE.md`, `schema.sql.txt`.
 Principes : (a) l'humain n'intervient qu'aux gates de fin de phase et sur les chemins CODEOWNERS ; (b) **les tests sont le juge**, jamais l'agent qui code ; (c) tout est borné (tokens, retries, durée, taille de PR) ; (d) modèles Claude uniquement.
 
 Modèles : Fable 5.1 (`claude-fable-5-1`, noté **F**), Opus 5.5 (`claude-opus-5-5`, **O**), Sonnet 5.5 (`claude-sonnet-5-5`, **S**), Haiku 5.5 (`claude-haiku-5-5`, **H**).
@@ -48,9 +48,9 @@ Une **ligne** = une unité de production (une tâche ≈ un PR < 400 lignes) sui
 | **Garde-fous (Sentinelle)** | Script déterministe + LLM de confirmation : taille PR, tests non affaiblis, traçabilité BR, boucle, périmètre de fichiers | Diff, base de la ligne | Pass/fail motivé en CI (check requis) | Lecture seule, `git diff`, AST des tests | Check bloquant non contournable par les agents |
 | **Intégrateur** | Rebase, résolution de conflits triviaux, merge si tous les checks sont verts et CODEOWNERS satisfaits, nettoyage du worktree | Branche, statut CI/revue | Merge trunk ou renvoi motivé | git, API de forge | Merge uniquement via file de merge ; pas de force-push ; ne merge pas si chemin CODEOWNERS sans approbation humaine |
 | **Dépanneur** | Diagnostic d'un échec persistant (CI rouge après N retries, flaky, boucle) ; propose un plan, ne contourne pas | Logs, historique d'événements, diff | Rapport de cause + recommandation (retry stratégie différente / escalade / arrêt) | Lecture repo/logs, exécution sandbox | Lecture ; écrit uniquement un rapport |
-| **Scribe** | Condense les événements en journal lisible, rapports de gate, changelog, alimente le dashboard | Flux d'événements (§5), résultats de tests | `docs/factory/runs/`, rapports de gate, résumés | Lecture événements, écriture `docs/factory/runs/` | Aucun accès à `src/` ni `tests/` |
+| **Scribe** | Condense les événements en journal lisible, rapports de gate, changelog, alimente le dashboard | Flux d'événements (§5), résultats de tests | `docs/00-factory/runs/`, rapports de gate, résumés | Lecture événements, écriture `docs/00-factory/runs/` | Aucun accès à `src/` ni `tests/` |
 | **Superviseur** (ADR-006) | Surveille le flux d'événements, signale un agent qui boucle ou stagne, déclenche l'évaluation puis l'interruption et la relance (§4.8) ; code déterministe | Flux d'événements, `factory/supervision.yaml` | Événements `supervisor.*`, arrêt/relance d'un agent | Lecture événements, API orchestrateur | Ne modifie ni code ni tests ; peut arrêter/relancer un agent ; pas d'appel LLM propre (le Dépanneur évalue) |
-| **Introspecteur** (ADR-006) | Analyse un cycle (ligne ou phase) et propose au plus 3 optimisations du cycle suivant, sans sur-ingénierie (§4.9) | Événements du cycle, rapports du Dépanneur, métriques §6.2, rétros précédentes | `docs/factory/retro/<cycle>.md`, PR de configuration | Lecture événements, écriture `docs/factory/retro/` et `factory/*.yaml` (PR) | Ni `src/`, ni `tests/`, ni garde-fous, ni CI ; rien ne s'applique en cours de cycle |
+| **Introspecteur** (ADR-006) | Analyse un cycle (ligne ou phase) et propose au plus 3 optimisations du cycle suivant, sans sur-ingénierie (§4.9) | Événements du cycle, rapports du Dépanneur, métriques §6.2, rétros précédentes | `docs/00-factory/retro/<cycle>.md`, PR de configuration | Lecture événements, écriture `docs/00-factory/retro/` et `factory/*.yaml` (PR) | Ni `src/`, ni `tests/`, ni garde-fous, ni CI ; rien ne s'applique en cours de cycle |
 | **Triage de coûts / Router** | Classe la difficulté d'une ligne (S/M/L) pour choisir le modèle de départ | Spec | Étiquette de complexité | Aucun | Aucune écriture |
 
 Séparation des pouvoirs : **Testeur != Implémenteur != Réviseur** (trois contextes, trois worktrees ou lectures seules). Aucun agent ne peut écrire à la fois le code et le test qui le juge.
@@ -161,7 +161,7 @@ Action : arrêt, snapshot du contexte, Dépanneur, changement de stratégie (mod
 #   /contracts/          : absent ; le paquet réel est /packages/contracts/ (ADR-003 §2).
 #   /packages/rules/     : absent ; pas de paquet "rules" dans ADR-003 §2. Non déclaré, à décider.
 #   /packages/auth/      : absent du repo et de ADR-003 §2 (aucun paquet auth prévu). Non déclaré, à décider.
-#   /docs/adr/           : remplacé par /docs/decisions/ (chemin réel des ADR).
+#   /docs/adr/           : remplacé par /docs/06-decisions/ (chemin réel des ADR).
 #   /CODEOWNERS          : remplacé par /.github/CODEOWNERS (emplacement réel du fichier).
 #   /.github/  /factory/ : scindé en deux lignes (un motif par ligne dans CODEOWNERS).
 #
@@ -177,7 +177,7 @@ Action : arrêt, snapshot du contexte, Dépanneur, changement de stratégie (mod
 /packages/engine/      @cpto
 
 # Décisions d'architecture
-/docs/decisions/       @cpto
+/docs/06-decisions/       @cpto
 
 # Tests critiques
 /tests/critical/       @cpto @po-metier
@@ -199,7 +199,7 @@ Le Superviseur (code, tick 30 s) lit le flux §5 et applique une échelle gradu�
 Plus de 3 interruptions en 1 h sur la phase = problème systémique : kill-switch §4.5. Le Superviseur émet un `supervisor.tick` ; son absence 2 min alerte l'humain.
 
 ### 4.9 Introspection par cycle (ADR-006)
-Un cycle = une ligne terminée (légère, S) ou une phase (complète, O, avant le gate). L'Introspecteur lit les événements du cycle et écrit `docs/factory/retro/<cycle>.md` : <= 3 constats chiffrés, <= 3 recommandations, chacune avec le constat source, le changement exact (seuil, routage, taille de ligne, consigne `CLAUDE.md`), la métrique §6.2 visée et le critère de retour arrière.
+Un cycle = une ligne terminée (légère, S) ou une phase (complète, O, avant le gate). L'Introspecteur lit les événements du cycle et écrit `docs/00-factory/retro/<cycle>.md` : <= 3 constats chiffrés, <= 3 recommandations, chacune avec le constat source, le changement exact (seuil, routage, taille de ligne, consigne `CLAUDE.md`), la métrique §6.2 visée et le critère de retour arrière.
 Anti sur-ingénierie : leviers existants uniquement (pas de nouvel agent/outil, ce sont des ADR) ; constat retenu s'il se répète (>= 2) ou coûte > 5 % du budget de phase ; budget <= 1 % des tokens de phase ; liste de règles actives plafonnée à 15.
 Application : PR de configuration relue (CODEOWNERS `/factory/`), effective au cycle suivant seulement. Le Scribe mesure avant/après ; une recommandation sans effet au bout de 2 cycles est retirée.
 

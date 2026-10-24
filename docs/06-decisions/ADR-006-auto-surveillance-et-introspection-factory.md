@@ -1,6 +1,6 @@
 # ADR-006 — Auto-surveillance de la factory et introspection par cycle
 
-Statut : **différé** (2026-10-18, décision CPTO : la factory est gelée, voir `docs/factory/gel-factory.md`). Proposé à l'origine (demande utilisateur). Complète `docs/factory/strategy.md` §4.4, §4.5 et §6.3 ; ne les remplace pas.
+Statut : **différé** (2026-10-18, décision CPTO : la factory est gelée, voir `docs/00-factory/gel-factory.md`). Proposé à l'origine (demande utilisateur). Complète `docs/00-factory/strategy.md` §4.4, §4.5 et §6.3 ; ne les remplace pas.
 
 ## Contexte
 
@@ -34,7 +34,7 @@ Garde-fous du Superviseur lui-même : kill-switch §4.5 prioritaire ; plafond de
 Un « cycle » = une ligne mergée ou `blocked` (introspection légère) et une phase (introspection complète, avant le gate). Pas de boucle continue.
 
 - **Modèle** : S pour une ligne, O pour une phase. Contexte : événements du cycle (pas de code ni de prompts, §5.3), rapports du Dépanneur, métriques §6.2, recommandations précédentes et leur sort.
-- **Sortie** : `docs/factory/retro/<cycle>.md` au gabarit fixe : (a) 3 constats maximum, chacun chiffré à partir des événements ; (b) **au plus 3 recommandations** pour le cycle suivant, chacune avec le constat qui la justifie, le changement exact (clé de configuration, seuil, règle de routage, consigne de prompt), l'effet attendu mesurable et le critère de retour arrière.
+- **Sortie** : `docs/00-factory/retro/<cycle>.md` au gabarit fixe : (a) 3 constats maximum, chacun chiffré à partir des événements ; (b) **au plus 3 recommandations** pour le cycle suivant, chacune avec le constat qui la justifie, le changement exact (clé de configuration, seuil, règle de routage, consigne de prompt), l'effet attendu mesurable et le critère de retour arrière.
 - **Anti sur-ingénierie (contraintes dures)** :
   - uniquement des leviers existants : seuils, routage de modèle, taille de ligne, consignes `CLAUDE.md` code-phase, ordre des étapes. Pas de nouvel agent, de nouvel outil ni de nouveau composant proposé par l'Introspecteur : ce sont des ADR, hors boucle ;
   - un constat n'est retenu que s'il se répète (>= 2 lignes ou >= 2 occurrences) ou coûte plus de 5 % du budget de phase ; sinon il est noté « à observer » ;

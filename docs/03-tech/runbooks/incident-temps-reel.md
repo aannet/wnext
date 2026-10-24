@@ -11,7 +11,7 @@ Le journal est la source de vérité : un NOTIFY perdu ne perd aucune donnée, i
 | Rien n'arrive, les écritures passent | WebSocket refusée ou hub bloqué | `curl -i` sur `/api/v1/realtime/ticket` (401, 429 ?) ; logs API ; nombre de connexions du compte (`WS_MAX_PER_ACCOUNT`) |
 | Clients en boucle de reconnexion | 429 (plafond de connexions ou limites de débit), secret de ticket différent entre instances | en-tête `Retry-After` ; comparer `WS_TICKET_SECRET` des instances |
 | Écran qui se recharge en entier | `resync` : curseur plus ancien que la rétention (`purged_through`) ou base restaurée | comportement prévu, voir « reprise » |
-| Écritures lentes avec beaucoup de clients | fan-out du hub dans la boucle d'événements de l'API | `docs/review/charge-temps-reel.md` (écriture 5 ms -> 227 ms à 500 clients) |
+| Écritures lentes avec beaucoup de clients | fan-out du hub dans la boucle d'événements de l'API | `docs/03-tech/quality/charge-temps-reel.md` (écriture 5 ms -> 227 ms à 500 clients) |
 
 ## Diagnostics SQL (rôle `BYPASSRLS` ou propriétaire)
 

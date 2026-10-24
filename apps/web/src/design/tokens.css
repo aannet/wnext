@@ -1,4 +1,4 @@
-/* Design tokens de WNEXT (docs/review/ux-ui.md §3). Thème clair uniquement : le mode sombre est hors périmètre.
+/* Design tokens de WNEXT (docs/06-decisions/reviews-v1.1/ux-ui.md §3). Thème clair uniquement : le mode sombre est hors périmètre.
    Seul fichier de apps/web/src autorisé à contenir des couleurs littérales (garde-fou scripts/lint-raw-colors.mjs).
    `@theme static` : Tailwind émet toutes les variables, utilisées ou non, pour que le CSS et le TS puissent y faire
    référence par var(--…). Les couleurs de projet viennent des données (projects.color) et ne sont pas des tokens. */
@@ -28,7 +28,7 @@
   --color-focus: #1f2937; /* anneau de focus ; sert aussi de teinte de sélection (menu, liste, bloc armé). Encre plutôt que le bleu
                              de la spec : l'accent pétrole est retenu (Q-09), un focus bleu à côté brouillerait les deux. 14,7:1. */
   --color-on-focus: #ffffff;
-  /* Accent de marque : pétrole, décidé par Alec le 2026-10-21 (Q-09, docs/design/comparatif-accents.html). 5,4:1 sur blanc,
+  /* Accent de marque : pétrole, décidé par Alec le 2026-10-21 (Q-09, docs/02-design/comparatif-accents.html). 5,4:1 sur blanc,
      à 75° de teinte de --cap-ok, loin du bleu de Float. Texte blanc dessus. */
   --color-accent: #0e7490;
   --color-accent-hover: #0b5c72; /* survol du bouton primaire : plus foncé (le /90 éclaircissait, 4,42:1 sous WCAG AA) */

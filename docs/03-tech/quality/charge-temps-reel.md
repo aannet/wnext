@@ -1,6 +1,6 @@
 # Charge temps réel (amorce P5)
 
-Objectifs (`docs/factory/strategy.md` §1) : P2, p95 de propagation < 1 s à 50 clients ; P5, même objectif à 500 clients.
+Objectifs (`docs/00-factory/strategy.md` §1) : P2, p95 de propagation < 1 s à 50 clients ; P5, même objectif à 500 clients.
 Commande : `npm run load:realtime` (hors `make check`, pas de CI). Script : `tests/load/run.mjs` ; résultats bruts : `tests/load/out/resultats.json` (ignoré par git), journal de la pile : `tests/load/out/stack.log`.
 
 ## Méthode
@@ -30,5 +30,5 @@ Aucune socket coupée, aucun refus (429), aucune écriture en erreur. Connexion 
 
 - Pile et 500 clients tournent sur la même machine (VM partagée avec d'autres charges) et le générateur est un seul processus node : une partie de la latence est du côté client. Les chiffres sont une borne haute sur ce point, mais pas une mesure réseau réelle.
 - Un seul compte, un seul écrivain, 5 écritures/s : pas de rafale, pas de reconnexion en masse (thundering herd), pas de test de saturation de `WS_MAX_PER_ACCOUNT` ni des limites de débit. Base de 50 personnes et 300 allocations, donc `change_log` petit.
-- Postgres embarqué (non réglé) : pas représentatif d'une base gérée ; pas de PgBouncer ni de plusieurs instances d'API (le NOTIFY est alors reçu par chacune, voir `docs/runbooks/incident-temps-reel.md`).
+- Postgres embarqué (non réglé) : pas représentatif d'une base gérée ; pas de PgBouncer ni de plusieurs instances d'API (le NOTIFY est alors reçu par chacune, voir `docs/03-tech/runbooks/incident-temps-reel.md`).
 - Reste pour P5 : rafales (50 écritures/s), reconnexion simultanée de 500 clients, plusieurs comptes, test de longue durée (fuites mémoire), mesure sur environnement cible.

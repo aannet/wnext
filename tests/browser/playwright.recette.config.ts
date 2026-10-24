@@ -1,5 +1,5 @@
 // Pré-recette automatisée (RT-044, L-R2), hors `make check` et hors `npm run test:browser` : `npm run test:recette` à la racine.
-// Rejoue en navigateur les scénarios de docs/recette/scenarios.md contre la VRAIE pile avec le seed de recette en OIDC :
+// Rejoue en navigateur les scénarios de docs/05-project/recette/scenarios.md contre la VRAIE pile avec le seed de recette en OIDC :
 // `dev-stack --seed=recette --oidc --reset` (Postgres embarqué, API en AUTH_MODE=oidc, IdP local) puis Vite en VITE_AUTH_MODE=oidc.
 // Ports dédiés (distincts des défauts 54329 / 3000 / 3010 / 5173 et de la config OIDC 5185 / 3100 / 3110 / 54339) et répertoire de
 // données TEMPORAIRE dédié (WNEXT_RECETTE_PG_DIR, défaut <tmp>/wnext-pw-recette) : jamais .dev-pg/ ni .dev-pg-recette/. Les garde-fous

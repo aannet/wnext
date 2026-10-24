@@ -31,7 +31,7 @@ Sens des codes courants : ST103 statut non documenté, ST201 requête invalide a
 
 ## Checks et exclusions
 
-Tous les checks sont actifs (`schemathesis.toml`), sauf des exclusions justifiées, chacune liée à un écart de contrat consigné dans [`docs/review/schemathesis-ecarts.md`](../../docs/review/schemathesis-ecarts.md) :
+Tous les checks sont actifs (`schemathesis.toml`), sauf des exclusions justifiées, chacune liée à un écart de contrat consigné dans [`docs/03-tech/quality/schemathesis-ecarts.md`](../../docs/03-tech/quality/schemathesis-ecarts.md) :
 
 - global : `positive_data_acceptance` (E-01, le contrat n'exprime pas les validations sémantiques), `missing_required_header` (E-02, 428 attendu et documenté), `unsupported_method` et `allow_header_conformance` (E-03, 404 au lieu de 405) ;
 - par opération : aucune (E-04 et E-05 corrigés au contrat le 2026-10-20).

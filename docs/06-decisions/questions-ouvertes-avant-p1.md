@@ -18,7 +18,7 @@ Float v3 est **dimanche-first** : `work_days_hours` indexe 0 = dimanche, 1 = lun
 
 - Numérotation des questions : le dossier v1.1 numérote Q-01 = tentatif, Q-04 = base du %, Q-02 = conflit temps réel ; `schema.sql` (l.823, l.905) appelle le tentatif « Q-02 » et cite « Q-06 » pour les timesheets (Q-05 dans le dossier).
 - `schema.sql` l.412 et l.731 fixent déjà la base brute ; l'ADR-004 laisse entendre que le % « suit la capacité ».
-- Seuils UX : « orange = 90–100 % » (`docs/review/ux-ui.md`) n'est formalisé nulle part ; à retirer ou à formaliser (troisième seuil).
+- Seuils UX : « orange = 90–100 % » (`docs/06-decisions/reviews-v1.1/ux-ui.md`) n'est formalisé nulle part ; à retirer ou à formaliser (troisième seuil).
 - À mettre à jour : dossier v1.1 (Q-01, Q-03, Q-04), BR-24, ADR-004, commentaires de `schema.sql`.
 
 ## Hors registre, à traiter en P0
@@ -42,4 +42,4 @@ Float v3 est **dimanche-first** : `work_days_hours` indexe 0 = dimanche, 1 = lun
 
 | # | Question | Décision |
 |---|---|---|
-| 13 | Accent de marque (Q-09 du dossier §7) | **Pétrole `#0E7490`**, texte blanc dessus (5,4:1), choisi parmi 4 candidats (`docs/design/comparatif-accents.html`, `docs/design/direction.md`). Le focus passe en encre `#1F2937` ; la teinte sarcelle sort de la palette projet. Token `--color-accent` dans `apps/web/src/design/tokens.css`. |
+| 13 | Accent de marque (Q-09 du dossier §7) | **Pétrole `#0E7490`**, texte blanc dessus (5,4:1), choisi parmi 4 candidats (`docs/02-design/comparatif-accents.html`, `docs/02-design/direction.md`). Le focus passe en encre `#1F2937` ; la teinte sarcelle sort de la palette projet. Token `--color-accent` dans `apps/web/src/design/tokens.css`. |

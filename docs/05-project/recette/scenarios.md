@@ -1,10 +1,10 @@
 # Scénarios de recette (P6)
 
-Scénarios R-01..R-32 à rejouer par Alec à chaque cycle de recette (ADR-008), sur la pile locale. Ils sont tirés des parcours de `docs/ecrans-et-parcours.html` (le parcours 5, Timesheet, est T2 : exclu) et des critères d'acceptation des US E1 à E7 du dossier §5.3 (MVP T1 seulement). Le registre des retours est `registre.md`.
+Scénarios R-01..R-32 à rejouer par Alec à chaque cycle de recette (ADR-008), sur la pile locale. Ils sont tirés des parcours de `docs/02-design/ecrans-et-parcours.html` (le parcours 5, Timesheet, est T2 : exclu) et des critères d'acceptation des US E1 à E7 du dossier §5.3 (MVP T1 seulement). Le registre des retours est `registre.md`.
 
 ## Mode d'emploi
 
-1. Démarrer la pile avec le seed de recette : `npm run dev:recette:seed` (API, PostgreSQL embarqué dédié `.dev-pg-recette/`, IdP local et écran Vite en OIDC, en une commande ; Ctrl-C arrête tout). Ne pas la lancer en même temps que `dev:stack` / `dev:recette` / `dev:recette:vide` (mêmes ports) ; la base `.dev-pg/` n'est jamais touchée (répertoire et base vérifiés avant toute suppression ou écriture). Sur la page de choix de l'IdP, se connecter en **Alec** (owner) ; autres comptes dans `docs/runbooks/demarrage-local.md` (Camille Roy member, Nadia Benali project_manager, Admin Recette, Invité Recette guest, Admin Autre Société sur le second compte). `--reset` repart du jeu initial.
+1. Démarrer la pile avec le seed de recette : `npm run dev:recette:seed` (API, PostgreSQL embarqué dédié `.dev-pg-recette/`, IdP local et écran Vite en OIDC, en une commande ; Ctrl-C arrête tout). Ne pas la lancer en même temps que `dev:stack` / `dev:recette` / `dev:recette:vide` (mêmes ports) ; la base `.dev-pg/` n'est jamais touchée (répertoire et base vérifiés avant toute suppression ou écriture). Sur la page de choix de l'IdP, se connecter en **Alec** (owner) ; autres comptes dans `docs/03-tech/runbooks/demarrage-local.md` (Camille Roy member, Nadia Benali project_manager, Admin Recette, Invité Recette guest, Admin Autre Société sur le second compte). `--reset` repart du jeu initial.
 2. Données : le seed de recette `scripts/seed-recette.mjs` est **disponible** (RT-044). Compte « WNEXT Recette » : 18 personnes sur 4 équipes, 3 clients, 7 projets dont `REF-01` « Refonte » et `SITE-01` « Site vitrine », allocations, congés, férié France, temps loggé. Les dates sont relatives au lundi de la semaine du semis (S0 ; S+2 = lundi 2026-11-02 si le seed a été fait la semaine du 2026-10-19), pas aux dates ISO écrites dans les scénarios : lire « 2026-11-02 » comme « lundi S+2 », « 2026-11-09 » comme « lundi S+3 ». Les scénarios R-01 et R-02 citent `alec@example.test` : l'e-mail réel du compte Alec est `alec@wnext.test`. Un vrai **compte vide** (R-06) : `npm run dev:recette:vide` (base dédiée `.dev-pg-vide/`, compte « WNEXT Vide », Alec owner seul, aucune personne ni projet) ; `-- --reset` le remet à zéro. Jamais `dev:stack -- --reset` pour cela : il supprimerait `.dev-pg/` et sèmerait 50 personnes. Correspondance des préconditions (le seed les répartit entre plusieurs personnes pour qu'elles tiennent toutes ensemble) :
    - R-04 : **Julie Lambert** (au lieu de Camille) : 6 h/jour sur `REF-01` en S+1, 10 h/jour en S+2 (75 % puis 125 %).
    - R-10 : **Lucas Morel** (libre toute la semaine S+2 et S+3), avec Léo Martin comme seconde personne.
@@ -15,7 +15,7 @@ Scénarios R-01..R-32 à rejouer par Alec à chaque cycle de recette (ADR-008), 
    - R-24 : le project_manager (Nadia Benali) gère `REF-01` **et** co-gère `SITE-01` ; Camille Roy est le member lié à une personne, les autres personnes n'ont aucun accès ; second compte « Autre Société ». R-23 : sessions Alec et Camille Roy ; la cloche part vide.
    - Cas utiles : surbooking Thomas Girard (S0), sous-allocation Hugo Petit et Maxime Rousseau, Karim Haddad travaille le samedi et a un congé matin jeudi S0, Élodie Fontaine à temps partiel, Chloé Bernard congé en attente, projet tentatif `AO-01`, série « Point hebdo Refonte » (Nadia, lundis), groupe « Atelier de lancement » (Thomas, Nadia, Yasmine).
 3. Pour chaque scénario : suivre les étapes, comparer au résultat attendu, puis renseigner la colonne **Statut** du tableau final (la colonne « Pré-recette auto » donne le résultat de `npm run test:recette`) : `OK`, `KO` (écart) ou `—` (non passé). La colonne **Faisable** indique si le scénario peut être joué aujourd'hui (`oui`) ou s'il est bloqué par un retour du registre (`bloqué : RT-nnn`) ; un scénario bloqué se rejoue après correction du retour.
-4. **Consigner un écart** : soit une nouvelle note brute dans `docs/recette/notes/AAAA-MM-JJ-note-N.txt` (en vrac, elle sera cadrée en retours `RT-nnn`), soit directement une ligne dans `registre.md` si l'écart est déjà atomique (citer le scénario, p. ex. « R-07 étape 3 »). Ne jamais modifier une note existante.
+4. **Consigner un écart** : soit une nouvelle note brute dans `docs/05-project/recette/notes/AAAA-MM-JJ-note-N.txt` (en vrac, elle sera cadrée en retours `RT-nnn`), soit directement une ligne dans `registre.md` si l'écart est déjà atomique (citer le scénario, p. ex. « R-07 étape 3 »). Ne jamais modifier une note existante.
 5. Convention : heures en décimal ; semaine affichée selon `accounts.week_start` ; dates relatives au lundi du semis (« lundi S+2 ») dans les scénarios.
 
 ## Scénarios
@@ -53,7 +53,7 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 - **Attendu** : la jauge suit le défilement ; le pourcentage vient du moteur côté écran, jamais de l'API.
 
 ### R-05 — Les formulaires s'ouvrent en fenêtre superposée
-- **Couvre** : ux-ui §3.4 ; RT-009, RT-023 ; `docs/design/design.md`.
+- **Couvre** : ux-ui §3.4 ; RT-009, RT-023 ; `docs/02-design/design.md`.
 - **Faisable** : oui (RT-049 sans objet depuis RT-060 : plus de bouton de création ; ouvert au clavier, le drawer rend le focus à la grille ou au bloc d'origine).
 - **Préconditions** : connecté en Alec sur le Planning.
 - **Quand** j'ouvre successivement le congé (touche C sur la grille, drawer), « Importer un fichier CSV… » (Réglages > Import, RT-054), la cloche « Notifications », l'aide des raccourcis (bouton « ? », RT-064) et, par clic droit sur un bloc de Camille Roy, « Retirer Camille Roy du projet Refonte… ». **Alors** chacun s'ouvre dans une fenêtre superposée (drawer, modale ou popover), jamais dans un panneau inséré dans la page.
@@ -219,7 +219,7 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 - **Attendu** : annuler par Ctrl+Z dans le premier onglet.
 
 ### R-26 — Palette de recherche Ctrl+K
-- **Couvre** : RT-038, PO-09 ; `docs/design/design.md` (recherche).
+- **Couvre** : RT-038, PO-09 ; `docs/02-design/design.md` (recherche).
 - **Faisable** : oui.
 - **Préconditions** : seed de recette, Planning, filtre « Département : Produit » actif (Camille Roy, du département Design, est masquée).
 - **Quand** j'appuie sur Ctrl+K (⌘K sur Mac) et tape « camille ». **Alors** l'option « Camille Roy masquée par les filtres » est proposée ; Entrée affiche une confirmation (« Retirer les filtres et afficher Camille Roy », focalisée) ; je la valide. **Alors** les filtres sont retirés, la palette se ferme, la ligne de Camille est mise en évidence ; un bouton « Rétablir les filtres » ramène « Filtres (1) » et disparaît.

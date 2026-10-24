@@ -1,4 +1,4 @@
-// Densité d'affichage du Schedule (RT-005 à RT-007, cadrage n°1 Q1 et Q2 ; docs/review/ux-ui.md §2.2 amendé le 2026-10-21).
+// Densité d'affichage du Schedule (RT-005 à RT-007, cadrage n°1 Q1 et Q2 ; docs/06-decisions/reviews-v1.1/ux-ui.md §2.2 amendé le 2026-10-21).
 //  * Trois niveaux à HAUTEURS FIXES (Q1 : pas d'ajustement à la fenêtre), calibrés sur l'écran de référence 1920 × 1080
 //    (zone des lignes mesurée dans Chromium le 2026-10-21 : 787 px sous l'en-tête de dates) : 12, 8 et 6 personnes entières
 //    visibles (le compte tient pour une zone de 744 à 805 px).
