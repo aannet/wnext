@@ -24,7 +24,9 @@ export default defineConfig({
   retries: 0,
   timeout: 90_000,
   reporter: [["list"]],
-  use: { baseURL: `http://127.0.0.1:${OIDC_PORTS.web}`, viewport: { width: 1600, height: 900 }, headless: true },
+  // Navigateur en français : après la déconnexion, le fournisseur renvoie sur l'adresse de retour sans ?lang=, et l'écran prend
+  // alors la langue du navigateur (PO-16).
+  use: { baseURL: `http://127.0.0.1:${OIDC_PORTS.web}`, viewport: { width: 1600, height: 900 }, headless: true, locale: "fr-FR" },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
   webServer: [
     {
