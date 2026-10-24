@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Rapport de sécurité WNEXT — 2026-10-25 00:08</title>
+<style>
+  :root { --bg:#f7f7f5; --fg:#1d1d1b; --muted:#5c5c57; --card:#ffffff; --line:#e2e1dc; --accent:#2f5d8a;
+    --critical:#8b1e1e; --high:#c2410c; --medium:#a16207; --low:#3f6212; --info:#475569; --ok:#166534; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; scroll-padding-top:16px; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; color-scheme:light; }
+  .layout { display:grid; grid-template-columns:220px minmax(0,1fr); gap:32px; max-width:1100px; margin:0 auto; padding:32px 16px 64px; }
+  nav.toc { position:sticky; top:16px; align-self:start; font-size:14px; }
+  nav.toc h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 8px; }
+  nav.toc ol { list-style:none; margin:0; padding:0; }
+  nav.toc a { display:block; padding:4px 10px; border-left:2px solid transparent; color:var(--fg); text-decoration:none; border-radius:0 4px 4px 0; }
+  nav.toc a:hover { background:var(--card); }
+  nav.toc a.active { border-left-color:var(--accent); background:var(--card); font-weight:600; }
+  main { min-width:0; }
+  h1 { font-size:26px; margin:0 0 4px; }
+  h2 { font-size:19px; margin:36px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--line); scroll-margin-top:16px; }
+  h3 { font-size:16px; margin:0 0 6px; }
+  p, li { margin:6px 0; }
+  code { font:13px/1.4 ui-monospace,"SFMono-Regular",Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:1px 5px; overflow-wrap:anywhere; }
+  .meta { color:var(--muted); font-size:13px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:20px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; text-align:center; }
+  .card b { display:block; font-size:24px; }
+  .card span { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  .note { border-left:4px solid var(--accent); background:var(--card); border-radius:0 8px 8px 0; padding:10px 14px; margin:14px 0; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:8px; overflow:hidden; font-size:14px; }
+  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { background:var(--bg); font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  tr:last-child td { border-bottom:0; }
+  .scroll { overflow-x:auto; }
+  .sev { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:999px; color:#fff; white-space:nowrap; }
+  .sev-critical { background:var(--critical); } .sev-high { background:var(--high); } .sev-medium { background:var(--medium); }
+  .sev-low { background:var(--low); } .sev-informational { background:var(--info); } .sev-info { background:var(--info); }
+  footer { margin-top:40px; color:var(--muted); font-size:13px; }
+  @media (max-width:880px) {
+    .layout { grid-template-columns:1fr; gap:16px; }
+    nav.toc { position:static; }
+    nav.toc ol { display:flex; flex-wrap:wrap; gap:6px; }
+    nav.toc a { border-left:0; border:1px solid var(--line); background:var(--card); padding:4px 10px; border-radius:999px; }
+    nav.toc a.active { border-color:var(--accent); }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" aria-label="Sommaire">
+  <h2>Sommaire</h2>
+  <ol>
+    <li><a href="#synthese">Synthèse</a></li>
+    <li><a href="#scan">Scan automatisé</a></li>
+    <li><a href="#audit">Audit Cloudflare : constats</a></li>
+    <li><a href="#a-valider">Constats à valider</a></li>
+    <li><a href="#rejetes">Candidats rejetés</a></li>
+    <li><a href="#couverture">Couverture</a></li>
+    <li><a href="#ressources">Tokens et modèles</a></li>
+    <li><a href="#limites">Limites</a></li>
+  </ol>
+</nav>
+<main>
+
+<section id="synthese">
+  <h1>Rapport de sécurité — WNEXT</h1>
+  <p class="meta">Généré le 2026-10-25 00:08 · Dépôt <code>002-wnext</code>, commit audité <code>bd13168</code> (HEAD <code>f069da2</code>, sans changement de sécurité entre les deux) · Run skill <code>002-wnext-run-1</code></p>
+  <div class="cards">
+    <div class="card"><b>0</b><span>Secrets (gitleaks)</span></div>
+    <div class="card"><b>3</b><span>Constats confirmés</span></div>
+    <div class="card"><b>9</b><span>À valider</span></div>
+    <div class="card"><b>2</b><span>Rejetés</span></div>
+    <div class="card"><b>19</b><span>Unités de couverture</span></div>
+  </div>
+  <div class="note">
+    <strong>Verdict.</strong> Aucun constat critique ou élevé confirmé dans la configuration examinée. Le constat le plus grave, l'identité de développement active par défaut, est classé « à valider » : il devient critique si le déploiement expose l'API sans <code>NODE_ENV=production</code>. Le scan automatisé ne relève aucun critique ni haut.
+  </div>
+</section>
+
+<section id="scan">
+  <h2>Scan automatisé</h2>
+  <p>Image <code>wnext-scan:2.7.0</code>, run <code>20261024-233320</code>. Vérification d'intégrité du skill : tests passés.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Outil</th><th>Périmètre</th><th>Constats</th><th>Résultat</th></tr></thead>
+    <tbody><tr><td>gitleaks 8.30.1</td><td>Historique git complet</td><td>0</td><td>Aucun secret détecté.</td></tr><tr><td>OSV-Scanner 2.7.0</td><td>package-lock.json (527 paquets)</td><td>4</td><td>Moyen 2, faible 2 : fast-uri@3.1.8, dépendance de développement (ajv).</td></tr><tr><td>Semgrep 1.181.0</td><td>Dépôt de travail</td><td>3</td><td>Moyen 3 : postMessage avec origine « * » dans .claude/ (fichier non suivi, hors produit).</td></tr></tbody>
+  </table></div>
+</section>
+
+<section id="audit">
+  <h2>Audit Cloudflare : constats confirmés</h2>
+  <p>Skill <code>cloudflare/security-audit-skill</code> (MIT), révision <code>c1c8a8c</code>. Chaque constat est revérifié par un agent indépendant qui reconstruit le chemin depuis le source. Aucune exécution de la cible.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Sévérité</th><th>Constat</th><th>Identifiant</th><th>Confiance</th></tr></thead>
+    <tbody><tr><td><span class="sev sev-low">low</span></td><td>Compteur de tête du journal révélant l&#x27;activité d&#x27;écriture d&#x27;autrui à un member</td><td><code>wnext-changefeed-head-count-oracle</code></td><td>high</td></tr><tr><td><span class="sev sev-low">low</span></td><td>Écriture non authentifiée d&#x27;événements dans l&#x27;observabilité de la factory</td><td><code>wnext-events-post-unauthenticated-write</code></td><td>medium</td></tr><tr><td><span class="sev sev-medium">medium</span></td><td>Session WebSocket conservant un contexte périmé après retrait d&#x27;appartenance</td><td><code>wnext-ws-session-outlives-revocation</code></td><td>high</td></tr></tbody>
+  </table></div>
+  <p class="meta">Détail : <code>FINDINGS-DETAIL.md</code> dans le run. La sévérité du constat de session WebSocket reste à arbitrer (medium proposé, low possible).</p>
+</section>
+
+<section id="a-valider">
+  <h2>Constats à valider</h2>
+  <p>Ces constats sont sourcés, mais leur effet dépend d'un fait absent du dépôt. Aucune sévérité n'est attribuée.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Statut</th><th>Constat</th><th>Identifiant</th><th>Premier blocage</th></tr></thead>
+    <tbody><tr><td><span class='sev sev-info'>à valider</span></td><td>Lecture des dépenses et budgets : un chef de projet voit ceux des projets qu&#x27;il ne gère pas</td><td><code>wnext-budget-financial-read-not-project-scoped</code></td><td>Décision produit : la lecture financière du PM est-elle limitée à ses projets ?</td></tr><tr><td><span class='sev sev-info'>à valider</span></td><td>Identité de développement par défaut : en-têtes acceptés sans preuve, rôle owner sur un compte choisi</td><td><code>wnext-dev-auth-default-forged-account-owner</code></td><td>Décisif : l&#x27;API est-elle joignable depuis un réseau non fiable (HOST, proxy) ?</td></tr><tr><td><span class='sev sev-info'>à valider</span></td><td>Ressources non bornées côté factory : corps lu avant contrôle de taille, abonnés SSE sans plafond</td><td><code>wnext-events-resource-exhaustion</code></td><td>Décisif : exposition réseau du port (joignabilité d&#x27;un client non authentifié).</td></tr><tr><td><span class='sev sev-info'>à valider</span></td><td>Lecture non authentifiée des événements de la factory via SSE, avec rejeu historique</td><td><code>wnext-events-stream-unauthenticated-read</code></td><td>Décisif : l&#x27;hôte d&#x27;écoute réel de next dev (non fixé dans le dépôt).</td></tr><tr><td><span class='sev sev-info'>à valider</span></td><td>Ticket d&#x27;upgrade transmis dans la query string, exposé aux journaux d&#x27;un intermédiaire</td><td><code>wnext-ticket-query-string-log-exposure</code></td><td>Décisif : un proxy, un répartiteur ou la plateforme journalise-t-il la query string des upgrades WebSocket ?</td></tr><tr><td><span class='sev sev-info'>à valider</span></td><td>Import CSV : analyse de tout le texte avant le contrôle du nombre de lignes</td><td><code>wnext-u11-analyse-avant-limite-lignes</code></td><td>Mesure CPU de l&#x27;analyse au pire cas (900 000 caractères) : non faite.</td></tr><tr><td><span class='sev sev-info'>à valider</span></td><td>Garde-fous de PR exécutés depuis la tête de PR : neutralisables par la PR qu&#x27;ils contrôlent</td><td><code>wnext-u14-guardrails-run-from-pr-head</code></td><td>Décisif : protection de branche sur main (revue CODEOWNERS obligatoire, check requis, pas de bypass administrateur).</td></tr><tr><td><span class='sev sev-info'>à valider</span></td><td>Requêtes anonymes : corps lu jusqu&#x27;au bout avant authentification, sans plafond de connexions dans le processus</td><td><code>wnext-u15-preauth-body-socket-cap</code></td><td>Décisif : exposition directe du port ou présence d&#x27;un proxy avec ses plafonds (connexions, corps, délais).</td></tr><tr><td><span class='sev sev-info'>à valider</span></td><td>Force du secret de tickets WebSocket : falsification possible si la valeur de production est devinable</td><td><code>wnext-ws-ticket-secret-weak-forgery</code></td><td>Décisif : la valeur réelle de WS_TICKET_SECRET en production et sa méthode de génération (hors dépôt).</td></tr></tbody>
+  </table></div>
+</section>
+
+<section id="rejetes">
+  <h2>Candidats rejetés</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Candidat</th><th>Raison du rejet</th></tr></thead>
+    <tbody><tr><td>Détournement WebSocket inter-sites via identité ambiante (CSWSH)</td><td>Le dépôt n&#x27;accepte aucune identité ambiante : aucun cookie lu, Authorization ou x-dev-* non posés par un navigateur tiers, ticket obtenu par POST authentifié sans CORS. Le risque ne vient que d&#x27;une couche amont absente du dépôt : à surveiller au déploiement, sans constat dans le code.</td></tr><tr><td>Rejeu d&#x27;un ticket d&#x27;upgrade sur une autre instance pendant 30 secondes</td><td>Le rejeu donne le même contexte signé que le premier usage, pendant 30 secondes, et suppose d&#x27;avoir déjà intercepté le ticket. Il n&#x27;ajoute ni données ni privilège, et le risque est accepté par les auteurs. Écart documentaire seulement : le contrat promet plus que l&#x27;implémentation multi-instances.</td></tr></tbody>
+  </table></div>
+</section>
+
+<section id="couverture">
+  <h2>Couverture</h2>
+  <p>19 unités de couverture (surface × frontière × classe d'attaque). Valide selon le validateur du skill.</p>
+  <table><thead><tr><th>Statut</th><th>Unités</th></tr></thead><tbody><tr><td>candidate</td><td>9</td></tr><tr><td>covered</td><td>7</td></tr><tr><td>deferred</td><td>2</td></tr><tr><td>out_of_scope</td><td>1</td></tr></tbody></table>
+  <p class="meta">Non couvert : moteur de calcul (hors import), tests et documentation (hors surface), orchestrateur factory gelé.</p>
+</section>
+
+<section id="ressources">
+  <h2>Tokens et modèles</h2>
+  <p>Tokens des sous-agents, tels que rapportés par le harnais d'exécution. Consommation de la session parente non mesurée.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Phase</th><th>Agents</th><th>Tokens</th></tr></thead>
+    <tbody><tr><td>Reconnaissance</td><td>4</td><td>590 884</td></tr><tr><td>Chasse en vagues</td><td>16</td><td>1 620 474</td></tr><tr><td>Vérification indépendante</td><td>14</td><td>1 082 313</td></tr><tr><td><strong>Total</strong></td><td></td><td><strong>3 293 671</strong></td></tr></tbody>
+  </table></div>
+  <div class="note"><strong>Modèle.</strong> Tous les sous-agents ont été lancés sans surcharge de modèle : ils héritent du modèle de session, <code>claude-haiku-5-5</code>. Le harnais ne rapporte pas le modèle par agent, donc ce point est déduit de la configuration et non vérifié ligne par ligne.</div>
+</section>
+
+<section id="limites">
+  <h2>Limites</h2>
+  <ul>
+    <li>Aucune exécution de code cible : pas de sandbox OS-enforced dans ce run. Les constats qui exigent une exécution restent « à valider ».</li>
+    <li>Profil standard, périmètre complet pour la chasse. Trois unités déclarées non couvertes en profondeur.</li>
+    <li>Certains vérificateurs ont pu lire des rapports précédents du dépôt (signalé par eux) ; leur indépendance est partielle sur ces points.</li>
+    <li>Les companion blocks du skill (classes spécialisées) n'ont pas été appliqués.</li>
+    <li>Le HEAD a changé pendant le run (eefde56 puis f069da2) : aucun changement de sécurité entre bd13168 et f069da2, vérifié.</li>
+  </ul>
+  <p class="meta">Run complet : <code>/home/alec/projects/003-security-kit/audits/002-wnext/run-1/</code></p>
+</section>
+
+<footer>Rapport généré le 2026-10-25 00:08. Aucun fichier du dépôt audité n'a été modifié.</footer>
+</main>
+</div>
+<script>
+  (function () {
+    var links = document.querySelectorAll("nav.toc a");
+    var byId = {};
+    links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting && byId[e.target.id]) {
+          links.forEach(function (a) { a.classList.remove("active"); });
+          byId[e.target.id].classList.add("active");
+        }
+      });
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    document.querySelectorAll("main section[id]").forEach(function (s) { obs.observe(s); });
+  })();
+</script>
+</body>
+</html>
