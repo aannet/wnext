@@ -134,7 +134,7 @@
 </div>
 
 <script>
-const AS_OF = "2026-10-23";
+const AS_OF = "2026-10-24";
 
 // RECETTE — mise à jour : recopier les statuts depuis docs/05-project/recette/registre.md.
 // retours[].statut : qualifié | validé | planifié | corrigé | vérifié | rejeté | reporté (T2+)
@@ -145,8 +145,8 @@ const RECETTE = {
   notes: [
     { id: 1, date: "2026-10-21", file: "docs/05-project/recette/notes/2026-10-21-note-1.txt", cadrage: "docs/05-project/recette/cadrage-1.html", status: "cadrage validé (2026-10-21)" },
     { id: 2, date: "2026-10-21", file: "docs/05-project/recette/notes/2026-10-21-recette-2.txt", cadrage: "docs/05-project/recette/cadrage-2.html", status: "cadrage validé (2026-10-21, Q12 amendée)" },
-    { id: 3, date: "2026-10-22", file: "(sans note : points ouverts PO-04 à PO-10, pré-recette automatisée)", cadrage: "docs/05-project/recette/cadrage-3.html", status: "cadrage autonome, exécuté sans validation intermédiaire : à confirmer en recette n°3" },
-    { id: 4, date: "2026-10-23", file: "docs/05-project/recette/notes/2026-10-23-recette-4.txt", cadrage: "docs/05-project/recette/cadrage-4.html", status: "cadrage validé (2026-10-23), lots L-X1 à L-X4 exécutés sur polish" },
+    { id: 3, date: "2026-10-22", file: "(sans note : points ouverts PO-04 à PO-10, pré-recette automatisée)", cadrage: "docs/05-project/recette/cadrage-3.html", status: "cadrage autonome, exécuté sans validation intermédiaire ; recette n°3 faite avec la note n°4 (D12), choix C1 à C9 confirmés le 2026-10-24" },
+    { id: 4, date: "2026-10-23", file: "docs/05-project/recette/notes/2026-10-23-recette-4.txt", cadrage: "docs/05-project/recette/cadrage-4.html", status: "cadrage validé (2026-10-23), lots L-X1 à L-X4 fusionnés dans main (2026-10-24), recette n°4 à faire" },
   ],
   retours: [
     { id: "RT-001", t: "Pas d'en-tête applicatif portant le nom de l'app ; la barre d'outils doit s'intégrer à un header ou un sous-header", nature: "manque", gravite: "majeure", lot: "L-B", statut: "corrigé" },
@@ -341,17 +341,17 @@ const PHASES = [
       { t: "Avertissement de phase BR-37 dans l'écran", s: "done" },
       { t: "Mise en page fluide (100dvh, la page ne défile plus)", s: "done" },
       { t: "i18n FR + EN", s: "done", n: "Lingui, catalogues FR/EN, pseudo-locale, lint des chaînes en dur dans make check" },
-      { t: "Saisie rapide en langage simple (« Refonte 6h lun-mer »)", s: "done", n: "barre de saisie (touche / ou N), aperçu en direct, création annulable" },
-      { t: "Benchmark 60 fps, E2E Playwright, axe-core AA", s: "done", n: "test:browser 89/89 le 2026-10-23 (trois specs à horloge fixe, la démo dépendant de la date), axe 0 violation ; 60 fps de référence et gate humain en attente, job CI browser non bloquant ; buildGrid 32 / 52 / 94 ms (jour / semaine / mois)" },
+      { t: "Saisie rapide en langage simple (« Refonte 6h lun-mer »)", s: "done", n: "barre retirée à la demande d'Alec (RT-057), parseur gardé ; la touche N ouvre la création dans le drawer (RT-060)" },
+      { t: "Benchmark 60 fps, E2E Playwright, axe-core AA", s: "done", n: "test:browser 94/95 le 2026-10-24 (un test tactile instable connu, vert en relance ; specs à horloge fixe, la démo dépendant de la date), axe 0 violation ; 60 fps de référence et gate humain en attente, job CI browser non bloquant ; buildGrid 32 / 52 / 94 ms (jour / semaine / mois)" },
     ] },
   { id: "p4", name: "P4 · Congés, fériés, vues, permissions", weight: 70, status: "now",
     goal: "Fonctions autour du Schedule pour rendre le produit utilisable.",
     items: [
       { t: "Logique congés et conflits (moteur)", s: "done" },
       { t: "Fériés par pays dans la capacité (moteur / SQL)", s: "done" },
-      { t: "Rôles et permissions côté API", s: "done", n: "BR-33 en plus des rôles ; bouton Importer visible en OIDC (rôle non exposé)" },
+      { t: "Rôles et permissions côté API", s: "done", n: "BR-33 en plus des rôles ; écrans et actions selon le rôle exposé par GET /me ; import réservé à owner et admin dans Réglages > Import (RT-054, C8)" },
       { t: "Parcours congés complet (UI, BR-04, grille)", s: "done", n: "congés dans la grille, formulaire, demi-journées ; pas d'approbation (retirée, RT-022)" },
-      { t: "Vues sauvegardées et filtres", s: "done", n: "migration 0003, RLS restrictive, barre des vues, ?view=" },
+      { t: "Vues sauvegardées et filtres", s: "done", n: "migration 0003, RLS restrictive, vues dans le panneau Filtres (RT-058), ?view=" },
       { t: "Retrait d'équipe BR-10 : parcours complet", s: "done", n: "menu contextuel, récapitulatif, confirmation ; undo invalidé après retrait" },
       { t: "BR-14 : suppression retrouvée dans delete_log ≥ 72 h", s: "done", n: "T19, purge refusée sous 72 h" },
       { t: "Notifications in-app", s: "done", n: "migrations 0004 et 0005 (relecture : 8 constats corrigés, SECURITY DEFINER, purge 30 j lues / 90 j) ; job quotidien à planifier" },
@@ -398,7 +398,7 @@ const PHASES = [
       { t: "Aide des raccourcis et palette Ctrl+K", s: "done", n: "palette Ctrl+K dans l'en-tête commun, sur tous les écrans (RT-059) ; aide des raccourcis « ? » tirée de la source des gestionnaires (RT-064)" },
       { t: "Lancement de recette : une commande met l'écran en OIDC (RT-035, bloquante)", s: "done", n: "npm run dev:recette (29de368) : pile --oidc, attente de l'API, puis Vite en VITE_AUTH_MODE=oidc ; parcours vérifié jusqu'à « Bonjour Alec »" },
       { t: "Seed et recette automatisée (test:recette)", s: "done", n: "npm run dev:recette:seed / dev:recette:vide (bases dédiées gardées) ; npm run test:recette : 30/30 sur main le 2026-10-22 (R-06, R-21 non automatisés)" },
-      { t: "Cadrage n°4 (RT-051 à RT-064, lots L-X1 à L-X4)", s: "done", n: "validé par Alec le 2026-10-23 ; exécuté sur polish : make check vert (2657 tests), test:recette 30/30, test:browser 93/93, test:browser:oidc 1/1, bench:browser 59,9 fps médian ; revue par l'orchestrateur seul (pas de second modèle)" },
+      { t: "Cadrage n°4 (RT-051 à RT-064, lots L-X1 à L-X4)", s: "done", n: "validé par Alec le 2026-10-23 ; exécuté sur polish puis fusionné dans main le 2026-10-24 : make check vert (2667 tests), test:recette 30/30, test:browser 93/93, test:browser:oidc 1/1, bench:browser 59,9 fps médian ; revue par l'orchestrateur seul (pas de second modèle)" },
       { t: "Recette humaine par Alec, registre sans bloquant ni majeur", s: "todo" },
       { t: "Gate P6 signé", s: "todo" },
     ] },
@@ -406,7 +406,6 @@ const PHASES = [
 
 const NEXT = [
   "<b>Recette n°4 par Alec</b> sur <code>main</code> (polish fusionnée le 2026-10-24) : vérifier RT-051 à RT-064 (<a href=\"recette/cadrage-4.html\"><code>cadrage-4.html</code></a>), PO-11, PO-12, PO-14, PO-16 et la marque ; C1 à C9 et PO-11 à PO-16 tranchés le 2026-10-24 ; dossier <a href=\"recette/recette-4-preparation.html\"><code>recette-4-preparation.html</code></a>.",
-  "<b>Recette n°3 par Alec</b> : <code>npm run dev:recette:seed</code> (compte « WNEXT Recette ») puis <code>http://localhost:5173/</code> ; dossier <a href=\"recette/recette-3-preparation.html\"><code>recette-3-preparation.html</code></a> : confirmer ou annuler les décisions autonomes RT-036 à RT-050, trancher PO-11 à PO-16.",
   "<b>Relectures CODEOWNERS des commits de contrat</b> : <code>ce25e1f</code> (L-H), <code>562dc2b</code>, <code>329634a</code> et <code>94d52e6</code>, <code>c77071d</code>, <code>4694afa</code> et <code>18030ac</code>, <code>a69d28e</code> et <code>3b7b5ec</code> ; migration <code>0006_change_log_person</code> (désormais sous CODEOWNERS, RT-045).",
   "<b>Relecture des tests SQL</b> avec <code>docs/03-tech/quality/relecture-tests-sql.md</code>.",
   "<b>P5 en tâche de fond</b> : profiler le PATCH (227 ms sous 500 clients), rejouer PITR et <code>pg_dump</code>, job nocturne de charge."
