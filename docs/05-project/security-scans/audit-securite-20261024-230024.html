@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit de sécurité WNEXT — 2026-10-24 23:00</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --fg: #1d1d1b; --muted: #5c5c57; --card: #ffffff; --line: #e2e1dc;
+    --critical: #8b1e1e; --high: #c2410c; --medium: #a16207; --low: #3f6212; --info: #475569; --ok: #166534;
+  }
+  :root[data-theme="dark"] {
+    --bg: #161614; --fg: #ecebe6; --muted: #a3a29b; --card: #1f1f1c; --line: #33332f;
+    --critical: #f87171; --high: #fb923c; --medium: #facc15; --low: #a3e635; --info: #94a3b8; --ok: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 16px; margin: 0 0 6px; }
+  p, li { margin: 6px 0; }
+  code { font: 13px/1.4 ui-monospace, "SFMono-Regular", Menlo, monospace; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 20px 0; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; text-align: center; }
+  .stat b { display: block; font-size: 24px; }
+  .stat span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .finding { background: var(--card); border: 1px solid var(--line); border-left: 5px solid var(--info); border-radius: 8px; padding: 14px 16px; margin: 12px 0; }
+  .finding .head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .sev { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 999px; color: #fff; }
+  .sev-high { background: var(--high); } .sev-medium { background: var(--medium); } .sev-low { background: var(--low); } .sev-info { background: var(--info); }
+  .finding.high { border-left-color: var(--high); } .finding.medium { border-left-color: var(--medium); }
+  .finding.low { border-left-color: var(--low); } .finding.info { border-left-color: var(--info); }
+  .tag { font-size: 12px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--bg); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .scroll { overflow-x: auto; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+  .theme-toggle { float: right; font: inherit; font-size: 13px; color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+</style>
+<script>
+  // Clair par défaut, quel que soit le réglage du système ; bascule manuelle vers le sombre.
+  function toggleTheme(btn) {
+    var dark = document.documentElement.getAttribute("data-theme") === "dark";
+    document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+    btn.textContent = dark ? "Passer en sombre" : "Passer en clair";
+  }
+</script>
+</head>
+<body>
+<main>
+
+<button class="theme-toggle" type="button" onclick="toggleTheme(this)">Passer en sombre</button>
+<h1>Audit de sécurité — WNEXT</h1>
+<p class="meta">Run : <code>2026-10-24 23:00:24 (+02:00)</code> · Dépôt : <code>002-wnext</code> · Branche <code>main</code> · Commit <code>61fa0fa</code></p>
+<p class="meta">Périmètre : API (<code>apps/api/src</code>), couche données (<code>schema.sql</code>, <code>migrations/</code>), client web OIDC (<code>apps/web/src/data</code>), dépendances, historique git.</p>
+
+<section>
+<h2>Synthèse</h2>
+<p>Aucune vulnérabilité exploitable dans la configuration par défaut n'a été trouvée. Les risques relevés sont des <strong>valeurs par défaut qui échouent ouvertes</strong> : la sécurité dépend de variables d'environnement que le dépôt ne force pas, et aucun manifeste de déploiement n'existe pour les fixer. Le code applicatif (authentification, autorisation, isolation des comptes) est, lui, solide.</p>
+
+<div class="summary">
+  <div class="stat"><b>0</b><span>Critique</span></div>
+  <div class="stat"><b>1</b><span>Élevée</span></div>
+  <div class="stat"><b>1</b><span>Moyenne</span></div>
+  <div class="stat"><b>2</b><span>Faible</span></div>
+  <div class="stat"><b>3</b><span>Info</span></div>
+  <div class="stat"><b>0</b><span>CVE dépendances</span></div>
+</div>
+
+<p class="meta"><strong>Limites :</strong> gitleaks, OSV-Scanner et Semgrep non installés (<code>npm run scan</code> non exécuté). Ni la suite de tests ni d'exploitation en direct n'ont été lancées. Lecture ciblée, pas exhaustive, des modules métier.</p>
+</section>
+
+<section>
+<h2>Constats</h2>
+
+<div class="finding high">
+  <div class="head"><span class="sev sev-high">Élevée</span><h3>Authentification en repli sur l'identité de développement</h3></div>
+  <p class="tag"><code>apps/api/src/config.ts:45-47</code> · <code>apps/api/src/auth-dev.ts:12</code></p>
+  <p><strong>Constat.</strong> <code>AUTH_MODE</code> vaut <code>dev</code> par défaut. Ce mode lit l'identité dans les en-têtes <code>x-dev-account-id</code>, <code>x-dev-user-id</code> et <code>x-dev-role</code>, sans preuve ni contrôle d'appartenance au compte. Le refus de démarrage ne se déclenche que si <code>NODE_ENV=production</code>.</p>
+  <p><strong>Scénario.</strong> Déploiement en conteneur avec <code>HOST=0.0.0.0</code>, sans <code>AUTH_MODE=oidc</code> ni <code>NODE_ENV=production</code>. Une requête portant <code>x-dev-account-id: 1</code>, <code>x-dev-user-id: 1</code>, <code>x-dev-role: owner</code> obtient les droits de propriétaire sur ce compte, et les identifiants entiers sont devinables.</p>
+  <p><strong>Atténuation actuelle.</strong> L'adresse d'écoute par défaut est <code>127.0.0.1</code>.</p>
+  <p><strong>Correctif proposé.</strong> Faire de <code>oidc</code> la valeur par défaut. Exiger un opt-in explicite pour <code>dev</code>, et refuser <code>dev</code> sur toute adresse d'écoute non bouclée, quel que soit <code>NODE_ENV</code>.</p>
+</div>
+
+<div class="finding medium">
+  <div class="head"><span class="sev sev-medium">Moyenne</span><h3>Isolation des comptes (RLS) contournable sans alerte</h3></div>
+  <p class="tag"><code>schema.sql</code> (section RLS, lignes 993-1036) · <code>apps/api/src/config.ts:58-59</code> · <code>docs/03-tech/runbooks/demarrage-local.md</code></p>
+  <p><strong>Constat.</strong> La RLS <code>tenant_isolation</code> ne s'applique pas à un rôle superutilisateur ou <code>BYPASSRLS</code>, ni au propriétaire sans <code>FORCE</code>. <code>DB_ROLE</code> est optionnel (documenté « aucun ») et seul son format est validé. Rien ne vérifie au démarrage le rôle effectif de la connexion.</p>
+  <p><strong>Atténuation actuelle.</strong> La plupart des requêtes filtrent aussi sur <code>account_id</code>. La RLS est donc une seconde barrière, mais c'est la barrière prévue.</p>
+  <p><strong>Correctif proposé.</strong> Au démarrage, interroger <code>pg_roles</code> pour <code>current_user</code> et refuser de démarrer si <code>rolsuper</code> ou <code>rolbypassrls</code> est vrai. Exiger <code>DB_ROLE</code> lorsque <code>NODE_ENV=production</code>.</p>
+</div>
+
+<div class="finding low">
+  <div class="head"><span class="sev sev-low">Faible</span><h3>Pas de contrôle de l'en-tête <code>Origin</code> à l'upgrade WebSocket</h3></div>
+  <p class="tag"><code>apps/api/src/ws.ts</code></p>
+  <p>Sans risque aujourd'hui : l'authentification passe par un en-tête porteur ou un ticket à usage unique, et aucun cookie n'est utilisé. Deviendrait un risque de détournement WebSocket inter-sites si une authentification par cookie était ajoutée.</p>
+  <p><strong>Correctif proposé.</strong> Liste blanche d'origines à l'upgrade, même si l'authentification ne repose pas sur les cookies.</p>
+</div>
+
+<div class="finding low">
+  <div class="head"><span class="sev sev-low">Faible</span><h3>Pas de limite de débit globale sur l'API REST</h3></div>
+  <p class="tag"><code>apps/api/src/http.ts</code> · <code>apps/api/src/rate-limit.ts</code></p>
+  <p>Les limites ne couvrent que l'émission de tickets et les upgrades WebSocket. Les routes REST n'ont pas de plafond, la plus coûteuse étant <code>GET /api/v1/schedule</code> (fenêtre jusqu'à 400 jours). Enjeu de disponibilité plus que de confidentialité.</p>
+</div>
+
+<div class="finding info">
+  <div class="head"><span class="sev sev-info">Info</span><h3>Tickets WebSocket : rejeu inter-instances et ticket dans l'URL</h3></div>
+  <p class="tag"><code>apps/api/src/tickets.ts</code></p>
+  <p>Risque accepté par les auteurs et documenté : l'usage unique n'est appliqué que par processus, donc un ticket de 30 s peut être rejoué sur une autre instance. Le ticket transite aussi en query string, ce qui peut le faire apparaître dans les journaux du reverse proxy. Impact limité au flux de références temps réel.</p>
+</div>
+
+<div class="finding info">
+  <div class="head"><span class="sev sev-info">Info</span><h3>Aucun en-tête de sécurité ni CSP dans le dépôt</h3></div>
+  <p class="tag"><code>apps/web/index.html</code></p>
+  <p>Aucun point d'injection DOM trouvé (<code>innerHTML</code>, <code>dangerouslySetInnerHTML</code>, <code>eval</code>). Aucune configuration de déploiement : les en-têtes (CSP, HSTS, <code>X-Frame-Options</code>) relèvent de l'exploitant.</p>
+</div>
+
+<div class="finding info">
+  <div class="head"><span class="sev sev-info">Info</span><h3>Signature de l'id_token non vérifiée côté client</h3></div>
+  <p class="tag"><code>apps/web/src/data/oidc.ts</code> (<code>checkIdToken</code>)</p>
+  <p>Contrôles faits : <code>iss</code>, <code>aud</code>, <code>nonce</code>, <code>exp</code>. Le jeton vient directement du point de terminaison, en TLS, ce que la spécification OIDC admet. L'API vérifie elle-même le jeton d'accès. Acceptable.</p>
+</div>
+
+<div class="finding info">
+  <div class="head"><span class="sev sev-info">Info</span><h3>Identifiants de développement dans l'historique</h3></div>
+  <p class="tag">Historique git, <code>scripts/dev-stack.mjs</code>, <code>tests/**</code></p>
+  <p><code>postgres:postgres</code> sur <code>127.0.0.1</code>, utilisé par les instances Postgres embarquées de test et de développement. Aucune vraie clé ni secret de production trouvé. À ne jamais réutiliser hors pile locale.</p>
+</div>
+</section>
+
+<section>
+<h2>Contrôles conformes</h2>
+<table>
+  <thead><tr><th>Domaine</th><th>Vérification</th><th>Résultat</th></tr></thead>
+  <tbody>
+    <tr><td>JWT</td><td>Algorithmes RS256 (≥ 2048 bits) et ES256 seulement ; <code>none</code> et confusion HS/RS bloqués ; <code>exp</code> obligatoire ; <code>iss</code>, <code>aud</code>, <code>nbf</code> vérifiés</td><td class="ok">Conforme</td></tr>
+    <tr><td>Rôles</td><td>Rôle lu en base (<code>account_members</code>), jamais dans le jeton</td><td class="ok">Conforme</td></tr>
+    <tr><td>Tickets WS</td><td>HMAC-SHA256, comparaison à temps constant, signature vérifiée avant lecture du contenu, TTL 30 s</td><td class="ok">Conforme</td></tr>
+    <tr><td>RLS</td><td>Fermée par défaut si <code>app.account_id</code> absent ; <code>app_user</code> en <code>NOBYPASSRLS</code> ; <code>FORCE</code> sur les tables tenant</td><td class="ok">Conforme</td></tr>
+    <tr><td>SQL</td><td>Valeurs paramétrées ; identifiants dynamiques limités à des constantes de code</td><td class="ok">Conforme</td></tr>
+    <tr><td>Périmètre <code>member</code></td><td>Appliqué aux listes et aux lectures par identifiant (planning, personnes, allocations, temps saisi, équipe, historique)</td><td class="ok">Conforme</td></tr>
+    <tr><td>Données financières</td><td>Lecture des dépenses et lignes budgétaires réservée aux rôles d'écriture</td><td class="ok">Conforme</td></tr>
+    <tr><td>Vues sauvegardées</td><td>Propriété et partage contrôlés dans le code</td><td class="ok">Conforme</td></tr>
+    <tr><td>Erreurs</td><td>Code stable, pas de détail interne ni de pile vers le client</td><td class="ok">Conforme</td></tr>
+    <tr><td>Corps de requête</td><td>Plafond 1 Mo ; octets NUL refusés</td><td class="ok">Conforme</td></tr>
+    <tr><td>Client OIDC (web)</td><td>PKCE S256, <code>state</code> et <code>nonce</code> vérifiés, jeton d'accès en mémoire, pas de cookie</td><td class="ok">Conforme</td></tr>
+    <tr><td>Dépendances</td><td><code>npm audit</code> : 0 vulnérabilité sur 527 paquets</td><td class="ok">Conforme</td></tr>
+    <tr><td>Rôle admin / écriture de <code>account_members</code></td><td>Aucune route ne modifie les appartenances ni les rôles</td><td class="ok">Conforme</td></tr>
+  </tbody>
+</table>
+</section>
+
+<section>
+<h2>Recommandations</h2>
+<ol>
+  <li>Corriger le repli <code>AUTH_MODE=dev</code> (constat élevé) avant tout déploiement hors poste local.</li>
+  <li>Ajouter au démarrage la vérification du rôle de connexion et exiger <code>DB_ROLE</code> en production.</li>
+  <li>Installer et exécuter <code>npm run scan</code> (gitleaks, OSV-Scanner, Semgrep) pour couvrir les points non testés ici.</li>
+  <li>Définir la configuration de déploiement (en-têtes HTTP, CSP, variables) dans un manifeste versionné.</li>
+  <li>Ajouter une liste blanche d'<code>Origin</code> à l'upgrade WebSocket.</li>
+</ol>
+</section>
+
+<footer>
+  Rapport généré le 2026-10-24 à 23:00:24 (+02:00). Aucun fichier du dépôt n'a été modifié pendant l'audit.
+</footer>
+
+</main>
+</body>
+</html>

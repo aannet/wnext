@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Scan de sécurité WNEXT — 2026-10-24 23:33</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --fg: #1d1d1b; --muted: #5c5c57; --card: #ffffff; --line: #e2e1dc; --accent: #2f5d8a;
+    --critical: #8b1e1e; --high: #c2410c; --medium: #a16207; --low: #3f6212; --info: #475569; --ok: #166534;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; color-scheme: light; }
+  .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 32px; max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; font-size: 14px; }
+  nav.toc h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; }
+  nav.toc li { margin: 2px 0; }
+  nav.toc a { display: block; padding: 4px 10px; border-left: 2px solid transparent; color: var(--fg); text-decoration: none; border-radius: 0 4px 4px 0; }
+  nav.toc a:hover { background: var(--card); }
+  nav.toc a.active { border-left-color: var(--accent); background: var(--card); font-weight: 600; }
+  main { min-width: 0; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); scroll-margin-top: 16px; }
+  h3 { font-size: 16px; margin: 0 0 6px; }
+  p, li { margin: 6px 0; }
+  code { font: 13px/1.4 ui-monospace, "SFMono-Regular", Menlo, monospace; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; overflow-wrap: anywhere; }
+  pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; font: 13px/1.45 ui-monospace, Menlo, monospace; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; text-align: center; }
+  .card b { display: block; font-size: 24px; }
+  .card span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .verdict { background: var(--card); border: 1px solid var(--line); border-left: 5px solid var(--ok); border-radius: 8px; padding: 14px 16px; }
+  .verdict strong { color: var(--ok); }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--bg); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  .scroll { overflow-x: auto; }
+  .sev { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 999px; color: #fff; white-space: nowrap; }
+  .sev-critical { background: var(--critical); } .sev-high { background: var(--high); } .sev-medium { background: var(--medium); }
+  .sev-low { background: var(--low); } .sev-info { background: var(--info); }
+  .note { border-left: 4px solid var(--accent); background: var(--card); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 14px 0; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: 1fr; gap: 16px; }
+    nav.toc { position: static; }
+    nav.toc ol { display: flex; flex-wrap: wrap; gap: 6px; }
+    nav.toc a { border-left: 0; border: 1px solid var(--line); background: var(--card); padding: 4px 10px; border-radius: 999px; }
+    nav.toc a.active { border-color: var(--accent); }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" aria-label="Sommaire">
+  <h2>Sommaire</h2>
+  <ol>
+    <li><a href="#synthese">Synthèse</a></li>
+    <li><a href="#contexte">Contexte du run</a></li>
+    <li><a href="#secrets">Secrets (gitleaks)</a></li>
+    <li><a href="#deps">Dépendances (OSV-Scanner)</a></li>
+    <li><a href="#code">Code (Semgrep)</a></li>
+    <li><a href="#limites">Limites</a></li>
+    <li><a href="#reproduire">Reproduire</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="synthese">
+  <h1>Scan de sécurité — WNEXT</h1>
+  <p class="meta">Run <code>20261024-233320</code> · 2026-10-24 23:33:20 (+02:00) · Dépôt <code>002-wnext</code>, branche <code>main</code>, commit <code>bd13168</code></p>
+
+  <div class="verdict">
+    <strong>OK : aucun constat critique.</strong> Code de sortie 0. Le scan n'a relevé aucun secret, aucun constat critique ni haut. Les 7 constats restants sont de sévérité moyenne ou faible, et deux de leurs sources sont des outils de développement non livrés.
+  </div>
+
+  <div class="cards">
+    <div class="card"><b>0</b><span>Critique</span></div>
+    <div class="card"><b>0</b><span>Haut</span></div>
+    <div class="card"><b>5</b><span>Moyen</span></div>
+    <div class="card"><b>2</b><span>Faible</span></div>
+    <div class="card"><b>0</b><span>Secrets</span></div>
+  </div>
+
+  <table>
+    <thead><tr><th>Outil</th><th>Critique</th><th>Haut</th><th>Moyen</th><th>Faible</th><th>Périmètre</th></tr></thead>
+    <tbody>
+      <tr><td>gitleaks 8.30.1</td><td>0</td><td>0</td><td>0</td><td>0</td><td>Historique git complet</td></tr>
+      <tr><td>OSV-Scanner 2.7.0</td><td>0</td><td>0</td><td>2</td><td>2</td><td><code>package-lock.json</code> (527 paquets)</td></tr>
+      <tr><td>Semgrep 1.181.0</td><td>0</td><td>0</td><td>3</td><td>0</td><td>Fichiers du dépôt de travail, dont non suivis</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="contexte">
+  <h2>Contexte du run</h2>
+  <table>
+    <tbody>
+      <tr><th>Dépôt scanné</th><td><code>/home/alec/projects/002-wnext</code> (monté en lecture seule)</td></tr>
+      <tr><th>Commit</th><td><code>bd13168</code> — « CLAUDE.md : rangement des docs… »</td></tr>
+      <tr><th>État de l'arbre</th><td>Fichiers non suivis présents : <code>.claude/</code>, <code>.opencode/</code>, <code>docs/05-project/security-scans/</code>. Le scan porte sur le dépôt de travail, pas sur le seul commit.</td></tr>
+      <tr><th>Image</th><td><code>wnext-scan:2.7.0</code>, identifiant <code>sha256:394224cee88d</code></td></tr>
+      <tr><th>Dockerfile</th><td><code>/home/alec/projects/003-security-kit/scanner/Dockerfile</code></td></tr>
+      <tr><th>Options</th><td><code>--only=secrets,deps,code</code>, sans <code>--strict</code></td></tr>
+      <tr><th>Configs</th><td><code>tests/security/gitleaks.toml</code>, <code>osv-scanner.toml</code>, <code>semgrep-exclusions.json</code> du dépôt</td></tr>
+      <tr><th>Rapports bruts</th><td><code>/home/alec/projects/003-security-kit/scanner/out/20261024-233320/</code> : <code>gitleaks.json</code>, <code>osv.json</code>, <code>semgrep.json</code>, <code>resume.json</code></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="secrets">
+  <h2>Secrets (gitleaks)</h2>
+  <p><span class="sev sev-info">Aucun constat</span> gitleaks n'a détecté aucun secret dans l'historique complet des commits. Le rapport est vide.</p>
+</section>
+
+<section id="deps">
+  <h2>Dépendances (OSV-Scanner)</h2>
+  <p>Quatre constats, tous sur le même paquet, <code>fast-uri@3.1.8</code>. Le paquet est tiré par <code>ajv</code>, qui est une <strong>dépendance de développement</strong> : il n'est pas livré en production.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Sévérité</th><th>Identifiant</th><th>Paquet</th><th>Résumé</th></tr></thead>
+    <tbody>
+      <tr><td><span class="sev sev-medium">Moyen</span></td><td><code>GHSA-w74x-v6f9-j3xg</code></td><td><code>fast-uri@3.1.8</code></td><td>Usurpation de schéma URI par décodage de schéma encodé en pourcentage</td></tr>
+      <tr><td><span class="sev sev-medium">Moyen</span></td><td><code>GHSA-wjr9-j795-jxcr</code></td><td><code>fast-uri@3.1.8</code></td><td>Confusion d'hôte par canonicalisation WHATWG non contrôlée</td></tr>
+      <tr><td><span class="sev sev-low">Faible</span></td><td><code>GHSA-333x-w4r6-6crp</code></td><td><code>fast-uri@3.1.8</code></td><td>Injection de schéma par un deux-points non échappé dans une référence de suffixe</td></tr>
+      <tr><td><span class="sev sev-low">Faible</span></td><td><code>GHSA-xhq7-xmqj-769h</code></td><td><code>fast-uri@3.1.8</code></td><td>Équivalence de chemin incorrecte dans la normalisation des références relatives</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="note">
+    <strong>Chaîne de dépendance :</strong> <code>ajv</code> (dev) → <code>fast-uri</code>. Vérifié dans <code>package-lock.json</code>. Une mise à jour de <code>fast-uri</code> vers une version corrigée se fait dans le lockfile, sans effet sur le runtime. À planifier, sans urgence.
+  </div>
+</section>
+
+<section id="code">
+  <h2>Code (Semgrep)</h2>
+  <p>Trois constats de même règle, <code>wildcard-postmessage-configuration</code> (moyen), dans un <strong>fichier non suivi</strong> par git : <code>.claude/skills/impeccable/scripts/live-browser.js</code>. Le motif est un <code>postMessage</code> dont l'origine cible est <code>*</code>.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Sévérité</th><th>Fichier</th><th>Ligne</th><th>Règle</th></tr></thead>
+    <tbody>
+      <tr><td><span class="sev sev-medium">Moyen</span></td><td><code>.claude/skills/impeccable/scripts/live-browser.js</code></td><td>12144</td><td><code>wildcard-postmessage-configuration</code></td></tr>
+      <tr><td><span class="sev sev-medium">Moyen</span></td><td><code>.claude/skills/impeccable/scripts/live-browser.js</code></td><td>12171</td><td><code>wildcard-postmessage-configuration</code></td></tr>
+      <tr><td><span class="sev sev-medium">Moyen</span></td><td><code>.claude/skills/impeccable/scripts/live-browser.js</code></td><td>12324</td><td><code>wildcard-postmessage-configuration</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="note">
+    <strong>Hors produit :</strong> ce fichier provient d'un outil d'aide au design, installé localement dans <code>.claude/</code>. Il n'est ni commité, ni livré, ni présent en CI. Le constat disparaît donc du scan CI. Il reste visible en local tant que le dossier n'est pas exclu.
+  </div>
+  <p class="meta">Choix à faire, hors de ce rapport : exclure <code>.claude/</code> dans <code>tests/security/semgrep-exclusions.json</code> pour que le scan local reflète le scan CI. Non fait : le dépôt n'a pas été modifié.</p>
+</section>
+
+<section id="limites">
+  <h2>Limites</h2>
+  <ul>
+    <li><strong>Règles Semgrep non épinglées :</strong> <code>p/typescript</code>, <code>p/nodejs</code> et <code>p/security-audit</code> sont téléchargées depuis le registre à chaque run. Deux runs du même commit peuvent donner des résultats différents.</li>
+    <li><strong>Périmètre :</strong> ce scan couvre les secrets de l'historique, les dépendances du lockfile et le code par règles Semgrep. Il ne remplace pas la revue manuelle (voir le rapport d'audit du même dossier).</li>
+    <li><strong>Pas de DAST :</strong> aucune requête n'a été envoyée à une instance en exécution.</li>
+    <li><strong>Pas de scan d'image :</strong> aucune image de l'API n'existe encore dans le dépôt.</li>
+  </ul>
+</section>
+
+<section id="reproduire">
+  <h2>Reproduire</h2>
+  <pre>REPO=/home/alec/projects/002-wnext
+OUT=/home/alec/projects/003-security-kit/scanner/out/$(date +%Y%m%d-%H%M%S)
+mkdir -p "$OUT"
+
+docker run --rm \
+  --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  --read-only --tmpfs /tmp:size=512m \
+  --cap-drop ALL --security-opt no-new-privileges \
+  --memory 3g \
+  -v "$REPO":/src:ro -v "$OUT":/out \
+  wnext-scan:2.7.0 --only=secrets,deps,code</pre>
+  <p class="meta">Ajouter <code>--strict</code> pour échouer aussi sur un constat haut.</p>
+</section>
+
+<footer>
+  Rapport généré le 2026-10-24 à 23:36:33 (+02:00) à partir du run <code>20261024-233320</code>. Aucun fichier du dépôt n'a été modifié.
+</footer>
+
+</main>
+</div>
+
+<script>
+  // Surligne l'ancre visible dans le sommaire.
+  (function () {
+    var links = document.querySelectorAll("nav.toc a");
+    var byId = {};
+    links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting && byId[e.target.id]) {
+          links.forEach(function (a) { a.classList.remove("active"); });
+          byId[e.target.id].classList.add("active");
+        }
+      });
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    document.querySelectorAll("main section[id]").forEach(function (s) { obs.observe(s); });
+  })();
+</script>
+</body>
+</html>
