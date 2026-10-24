@@ -149,12 +149,12 @@ Exécution réelle : chaque lot a été relu par un modèle d'une autre famille 
 
 | ID | Constat | Origine | Cible |
 |---|---|---|---|
-| PO-11 | Moteur de gestes : déplacer une occurrence d'une série mensuelle décale toute la série en jours, depuis n'importe quelle occurrence (même défaut non réversible que celui corrigé dans le drawer en L-P) | L-P | à décider : aligner les gestes sur la règle du drawer |
-| PO-12 | Drawer : la fin d'une occurrence ne peut pas dépasser la fin de série (contrôle « dates »), alors qu'un geste le permet | L-P | à décider |
-| PO-13 | Annulation d'une modification ou suppression « Tout le groupe » : une ligne non relue avant (hors fenêtre, autre projet, > 400 jours) rend l'action non annulable (annoncé) ; une ligne recréée par Ctrl+Z sort de son groupe | L-P, L-U | T2 si besoin (route de lecture ou de rattachement de groupe) |
-| PO-14 | Bouton du menu utilisateur : axe signale un écart entre le nom accessible (« Menu utilisateur de … ») et le texte visible (initiales) en mode OIDC | L-V | correctif d'accessibilité à faire |
-| PO-15 | Seed de recette : un congé « en attente » (Chloé Bernard) subsiste alors que l'écran ne peut plus en créer (RT-022) | L-R2 | garder (lecture d'un congé existant) ou retirer du seed |
-| PO-16 | Changer la langue par défaut du compte ne change pas la langue de l'écran (elle vient de `?lang=`) | L-O3 | à décider : langue de l'utilisateur, puis du compte |
+| PO-11 | Moteur de gestes : déplacer une occurrence d'une série mensuelle décale toute la série en jours, depuis n'importe quelle occurrence (même défaut non réversible que celui corrigé dans le drawer en L-P) | L-P | **décidé (Alec, 2026-10-24)** : aligner les gestes sur la règle du drawer (petit lot) |
+| PO-12 | Drawer : la fin d'une occurrence ne peut pas dépasser la fin de série (contrôle « dates »), alors qu'un geste le permet | L-P | **décidé (Alec, 2026-10-24)** : l'autoriser dans le drawer avec « Toute la série » (la fin de série suit), comme le geste |
+| PO-13 | Annulation d'une modification ou suppression « Tout le groupe » : une ligne non relue avant (hors fenêtre, autre projet, > 400 jours) rend l'action non annulable (annoncé) ; une ligne recréée par Ctrl+Z sort de son groupe | L-P, L-U | **décidé (Alec, 2026-10-24)** : garder en l'état pour le MVP ; route de rattachement en T2 si le besoin apparaît |
+| PO-14 | Bouton du menu utilisateur : axe signale un écart entre le nom accessible (« Menu utilisateur de … ») et le texte visible (initiales) en mode OIDC | L-V | **décidé (Alec, 2026-10-24)** : corriger l'accessibilité dans le prochain lot |
+| PO-15 | Seed de recette : un congé « en attente » (Chloé Bernard) subsiste alors que l'écran ne peut plus en créer (RT-022) | L-R2 | **décidé (Alec, 2026-10-24)** : garder (vérifie qu'un congé en attente existant reste lisible) |
+| PO-16 | Changer la langue par défaut du compte ne change pas la langue de l'écran (elle vient de `?lang=`) | L-O3 | **décidé (Alec, 2026-10-24)** : langue de l'utilisateur, sinon du compte, sinon du navigateur (petit lot) |
 
 ## Retours hors note (recette, 2026-10-21)
 
