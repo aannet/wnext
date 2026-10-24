@@ -1,12 +1,12 @@
-// En-tête applicatif (RT-001, RT-003) : nom de l'app, navigation principale (Planning, Projets, Personnes), puis à droite le bouton
+// En-tête applicatif (RT-001, RT-003) : symbole et nom de l'app (Plus Jakarta Sans ExtraBold), navigation principale (Planning, Projets, Personnes), puis à droite le bouton
 // « Rechercher » et sa pastille Ctrl K (RT-059, recherche globale : shell/global-search), la cloche des notifications, l'aide des
 // raccourcis clavier (RT-064, bouton « ? », shell/shortcuts-help), l'entrée Réglages (hors navigation principale, dossier §4.1 principe 1), « Bonjour {prénom} » et l'avatar à
 // initiales, qui ouvre le menu utilisateur (Déconnexion) quand une session peut être fermée.
 import type { I18n } from "@lingui/core";
 import type { Me } from "@wnext/contracts";
-import { useRef, useState, type MouseEvent } from "react";
+import { useRef, useState, type MouseEvent, type ReactNode } from "react";
 import type { NotificationsSource } from "../data/notifications-source";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, PopoverRoot } from "../design";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, Logo, PopoverRoot } from "../design";
 import type { MessageKey } from "../i18n";
 import { NotificationBell, NotificationsPanel } from "../notifications/notifications-ui";
 import { SearchButton } from "./global-search";
@@ -33,16 +33,16 @@ export interface AppHeaderProps {
 
 export function AppHeader({ i18n, me, route, href, onNavigate, notifications, onLogout }: AppHeaderProps) {
   const t = (k: MessageKey, v?: Record<string, unknown>) => i18n._(k, v);
-  const link = (id: RouteId, className?: string, label: MessageKey = ROUTE_TITLE_KEY[id]) => (
+  const link = (id: RouteId, className?: string, label: MessageKey = ROUTE_TITLE_KEY[id], content?: ReactNode) => (
     <a href={href(id)} className={className} {...(route === id ? { "aria-current": "page" as const } : {})} onClick={(e: MouseEvent) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; // nouvel onglet : laissé au navigateur
       e.preventDefault();
       onNavigate(id);
-    }}>{t(label)}</a>
+    }}>{content ?? t(label)}</a>
   );
   return (
     <header className="wn-appheader">
-      {link("planning", "wn-brand", "shell.brand")}
+      {link("planning", "wn-brand", "shell.brand", <><Logo size={20} /><span className="wn-brand-text">{t("shell.brand")}</span></>)}
       <nav aria-label={t("shell.nav.label")} className="wn-nav">
         {MAIN_NAV.map((id) => <span key={id}>{link(id)}</span>)}
       </nav>

@@ -185,6 +185,27 @@ describe("navigation", () => {
   });
 });
 
+describe("marque (logo et mot-symbole)", () => {
+  const brandOk = (el: Element) => {
+    const svg = el.querySelector("svg")!;
+    expect(svg.getAttribute("aria-hidden")).toBe("true");
+    expect([svg.querySelectorAll("rect").length, svg.querySelectorAll("circle").length]).toEqual([3, 1]);
+    expect(el.querySelector(".wn-brand-text")!.textContent).toBe("WNEXT");
+    expect(el.textContent).toBe("WNEXT"); // le symbole n'ajoute rien au nom accessible
+  };
+  it("en-tête : symbole masqué aux lecteurs d'écran, puis « WNEXT »", () => {
+    mount({});
+    brandOk(host.querySelector("header .wn-brand")!);
+  });
+  it("écran de connexion : même marque", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+    act(() => root!.render(<LoginScreen i18n={createI18n("fr")} onLogin={() => {}} />));
+    brandOk(host.querySelector(".wn-gate-brand")!);
+  });
+});
+
 describe("écrans d'accès", () => {
   it("profil en chargement, en erreur (réessayer), session expirée (se reconnecter) : sans en-tête applicatif", () => {
     mount({ me: { status: "loading" } });

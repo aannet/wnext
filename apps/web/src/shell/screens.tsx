@@ -2,7 +2,7 @@
 // Les écrans d'accès (connexion, session, erreur) sont seuls sur la page : pas d'en-tête applicatif, personne n'est connecté.
 import type { I18n } from "@lingui/core";
 import type { MessageKey } from "../i18n";
-import { Button } from "../design";
+import { Button, Logo } from "../design";
 
 /** Page encore vide : titre de la page et état « bientôt », dans l'en-tête applicatif. */
 export function ComingSoon({ i18n, titleKey }: { i18n: I18n; titleKey: MessageKey }) {
@@ -32,7 +32,7 @@ function Gate({ i18n, title, children, busy }: { i18n: I18n; title: string; chil
   return (
     <main className="wn-gate" {...(busy ? { "aria-busy": true } : {})}>
       <div className="wn-gate-card">
-        <p className="wn-brand wn-gate-brand">{i18n._("shell.brand")}</p>
+        <p className="wn-brand wn-gate-brand"><Logo size={32} /><span className="wn-brand-text">{i18n._("shell.brand")}</span></p>
         <h1 tabIndex={-1}>{title}</h1>
         {children}
       </div>
