@@ -57,6 +57,11 @@ typography:
     fontSize: "28px"
     fontWeight: 600
     lineHeight: "36px"
+  brand:
+    fontFamily: "Plus Jakarta Sans, system-ui, sans-serif"
+    fontSize: "16px"
+    fontWeight: 800
+    letterSpacing: "0.02em"
 rounded:
   sm: "4px"
   md: "6px"
@@ -160,7 +165,9 @@ Palette sobre : neutres froids et un seul accent. Les couleurs de capacité et d
 **Body Font:** system-ui, sans-serif.
 **Label/Mono Font:** la même pile. Les heures et montants utilisent les chiffres tabulaires (`font-variant-numeric: tabular-nums`).
 
-**Character:** neutre et lisible, faite pour des données denses. Une seule famille, trois graisses (400, 500, 600).
+**Brand Font:** Plus Jakarta Sans ExtraBold (800), pour le seul mot-symbole « WNEXT » (token `--font-brand`). Servie en local (`@fontsource/plus-jakarta-sans`, graisse 800, sous-ensemble latin), jamais depuis un CDN.
+
+**Character:** neutre et lisible, faite pour des données denses. Une seule famille pour l'interface, trois graisses (400, 500, 600) ; la marque est la seule exception.
 
 ### Hierarchy
 - **KPI** (600, 28px, 36px) : chiffres de synthèse, rares.
@@ -173,6 +180,14 @@ Palette sobre : neutres froids et un seul accent. Les couleurs de capacité et d
 
 ### Named Rules
 **The Tabular Hours Rule.** Toute durée et tout pourcentage s'affiche en chiffres tabulaires, pour que les colonnes restent alignées.
+
+## Brand
+
+**Symbole.** Trois strates horizontales aux bouts arrondis (« pill shapes »), inspirées des diagrammes de charge et de Gantt, et un point focal qui marque le jalon, la prochaine étape (« Next »). Source : `apps/web/src/design/brand/logo.svg` (SVG 1.1, monochrome, `currentColor`), composant `Logo` (décoratif, `aria-hidden`, à côté du mot « WNEXT »). 20 px dans l'en-tête, 32 px sur les écrans d'accès, couleur du texte principal.
+
+**Favicon.** Redessiné pour 16 × 16 px (`apps/web/public/favicon.svg`) : barres de 2 px sur des pixels entiers, point de 2 × 2, anthracite (blanc sur un onglet sombre). Repli PNG `favicon-16.png`, rendu par `scripts/render-favicon.mjs`. Le symbole réduit tel quel donnerait des barres floues.
+
+**The Mono Mark Rule.** Le symbole est toujours d'une seule couleur, celle du texte qui l'accompagne ; on ne le colore pas en pétrole ni en couleur de projet.
 
 ## Layout
 
