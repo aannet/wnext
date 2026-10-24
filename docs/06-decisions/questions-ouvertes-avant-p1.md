@@ -42,4 +42,4 @@ Float v3 est **dimanche-first** : `work_days_hours` indexe 0 = dimanche, 1 = lun
 
 | # | Question | Décision |
 |---|---|---|
-| 13 | Accent de marque (Q-09 du dossier §7) | **Pétrole `#0E7490`**, texte blanc dessus (5,4:1), choisi parmi 4 candidats (`docs/02-design/comparatif-accents.html`, `docs/02-design/direction.md`). Le focus passe en encre `#1F2937` ; la teinte sarcelle sort de la palette projet. Token `--color-accent` dans `apps/web/src/design/tokens.css`. |
+| 13 | Accent de marque (Q-09 du dossier §7) | **Pétrole `#0E7490`**, texte blanc dessus (5,4:1), choisi parmi 4 candidats (`docs/06-decisions/annexes/comparatif-accents.html`, `docs/06-decisions/direction-visuelle.md`). Le focus passe en encre `#1F2937` ; la teinte sarcelle sort de la palette projet. Token `--color-accent` dans `apps/web/src/design/tokens.css`. |

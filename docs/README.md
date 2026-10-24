@@ -6,12 +6,14 @@ Rangement par domaine, numéroté pour l'ordre de lecture. Statut : **vivant** (
 |---|---|---|
 | [`00-factory/`](00-factory/) | Stratégie et phases P0..P6 (`strategy.md`), gel de la factory, preuves des garde-fous | figé (factory gelée) |
 | [`01-product/`](01-product/) | Dossier de fondamentaux v1.1 : intention, règles `BR-xx`, exigences, feuille de route | vivant (les ADR priment) |
-| [`02-design/`](02-design/) | Principes d'UX (`design.md`), direction visuelle, écrans et parcours, captures avant/après | vivant |
+| [`02-design/`](02-design/) | Règles d'UX et de composants (`ux-rules.md`), écrans et parcours | vivant |
 | [`03-tech/`](03-tech/) | Diagramme du schéma v1.1, `runbooks/` (exploitation), `quality/` (scan de sécurité, Schemathesis, charge temps réel, relecture des tests SQL) | vivant |
 | [`04-specs/`](04-specs/) | Spécifications par fonctionnalité (gabarit dans son README) | vivant (à remplir) |
 | [`05-project/`](05-project/) | Avancement (`avancement.html`), `recette/` (notes verbatim, registre `RT-NNN`, cadrages, scénarios), `journal/` (plans et handoffs datés) | vivant ; `journal/` historique |
-| [`06-decisions/`](06-decisions/) | ADR-001 à ADR-010, questions ouvertes, `reviews-v1.1/` (revues par rôle qui ont nourri ADR-001) | vivant ; revues figées |
+| [`06-decisions/`](06-decisions/) | ADR-001 à ADR-010, questions ouvertes, direction visuelle et choix de l'accent (`direction-visuelle.md`), `reviews-v1.1/` (revues par rôle qui ont nourri ADR-001), `annexes/` (mesures du spike de grille, résultats du spike d'orchestrateur, comparatif des accents) | vivant ; revues et annexes figées |
 | [`99-archive/`](99-archive/) | Matériel v1.0 remplacé (dossier et schéma), images de référence du 2026-10-18 (`input-dump/`) | figé, ne pas utiliser |
+
+À la racine du dépôt, deux fichiers lus par l'outil Impeccable, qui doivent y rester : `DESIGN.md` (système visuel : tokens, typographie, marque, composants) et `PRODUCT.md` (résumé d'une page du dossier de fondamentaux).
 
 Règle de conflit : les ADR de `06-decisions/` priment sur le dossier de fondamentaux.
 
@@ -34,3 +36,8 @@ Rangement du 2026-10-24. Certains fichiers gelés citent encore les anciens chem
 | `docs/review/{archi-fonctionnel,archi-solution,product,ux-ui}.md` | `docs/06-decisions/reviews-v1.1/` |
 | `docs/archive/` | `docs/99-archive/` |
 | `input-dump/` (racine) | `docs/99-archive/input-dump/` |
+| `docs/02-design/design.md` | `docs/02-design/ux-rules.md` |
+| `docs/02-design/direction.md` | `docs/06-decisions/direction-visuelle.md` |
+| `docs/02-design/comparatif-accents.html` | `docs/06-decisions/annexes/comparatif-accents.html` |
+| `spikes/grille/results/` | `docs/06-decisions/annexes/ADR-005-mesures/` (code du spike : historique git, `2f38ccb`) |
+| `spikes/orchestrateur/RESULTATS.md` | `docs/06-decisions/annexes/ADR-007-spike-orchestrateur.md` (code : `3ed083c`, `d0d8fc5`) |

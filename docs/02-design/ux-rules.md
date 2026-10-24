@@ -1,6 +1,6 @@
-# Design — principes d'UX et de composants WNEXT
+# Règles d'UX et de composants WNEXT
 
-Statut : vivant. Ce document consigne les principes d'interface décidés par Alec en recette. Il complète `direction.md` (identité visuelle) et `docs/06-decisions/reviews-v1.1/ux-ui.md` (spec). En cas de conflit, les décisions d'Alec et les ADR l'emportent.
+Statut : vivant. Ce document consigne les principes d'interface décidés par Alec en recette. Il complète `DESIGN.md` à la racine (système visuel : tokens, typographie, marque, composants ; tenu par Impeccable), `docs/06-decisions/direction-visuelle.md` (choix de la direction et de l'accent) et `docs/06-decisions/reviews-v1.1/ux-ui.md` (spec). En cas de conflit, les décisions d'Alec et les ADR l'emportent.
 
 ## Kit de composants
 

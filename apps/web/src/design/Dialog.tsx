@@ -1,7 +1,7 @@
 // Coque commune de Modal et de Drawer, sur le Dialog shadcn/ui (Base UI, ADR-010) : portail, voile, rôle dialog modal, titre
 // relié, piège du focus, focus initial, Échap, bouton Fermer (×) toujours visible, focus rendu au déclencheur, défilement de
 // la page bloqué.
-// Fermeture (docs/02-design/design.md, RT-023) :
+// Fermeture (docs/02-design/ux-rules.md, RT-023) :
 //  * Drawer : un clic sur le voile ferme (sauf le deuxième clic d'un double clic) ; Modal : il ne ferme pas ;
 //  * `unsaved.dirty` : ×, Échap et clic extérieur demandent d'abord « Abandonner les modifications ? » (Q7) ;
 //  * `onEscape` : Échap revient d'une étape (avertissement, assistant) sans question ni fermeture.

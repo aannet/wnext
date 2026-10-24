@@ -53,7 +53,7 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 - **Attendu** : la jauge suit le défilement ; le pourcentage vient du moteur côté écran, jamais de l'API.
 
 ### R-05 — Les formulaires s'ouvrent en fenêtre superposée
-- **Couvre** : ux-ui §3.4 ; RT-009, RT-023 ; `docs/02-design/design.md`.
+- **Couvre** : ux-ui §3.4 ; RT-009, RT-023 ; `docs/02-design/ux-rules.md`.
 - **Faisable** : oui (RT-049 sans objet depuis RT-060 : plus de bouton de création ; ouvert au clavier, le drawer rend le focus à la grille ou au bloc d'origine).
 - **Préconditions** : connecté en Alec sur le Planning.
 - **Quand** j'ouvre successivement le congé (touche C sur la grille, drawer), « Importer un fichier CSV… » (Réglages > Import, RT-054), la cloche « Notifications », l'aide des raccourcis (bouton « ? », RT-064) et, par clic droit sur un bloc de Camille Roy, « Retirer Camille Roy du projet Refonte… ». **Alors** chacun s'ouvre dans une fenêtre superposée (drawer, modale ou popover), jamais dans un panneau inséré dans la page.
@@ -219,7 +219,7 @@ Notation des dates : « lundi S+2 » = `S0 + 14 jours`, etc. (S0 = lundi de la s
 - **Attendu** : annuler par Ctrl+Z dans le premier onglet.
 
 ### R-26 — Palette de recherche Ctrl+K
-- **Couvre** : RT-038, PO-09 ; `docs/02-design/design.md` (recherche).
+- **Couvre** : RT-038, PO-09 ; `docs/02-design/ux-rules.md` (recherche).
 - **Faisable** : oui.
 - **Préconditions** : seed de recette, Planning, filtre « Département : Produit » actif (Camille Roy, du département Design, est masquée).
 - **Quand** j'appuie sur Ctrl+K (⌘K sur Mac) et tape « camille ». **Alors** l'option « Camille Roy masquée par les filtres » est proposée ; Entrée affiche une confirmation (« Retirer les filtres et afficher Camille Roy », focalisée) ; je la valide. **Alors** les filtres sont retirés, la palette se ferme, la ligne de Camille est mise en évidence ; un bouton « Rétablir les filtres » ramène « Filtres (1) » et disparaît.

@@ -111,6 +111,8 @@ components:
 
 # Design System: WNEXT
 
+> Système visuel tenu par Impeccable (`impeccable document` régénère ce fichier, qui doit rester à la racine). Règles de comportement de l'UX : `docs/02-design/ux-rules.md`. Choix de la direction et de l'accent : `docs/06-decisions/direction-visuelle.md`.
+
 ## Overview
 
 **Creative North Star: "Le registre calme"**

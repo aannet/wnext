@@ -46,4 +46,4 @@ Contraintes :
 | C — Prune | `#7C3AED` | blanc | Identité marquée et peu courante dans la catégorie ; vigilance avec les projets violets |
 | D — Encre | `#1F2937` (et l'actuel `#334155`) | blanc | Monochrome, éditorial : la seule couleur vient des projets ; très sobre |
 
-`comparatif-accents.html` applique chaque candidat à une maquette du Schedule (en-tête, sous-header, lignes aérées, blocs, popover d'édition) et affiche les contrastes calculés. Alec choisit, puis l'accent remplace la valeur provisoire dans `apps/web/src/design/tokens.css`.
+`annexes/comparatif-accents.html` applique chaque candidat à une maquette du Schedule (en-tête, sous-header, lignes aérées, blocs, popover d'édition) et affiche les contrastes calculés. Alec choisit, puis l'accent remplace la valeur provisoire dans `apps/web/src/design/tokens.css`.

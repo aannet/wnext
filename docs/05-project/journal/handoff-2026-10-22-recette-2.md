@@ -6,7 +6,7 @@ Point de départ : `main` à `97c09fb` (note n°2 cadrée et validée). Arrivée
 
 ## Ce qui a été fait
 
-Source de vérité : `docs/05-project/recette/registre.md` (RT, lots, PO, Q6–Q13). Suivi : `docs/05-project/avancement.html`. Règles UX : `docs/02-design/design.md`.
+Source de vérité : `docs/05-project/recette/registre.md` (RT, lots, PO, Q6–Q13). Suivi : `docs/05-project/avancement.html`. Règles UX : `docs/02-design/ux-rules.md`.
 
 | Lot | Commits | Retours | Résultat |
 |---|---|---|---|

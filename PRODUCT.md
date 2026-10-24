@@ -2,6 +2,8 @@
 
 <!-- impeccable:product-schema 1 -->
 
+> Résumé d'une page lu par Impeccable (doit rester à la racine). Source de vérité : `docs/01-product/dossier-fondamentaux-v1.1.md` ; les ADR de `docs/06-decisions/` priment.
+
 ## Platform
 
 web
