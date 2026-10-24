@@ -98,6 +98,8 @@
 
   /* §3.2 Typographie. Écart : Inter n'est pas encore chargée, la pile reste celle de l'écran actuel. */
   --font-sans: system-ui, sans-serif;
+  /* Mot-symbole « WNEXT » seulement : Plus Jakarta Sans ExtraBold, servie en local (@fontsource, graisse 800, latin). */
+  --font-brand: "Plus Jakarta Sans", var(--font-sans);
   --text-caption: 11px;
   --text-caption--line-height: 16px;
   --text-label: 12px;

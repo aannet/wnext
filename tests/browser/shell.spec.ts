@@ -69,3 +69,18 @@ test("EN : en-tête traduit", async ({ page }) => {
   await expect(page.getByRole("banner").getByText("Hello Alec")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link")).toHaveText(["Schedule", "Projects", "People"]);
 });
+
+test("marque : symbole et « WNEXT » en Plus Jakarta Sans ExtraBold servie en local ; favicons servis", async ({ page }) => {
+  await openDemo(page);
+  const text = page.getByRole("banner").locator(".wn-brand .wn-brand-text");
+  await expect(text).toHaveText("WNEXT");
+  await page.evaluate(() => document.fonts.ready);
+  const font = await text.evaluate((el) => ({ family: getComputedStyle(el).fontFamily, weight: getComputedStyle(el).fontWeight }));
+  expect(font.family).toMatch(/^"?Plus Jakarta Sans"?/);
+  expect(font.weight).toBe("800");
+  expect(await page.evaluate(() => document.fonts.check('800 16px "Plus Jakarta Sans"'))).toBe(true);
+  const box = (await page.getByRole("banner").locator(".wn-brand svg").boundingBox())!;
+  expect([box.width, box.height]).toEqual([20, 20]);
+  for (const icon of ["/favicon.svg", "/favicon-16.png"]) expect((await page.request.get(icon)).status(), icon).toBe(200);
+  await noViolations(page, "marque");
+});
