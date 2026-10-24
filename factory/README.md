@@ -1,6 +1,6 @@
 # Factory : kill-switch
 
-Implémente `docs/factory/strategy.md` §4.5 (kill-switch) et ADR-007 (hook PreToolUse **et** arrêt de processus). Node seul, sans dépendance.
+Implémente `docs/00-factory/strategy.md` §4.5 (kill-switch) et ADR-007 (hook PreToolUse **et** arrêt de processus). Node seul, sans dépendance.
 
 | Fichier | Rôle |
 |---|---|

@@ -1,6 +1,6 @@
 /**
  * Contrats de l'orchestrateur et du Superviseur (L9.0). AUCUNE logique ici.
- * Sources : docs/factory/strategy.md §2, §4.1, §4.3, §4.4, §4.5, §4.8, §5 ; ADR-006, ADR-007.
+ * Sources : docs/00-factory/strategy.md §2, §4.1, §4.3, §4.4, §4.5, §4.8, §5 ; ADR-006, ADR-007.
  *
  * Conventions (contraignantes pour L9.1-L9.4) :
  *  - temps en millisecondes epoch (`*_ms`) lus via `Clock`, jamais `Date.now()` ;

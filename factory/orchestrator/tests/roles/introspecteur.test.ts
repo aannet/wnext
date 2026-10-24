@@ -27,7 +27,7 @@ describe("Introspecteur : fichier de sortie et garde-fous d'écriture", () => {
   beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "retro-")); });
   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
-  it("écrit docs/factory/retro/<cycle>.md dans retroDir et retourne son chemin", async () => {
+  it("écrit docs/00-factory/retro/<cycle>.md dans retroDir et retourne son chemin", async () => {
     const p = await new IntrospecteurDeterministe({ retroDir: dir, config }).run(LINE_CYCLE("P1-017"), oneLine("P1-017"));
     expect(p).toBe(join(dir, "P1-017.md"));
     expect(readdirSync(dir)).toEqual(["P1-017.md"]);

@@ -22,7 +22,7 @@ const LINE_ID = /^P[0-5]-\d{3}$/;
 const PHASE_ID = /^P[0-5]$/;
 
 export interface IntrospecteurOptions {
-  /** Répertoire de sortie (`docs/factory/retro/` en production). Aucune écriture hors de ce répertoire. */
+  /** Répertoire de sortie (`docs/00-factory/retro/` en production). Aucune écriture hors de ce répertoire. */
   retroDir: string;
   /** Seuils de supervision.yaml (leviers et valeurs courantes) ; par défaut le fichier versionné. */
   config?: SupervisorConfig;

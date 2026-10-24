@@ -1,6 +1,6 @@
 # Observabilité de la dark factory
 
-Sous-projet d'observabilité (contrat d'événements `docs/factory/strategy.md` §5, métriques §6.2) : schéma JSON, store SQLite append-only, dashboard Next.js temps réel, scribe Haiku, simulateur.
+Sous-projet d'observabilité (contrat d'événements `docs/00-factory/strategy.md` §5, métriques §6.2) : schéma JSON, store SQLite append-only, dashboard Next.js temps réel, scribe Haiku, simulateur.
 
 ## Lancement
 

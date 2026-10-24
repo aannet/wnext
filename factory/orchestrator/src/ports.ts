@@ -31,7 +31,7 @@ export type Cycle =
   | { kind: "phase"; id: Phase; phase: Phase };
 
 export interface Introspecteur {
-  /** Écrit `docs/factory/retro/<cycle>.md` et retourne son chemin. Lecture seule hors de ce fichier et des PR de config. */
+  /** Écrit `docs/00-factory/retro/<cycle>.md` et retourne son chemin. Lecture seule hors de ce fichier et des PR de config. */
   run(cycle: Cycle, events: readonly FactoryEvent[]): Promise<string>;
 }
 

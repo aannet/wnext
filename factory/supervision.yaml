@@ -1,5 +1,5 @@
 # Seuils du Superviseur et de l'orchestrateur (ADR-006, ADR-007).
-# Chaque valeur cite le paragraphe de docs/factory/strategy.md dont elle provient.
+# Chaque valeur cite le paragraphe de docs/00-factory/strategy.md dont elle provient.
 # Sous CODEOWNERS /factory/ : modifié seulement par PR relue (l'Introspecteur propose, §4.9).
 # Convention : `*_max` = déclenche quand la valeur observée est STRICTEMENT supérieure ;
 # `max_cycles_*` / `max_review_returns` = plafond atteint quand le compteur >= valeur.
