@@ -378,7 +378,14 @@ test("R-11 — Création au clavier (touche N)", async ({ page }) => {
   await expect(page.locator(".wn-quick")).toHaveCount(0);
   await expect(page.getByText("8 h par jour par défaut.")).toHaveCount(0);
   await showPerson(page, "Camille Roy");
-  const block = page.locator('.wn-row[data-person="1"] .wn-block[data-key]:visible').first();
+  // N crée au premier jour du bloc focalisé : on prend un bloc dont le début est à l'écran (à droite de la colonne Personnes,
+  // 240 px). Le premier bloc visible peut déborder à gauche selon le jour de la semaine où la recette tourne.
+  const g = (await page.locator('[role="grid"]').boundingBox())!;
+  const blocks = page.locator('.wn-row[data-person="1"] .wn-block[data-key]:visible');
+  let first = -1;
+  for (let i = 0; i < (await blocks.count()) && first < 0; i++) if ((await blocks.nth(i).boundingBox())!.x >= g.x + 240) first = i;
+  expect(first, "un bloc de Camille Roy commence à l'écran").toBeGreaterThanOrEqual(0);
+  const block = page.locator(`.wn-block[data-key="${await blocks.nth(first).getAttribute("data-key")}"]`);
   await block.focus();
   // Un jour seul : « Refonte, le …, 6 h » (plusieurs jours : « …, 6 h par jour »).
   const mine = page.locator('.wn-row[data-person="1"] .wn-block[aria-label^="Refonte,"][aria-label*=", 6 h"]:visible');
