@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
+import { buildRealtimeComponents, renderApiDoc } from "./api-doc";
 import { findBreakingChanges, parseAllowlist } from "./breaking";
 import { generateClient } from "./client";
 import { buildSpec } from "./openapi";
@@ -7,7 +8,7 @@ import { paths } from "./paths";
 
 const render = () => {
   const spec = buildSpec();
-  return { spec: JSON.stringify(spec, null, 2) + "\n", client: generateClient(spec) };
+  return { spec: JSON.stringify(spec, null, 2) + "\n", client: generateClient(spec), apiDoc: renderApiDoc(spec as never, buildRealtimeComponents()) };
 };
 const read = (p: string) => {
   try {
@@ -22,18 +23,20 @@ if (cmd === "generate") {
   const r = render();
   writeFileSync(paths.spec, r.spec);
   writeFileSync(paths.client, r.client);
-  console.log("ecrit :", paths.spec, paths.client);
+  writeFileSync(paths.apiDoc, r.apiDoc);
+  console.log("ecrit :", paths.spec, paths.client, paths.apiDoc);
 } else if (cmd === "check") {
   const r = render();
   const drift = [
     read(paths.spec) !== r.spec && "packages/contracts/openapi.json",
     read(paths.client) !== r.client && "apps/web/src/api/client.gen.ts",
+    read(paths.apiDoc) !== r.apiDoc && "docs/03-tech/api.html",
   ].filter(Boolean);
   if (drift.length) {
     console.error(`DERIVE : ${drift.join(", ")} different(s) de la generation. Lancer : npm run generate:contract`);
     process.exit(1);
   }
-  console.log("check:contract OK (spec et client a jour)");
+  console.log("check:contract OK (spec, client et doc API a jour)");
 } else if (cmd === "breaking") {
   // --base <fichier> ou --ref <git-ref> (defaut : origin/main s'il existe, sinon HEAD)
   const i = args.indexOf("--base");

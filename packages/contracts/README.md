@@ -4,16 +4,16 @@ Source de vérité du contrat d'API (ADR-003). Ce paquet ne dépend que de `zod`
 
 ## Chaîne contract-first
 
-Zod (`src/`) -> `openapi.json` (généré, commité) -> client TS `apps/web/src/api/client.gen.ts` (généré, commité).
+Zod (`src/`) -> `openapi.json` (généré, commité) -> client TS `apps/web/src/api/client.gen.ts` (généré, commité), et doc lisible `docs/03-tech/api.html` (générée, commitée ; elle inclut les messages temps réel).
 L'outillage vit dans `packages/contracts-tools` (hors graphe de `apps/*`) ; il n'est jamais exécuté dans le serveur.
 
 ## Procédure de régénération
 
 1. Modifier les schémas / routes dans `packages/contracts/src` (commit séparé relu, CODEOWNERS).
-2. `npm run generate:contract` : réécrit `openapi.json` et `client.gen.ts`.
-3. `npm run check:contract` : échoue (code 1) si l'un des deux diffère de la génération (dérive).
+2. `npm run generate:contract` : réécrit `openapi.json`, `client.gen.ts` et `docs/03-tech/api.html`.
+3. `npm run check:contract` : échoue (code 1) si l'un des trois diffère de la génération (dérive).
 4. `npm run check:breaking` : compare la spec courante à celle de `HEAD` (`--ref origin/main` ou `--base fichier.json`) ; échoue sur rupture.
-5. Ne jamais éditer `openapi.json` ni `client.gen.ts` à la main.
+5. Ne jamais éditer `openapi.json`, `client.gen.ts` ni `docs/03-tech/api.html` à la main.
 
 ### Exceptions relues de `check:breaking`
 

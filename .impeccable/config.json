@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "packages/contracts-tools/src/api-doc.ts"
+        ],
+        "createdAt": "2026-10-24T21:46:29.477Z",
+        "reason": "Claude: générateur de doc interne (docs/03-tech/api.html), qui suit la convention des docs HTML (IBM Plex, comme schema-v1.1-diagram.html), pas l'interface produit"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "docs/**/*.html"
+        ],
+        "createdAt": "2026-10-24T21:50:25.483Z",
+        "reason": "Claude: les docs HTML internes suivent leur propre convention (IBM Plex, schema-v1.1-diagram.html), distincte du système visuel du produit"
+      }
+    ]
+  }
+}
