@@ -707,7 +707,7 @@ export const en: Record<MessageKey, string> = {
   "schedule.slot.issue.person": "Pick at least one person.",
   "schedule.slot.issue.people": "Too many people: an existing allocation has exactly one, a new one at most 50.",
   "schedule.slot.issue.project": "Pick a project.",
-  "schedule.slot.issue.dates": "Inconsistent dates: the end must follow the start (and stay within the series).",
+  "schedule.slot.issue.dates": "Inconsistent dates: the end must follow the start.",
   "schedule.slot.issue.hours": "Hours per day: more than 0 and at most 24.",
   "schedule.slot.issue.percent": "Percentage: more than 0 and at most 500.",
   "schedule.slot.overload": "Overbooked: {people} {count, plural, one {exceeds their capacity} other {exceed their capacity}} in this period (allowed, flagged).",

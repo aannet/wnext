@@ -13,7 +13,8 @@
 //    existant ni pendant l'avertissement BR-04.
 //  * Portée (RT-042, PO-08) : une série s'ouvre sur l'occurrence cliquée (ses dates). À l'enregistrement, une étape du
 //    drawer demande « Cette occurrence » (découpe BR-25, non annulable : annoncé) ou « Toute la série » (dates décalées
-//    d'autant, fin de série comprise ; série mensuelle : seulement depuis sa première occurrence) ; une ligne de groupe (BR-26), « Cette ligne » ou « Tout le groupe » (PATCH de groupe, annulable ligne par
+//    d'autant, fin de série comprise, et repoussée si l'occurrence finit après elle, PO-12 ; série mensuelle : seulement depuis sa
+//    première occurrence) ; une ligne de groupe (BR-26), « Cette ligne » ou « Tout le groupe » (PATCH de groupe, annulable ligne par
 //    ligne ; indisponible, avec la raison, si la personne ou la charge change aussi). Rien qui dépende de la portée : pas
 //    d'étape. Radio choisi focalisé à l'entrée ; Échap ou Retour revient au formulaire.
 //  * Commandes du bloc (RT-047), si l'allocation est modifiable (`canCommand`, BR-33) : groupe « Actions sur l'allocation »
@@ -198,7 +199,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
   async function submit() {
     const s = stateRef.current;
     if (!s || !records || busy.current) return;
-    const issues = slotIssues(s.draft, current);
+    const issues = slotIssues(s.draft);
     if (issues.length) { show({ ...s, tried: true }); return; }
     if (current) {
       const plan = scopePlan(current, s.occ, s.draft, writer().updateAllocationGroup !== undefined);
@@ -427,7 +428,7 @@ export function useSlotEditor(o: SlotEditorOptions): SlotEditor {
         <SlotForm i18n={i18n} formId={`${ids}-form`} draft={d} onChange={set} onSubmit={() => void submit()} current={current}
           people={data.people.map((p) => ({ id: p.id, name: p.name }))} projects={options}
           tasks={(d.projectId ? tasks[d.projectId] ?? [] : []).map((x) => ({ id: x.id, name: x.name }))}
-          overloads={slotOverloads(data, d, current).map(nameOf)} issues={s.tried ? slotIssues(d, current) : []} error={s.error} color={color} />
+          overloads={slotOverloads(data, d, current).map(nameOf)} issues={s.tried ? slotIssues(d) : []} error={s.error} color={color} />
         {commandable(a) && (
           <div role="group" aria-label={t("schedule.slot.actions")} className="wn-slot-actions">
             <Button onClick={() => show(base({ ...d, allocationId: null }, "allocation", s.key, null))}>{t("schedule.slot.duplicate")}</Button>

@@ -706,7 +706,7 @@ export const fr = {
   "schedule.slot.issue.person": "Choisissez au moins une personne.",
   "schedule.slot.issue.people": "Trop de personnes : une allocation existante en porte une seule, une création 50 au plus.",
   "schedule.slot.issue.project": "Choisissez un projet.",
-  "schedule.slot.issue.dates": "Dates incohérentes : la fin doit suivre le début (et rester dans la série).",
+  "schedule.slot.issue.dates": "Dates incohérentes : la fin doit suivre le début.",
   "schedule.slot.issue.hours": "Heures par jour : plus de 0 et 24 au plus.",
   "schedule.slot.issue.percent": "Pourcentage : plus de 0 et 500 au plus.",
   "schedule.slot.overload": "Surcharge : {people} {count, plural, one {dépasse sa capacité} other {dépassent leur capacité}} sur cette période (signalé, permis).",
