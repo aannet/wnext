@@ -192,6 +192,7 @@ export const fr = {
   "schedule.edit.series.all": "Toute la série",
   "schedule.edit.series.cancel": "Annuler",
   "schedule.edit.series.unsupported": "Impossible de modifier cette seule occurrence ({reason, select, overlapping {les occurrences se chevauchent} monthly_clamped {la répétition mensuelle tombe en fin de mois} other {série non découpable}}). Modifier toute la série ?",
+  "schedule.edit.series.none": "Impossible de modifier cette seule occurrence ({reason, select, overlapping {les occurrences se chevauchent} monthly_clamped {la répétition mensuelle tombe en fin de mois} other {série non découpable}}).",
   "views.toolbar.label": "Vues du planning",
   "views.label": "Vue",
   "views.all": "Tout le monde",

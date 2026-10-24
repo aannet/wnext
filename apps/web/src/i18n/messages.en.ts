@@ -193,6 +193,7 @@ export const en: Record<MessageKey, string> = {
   "schedule.edit.series.all": "The whole series",
   "schedule.edit.series.cancel": "Cancel",
   "schedule.edit.series.unsupported": "This single occurrence cannot be changed ({reason, select, overlapping {occurrences overlap} monthly_clamped {the monthly repeat falls at month end} other {series cannot be split}}). Change the whole series?",
+  "schedule.edit.series.none": "This single occurrence cannot be changed ({reason, select, overlapping {occurrences overlap} monthly_clamped {the monthly repeat falls at month end} other {series cannot be split}}).",
   "views.toolbar.label": "Schedule views",
   "views.label": "View",
   "views.all": "Everyone",

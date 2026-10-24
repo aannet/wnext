@@ -25,6 +25,14 @@ const errorKey = (e: EditError): MessageKey => (SHOWN.has(e) ? `schedule.edit.er
 interface Choice { req: EditRequest; unsupported: string | null; done?(): void }
 
 /**
+ * PO-11, même règle que le drawer (scopePlan, L-P) : une série mensuelle ne se déplace en jours que depuis sa première
+ * occurrence (depuis une autre, les fins de mois ramenées rendent le décalage irréversible). « Toute la série » n'est alors
+ * pas proposée.
+ */
+export const monthlyDatesLocked = (r: Pick<EditRequest, "allocation" | "occurrence" | "patch">): boolean =>
+  r.allocation.repeatState === "monthly" && r.occurrence !== null && r.occurrence > 0 && (r.patch.startDate !== undefined || r.patch.endDate !== undefined);
+
+/**
  * Avertissements (BR-01, BR-37) d'une écriture, sur l'état tel qu'après elle. « Cette occurrence » : la découpe locale
  * (localSplit, celle de l'état optimiste) donne l'occurrence écrite, bornée à la fin de série, et le reste de la série
  * (avant / après) qui remplace l'allocation d'origine pour la surcharge. Découpe refusée : aucun avertissement (l'écriture
@@ -87,6 +95,7 @@ export function useScheduleEdits(
     open(null);
     c.done?.();
     const { req } = c;
+    if (kind === "all" && monthlyDatesLocked(req)) kind = "cancel"; // bouton absent ; garde-fou
     // Tout de suite (le bouton va disparaître) : le bloc d'origine, encore affiché. Différé, ce rappel passerait après
     // l'écriture et ramènerait le focus sur la grille (la clé de l'occurrence découpée n'existe plus).
     focusKey(req.key);
@@ -102,12 +111,16 @@ export function useScheduleEdits(
 
   // Choix de portée : popover ancré au bloc édité s'il est dessiné (rectangle non vide), sinon fenêtre modale.
   const anchor = choice ? anchorOf?.(choice.req.key) ?? null : null;
-  const question = choice ? (choice.unsupported === null ? t("schedule.edit.series.title") : t("schedule.edit.series.unsupported", { reason: choice.unsupported })) : "";
+  const locked = choice !== null && monthlyDatesLocked(choice.req);
+  const question = !choice ? ""
+    : choice.unsupported === null ? t("schedule.edit.series.title")
+    : t(locked ? "schedule.edit.series.none" : "schedule.edit.series.unsupported", { reason: choice.unsupported });
+  const why = locked ? <p className="wn-muted m-0 mb-3">{t("schedule.slot.scope.blocked.monthly_dates")}</p> : null;
   const actions = choice && (
     <>
       {choice.unsupported === null && <Button variant="primary" autoFocus onClick={() => void choose("one")}>{t("schedule.edit.series.one")}</Button>}
-      <Button variant={choice.unsupported === null ? "secondary" : "primary"} autoFocus={choice.unsupported !== null} onClick={() => void choose("all")}>{t("schedule.edit.series.all")}</Button>
-      <Button onClick={() => void choose("cancel")}>{t("schedule.edit.series.cancel")}</Button>
+      {!locked && <Button variant={choice.unsupported === null ? "secondary" : "primary"} autoFocus={choice.unsupported !== null} onClick={() => void choose("all")}>{t("schedule.edit.series.all")}</Button>}
+      <Button autoFocus={locked && choice.unsupported !== null} onClick={() => void choose("cancel")}>{t("schedule.edit.series.cancel")}</Button>
     </>
   );
   const element = (
@@ -115,11 +128,12 @@ export function useScheduleEdits(
       {choice && anchor && (
         <Popover anchor={anchor} labelledBy="wn-series-title" onClose={() => void choose("cancel")}>
           <p id="wn-series-title" className="m-0 mb-3">{question}</p>
+          {why}
           <div className="flex flex-wrap justify-end gap-2">{actions}</div>
         </Popover>
       )}
       {choice && !anchor && (
-        <Modal title={question} closeLabel={t("dialog.close")} onClose={() => void choose("cancel")} footer={actions}>{null}</Modal>
+        <Modal title={question} closeLabel={t("dialog.close")} onClose={() => void choose("cancel")} footer={actions}>{why}</Modal>
       )}
       <div className="wn-notice" aria-live="polite">{notice}</div>
     </>
