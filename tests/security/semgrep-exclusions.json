@@ -5,7 +5,6 @@
     { "pattern": "node_modules", "reason": "dépendances tierces, couvertes par OSV-Scanner" },
     { "pattern": "factory", "reason": "factory gelée (ADR-006/007), outillage interne hors produit" },
     { "pattern": "spikes", "reason": "prototypes jetables, aucun code livré" },
-    { "pattern": "input-dump", "reason": "matériau de référence, pas du code" },
     { "pattern": ".venv-scan", "reason": "venv de l'outil lui-même (aussi ignoré par .gitignore)" },
     { "pattern": "dist", "reason": "sorties de build" }
   ]

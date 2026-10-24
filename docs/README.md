@@ -11,7 +11,7 @@ Rangement par domaine, numéroté pour l'ordre de lecture. Statut : **vivant** (
 | [`04-specs/`](04-specs/) | Spécifications par fonctionnalité (gabarit dans son README) | vivant (à remplir) |
 | [`05-project/`](05-project/) | Avancement (`avancement.html`), `recette/` (notes verbatim, registre `RT-NNN`, cadrages, scénarios), `journal/` (plans et handoffs datés) | vivant ; `journal/` historique |
 | [`06-decisions/`](06-decisions/) | ADR-001 à ADR-010, questions ouvertes, `reviews-v1.1/` (revues par rôle qui ont nourri ADR-001) | vivant ; revues figées |
-| [`99-archive/`](99-archive/) | Matériel v1.0 remplacé (dossier et schéma) | figé, ne pas utiliser |
+| [`99-archive/`](99-archive/) | Matériel v1.0 remplacé (dossier et schéma), images de référence du 2026-10-18 (`input-dump/`) | figé, ne pas utiliser |
 
 Règle de conflit : les ADR de `06-decisions/` priment sur le dossier de fondamentaux.
 
@@ -33,3 +33,4 @@ Rangement du 2026-10-24. Certains fichiers gelés citent encore les anciens chem
 | `docs/decisions/` | `docs/06-decisions/` |
 | `docs/review/{archi-fonctionnel,archi-solution,product,ux-ui}.md` | `docs/06-decisions/reviews-v1.1/` |
 | `docs/archive/` | `docs/99-archive/` |
+| `input-dump/` (racine) | `docs/99-archive/input-dump/` |
