@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture WNEXT</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Lecture technique : une colonne, une figure par section, tableaux de référence. Thème clair seul (convention des docs). */
+:root {
+  color-scheme: light;
+  --bg: #f6f7f5;
+  --surface: #ffffff;
+  --fg: #1d2421;
+  --muted: #5c6661;
+  --line: #d5dad6;
+  --node: #eef1ee;
+  --node-hub: #dfe9e4;
+  --edge: #3b4641;
+  --restrict: #b3361f;
+  --ok: #1f7a4d;
+  --accent: #1b6b66;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); line-height: 1.55;
+  padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { min-width: 0; display: grid; gap: 40px; }
+section { display: grid; gap: 12px; min-width: 0; }
+h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 6px; font-weight: 600; }
+h2 { font-size: 1.15rem; margin: 0; font-weight: 600; }
+h3 { font-size: .95rem; margin: 0 0 6px; }
+p { margin: 0; max-width: 76ch; }
+a { color: var(--accent); }
+.lede { color: var(--muted); }
+code { font-family: var(--font-mono); font-size: .86em; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: .85rem; margin-top: 10px; }
+figure { margin: 0; min-width: 0; background: var(--surface); border: 1px solid var(--line); padding: 14px; border-radius: 6px; }
+.scroll { overflow-x: auto; }
+svg { display: block; width: 100%; min-width: 720px; height: auto; }
+figcaption { margin-top: 10px; color: var(--muted); font-size: .88rem; max-width: 80ch; }
+.box { fill: var(--surface); stroke: var(--edge); stroke-width: 1.2; }
+.box.dash { stroke-dasharray: 6 4; }
+.title { font-family: var(--font-body); font-size: 13.5px; font-weight: 600; fill: var(--fg); }
+.sub { font-family: var(--font-body); font-size: 12px; fill: var(--muted); }
+.n rect { fill: var(--node); stroke: var(--line); }
+.n.hub rect { fill: var(--node-hub); stroke: var(--accent); }
+.n text { font-family: var(--font-body); font-size: 12px; fill: var(--fg); }
+.n text.m { font-family: var(--font-mono); font-size: 12px; }
+.e { fill: none; stroke: var(--edge); stroke-width: 1.4; }
+.e.sn { stroke-dasharray: 5 4; }
+.e.ac { stroke: var(--accent); stroke-width: 1.8; }
+.e.rs { stroke: var(--restrict); stroke-dasharray: 5 4; }
+.lbl { font-family: var(--font-mono); font-size: 12px; fill: var(--muted); }
+.lbl.ac { fill: var(--accent); }
+.lbl.rs { fill: var(--restrict); }
+.life { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 3 4; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 10px; font-size: .85rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend svg { width: 38px; min-width: 38px; height: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; }
+.tw { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px; min-width: 0; }
+ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 6px; }
+.warn { border-left: 3px solid var(--restrict); padding-left: 12px; }
+.tag { font-family: var(--font-mono); font-size: .76rem; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--line); white-space: nowrap; }
+.tag.ok { color: var(--ok); border-color: var(--ok); }
+.tag.rs { color: var(--restrict); border-color: var(--restrict); }
+
+/* Sommaire latéral, thème clair uniquement */
+.layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 36px; max-width: 1260px; margin: 0 auto; align-items: start; }
+.side { position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto; font-size: .88rem; border-right: 1px solid var(--line); padding-right: 16px; }
+.side .doc { font-weight: 650; margin: 0 0 10px; line-height: 1.3; }
+.side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.side a { display: block; padding: 4px 8px; border-radius: 3px; color: var(--muted); text-decoration: none; }
+.side a:hover { color: var(--fg); background: var(--node); }
+.side a.on { color: var(--accent); background: var(--node); font-weight: 600; }
+.side a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+@media (max-width: 880px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .side { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); padding: 0 0 12px; }
+  .side ul { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="side"><nav aria-label="Sommaire">
+  <p class="doc">Architecture WNEXT</p>
+  <ul>
+    <li><a href="#vue">Vue d'ensemble</a></li>
+    <li><a href="#ecriture">Écriture et temps réel</a></li>
+    <li><a href="#code">Code et contrat</a></li>
+    <li><a href="#securite">Sécurité et isolation</a></li>
+    <li><a href="#local">Pile locale</a></li>
+    <li><a href="#production">Production (à décider)</a></li>
+    <li><a href="#config">Configuration</a></li>
+    <li><a href="#sources">Sources</a></li>
+  </ul>
+</nav></aside>
+
+<main>
+<header>
+  <h1>Architecture WNEXT : front, back, base</h1>
+  <p class="lede">Comment l'écran, l'API et PostgreSQL se parlent aujourd'hui, ce qui tourne en local, et ce que la production exige déjà du code. Relevé sur le code le 2026-10-24. Le détail des routes est dans <a href="api.html">la doc API</a>.</p>
+  <div class="meta"><span>Front : React + Vite</span><span>Back : Node.js <code>node:http</code> + <code>pg</code></span><span>Base : PostgreSQL ≥ 15</span><span>Contrat : Zod → OpenAPI (ADR-003)</span></div>
+</header>
+
+<section id="vue">
+  <h2>Vue d'ensemble</h2>
+  <p>Trois processus, plus le fournisseur d'identité. L'API est <b>un seul processus sur un seul port</b> : REST et WebSocket ensemble. Elle ne garde aucun état métier : tout est en base. Le temps réel ne fait que diffuser des références ; les écritures passent toujours par REST.</p>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 560" role="img" aria-labelledby="vue-t vue-d">
+      <title id="vue-t">Vue d'ensemble des composants</title>
+      <desc id="vue-d">Le navigateur appelle l'API en REST et en WebSocket. L'API lit et écrit PostgreSQL par un pool et écoute ses notifications. Le navigateur s'authentifie auprès du fournisseur OIDC ; l'API vérifie les jetons avec ses clés publiques.</desc>
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3b4641"/></marker>
+        <marker id="ara" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1b6b66"/></marker>
+      </defs>
+
+      <rect class="box" x="20" y="30" width="250" height="420" rx="6"/>
+      <text class="title" x="36" y="54">Navigateur</text>
+      <text class="sub" x="36" y="71">SPA React · apps/web</text>
+      <g class="n"><rect x="36" y="86" width="218" height="42" rx="4"/><text x="48" y="104">Écrans · Lingui FR/EN</text><text x="48" y="119">Planning, Projets, Personnes…</text></g>
+      <g class="n"><rect x="36" y="138" width="218" height="42" rx="4"/><text x="48" y="156">packages/engine : capacité,</text><text x="48" y="171">mise en page, gestes</text></g>
+      <g class="n hub"><rect x="36" y="190" width="218" height="42" rx="4"/><text x="48" y="208">client.gen.ts : REST typé,</text><text x="48" y="223">généré depuis le contrat</text></g>
+      <g class="n hub"><rect x="36" y="294" width="218" height="42" rx="4"/><text x="48" y="312">Client temps réel : ticket,</text><text x="48" y="327">reprise au curseur</text></g>
+      <g class="n"><rect x="36" y="390" width="218" height="42" rx="4"/><text x="48" y="408">oidc.ts : connexion OIDC</text><text x="48" y="423">(code + PKCE)</text></g>
+
+      <rect class="box" x="370" y="30" width="290" height="420" rx="6"/>
+      <text class="title" x="386" y="54">API · apps/api</text>
+      <text class="sub" x="386" y="71">Node.js node:http, un processus, un port</text>
+      <g class="n hub"><rect x="386" y="86" width="258" height="42" rx="4"/><text x="398" y="104">http.ts : routes /api/v1, requêtes</text><text x="398" y="119">validées par les schémas Zod</text></g>
+      <g class="n"><rect x="386" y="138" width="258" height="42" rx="4"/><text x="398" y="156">Authentification : JWT OIDC (JWKS)</text><text x="398" y="171">· en dev : en-têtes x-dev-*</text></g>
+      <g class="n"><rect x="386" y="190" width="258" height="42" rx="4"/><text x="398" y="208">Règles : verrou optimiste (If-Match),</text><text x="398" y="223">périmètre PM (BR-33) et member</text></g>
+      <g class="n hub"><rect x="386" y="294" width="258" height="42" rx="4"/><text x="398" y="312">ws.ts : WebSocket /api/v1/realtime,</text><text x="398" y="327">tickets, limites de débit</text></g>
+      <g class="n"><rect x="386" y="346" width="258" height="42" rx="4"/><text x="398" y="364">change-hub : tête du journal par</text><text x="398" y="379">compte (sondage 1 s + NOTIFY)</text></g>
+
+      <rect class="box" x="760" y="30" width="220" height="330" rx="6"/>
+      <text class="title" x="776" y="54">PostgreSQL ≥ 15</text>
+      <text class="sub" x="776" y="71">schema.sql + migrations/</text>
+      <g class="n"><rect x="776" y="86" width="188" height="42" rx="4"/><text x="788" y="104">Tables multi-comptes,</text><text x="788" y="119">RLS sous le rôle app_user</text></g>
+      <g class="n"><rect x="776" y="138" width="188" height="42" rx="4"/><text x="788" y="156">Capacité calculée :</text><text x="788" y="171" class="m">daily_capacity()</text></g>
+      <g class="n hub"><rect x="776" y="190" width="188" height="42" rx="4"/><text x="788" y="208">trigger log_change →</text><text x="788" y="223" class="m">change_log (outbox)</text></g>
+      <g class="n hub"><rect x="776" y="242" width="188" height="42" rx="4"/><text x="788" y="260" class="m">pg_notify(</text><text x="788" y="275" class="m">'wnext_changes', …)</text></g>
+      <g class="n"><rect x="776" y="294" width="188" height="42" rx="4"/><text x="788" y="312" class="m">delete_log</text><text x="788" y="327">rétention ≥ 72 h (BR-14)</text></g>
+
+      <rect class="box dash" x="760" y="410" width="220" height="80" rx="6"/>
+      <text class="title" x="776" y="436">Fournisseur OIDC</text>
+      <text class="sub" x="776" y="454">externe, à choisir en production</text>
+      <text class="sub" x="776" y="471">local : dev-idp.mjs (:3010)</text>
+
+      <path class="e" d="M254,211 H386" marker-end="url(#ar)"/>
+      <text class="lbl" x="276" y="202">REST JSON</text>
+      <text class="lbl" x="276" y="228">Bearer JWT</text>
+      <path class="e ac" d="M254,315 H386" marker-end="url(#ara)" marker-start="url(#ara)"/>
+      <text class="lbl ac" x="276" y="306">WebSocket</text>
+      <text class="lbl ac" x="276" y="332">?ticket=</text>
+
+      <path class="e" d="M644,107 H776" marker-end="url(#ar)"/>
+      <text class="lbl" x="668" y="98">pool pg</text>
+      <path class="e ac sn" d="M776,263 H740 V367 H644" marker-end="url(#ara)"/>
+      <text class="lbl ac" x="668" y="300">LISTEN</text>
+      <text class="lbl ac" x="668" y="316">dédié</text>
+
+      <path class="e" d="M145,432 V525 H870 V490" marker-end="url(#ar)"/>
+      <text class="lbl" x="290" y="518">connexion : /authorize puis /token (code + PKCE)</text>
+      <path class="e sn" d="M515,450 V470 H760" marker-end="url(#ar)"/>
+      <text class="lbl" x="526" y="464">clés JWKS (cache)</text>
+    </svg>
+    </div>
+    <figcaption>Encadrés teintés : la chaîne du contrat (REST) et celle du temps réel. L'API passe par un pool de connexions (une transaction = une connexion) et garde une connexion dédiée à LISTEN. Les tirets montrent le flux de notification, de la base vers l'API, et le fournisseur d'identité, extérieur au produit.</figcaption>
+  </figure>
+</section>
+
+<section id="ecriture">
+  <h2>Écriture et propagation en temps réel</h2>
+  <p>Exemple : A déplace une allocation, B voit le bloc bouger sans recharger la page. Objectif : moins d'une seconde. La notification n'arrive qu'au COMMIT, donc jamais pour une écriture annulée. Si une notification se perd, le sondage d'une seconde rattrape le changement.</p>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 480" role="img" aria-labelledby="seq-t">
+      <title id="seq-t">Séquence d'une écriture et de sa diffusion</title>
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3b4641"/></marker>
+        <marker id="ar2a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1b6b66"/></marker>
+      </defs>
+      <g class="n"><rect x="50" y="14" width="120" height="30" rx="4"/><text x="72" y="34">Écran de A</text></g>
+      <g class="n hub"><rect x="340" y="14" width="120" height="30" rx="4"/><text x="384" y="34">API</text></g>
+      <g class="n"><rect x="630" y="14" width="120" height="30" rx="4"/><text x="650" y="34">PostgreSQL</text></g>
+      <g class="n"><rect x="840" y="14" width="120" height="30" rx="4"/><text x="862" y="34">Écran de B</text></g>
+      <line class="life" x1="110" y1="44" x2="110" y2="470"/>
+      <line class="life" x1="400" y1="44" x2="400" y2="470"/>
+      <line class="life" x1="690" y1="44" x2="690" y2="470"/>
+      <line class="life" x1="900" y1="44" x2="900" y2="470"/>
+
+      <path class="e" d="M110,72 H400" marker-end="url(#ar2)"/><text class="lbl" x="120" y="66">PATCH /api/v1/allocations/{id} · If-Match: 3</text>
+      <path class="e" d="M400,108 H690" marker-end="url(#ar2)"/><text class="lbl" x="410" y="102">BEGIN · SET LOCAL ROLE app_user, app.account_id…</text>
+      <path class="e" d="M400,144 H690" marker-end="url(#ar2)"/><text class="lbl" x="410" y="138">UPDATE … WHERE version = 3</text>
+      <g class="n hub"><rect x="702" y="158" width="190" height="44" rx="4"/><text x="712" y="176">trigger : INSERT change_log,</text><text x="712" y="192" class="m">pg_notify (au COMMIT)</text></g>
+      <path class="e" d="M400,228 H690" marker-end="url(#ar2)"/><text class="lbl" x="410" y="222">COMMIT</text>
+      <path class="e" d="M400,258 H110" marker-end="url(#ar2)"/><text class="lbl" x="120" y="252">200 · version 4</text>
+
+      <path class="e ac sn" d="M690,300 H400" marker-end="url(#ar2a)"/><text class="lbl ac" x="410" y="294">NOTIFY wnext_changes (compte)</text>
+      <g class="n hub"><rect x="200" y="314" width="190" height="58" rx="4"/><text x="210" y="332">change-hub : la tête du</text><text x="210" y="347">compte a bougé → lit change_log,</text><text x="210" y="362">filtre par abonné (scope)</text></g>
+      <path class="e ac" d="M400,396 H900" marker-end="url(#ar2a)"/><text class="lbl ac" x="410" y="390">changes { entity, id, op, version: 4, seq }</text>
+      <path class="e" d="M900,440 H400" marker-end="url(#ar2)"/><text class="lbl" x="560" y="434">GET /api/v1/allocations/{id} (recharge)</text>
+    </svg>
+    </div>
+    <figcaption>Un message ne porte que des références, jamais de données : B relit l'entité sous ses propres droits (RLS, périmètre member). Un client qui a déjà la version 4, par exemple A, ignore le message. Un curseur plus ancien que la rétention du journal reçoit <code>resync</code> : B recharge alors <code>GET /schedule</code>.</figcaption>
+  </figure>
+</section>
+
+<section id="code">
+  <h2>Code et contrat</h2>
+  <p>Monorepo TypeScript. Le contrat est la seule source de vérité partagée (ADR-003) : le front et le back ne s'importent jamais, ils ne connaissent que <code>contracts</code> et <code>engine</code>. Le lint de frontières (<code>boundaries.config.mjs</code>) le vérifie dans <code>make check</code>.</p>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 330" role="img" aria-labelledby="code-t">
+      <title id="code-t">Dépendances entre paquets et fichiers générés</title>
+      <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3b4641"/></marker>
+      <marker id="ar3a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1b6b66"/></marker></defs>
+      <g class="n hub"><rect x="400" y="20" width="220" height="58" rx="4"/><text x="414" y="42" class="m">packages/contracts</text><text x="414" y="60">Zod : routes, erreurs, temps réel</text></g>
+      <g class="n"><rect x="400" y="130" width="220" height="58" rx="4"/><text x="414" y="152" class="m">packages/engine</text><text x="414" y="170">TS pur : capacité, mise en page</text></g>
+      <g class="n"><rect x="140" y="240" width="220" height="58" rx="4"/><text x="154" y="262" class="m">apps/api</text><text x="154" y="280">node:http + pg</text></g>
+      <g class="n"><rect x="660" y="240" width="220" height="58" rx="4"/><text x="674" y="262" class="m">apps/web</text><text x="674" y="280">React + Vite</text></g>
+      <g class="n"><rect x="20" y="20" width="250" height="100" rx="4"/><text x="34" y="42" class="m">packages/contracts-tools</text><text x="34" y="62">génère et vérifie (make check) :</text><text x="34" y="80" class="m">contracts/openapi.json</text><text x="34" y="96" class="m">web/src/api/client.gen.ts</text><text x="34" y="112" class="m">docs/03-tech/api.html</text></g>
+      <g class="n"><rect x="730" y="20" width="250" height="84" rx="4"/><text x="744" y="42">Hors graphe de l'application :</text><text x="744" y="62" class="m">factory/ (gelée)</text><text x="744" y="80" class="m">scripts/ (pile locale, seeds)</text><text x="744" y="96" class="m">tests/ (navigateur, SQL, charge)</text></g>
+
+      <path class="e" d="M510,130 V78" marker-end="url(#ar3)"/>
+      <path class="e" d="M250,240 C250,160 380,60 400,52" marker-end="url(#ar3)"/>
+      <path class="e" d="M300,240 C320,200 380,170 400,160" marker-end="url(#ar3)"/>
+      <path class="e" d="M770,240 C770,160 640,60 620,52" marker-end="url(#ar3)"/>
+      <path class="e" d="M720,240 C700,200 640,170 620,160" marker-end="url(#ar3)"/>
+      <path class="e ac sn" d="M270,48 H400" marker-end="url(#ar3a)"/><text class="lbl ac" x="290" y="40">lit</text>
+      <path class="e rs" d="M360,282 H660"/><text class="lbl rs" x="402" y="274">aucun import entre api et web</text>
+    </svg>
+    </div>
+    <figcaption>Flèches pleines : « dépend de ». Ordre d'un changement d'API : on modifie le contrat dans un commit séparé et relu (CODEOWNERS), puis on lance <code>npm run generate:contract</code>, puis on adapte l'API et l'écran. <code>check:contract</code> échoue si un fichier généré n'est plus à jour ; <code>check:breaking</code> échoue sur une rupture d'API.</figcaption>
+  </figure>
+</section>
+
+<section id="securite">
+  <h2>Sécurité et isolation</h2>
+  <div class="cols">
+    <div class="card"><h3>Isolation des comptes</h3><ul>
+      <li>Chaque transaction pose <code>SET LOCAL ROLE app_user</code> et <code>app.account_id</code>, <code>app.user_id</code>, <code>app.role</code> : la RLS de PostgreSQL filtre toutes les tables.</li>
+      <li>Le compte vient de la session, jamais d'un paramètre de requête ni d'un message temps réel.</li>
+    </ul></div>
+    <div class="card"><h3>Droits dans le compte</h3><ul>
+      <li>Rôles <code>owner</code>, <code>admin</code>, <code>pm</code>, <code>member</code> (<code>account_members</code>), distincts des personnes planifiables (ADR-002).</li>
+      <li>Le PM écrit seulement sur ses projets (BR-33). Le member ne lit que sa personne liée, en REST comme en temps réel (<code>scope.ts</code>, RT-048).</li>
+    </ul></div>
+    <div class="card"><h3>Authentification</h3><ul>
+      <li>L'API ne voit qu'un jeton d'accès JWT : elle vérifie signature, émetteur, audience et expiration. Elle ne gère ni mot de passe ni session.</li>
+      <li>WebSocket : ticket signé, valable 30 s, demandé par <code>POST</code> authentifié (un navigateur ne peut pas poser d'en-tête sur un WebSocket).</li>
+    </ul></div>
+  </div>
+</section>
+
+<section id="local">
+  <h2>Pile locale</h2>
+  <p>Aucun Docker : Postgres est embarqué (<code>embedded-postgres</code>). Commandes et pièges : <a href="runbooks/demarrage-local.md">runbook de démarrage local</a>.</p>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 250" role="img" aria-labelledby="loc-t">
+      <title id="loc-t">Pile de développement locale</title>
+      <defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3b4641"/></marker></defs>
+      <g class="n"><rect x="20" y="40" width="170" height="64" rx="4"/><text x="34" y="64">Navigateur</text><text x="34" y="84" class="m">localhost:5173</text></g>
+      <g class="n hub"><rect x="250" y="40" width="200" height="64" rx="4"/><text x="264" y="64">Vite (apps/web)</text><text x="264" y="84" class="m">proxy /api + ws</text></g>
+      <g class="n hub"><rect x="510" y="40" width="200" height="64" rx="4"/><text x="524" y="64">API</text><text x="524" y="84" class="m">127.0.0.1:3000</text></g>
+      <g class="n"><rect x="770" y="40" width="210" height="64" rx="4"/><text x="784" y="64">Postgres embarqué</text><text x="784" y="84" class="m">:54329</text></g>
+      <g class="n"><rect x="770" y="140" width="210" height="90" rx="4"/><text x="784" y="160">Données (un profil à la fois)</text><text x="784" y="180" class="m">.dev-pg/ (dev)</text><text x="784" y="198" class="m">.dev-pg-recette/</text><text x="784" y="216" class="m">.dev-pg-vide/</text></g>
+      <g class="n"><rect x="510" y="150" width="200" height="64" rx="4"/><text x="524" y="174">IdP local (--oidc)</text><text x="524" y="194" class="m">:3010</text></g>
+      <path class="e" d="M190,72 H250" marker-end="url(#ar4)"/>
+      <path class="e" d="M450,72 H510" marker-end="url(#ar4)"/>
+      <path class="e" d="M710,72 H770" marker-end="url(#ar4)"/>
+      <path class="e sn" d="M875,104 V140"/>
+      <path class="e sn" d="M105,104 V182 H510" marker-end="url(#ar4)"/>
+      <text class="lbl" x="200" y="176">connexion OIDC (VITE_AUTH_MODE=oidc)</text>
+      <path class="e sn" d="M610,150 V104" marker-end="url(#ar4)"/>
+      <text class="lbl" x="616" y="132">JWKS</text>
+    </svg>
+    </div>
+    <figcaption><code>npm run dev:stack</code> : Postgres, migrations, jeu d'essai, puis l'API en <code>AUTH_MODE=dev</code>. Avec <code>-- --oidc</code>, l'IdP local démarre aussi. <code>npm run dev:recette</code> lance le tout avec l'écran. <code>?demo=1</code> ouvre l'écran sans API.</figcaption>
+  </figure>
+</section>
+
+<section id="production">
+  <h2>Production : à décider</h2>
+  <p class="warn">Aucune infrastructure de production n'existe ni n'a été décidée par ADR. L'intention date de la revue d'architecture v1.1 (<a href="../06-decisions/reviews-v1.1/archi-solution.md">archi-solution §1.10</a>) : conteneurs, au moins 2 instances sans état derrière un répartiteur, PostgreSQL managé avec PITR en région UE, SPA sur CDN, infrastructure en code (OpenTofu/Terraform), environnements preview → staging → prod.</p>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 230" role="img" aria-labelledby="prod-t">
+      <title id="prod-t">Cible de production envisagée, non décidée</title>
+      <defs><marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3b4641"/></marker></defs>
+      <g class="n"><rect x="20" y="30" width="170" height="60" rx="4" stroke-dasharray="6 4"/><text x="34" y="54">CDN</text><text x="34" y="74">SPA statique (vite build)</text></g>
+      <g class="n"><rect x="20" y="130" width="170" height="60" rx="4"/><text x="34" y="154">Navigateur</text><text x="34" y="174" class="m">HTTPS + WSS</text></g>
+      <g class="n"><rect x="250" y="130" width="170" height="60" rx="4" stroke-dasharray="6 4"/><text x="264" y="154">Répartiteur</text><text x="264" y="174">TLS, sans affinité</text></g>
+      <g class="n hub"><rect x="480" y="100" width="200" height="40" rx="4" stroke-dasharray="6 4"/><text x="494" y="125">API instance 1</text></g>
+      <g class="n hub"><rect x="480" y="150" width="200" height="40" rx="4" stroke-dasharray="6 4"/><text x="494" y="175">API instance N</text></g>
+      <g class="n"><rect x="750" y="110" width="230" height="70" rx="4" stroke-dasharray="6 4"/><text x="764" y="134">PostgreSQL managé, UE</text><text x="764" y="154">PITR · LISTEN/NOTIFY</text><text x="764" y="170">relie les instances</text></g>
+      <g class="n"><rect x="750" y="20" width="230" height="56" rx="4" stroke-dasharray="6 4"/><text x="764" y="44">Fournisseur OIDC</text><text x="764" y="62">à choisir (Q ouverte)</text></g>
+      <path class="e sn" d="M105,130 V90" marker-end="url(#ar5)"/>
+      <path class="e" d="M190,160 H250" marker-end="url(#ar5)"/>
+      <path class="e" d="M420,160 H450 V120 H480" marker-end="url(#ar5)"/>
+      <path class="e" d="M450,160 V170 H480" marker-end="url(#ar5)"/>
+      <path class="e" d="M680,120 H715 V145 H750" marker-end="url(#ar5)"/>
+      <path class="e" d="M680,170 H715 V145"/>
+    </svg>
+    </div>
+    <figcaption>Tirets : composants envisagés. Le temps réel n'exige ni affinité de session ni Redis : chaque instance écoute PostgreSQL (LISTEN) et relit <code>change_log</code>, quelle que soit l'instance qui a écrit.</figcaption>
+  </figure>
+  <div class="cols">
+    <div class="card"><h3>Déjà exigé par le code <span class="tag ok">en place</span></h3><ul>
+      <li><code>NODE_ENV=production</code> refuse <code>AUTH_MODE=dev</code>, une URL JWKS sans https et l'absence de <code>WS_TICKET_SECRET</code>, qui doit être partagé par les instances.</li>
+      <li>Arrêt propre sur SIGTERM : plus de nouvelles connexions, WebSocket fermés, requêtes en cours terminées, arrêt forcé au bout de 10 s.</li>
+      <li>Journaux JSON sur la sortie standard, avec l'identifiant de requête, jamais le corps ni les en-têtes.</li>
+      <li>RLS active seulement sous un rôle non propriétaire : <code>DB_ROLE=app_user</code>, ou une connexion directe en <code>app_user</code>.</li>
+    </ul></div>
+    <div class="card"><h3>Limites connues avec N instances <span class="tag rs">à traiter</span></h3><ul>
+      <li>Les limites de débit et le plafond de connexions WebSocket sont comptés par processus : avec N instances, la limite effective est jusqu'à N fois la valeur configurée.</li>
+      <li>L'usage unique d'un ticket n'est garanti que dans un processus (<code>tickets.ts</code>) ; le garantir partout demanderait un stockage partagé.</li>
+      <li>Migrations : <code>scripts/migrate.mjs</code> contrôle les sommes SHA-256 ; la stratégie expand/contract sans interruption n'est pas outillée.</li>
+      <li>Pas encore : sauvegardes managées, supervision, tests de fumée après déploiement (P5).</li>
+    </ul></div>
+  </div>
+</section>
+
+<section id="config">
+  <h2>Configuration</h2>
+  <p>Toute la configuration de l'API vient de l'environnement. Elle est validée au démarrage : une valeur absente ou invalide arrête le processus (<code>apps/api/src/config.ts</code>).</p>
+  <div class="tw"><table>
+    <thead><tr><th>Variable</th><th>Défaut</th><th>Rôle</th></tr></thead>
+    <tbody>
+      <tr><td><code>DATABASE_URL</code></td><td>requis</td><td>Connexion PostgreSQL (pool, plus une connexion dédiée à LISTEN).</td></tr>
+      <tr><td><code>DB_ROLE</code></td><td>—</td><td>Rôle pris par <code>SET LOCAL ROLE</code> à chaque transaction (<code>app_user</code>) quand la connexion se fait sous un autre rôle.</td></tr>
+      <tr><td><code>HOST</code> · <code>PORT</code></td><td><code>127.0.0.1</code> · <code>3000</code></td><td>Écoute HTTP et WebSocket.</td></tr>
+      <tr><td><code>AUTH_MODE</code></td><td><code>dev</code></td><td><code>oidc</code> en production (<code>dev</code> y est refusé).</td></tr>
+      <tr><td><code>OIDC_ISSUER</code> · <code>OIDC_AUDIENCE</code> · <code>OIDC_JWKS_URL</code></td><td>requis en <code>oidc</code></td><td>Vérification des jetons ; JWKS en https en production.</td></tr>
+      <tr><td><code>WS_TICKET_SECRET</code></td><td>aléatoire par processus</td><td>Signature des tickets d'upgrade ; requis et partagé en production.</td></tr>
+      <tr><td><code>WS_MAX_PER_ACCOUNT</code></td><td><code>200</code></td><td>Connexions WebSocket simultanées par compte et par processus.</td></tr>
+      <tr><td><code>POLL_INTERVAL_MS</code></td><td><code>1000</code></td><td>Sondage de secours du journal (en plus du réveil par NOTIFY).</td></tr>
+      <tr><td><code>RATE_LIMIT_WINDOW_SECONDS</code> · <code>TICKET_RATE_PER_USER</code> · <code>TICKET_RATE_PER_ACCOUNT</code> · <code>WS_UPGRADE_RATE_PER_ACCOUNT</code></td><td><code>60</code> · <code>30</code> · <code>300</code> · <code>120</code></td><td>Limites de débit des tickets et des connexions (0 = désactivée).</td></tr>
+      <tr><td><code>VITE_AUTH_MODE</code> · <code>VITE_OIDC_*</code> · <code>VITE_DEV_*</code></td><td><code>apps/web/.env.development</code></td><td>Écran : mode de connexion, client OIDC, identité de développement.</td></tr>
+      <tr><td><code>WNEXT_API_URL</code></td><td><code>http://127.0.0.1:3000</code></td><td>Cible du proxy <code>/api</code> de Vite (développement).</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="sources">
+  <h2>Sources</h2>
+  <ul>
+    <li>Code : <code>apps/api/src/main.ts</code>, <code>server.ts</code>, <code>config.ts</code>, <code>pg-db.ts</code>, <code>pg-listen.ts</code>, <code>change-hub.ts</code>, <code>ws.ts</code>, <code>tickets.ts</code>, <code>scope.ts</code> ; <code>apps/web/vite.config.ts</code>, <code>src/realtime/client.ts</code>, <code>src/api/oidc.ts</code> ; <code>scripts/dev-stack.mjs</code>, <code>scripts/dev-idp.mjs</code>.</li>
+    <li>Contrat : <code>packages/contracts/src/realtime.ts</code>, <a href="api.html">doc API</a>.</li>
+    <li>Décisions : <a href="../06-decisions/ADR-002-identite-zoom-navigation-i18n-fluidite.md">ADR-002</a>, <a href="../06-decisions/ADR-003-decouplage-front-back-contrat-api.md">ADR-003</a>, <a href="../06-decisions/ADR-005-spike-grille-dom-vs-canvas.md">ADR-005</a>, <a href="../06-decisions/questions-ouvertes-avant-p1.md">questions ouvertes</a> (garder <code>node:http</code> + <code>pg</code>).</li>
+    <li>Données : <a href="schema-v1.1-diagram.html">diagramme du schéma v1.1</a>.</li>
+  </ul>
+</section>
+</main>
+</div>
+<script>
+(function () {
+  var links = [].slice.call(document.querySelectorAll('.side a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var targets = Object.keys(map).map(function (id) { return document.getElementById(id); }).filter(Boolean);
+  if (!('IntersectionObserver' in window)) return;
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      if (e.isIntersecting) { links.forEach(function (l) { l.classList.remove('on'); }); map[e.target.id].classList.add('on'); }
+    });
+  }, { rootMargin: '0px 0px -70% 0px' });
+  targets.forEach(function (t) { io.observe(t); });
+})();
+</script>
+</body>
+</html>

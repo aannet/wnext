@@ -7,7 +7,7 @@ Rangement par domaine, numéroté pour l'ordre de lecture. Statut : **vivant** (
 | [`00-factory/`](00-factory/) | Stratégie et phases P0..P6 (`strategy.md`), gel de la factory, preuves des garde-fous | figé (factory gelée) |
 | [`01-product/`](01-product/) | Dossier de fondamentaux v1.1 : intention, règles `BR-xx`, exigences, feuille de route | vivant (les ADR priment) |
 | [`02-design/`](02-design/) | Règles d'UX et de composants (`ux-rules.md`), écrans et parcours | vivant |
-| [`03-tech/`](03-tech/) | Diagramme du schéma v1.1, `runbooks/` (exploitation), `quality/` (scan de sécurité, Schemathesis, charge temps réel, relecture des tests SQL) | vivant |
+| [`03-tech/`](03-tech/) | Architecture front/back/base (`architecture.html`), doc API générée depuis le contrat (`api.html`, ne pas éditer), diagramme du schéma v1.1, `runbooks/` (exploitation), `quality/` (scan de sécurité, Schemathesis, charge temps réel, relecture des tests SQL) | vivant |
 | [`04-specs/`](04-specs/) | Spécifications par fonctionnalité (gabarit dans son README) | vivant (à remplir) |
 | [`05-project/`](05-project/) | Avancement (`avancement.html`), `recette/` (notes verbatim, registre `RT-NNN`, cadrages, scénarios), `journal/` (plans et handoffs datés) | vivant ; `journal/` historique |
 | [`06-decisions/`](06-decisions/) | ADR-001 à ADR-010, questions ouvertes, direction visuelle et choix de l'accent (`direction-visuelle.md`), `reviews-v1.1/` (revues par rôle qui ont nourri ADR-001), `annexes/` (mesures du spike de grille, résultats du spike d'orchestrateur, comparatif des accents) | vivant ; revues et annexes figées |
