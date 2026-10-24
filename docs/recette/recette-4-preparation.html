@@ -129,6 +129,11 @@
 <tr class="group"><td colspan="4">Listes et Réglages</td></tr>
 <tr><td class="nw"><b>RT-053</b></td><td>Projets, Personnes et Clients s'affichent dans un même tableau (DataTable) : tri par colonne, filtre, actions par ligne. Une suppression demande confirmation. Clients ne se gère plus que dans Réglages, avec Modifier et Supprimer. Un client utilisé par un projet ne se supprime pas.</td><td>Projets, Personnes, Réglages &gt; Clients</td><td>L-X4</td></tr>
 <tr><td class="nw"><b>RT-054</b></td><td>L'import CSV n'a plus qu'une entrée, Réglages &gt; Import, pour owner et admin. Les listes vides de Personnes et de Projets y renvoient par un lien.</td><td>Réglages &gt; Import (R-21) ; compte vide (R-06)</td><td>L-X2</td></tr>
+<tr class="group"><td colspan="4">Points ouverts tranchés le 2026-10-24 et corrigés</td></tr>
+<tr><td class="nw"><b>PO-11</b></td><td>Après un geste qui change les dates d'une occurrence d'une série mensuelle (autre que la première), seule « Cette occurrence » est proposée, avec la raison.</td><td>Planning, série mensuelle</td><td><code>007edb3</code></td></tr>
+<tr><td class="nw"><b>PO-12</b></td><td>Dans le drawer, la fin d'une occurrence peut dépasser la fin de la série ; « Toute la série » repousse la fin de série jusque-là.</td><td>Drawer d'une série, dernière occurrence</td><td><code>a12ec9d</code></td></tr>
+<tr><td class="nw"><b>PO-14</b></td><td>Le bouton du menu utilisateur s'annonce « AA, menu utilisateur de … » : les initiales visibles en tête.</td><td>Avatar de l'en-tête (connexion OIDC)</td><td><code>9491e9b</code></td></tr>
+<tr><td class="nw"><b>PO-16</b></td><td>Sans <code>?lang=</code>, l'écran prend la langue du compte, sinon celle du navigateur ; changer la langue du compte dans Réglages &gt; Compte fait basculer l'écran aussitôt. La langue propre à l'utilisateur viendra avec le profil (T2).</td><td>Réglages &gt; Compte</td><td><code>4978f2e</code></td></tr>
   </tbody></table></div>
 </section>
 
@@ -159,7 +164,7 @@
 
 <section id="points">
   <h2>Points ouverts reportés</h2>
-  <p class="sub">Relevés au cadrage n°3, toujours en attente de ta décision. Ma recommandation est en vert.</p>
+  <p class="sub">Relevés au cadrage n°3, tranchés le 2026-10-24 (recommandations retenues). PO-11, PO-12, PO-14 et PO-16 sont corrigés (voir « À vérifier ») ; PO-13 et PO-15 restent en l'état, comme recommandé.</p>
 <div class="card"><h3>PO-11 <span class="sub">(gestes, séries mensuelles)</span></h3><p>Déplacer par un geste une occurrence d'une série mensuelle décale toute la série, depuis n'importe quelle occurrence. Ce n'est pas réversible en fin de mois. Le drawer, lui, ne le permet que depuis la première occurrence.</p><p class="reco"><span class="tagreco">Recommandation</span> Aligner les gestes sur la règle du drawer (petit lot).</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
 <div class="card"><h3>PO-12 <span class="sub">(drawer, fin de série)</span></h3><p>Dans le drawer, la fin d'une occurrence ne peut pas dépasser la fin de la série. Un geste, lui, le permet.</p><p class="reco"><span class="tagreco">Recommandation</span> L'autoriser dans le drawer avec « Toute la série » (la fin de série suit), comme le geste.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
 <div class="card"><h3>PO-13 <span class="sub">(annulation de groupe)</span></h3><p>« Tout le groupe » n'est pas annulable si une ligne n'a pas pu être relue (c'est annoncé). Une ligne recréée par Ctrl+Z sort de son groupe.</p><p class="reco"><span class="tagreco">Recommandation</span> Garder en l'état pour le MVP ; ajouter une route de rattachement en T2 si le besoin apparaît.</p><div class="answer">Ta réponse : <b>confirmé</b> (recommandation retenue, 2026-10-24).</div></div>
