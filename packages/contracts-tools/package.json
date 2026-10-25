@@ -1,6 +1,6 @@
 {
   "name": "@wnext/contracts-tools",
-  "version": "0.0.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "Outillage hors graphe runtime : Zod -> OpenAPI -> client TS, dérive et ruptures. Importé par aucun apps/*.",

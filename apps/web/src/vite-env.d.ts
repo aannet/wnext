@@ -13,3 +13,7 @@ interface ImportMetaEnv {
   /** Défaut : origine de l'écran + `/`. */
   readonly VITE_OIDC_REDIRECT_URI?: string;
 }
+
+/** Version du produit et commit court, injectés au build (vite.config.ts). */
+declare const __WNEXT_VERSION__: string;
+declare const __WNEXT_COMMIT__: string;

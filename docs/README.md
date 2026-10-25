@@ -13,7 +13,7 @@ Rangement par domaine, numéroté pour l'ordre de lecture. Statut : **vivant** (
 | [`06-decisions/`](06-decisions/) | ADR-001 à ADR-010, questions ouvertes, direction visuelle et choix de l'accent (`direction-visuelle.md`), `reviews-v1.1/` (revues par rôle qui ont nourri ADR-001), `annexes/` (mesures du spike de grille, résultats du spike d'orchestrateur, comparatif des accents) | vivant ; revues et annexes figées |
 | [`99-archive/`](99-archive/) | Matériel v1.0 remplacé (dossier et schéma), images de référence du 2026-10-18 (`input-dump/`) | figé, ne pas utiliser |
 
-À la racine du dépôt, deux fichiers lus par l'outil Impeccable, qui doivent y rester : `DESIGN.md` (système visuel : tokens, typographie, marque, composants) et `PRODUCT.md` (résumé d'une page du dossier de fondamentaux).
+À la racine du dépôt, deux fichiers lus par l'outil Impeccable, qui doivent y rester : `DESIGN.md` (système visuel : tokens, typographie, marque, composants) et `PRODUCT.md` (résumé d'une page du dossier de fondamentaux). Aussi à la racine : `CHANGELOG.md`, journal des versions du produit (SemVer, règles de numérotation en tête).
 
 Règle de conflit : les ADR de `06-decisions/` priment sur le dossier de fondamentaux.
 

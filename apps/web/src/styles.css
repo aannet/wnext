@@ -244,6 +244,7 @@ body { box-sizing: border-box; height: 100dvh; padding: 0; font: var(--text-body
 .wn-shortcut dd { margin: 0; }
 .wn-shortcut-combo { display: inline-flex; gap: 2px; }
 .wn-shortcut kbd { min-width: 20px; box-sizing: border-box; padding: 0 var(--space-1); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--surface-sunken); font: inherit; font-size: var(--text-caption); text-align: center; white-space: nowrap; }
+.wn-app-version { margin: var(--space-3) 0 0; color: var(--text-muted); font-size: var(--text-caption); font-variant-numeric: tabular-nums; }
 .wn-shortcut-or { color: var(--text-muted); font-size: var(--text-caption); }
 .wn-badge { min-width: 16px; padding: 0 4px; border-radius: 8px; background: var(--cap-over); color: var(--color-on-focus); font-size: 11px; line-height: 16px; text-align: center; }
 .wn-notifications { width: 380px; }

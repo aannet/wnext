@@ -6,6 +6,7 @@
 //  * La liste est une région focalisable (tabindex 0, nommée) : plus haute que la fenêtre, elle défile au clavier (axe,
 //    scrollable-region-focusable) ; elle reçoit le focus à l'ouverture.
 //  * Fermée, la fenêtre rend le focus au bouton (Dialog) ; ouverte au clavier sans focus utile, au bouton aussi.
+//  * En pied, la version du produit et son commit (« WNEXT 0.6.0 · abc1234 »), figés au build par vite.config.ts.
 import type { I18n } from "@lingui/core";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Button, Modal } from "../design";
@@ -23,6 +24,11 @@ const SCOPES: readonly { scope: ShortcutScope; label: MessageKey }[] = [
 function typing(t: EventTarget | null): boolean {
   if (!(t instanceof HTMLElement)) return false;
   return t.isContentEditable || t.matches("input, textarea, select") || t.closest('[contenteditable]:not([contenteditable="false"])') !== null;
+}
+
+/** « WNEXT 0.6.0 · abc1234 » : nom de marque et numéro, invariants d'une langue à l'autre. */
+export function appVersion(): string {
+  return `WNEXT ${__WNEXT_VERSION__}${__WNEXT_COMMIT__ ? ` · ${__WNEXT_COMMIT__}` : ""}`;
 }
 
 export function ShortcutsHelp({ i18n }: { i18n: I18n }) {
@@ -73,6 +79,7 @@ export function ShortcutsHelp({ i18n }: { i18n: I18n }) {
             </section>
           ))}
           </div>
+          <p className="wn-app-version">{appVersion()}</p>
         </Modal>
       )}
     </>

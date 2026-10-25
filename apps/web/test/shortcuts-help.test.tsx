@@ -6,6 +6,7 @@
 import type { ScheduleResponse } from "@wnext/contracts";
 import { keyGesture, timeoffKeyGesture } from "@wnext/engine";
 import { act } from "react";
+import { version } from "../package.json"; // recopiée de la racine (tests/guardrails/version.test.ts)
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { ScheduleScreen } from "../src/ScheduleScreen";
@@ -45,6 +46,14 @@ const press = (target: EventTarget, init: KeyboardEventInit) => {
 };
 
 describe("bouton et fenêtre d'aide (RT-064)", () => {
+  it("le pied de la fenêtre affiche la version du produit et son commit", async () => {
+    mountApp();
+    await flush();
+    await act(async () => { helpButton()!.click(); });
+    await flush();
+    expect(dialog()!.querySelector(".wn-app-version")!.textContent).toMatch(new RegExp(`^WNEXT ${version.replace(/\./g, "\\.")}( · [0-9a-f]{7,})?$`));
+  });
+
   it("bouton dans l'en-tête commun, juste après la cloche, annonçant « ? » ; il ouvre la fenêtre et retrouve le focus à la fermeture", async () => {
     mountApp();
     await flush();

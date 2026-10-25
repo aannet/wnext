@@ -91,6 +91,10 @@ describe("autres routes", () => {
     expect(r.status).toBe(200);
     expect(HealthResponse.safeParse(r.body).success).toBe(true);
   });
+  it("health annonce la version du produit (package.json racine)", async () => {
+    const { version } = JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8"));
+    expect((await call("/api/v1/health", {})).body).toMatchObject({ version });
+  });
   it("404 sur route inconnue ou méthode non prévue", async () => {
     expect((await call("/api/v1/nope")).status).toBe(404);
     expect((await dispatch(deps, { method: "POST", url: "/api/v1/schedule", headers: auth })).status).toBe(404);

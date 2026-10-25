@@ -1,6 +1,6 @@
 {
   "name": "wnext",
-  "version": "0.0.0",
+  "version": "0.6.0",
   "private": true,
   "engines": {
     "node": ">=22.12"
@@ -49,7 +49,8 @@
     "factory:dry-run": "npm --prefix factory/observability run dry-run",
     "generate:contract": "npm run generate -w @wnext/contracts-tools",
     "check:contract": "npm run check:contract -w @wnext/contracts-tools",
-    "check:breaking": "npm run check:breaking -w @wnext/contracts-tools"
+    "check:breaking": "npm run check:breaking -w @wnext/contracts-tools",
+    "version:set": "node scripts/version-set.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
