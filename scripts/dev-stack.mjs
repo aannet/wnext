@@ -14,14 +14,15 @@
 // Écran : `npm run dev -w @wnext/web` (proxy /api vers l'API ; apps/web/.env.development porte les ids du jeu d'essai).
 import { spawn } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
-import { connect } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import EmbeddedPostgres from "embedded-postgres";
 import pg from "pg";
 import { startDevIdp } from "./dev-idp.mjs";
 import { DEV_IDS, DEV_USERS, seedDev } from "./dev-seed.mjs";
+import { ensureEmbeddedPostgres } from "./ensure-embedded-postgres.mjs";
 import { migrate } from "./migrate.mjs";
+import { portBusy } from "./port-busy.mjs";
 import { PROFILE_DIRS, ProfileError, checkDataDir, inspectDb, writeMarker } from "./dev-profile.mjs";
 import { RECETTE_IDS, RECETTE_SPEC, RECETTE_USERS, seedRecette } from "./seed-recette.mjs";
 import { VIDE_IDS, VIDE_SPEC, VIDE_USERS, seedVide } from "./seed-vide.mjs";
@@ -59,13 +60,8 @@ let idp = null;
 const url = `postgres://postgres:postgres@127.0.0.1:${pgPort}/wnext`;
 
 // Une seconde pile sur les mêmes ports (et surtout un --reset sous un Postgres vivant) corromprait la première.
-const busy = (port) => new Promise((res) => {
-  const s = connect({ host: "127.0.0.1", port });
-  s.once("connect", () => { s.destroy(); res(true); });
-  s.once("error", () => res(false));
-});
 for (const [name, port] of [["Postgres", pgPort], ["API", apiPort], ...(oidc ? [["fournisseur OIDC", idpPort]] : [])]) {
-  if (await busy(port)) {
+  if (await portBusy(port)) {
     console.error(`le port ${port} (${name}) est déjà utilisé : une pile tourne peut-être déjà (WNEXT_DEV_PG_PORT / WNEXT_DEV_API_PORT pour changer)`);
     process.exit(1);
   }
@@ -98,6 +94,14 @@ async function stop(code = 0) {
 }
 process.on("SIGINT", () => void stop(0));
 process.on("SIGTERM", () => void stop(0));
+
+// Sans cette vérification, un binaire qui ne se charge pas laisse la pile attendre en silence (journaux Postgres coupés).
+const pgCheck = await ensureEmbeddedPostgres();
+if (pgCheck.repaired) console.log(`Postgres embarqué : ${pgCheck.repaired} lien(s) de bibliothèque recréé(s)`);
+if (!pgCheck.ok) {
+  console.error(`démarrage impossible : ${pgCheck.message}`);
+  process.exit(1);
+}
 
 try {
   if (!existsSync(join(dataDir, "PG_VERSION"))) await server.initialise();

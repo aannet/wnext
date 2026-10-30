@@ -14,6 +14,10 @@ npm run dev:stack -- --oidc  # ajoute le fournisseur OIDC local :3010 et passe l
 Ctrl-C arrête l'API puis Postgres. Vérifier : `curl -s http://127.0.0.1:3000/api/v1/health` répond (statut < 500).
 Une seconde pile sur les mêmes ports est refusée au démarrage (« le port ... est déjà utilisé »).
 
+Problèmes connus au démarrage :
+- **WSL en réseau `mirrored`** (`networkingMode=mirrored` dans `.wslconfig`) : une connexion vers un port local fermé n'est ni acceptée ni refusée, elle reste en attente. La sonde de ports de `dev:stack` (`scripts/port-busy.mjs`) et l'attente de l'API de `dev:recette` ont donc un délai ; avant ce correctif, la pile restait muette puis `dev:recette` affichait « l'API ne répond pas ».
+- **`libicui18n.so.60: cannot open shared object file`** : les liens des bibliothèques de Postgres embarqué n'ont pas été créés (postinstall du paquet `@embedded-postgres/<plateforme>` sauté). `scripts/ensure-embedded-postgres.mjs` les recrée en postinstall du dépôt et au démarrage de `dev:stack` ; à la main : `node scripts/ensure-embedded-postgres.mjs`.
+
 Piles parallèles (une par outil) : `WNEXT_DEV_API_PORT`, `WNEXT_DEV_PG_PORT`, `WNEXT_DEV_PG_DIR`. Convention du dépôt : schemathesis 3200 / 54349, charge 3300 / 54359.
 
 ## Recette avec connexion (portail WNEXT, « Bonjour Alec »)

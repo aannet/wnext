@@ -46,7 +46,8 @@ async function main() {
   const deadline = Date.now() + 180_000;
   for (;;) {
     if (stopping) return;
-    const ok = await fetch(plan.healthUrl).then((r) => r.status < 500, () => false);
+    // Délai par essai : sous WSL « mirrored », une connexion vers un port encore fermé reste en attente.
+    const ok = await fetch(plan.healthUrl, { signal: AbortSignal.timeout(2000) }).then((r) => r.status < 500, () => false);
     if (ok) break;
     if (Date.now() > deadline) { console.error(`l'API ne répond pas sur ${plan.healthUrl}`); return stop(1); }
     await new Promise((res) => setTimeout(res, 500));
